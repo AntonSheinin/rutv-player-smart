@@ -1,89 +1,787 @@
-#EXTM3U
-#EXTINF:-1 tvg-name="Первый Канал HD" tvg-id="PervyHD" catchup-days="14" catchup="fs",Первый Канал HD
-http://176.223.65.42:8085/PervyHD/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Россия 1 HD" tvg-id="Rossia1HD" catchup-days="14" catchup="fs",Россия 1 HD
-http://176.223.65.42:8085/Rossia1HD/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Россия 24" tvg-id="Rossia24" catchup-days="14" catchup="fs",Россия 24
-http://176.223.65.42:8085/Rossia24/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Планета РТР" tvg-id="PlanetaRTR" catchup-days="14" catchup="fs",Планета РТР
-http://176.223.65.42:8085/PlanetaRTR/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="НТВ HD" tvg-id="NTVHD" catchup-days="14" catchup="fs",НТВ HD
-http://176.223.65.42:8085/NTVHD/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="НТВ Мир" tvg-id="NTVMir" catchup-days="14" catchup="fs",НТВ Мир
-http://176.223.65.42:8085/NTVMir/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="9 канал HD" tvg-id="9kanalHD" catchup-days="7" catchup="fs",9 канал HD
-http://176.223.65.42:8085/9kanalHD/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Мир HD" tvg-id="MirHD" catchup-days="14" catchup="fs",Мир HD
-http://176.223.65.42:8085/MirHD/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Мир 24 HD" tvg-id="Mir24HD" catchup-days="7" catchup="fs",Мир 24 HD
-http://176.223.65.42:8085/Mir24HD/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Время" tvg-id="Vremia" catchup-days="14" catchup="fs",Время
-http://176.223.65.42:8085/Vremia/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="РБК HD" tvg-id="RBKHD" catchup-days="14" catchup="fs",РБК HD
-http://176.223.65.42:8085/RBKHD/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Пятый Канал" tvg-id="5kanal" catchup-days="14" catchup="fs",Пятый Канал
-http://176.223.65.42:8085/5kanal/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="8 Канал International" tvg-id="8kanalInt" catchup-days="14" catchup="fs",8 Канал International
-http://176.223.65.42:8085/8kanalInt/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Москва 24" tvg-id="Moskwa24" tvg-logo="http://176.223.65.42:8085/Moskwa24/logo" catchup-days="7" catchup="fs",Москва 24
-http://176.223.65.42:8085/Moskwa24/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="ТВ Центр International" tvg-id="TVCI" catchup-days="14" catchup="fs",ТВ Центр International
-http://176.223.65.42:8085/TVCI/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Рен ТВ HD" tvg-id="RenTVHD" catchup-days="14" catchup="fs",Рен ТВ HD
-http://176.223.65.42:8085/RenTVHD/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="ТНТ HD" tvg-id="TNTHD" catchup-days="14" catchup="fs",ТНТ HD
-http://176.223.65.42:8085/TNTHD/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="ТНТ4 HD" tvg-id="TNT4HD" catchup-days="14" catchup="fs",ТНТ4 HD
-http://176.223.65.42:8085/TNT4HD/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="СТС HD" tvg-id="STSHD" catchup-days="14" catchup="fs",СТС HD
-http://176.223.65.42:8085/STSHD/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Пятница! HD" tvg-id="PyatnitsaHD" catchup-days="14" catchup="fs",Пятница! HD
-http://176.223.65.42:8085/PyatnitsaHD/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Суббота! HD" tvg-id="SubbotaHD" catchup-days="14" catchup="fs",Суббота! HD
-http://176.223.65.42:8085/SubbotaHD/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Поехали! HD" tvg-id="PoehaliHD" catchup-days="14" catchup="fs",Поехали! HD
-http://176.223.65.42:8085/PoehaliHD/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Че!" tvg-id="Che" catchup-days="14" catchup="fs",Че!
-http://176.223.65.42:8085/Che/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Перец International" tvg-id="PeretsInt" catchup-days="14" catchup="fs",Перец International
-http://176.223.65.42:8085/PeretsInt/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Домашний International" tvg-id="DomashnyInt" catchup-days="14" catchup="fs",Домашний International
-http://176.223.65.42:8085/DomashnyInt/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Телеканал 360° HD" tvg-id="Telekanal360HD" catchup-days="7" catchup="fs",Телеканал 360° HD
-http://176.223.65.42:8085/Telekanal360HD/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Дорама HD" tvg-id="DoramaHD" catchup-days="14" catchup="fs",Дорама HD
-http://176.223.65.42:8085/DoramaHD/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="КВН ТВ" tvg-id="KVNTV" catchup-days="14" catchup="fs",КВН ТВ
-http://176.223.65.42:8085/KVNTV/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Kvartal TV HD" tvg-id="KvartalTVHD" catchup-days="14" catchup="fs",Kvartal TV HD
-http://176.223.65.42:8085/KvartalTVHD/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Ю ТВ" tvg-id="YuTV" catchup-days="14" catchup="fs",Ю ТВ
-http://176.223.65.42:8085/YuTV/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Звезда HD" tvg-id="ZvezdaHD" catchup-days="14" catchup="fs",Звезда HD
-http://176.223.65.42:8085/ZvezdaHD/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Сарафан" tvg-id="Sarafan" catchup-days="14" catchup="fs",Сарафан
-http://176.223.65.42:8085/Sarafan/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Совершенно Секретно" tvg-id="SovershennoSekretno" catchup-days="14" catchup="fs",Совершенно Секретно
-http://176.223.65.42:8085/SovershennoSekretno/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Ностальгия" tvg-id="Nostalgiya" catchup-days="14" catchup="fs",Ностальгия
-http://176.223.65.42:8085/Nostalgiya/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Ретро" tvg-id="Retro" catchup-days="14" catchup="fs",Ретро
-http://176.223.65.42:8085/Retro/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Красная Линия" tvg-id="KrasnayaLiniya" catchup-days="14" catchup="fs",Красная Линия
-http://176.223.65.42:8085/KrasnayaLiniya/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Точка ТВ" tvg-id="TochkaTV" catchup-days="7" catchup="fs",Точка ТВ
-http://176.223.65.42:8085/TochkaTV/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Кухня ТВ HD" tvg-id="KuhnyaTVHD" catchup-days="7" catchup="fs",Кухня ТВ HD
-http://176.223.65.42:8085/KuhnyaTVHD/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="ТелеКафе" tvg-id="TeleKafe" catchup-days="14" catchup="fs",ТелеКафе
-http://176.223.65.42:8085/TeleKafe/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Food Network HD" tvg-id="FoodNetworkHD" catchup-days="14" catchup="fs",Food Network HD
-http://176.223.65.42:8085/FoodNetworkHD/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Luxury HD" tvg-id="LuxuryHD" catchup-days="7" catchup="fs",Luxury HD
-http://176.223.65.42:8085/LuxuryHD/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Первый вегетарианский" tvg-id="PervyVegetarian" catchup-days="14" catchup="fs",Первый вегетарианский
-http://176.223.65.42:8085/PervyVegetarian/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="TLC HD" tvg-id="TLCHD" catchup-days="14" catchup="fs",TLC HD
-http://176.223.65.42:8085/TLCHD/video.m3u8?token=U68j8OAwc5RWR2
-#EXTINF:-1 tvg-name="Fashion Box HD" tvg-id="FashionBoxHD" catchup-days="14" catchup="fs",Fashion Box HD
-http://176.223.65.42:8085/FashionBoxHD/video.m3u8?token=U68j8OAwc5RWR2
+#EXTM3U x-tvg-url="https://iptvx.site/epg.xml.gz" tvg-url="https://epgguide.net/epg/93d7abf43a5aeddcd2168ea1aad9a1-88.xml.gz, http://epg.it999.ru/epg2.xml.gz, http://stream.u7c.biz/2547-epg.xml.gz"
+#EXTINF:0 tvg-name="ОТР" tvg-id="otr" catchup="flussonic-ts" catchup-days="14" group-title="Информационные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/817.png", ОТР 
+http://stream.rutvportal.com:8085/OTR/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="9 канал HD" tvg-id="2672" catchup="flussonic-ts" catchup-days="14" group-title="Израильские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/529.png", 9 канал HD 
+http://stream.rutvportal.com:8085/9kanalHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="НТВ HD" tvg-id="ntv" catchup="flussonic-ts" catchup-days="14" group-title="Информационные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/540.png", НТВ HD 
+http://stream.rutvportal.com:8085/NTVHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="НТВ Мир" tvg-id="ntv-mir" catchup="flussonic-ts" catchup-days="14" group-title="Информационные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/545.png", НТВ Мир 
+http://stream.rutvportal.com:8085/NTVMir/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Россия Культура" tvg-id="kultura" catchup="flussonic-ts" catchup-days="14" group-title="Информационные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/533.png", Россия Культура 
+http://stream.rutvportal.com:8085/RossiaCultura/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Мир 24 HD" tvg-id="mir-24" catchup="flussonic-ts" catchup-days="14" group-title="Информационные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/774.png", Мир 24 HD 
+http://stream.rutvportal.com:8085/Mir24HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Пятый Канал" tvg-id="5kanal-ru" catchup="flussonic-ts" catchup-days="14" group-title="Информационные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/548.png", Пятый Канал 
+http://stream.rutvportal.com:8085/5kanal/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Москва 24" tvg-id="moskva-24" catchup="flussonic-ts" catchup-days="14" group-title="Информационные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/805.png", Москва 24 
+http://stream.rutvportal.com:8085/Moskwa24/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Санкт Петербург" tvg-id="sankt-peterburg" catchup="flussonic-ts" catchup-days="14" group-title="Информационные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/551.png", Санкт Петербург 
+http://stream.rutvportal.com:8085/SanktPeterburg/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Настоящее Время HD" tvg-id="nastoyaschee-vremia" catchup="flussonic-ts" catchup-days="14" group-title="Информационные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/812.png", Настоящее Время HD 
+http://stream.rutvportal.com:8085/NastoyasheeVremyaHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="ТВ Центр" tvg-id="649" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/547.png", ТВ Центр 
+http://stream.rutvportal.com:8085/TVC/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="ТВ Центр International" tvg-id="5691" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/813.png", ТВ Центр International 
+http://stream.rutvportal.com:8085/TVCI/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="ТНТ HD" tvg-id="tnt" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/814.png", ТНТ HD 
+http://stream.rutvportal.com:8085/TNTHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="СТС HD" tvg-id="sts" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/937.png", СТС HD 
+http://stream.rutvportal.com:8085/STSHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="СТС Love" tvg-id="sts-love" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/815.png", СТС Love 
+http://stream.rutvportal.com:8085/STSLove/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Че!" tvg-id="che" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/558.png", Че! 
+http://stream.rutvportal.com:8085/Che/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Перец International" tvg-id="perec-int" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/896.png", Перец International 
+http://stream.rutvportal.com:8085/PeretsInt/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="КВН ТВ" tvg-id="kvn-tv" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/827.png", КВН ТВ 
+http://stream.rutvportal.com:8085/KVNTV/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Ю ТВ" tvg-id="yu" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/582.png", Ю ТВ 
+http://stream.rutvportal.com:8085/YuTV/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Сарафан" tvg-id="sarafan" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/546.png", Сарафан 
+http://stream.rutvportal.com:8085/Sarafan/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Ностальгия" tvg-id="nostalgia" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/552.png", Ностальгия 
+http://stream.rutvportal.com:8085/Nostalgiya/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Ретро" tvg-id="retro-tv" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/787.png", Ретро 
+http://stream.rutvportal.com:8085/Retro/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Красная Линия" tvg-id="krasnaya-linia" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/757.png", Красная Линия 
+http://stream.rutvportal.com:8085/KrasnayaLiniya/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Точка ТВ" tvg-id="tochka-tv" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/862.png", Точка ТВ 
+http://stream.rutvportal.com:8085/TochkaTV/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="ТелеКафе" tvg-id="telekafe" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/567.png", ТелеКафе 
+http://stream.rutvportal.com:8085/TeleKafe/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="TLC HD" tvg-id="tlc" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/769.png", TLC HD 
+http://stream.rutvportal.com:8085/TLCHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="НТВ Стиль" tvg-id="ntv-style" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/891.png", НТВ Стиль 
+http://stream.rutvportal.com:8085/NTVStil/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Fashion TV HD" tvg-id="fashion-tv" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/584.png", Fashion TV HD 
+http://stream.rutvportal.com:8085/FashionTVHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Мужской" tvg-id="muzhskoy" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/830.png", Мужской 
+http://stream.rutvportal.com:8085/Muzhskoy/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Оружие" tvg-id="oruzhie" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/689.png", Оружие 
+http://stream.rutvportal.com:8085/Oruzhie/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Психология 21" tvg-id="psixologia-21" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/723.png", Психология 21 
+http://stream.rutvportal.com:8085/Psihologia21/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="НТВ Право" tvg-id="ntv-pravo" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/916.png", НТВ Право 
+http://stream.rutvportal.com:8085/NTVPravo/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Вопросы и Ответы" tvg-id="voprosy-i-otvety" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/788.png", Вопросы и Ответы 
+http://stream.rutvportal.com:8085/VoprosyIOtvety/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Кто Есть Кто" tvg-id="kto-est-kto" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/694.png", Кто Есть Кто 
+http://stream.rutvportal.com:8085/KtoEstKto/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Бобер" tvg-id="bobior" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/585.png", Бобер 
+http://stream.rutvportal.com:8085/Bober/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Galaxy HD" tvg-id="galaxy-tv" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/933.png", Galaxy HD 
+http://stream.rutvportal.com:8085/GalaxyHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="1-й Космический HD" tvg-id="eureka-hd" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/713.png", 1-й Космический HD 
+http://stream.rutvportal.com:8085/PervyKosmHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="RT Док HD" tvg-id="2295" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/819.png", RT Док HD 
+http://stream.rutvportal.com:8085/RTDocHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="RTG HD" tvg-id="rtg-hd" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/868.png", RTG HD 
+http://stream.rutvportal.com:8085/RTGHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Discovery Science HD" tvg-id="discovery-science" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/717.png", Discovery Science HD 
+http://stream.rutvportal.com:8085/DiscoveryScienceHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Глазами Туриста HD" tvg-id="glazami-turista" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/902.png", Глазами Туриста HD 
+http://stream.rutvportal.com:8085/GlazamyTuristaHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="History Channel HD" tvg-id="history-ru" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/811.png", History Channel HD 
+http://stream.rutvportal.com:8085/HistoryHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="History 2 HD" tvg-id="h2" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/911.png", History 2 HD 
+http://stream.rutvportal.com:8085/History2HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="История" tvg-id="istoria" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/699.png", История 
+http://stream.rutvportal.com:8085/Istoria/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="National Geographic HD" tvg-id="national-geographic" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/705.png", National Geographic HD 
+http://stream.rutvportal.com:8085/NationalGeographicHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Nat Geo Wild HD" tvg-id="nat-geo-wild" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/706.png", Nat Geo Wild HD 
+http://stream.rutvportal.com:8085/NatGeoWildHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Animal Planet HD" tvg-id="animal-planet-eu" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/869.png", Animal Planet HD 
+http://stream.rutvportal.com:8085/AnimalPlanetHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="HDL HD" tvg-id="hd-life" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/708.png", HDL HD 
+http://stream.rutvportal.com:8085/HDLHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Живая Природа HD" tvg-id="zhivaya-priroda" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/831.png", Живая Природа HD 
+http://stream.rutvportal.com:8085/ZhivayaPrirodaHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Моя Планета HD" tvg-id="moya-planeta" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/893.png", Моя Планета HD 
+http://stream.rutvportal.com:8085/MoyaPlanetaHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Ocean TV" tvg-id="ocean-tv" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/701.png", Ocean TV 
+http://stream.rutvportal.com:8085/OceanTV/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Дикая Охота HD" tvg-id="dikaya-oxota-hd" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/887.png", Дикая Охота HD 
+http://stream.rutvportal.com:8085/DikayaOhotaHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Дикая Рыбалка HD" tvg-id="dikaya-rybalka-hd" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/890.png", Дикая Рыбалка HD 
+http://stream.rutvportal.com:8085/DikayaRybalkaHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Охота и Рыбалка" tvg-id="oxota-i-rybalka" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/719.png", Охота и Рыбалка 
+http://stream.rutvportal.com:8085/OhotaiRybalka/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Диалоги о Рыбалке" tvg-id="dialogi-o-rybalke" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/860.png", Диалоги о Рыбалке 
+http://stream.rutvportal.com:8085/DialogyORybalke/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Усадьба" tvg-id="usadba" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/826.png", Усадьба 
+http://stream.rutvportal.com:8085/Usadba/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Конный Мир HD" tvg-id="konny-mir" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/777.png", Конный Мир HD 
+http://stream.rutvportal.com:8085/KonnyMirHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="В мире животных HD" tvg-id="v-mire-zhivotnyx-hd" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/895.png", В мире животных HD 
+http://stream.rutvportal.com:8085/VMireZhivotnyhHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="ZooПарк" tvg-id="zoopark" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/698.png", ZooПарк 
+http://stream.rutvportal.com:8085/ZooPark/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="FOX Life HD" tvg-id="foxlife" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/646.png", FOX Life HD 
+http://stream.rutvportal.com:8085/FOXLifeHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="English Club TV HD" tvg-id="english-club-tv" catchup="flussonic-ts" catchup-days="14" group-title="Детские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/604.png", English Club TV HD 
+http://stream.rutvportal.com:8085/EnglishClubHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Канал Disney" tvg-id="disney" catchup="flussonic-ts" catchup-days="14" group-title="Детские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/590.png", Канал Disney 
+http://stream.rutvportal.com:8085/DisneyChannel/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Мульт HD" tvg-id="1332" catchup="flussonic-ts" catchup-days="14" group-title="Детские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/875.png", Мульт HD 
+http://stream.rutvportal.com:8085/MultHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Nickelodeon HD" tvg-id="nickelodeon-hd" catchup="flussonic-ts" catchup-days="14" group-title="Детские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/798.png", Nickelodeon HD 
+http://stream.rutvportal.com:8085/NickelodeonHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Nick Jr" tvg-id="nick-jr" catchup="flussonic-ts" catchup-days="14" group-title="Детские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/758.png", Nick Jr 
+http://stream.rutvportal.com:8085/NickJr/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Jim Jam" tvg-id="jimjam" catchup="flussonic-ts" catchup-days="14" group-title="Детские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/589.png", Jim Jam 
+http://stream.rutvportal.com:8085/JimJam/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Ani" tvg-id="ani" catchup="flussonic-ts" catchup-days="14" group-title="Детские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/601.png", Ani 
+http://stream.rutvportal.com:8085/Ani/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="TiJi" tvg-id="tiji" catchup="flussonic-ts" catchup-days="14" group-title="Детские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/594.png", TiJi 
+http://stream.rutvportal.com:8085/TiJi/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="2X2" tvg-id="2na2" catchup="flussonic-ts" catchup-days="14" group-title="Детские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/595.png", 2X2 
+http://stream.rutvportal.com:8085/2X2/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Карусель" tvg-id="karusel" catchup="flussonic-ts" catchup-days="14" group-title="Детские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/591.png", Карусель 
+http://stream.rutvportal.com:8085/Karusel/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Уникум" tvg-id="detsky" catchup="flussonic-ts" catchup-days="14" group-title="Детские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/600.png", Уникум 
+http://stream.rutvportal.com:8085/Unikum/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Мама" tvg-id="mama" catchup="flussonic-ts" catchup-days="14" group-title="Детские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/602.png", Мама 
+http://stream.rutvportal.com:8085/Mama/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Шокирующее HD" tvg-id="2309" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/917.png", Шокирующее HD 
+http://stream.rutvportal.com:8085/ShokiruyusheeHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Остросюжетное HD" tvg-id="ostrosiuzhetnoe-hd" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/625.png", Остросюжетное HD 
+http://stream.rutvportal.com:8085/OstrosuzhetnoeHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Романтичное HD" tvg-id="romantichnoe" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/922.png", Романтичное HD 
+http://stream.rutvportal.com:8085/RomantichnoeHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Дом Кино Премиум HD" tvg-id="domkino-premium" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/763.png", Дом Кино Премиум HD 
+http://stream.rutvportal.com:8085/DomKinoPremiumHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Дом Кино" tvg-id="domkino" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/607.png", Дом Кино 
+http://stream.rutvportal.com:8085/DomKino/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Русский Иллюзион" tvg-id="russky-illuzion" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/613.png", Русский Иллюзион 
+http://stream.rutvportal.com:8085/RusskyIllusion/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Кино ТВ HD" tvg-id="kino-tv" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/838.png", Кино ТВ HD 
+http://stream.rutvportal.com:8085/KinoTVHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="КиноМикс HD" tvg-id="kinomiks" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/888.png", КиноМикс HD 
+http://stream.rutvportal.com:8085/KinomixHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Русская Комедия" tvg-id="russkaya-komedia" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/789.png", Русская Комедия 
+http://stream.rutvportal.com:8085/RusskayaKomedia/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Родное Кино" tvg-id="12" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/615.png", Родное Кино 
+http://stream.rutvportal.com:8085/RodnoeKino/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Наше Любимое кино" tvg-id="lubimoe-kino" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/616.png", Наше Любимое кино 
+http://stream.rutvportal.com:8085/NasheLubimoeKino/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Мужское Кино HD" tvg-id="muzhskoe-kino" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/899.png", Мужское Кино HD 
+http://stream.rutvportal.com:8085/MuzhskoeKinoHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="FilmBox" tvg-id="filmbox-ru" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/898.png", FilmBox 
+http://stream.rutvportal.com:8085/FilmBox/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="FilmBox ArtHouse" tvg-id="filmbox-arthouse" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/921.png", FilmBox ArtHouse 
+http://stream.rutvportal.com:8085/FilmBoxArthouse/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="НТВ Сериал" tvg-id="ntv-serial" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/841.png", НТВ Сериал 
+http://stream.rutvportal.com:8085/NTVSerial/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="НТВ Хит" tvg-id="ntv-xit" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/920.png", НТВ Хит 
+http://stream.rutvportal.com:8085/NTVHit/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Мир Сериала" tvg-id="mir-seriala" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/778.png", Мир Сериала 
+http://stream.rutvportal.com:8085/MirSeriala/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Bollywood HD" tvg-id="bollywood-hd" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/636.png", Bollywood HD 
+http://stream.rutvportal.com:8085/BollywoodHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="ZEE TV" tvg-id="zee-tv" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/657.png", ZEE TV 
+http://stream.rutvportal.com:8085/ZEETV/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Amedia Premium HD" tvg-id="amedia-premium" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/654.png", Amedia Premium HD 
+http://stream.rutvportal.com:8085/AmediaPremiumHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Amedia Hit HD" tvg-id="amedia-hit" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/892.png", Amedia Hit HD 
+http://stream.rutvportal.com:8085/AmediaHitHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="TB XXI" tvg-id="tvxxi" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/656.png", TB XXI 
+http://stream.rutvportal.com:8085/TV21/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Матч! ТВ HD" tvg-id="match-tv" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/663.png", Матч! ТВ HD 
+http://stream.rutvportal.com:8085/MatchTVHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Матч! Игра HD" tvg-id="match-igra" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/832.png", Матч! Игра HD 
+http://stream.rutvportal.com:8085/MatchIgraHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Матч! Арена HD" tvg-id="match-arena" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/667.png", Матч! Арена HD 
+http://stream.rutvportal.com:8085/MatchArenaHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Матч! Премьер HD" tvg-id="match-premier" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/678.png", Матч! Премьер HD 
+http://stream.rutvportal.com:8085/MatchPremierHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Матч! Планета" tvg-id="match-planeta" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/904.png", Матч! Планета 
+http://stream.rutvportal.com:8085/MatchPlaneta/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Спорт 1 Украина" tvg-id="sport1-ua" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/806.png", Спорт 1 Украина 
+http://stream.rutvportal.com:8085/Sport1Ukraina/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Спорт 2 Украина" tvg-id="sport2-ua" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/807.png", Спорт 2 Украина 
+http://stream.rutvportal.com:8085/Sport2Ukraina/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="EuroSport 2 HD" tvg-id="eurosport2" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/833.png", EuroSport 2 HD 
+http://stream.rutvportal.com:8085/Eurosport2HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Extreme Sports" tvg-id="extreme-sports" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/682.png", Extreme Sports 
+http://stream.rutvportal.com:8085/ExtremeSports/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Viasat Sport HD" tvg-id="viasat-sport" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/870.png", Viasat Sport HD 
+http://stream.rutvportal.com:8085/ViasatSportHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Super Tennis HD" tvg-id="supertennis" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/648.png", Super Tennis HD 
+http://stream.rutvportal.com:8085/SuperTennisHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="ТНТ Music" tvg-id="tnt-music" catchup="flussonic-ts" catchup-days="14" group-title="Музыка" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/844.png", ТНТ Music 
+http://stream.rutvportal.com:8085/TNTMusic/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Russian MusicBox HD" tvg-id="russian-musicbox" catchup="flussonic-ts" catchup-days="14" group-title="Музыка" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/577.png", Russian MusicBox HD 
+http://stream.rutvportal.com:8085/RussianMusicBoxHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Europa+ TV" tvg-id="europa-plus-tv" catchup="flussonic-ts" catchup-days="14" group-title="Музыка" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/572.png", Europa+ TV 
+http://stream.rutvportal.com:8085/EuropaPlus/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="RuTV" tvg-id="ru-tv" catchup="flussonic-ts" catchup-days="14" group-title="Музыка" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/571.png", RuTV 
+http://stream.rutvportal.com:8085/RuTV/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Муз-ТВ" tvg-id="muztv" catchup="flussonic-ts" catchup-days="14" group-title="Музыка" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/794.png", Муз-ТВ 
+http://stream.rutvportal.com:8085/MuzTV/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Шансон ТВ" tvg-id="shanson-tv" catchup="flussonic-ts" catchup-days="14" group-title="Музыка" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/573.png", Шансон ТВ 
+http://stream.rutvportal.com:8085/ShansonTV/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Ля Минор" tvg-id="la-minor" catchup="flussonic-ts" catchup-days="14" group-title="Музыка" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/570.png", Ля Минор 
+http://stream.rutvportal.com:8085/LaMinor/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Mezzo Live HD" tvg-id="mezzo-live-hd" catchup="flussonic-ts" catchup-days="14" group-title="Музыка" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/764.png", Mezzo Live HD 
+http://stream.rutvportal.com:8085/MezzoLiveHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Mezzo" tvg-id="mezzo" catchup="flussonic-ts" catchup-days="14" group-title="Музыка" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/856.png", Mezzo 
+http://stream.rutvportal.com:8085/Mezzo/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="ערוץ 11 כאן HD" tvg-id="channel11.il" catchup="flussonic-ts" catchup-days="14" group-title="Израильские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/534.png", ערוץ 11 כאן HD 
+http://stream.rutvportal.com:8085/Aruz11KanHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="ערוץ הידברות" tvg-id="hidabrot.il" catchup="flussonic-ts" catchup-days="14" group-title="Израильские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/914.png", ערוץ הידברות 
+http://stream.rutvportal.com:8085/AruzHidabrut/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="ערוץ הקבלה" tvg-id="2135" catchup="flussonic-ts" catchup-days="14" group-title="Израильские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/796.png", ערוץ הקבלה 
+http://stream.rutvportal.com:8085/AruzKabala/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="ערוץ הכנסת" tvg-id="4306" catchup="flussonic-ts" catchup-days="14" group-title="Израильские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/810.png", ערוץ הכנסת 
+http://stream.rutvportal.com:8085/AruzKnesset/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="ערוץ חינוכית" tvg-id="2711" catchup="flussonic-ts" catchup-days="14" group-title="Израильские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/939.png", ערוץ חינוכית 
+http://stream.rutvportal.com:8085/AruzHinuhit/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="5 канал Украина HD" tvg-id="5kanal-ua" catchup="flussonic-ts" catchup-days="14" group-title="Украинские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/729.png", 5 канал Украина HD 
+http://stream.rutvportal.com:8085/5kanalUkrainaHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Белоруссия 24 HD" tvg-id="belarus24" catchup="flussonic-ts" catchup-days="14" group-title="Белорусские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/737.png", Белоруссия 24 HD 
+http://stream.rutvportal.com:8085/Belorussiya24HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Xezer" tvg-id="xezer" catchup="flussonic-ts" catchup-days="14" group-title="Азербайджанские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/741.png", Xezer 
+http://stream.rutvportal.com:8085/XezerAZ/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Azad TV" tvg-id="2559" catchup="flussonic-ts" catchup-days="14" group-title="Азербайджанские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/905.png", Azad TV 
+http://stream.rutvportal.com:8085/AzadTV/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Armenia 1" tvg-id="armenia-tv" catchup="flussonic-ts" catchup-days="14" group-title="Армянские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/853.png", Armenia 1 
+http://stream.rutvportal.com:8085/Armenia1/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Kentron TV" tvg-id="kentron-tv" catchup="flussonic-ts" catchup-days="14" group-title="Армянские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/854.png", Kentron TV 
+http://stream.rutvportal.com:8085/KentronTV/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="TV Pirveli" tvg-id="2565" catchup="flussonic-ts" catchup-days="14" group-title="Грузинские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/910.png", TV Pirveli 
+http://stream.rutvportal.com:8085/TVPirveliGeo/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Playboy TV" tvg-id="playboy-tv" catchup="flussonic-ts" catchup-days="14" group-title="Для взрослых" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/745.png", Playboy TV 
+http://stream.rutvportal.com:8085/Playboy/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Penthouse Gold HD" tvg-id="penthouse-gold" catchup="flussonic-ts" catchup-days="14" group-title="Для взрослых" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/751.png", Penthouse Gold HD 
+http://stream.rutvportal.com:8085/PenthouseGoldHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Hustler HD" tvg-id="hustler-hd" catchup="flussonic-ts" catchup-days="14" group-title="Для взрослых" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/742.png", Hustler HD 
+http://stream.rutvportal.com:8085/HustlerTVHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Private TV HD" tvg-id="private-tv" catchup="flussonic-ts" catchup-days="14" group-title="Для взрослых" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/877.png", Private TV HD 
+http://stream.rutvportal.com:8085/PrivateTVHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Insight UHD 4K" tvg-id="insight-ultra-hd" catchup="flussonic-ts" catchup-days="14" group-title="Каналы UHD 4K" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/940.png", Insight UHD 4K 
+http://stream.rutvportal.com:8085/Insight4K/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="None" tvg-id="None" catchup="flussonic-ts" catchup-days="14" group-title="None" , None 
+http://stream.rutvportal.com:8085/Radio_Reka/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Пятница! HD" tvg-id="piatnica" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/996.png", Пятница! HD 
+http://stream.rutvportal.com:8085/PyatnitsaHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="ТНТ4 HD" tvg-id="tnt4" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/995.png", ТНТ4 HD 
+http://stream.rutvportal.com:8085/TNT4HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Поехали! HD" tvg-id="poexali" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/994.png", Поехали! HD 
+http://stream.rutvportal.com:8085/PoehaliHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Арсенал HD" tvg-id="arsenaltv" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/993.png", Арсенал HD 
+http://stream.rutvportal.com:8085/ArsenalHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="DocuBox HD" tvg-id="docubox-hd" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/991.png", DocuBox HD 
+http://stream.rutvportal.com:8085/DocuBoxHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="XSport HD" tvg-id="xsport-ua" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/990.png", XSport HD 
+http://stream.rutvportal.com:8085/XSportHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="СТАРТ HD" tvg-id="start" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/987.png", СТАРТ HD 
+http://stream.rutvportal.com:8085/StartHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Камеди HD" tvg-id="kamedi" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/986.png", Камеди HD 
+http://stream.rutvportal.com:8085/CamedyHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Мосфильм. Золотая Коллекция HD" tvg-id="mosfilm" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/985.png", Мосфильм. Золотая Коллекция HD 
+http://stream.rutvportal.com:8085/MosfilmHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Хит HD" tvg-id="khit-hd" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/979.png", Хит HD 
+http://stream.rutvportal.com:8085/HitHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Блокбастер HD" tvg-id="2832" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/978.png", Блокбастер HD 
+http://stream.rutvportal.com:8085/BlockbusterHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Наш Кинопоказ HD" tvg-id="nash-kinopokaz-hd" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/977.png", Наш Кинопоказ HD 
+http://stream.rutvportal.com:8085/NashKinopokazHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU Marvel HD" tvg-id="bcu-marvel" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/976.png", BCU Marvel HD 
+http://stream.rutvportal.com:8085/BCUMarvelHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU Action HD" tvg-id="bcu-action" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/975.png", BCU Action HD 
+http://stream.rutvportal.com:8085/BCUActionHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU Catastrophe HD" tvg-id="bcu-catastrophe" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/974.png", BCU Catastrophe HD 
+http://stream.rutvportal.com:8085/BCUCatastropheHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU Cinema HD" tvg-id="bcu-cinema" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/973.png", BCU Cinema HD 
+http://stream.rutvportal.com:8085/BCUCinemaHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU Comedy HD" tvg-id="bcu-comedy" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/972.png", BCU Comedy HD 
+http://stream.rutvportal.com:8085/BCUComedyHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU Fantastic HD" tvg-id="bcu-fantastic" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/971.png", BCU Fantastic HD 
+http://stream.rutvportal.com:8085/BCUFantasticHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU Filmystic HD" tvg-id="bcu-filmystic" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/970.png", BCU Filmystic HD 
+http://stream.rutvportal.com:8085/BCUFilmysticHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU History HD" tvg-id="bcu-history" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/969.png", BCU History HD 
+http://stream.rutvportal.com:8085/BCUHistoryHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU Kinorating HD" tvg-id="bcu-kinorating" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/968.png", BCU Kinorating HD 
+http://stream.rutvportal.com:8085/BCUKinoratingHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU Premiere HD" tvg-id="bcu-premiere" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/967.png", BCU Premiere HD 
+http://stream.rutvportal.com:8085/BCUPremiereHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU Romantic HD" tvg-id="bcu-romantic" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/966.png", BCU Romantic HD 
+http://stream.rutvportal.com:8085/BCURomanticHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU Russian HD" tvg-id="bcu-russian" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/965.png", BCU Russian HD 
+http://stream.rutvportal.com:8085/BCURussianHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU VHS HD" tvg-id="bcu-vhs" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/964.png", BCU VHS HD 
+http://stream.rutvportal.com:8085/BCUVHSHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU Кинозал Premiere 1 HD" tvg-id="bcu-kinozal-prem-1" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/963.png", BCU Кинозал Premiere 1 HD 
+http://stream.rutvportal.com:8085/BCUKinozalPremiere1HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU Кинозал Premiere 2 HD" tvg-id="bcu-kinozal-prem-2" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/962.png", BCU Кинозал Premiere 2 HD 
+http://stream.rutvportal.com:8085/BCUKinozalPremiere2HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU Кинозал Premiere 3 HD" tvg-id="bcu-kinozal-prem-3" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/961.png", BCU Кинозал Premiere 3 HD 
+http://stream.rutvportal.com:8085/BCUKinozalPremiere3HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU СССР HD" tvg-id="bcu-sssr" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/959.png", BCU СССР HD 
+http://stream.rutvportal.com:8085/BCUSSSRHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU RUSerial HD" tvg-id="bcu-ruserial" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/958.png", BCU RUSerial HD 
+http://stream.rutvportal.com:8085/BCURuserialHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="KinoJam 1 HD" tvg-id="kinojam1" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/956.png", KinoJam 1 HD 
+http://stream.rutvportal.com:8085/KinoJam1HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="KinoJam 2 HD" tvg-id="kinojam2" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/955.png", KinoJam 2 HD 
+http://stream.rutvportal.com:8085/KinoJam2HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Суббота! HD" tvg-id="super" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/954.png", Суббота! HD 
+http://stream.rutvportal.com:8085/SubbotaHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Капитан Фантастика HD" tvg-id="ginger-hd" catchup="flussonic-ts" catchup-days="14" group-title="Детские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/953.png", Капитан Фантастика HD 
+http://stream.rutvportal.com:8085/KapitanFantastikaHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Travel+Adventure HD" tvg-id="travel-adventure" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/952.png", Travel+Adventure HD 
+http://stream.rutvportal.com:8085/TravelAdventureHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Food Network HD" tvg-id="2057" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/951.png", Food Network HD 
+http://stream.rutvportal.com:8085/FoodNetworkHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Hollywood HD" tvg-id="hollywood-hd" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/950.png", Hollywood HD 
+http://stream.rutvportal.com:8085/HollywoodHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Рен ТВ HD" tvg-id="rentv" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/948.png", Рен ТВ HD 
+http://stream.rutvportal.com:8085/RenTVHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU Kids HD" tvg-id="bcu-kids" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/945.png", BCU Kids HD 
+http://stream.rutvportal.com:8085/BCUKidsHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Премиальное HD" tvg-id="premialnoe-hd" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/942.png", Премиальное HD 
+http://stream.rutvportal.com:8085/PremialnoeHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Хоккейный HD" tvg-id="xokkejny" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/941.png", Хоккейный HD 
+http://stream.rutvportal.com:8085/HockeyniyHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Investigation Discovery HD" tvg-id="id-xtra-eu" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/786.png", Investigation Discovery HD 
+http://stream.rutvportal.com:8085/DiscoveryIDHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Sky Sport 1 HD" tvg-id="sky-sport-hd1" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/999.png", Sky Sport 1 HD 
+http://stream.rutvportal.com:8085/SkySport1HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Fashion TV 4K" tvg-id="fashion-tv" catchup="flussonic-ts" catchup-days="14" group-title="Каналы UHD 4K" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1000.png", Fashion TV 4K 
+http://stream.rutvportal.com:8085/FashionTV4K/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Love Nature 4K" tvg-id="2801" catchup="flussonic-ts" catchup-days="14" group-title="Каналы UHD 4K" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1001.png", Love Nature 4K 
+http://stream.rutvportal.com:8085/LoveNature4K/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="MyZen TV 4K" tvg-id="myzen-tv" catchup="flussonic-ts" catchup-days="14" group-title="Каналы UHD 4K" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1002.png", MyZen TV 4K 
+http://stream.rutvportal.com:8085/MyZenTV4K/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Ultra Rex 4K" tvg-id="russian-extreme-uhd" catchup="flussonic-ts" catchup-days="14" group-title="Каналы UHD 4K" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1005.png", Ultra Rex 4K 
+http://stream.rutvportal.com:8085/RexUHD4K/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Кино UHD 4K" tvg-id="kino-ultra-hd" catchup="flussonic-ts" catchup-days="14" group-title="Каналы UHD 4K" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1006.png", Кино UHD 4K 
+http://stream.rutvportal.com:8085/KinoUHD4K/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Сериал UHD 4K" tvg-id="serial-ultrahd" catchup="flussonic-ts" catchup-days="14" group-title="Каналы UHD 4K" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1007.png", Сериал UHD 4K 
+http://stream.rutvportal.com:8085/SerialUHD4K/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Home 4K" tvg-id="home-4k" catchup="flussonic-ts" catchup-days="14" group-title="Каналы UHD 4K" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1009.png", Home 4K 
+http://stream.rutvportal.com:8085/Home4K/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Setanta Sports UA HD" tvg-id="setanta-ua" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/998.png", Setanta Sports UA HD 
+http://stream.rutvportal.com:8085/SetantaSportsUAHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Setanta Sports+ UA HD" tvg-id="setanta-plus-ua" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1011.png", Setanta Sports+ UA HD 
+http://stream.rutvportal.com:8085/SetantaSportsPlusUAHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU Ultra 4K" tvg-id="bcu-ultra4k" catchup="flussonic-ts" catchup-days="14" group-title="Каналы UHD 4K" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1019.png", BCU Ultra 4K 
+http://stream.rutvportal.com:8085/BCUUltra4K/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU Cinema+ HD" tvg-id="bcu-cinemaplus" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1017.png", BCU Cinema+ HD 
+http://stream.rutvportal.com:8085/BCUCinemaPlusHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU Criminal HD" tvg-id="bcu-criminal" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1016.png", BCU Criminal HD 
+http://stream.rutvportal.com:8085/BCUCriminalHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU Сваты HD" tvg-id="bcu-svaty" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1018.png", BCU Сваты HD 
+http://stream.rutvportal.com:8085/BCUSwatyHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU Kids+ HD" tvg-id="bcu-kids-plus" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1015.png", BCU Kids+ HD 
+http://stream.rutvportal.com:8085/BCUKidsPlusHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Museum 4K" tvg-id="museum-hd" catchup="flussonic-ts" catchup-days="14" group-title="Каналы UHD 4K" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1021.png", Museum 4K 
+http://stream.rutvportal.com:8085/Museum4K/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="KHL TV" tvg-id="kxl" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1022.png", KHL TV 
+http://stream.rutvportal.com:8085/KHL/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Iнтер HD" tvg-id="inter-ua" catchup="flussonic-ts" catchup-days="14" group-title="Украинские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/731.png", Iнтер HD 
+http://stream.rutvportal.com:8085/InterHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="ICTV HD" tvg-id="ictv-ua" catchup="flussonic-ts" catchup-days="14" group-title="Украинские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/728.png", ICTV HD 
+http://stream.rutvportal.com:8085/ICTVHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="СТБ Украина HD" tvg-id="stb-ua" catchup="flussonic-ts" catchup-days="14" group-title="Украинские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/734.png", СТБ Украина HD 
+http://stream.rutvportal.com:8085/STBUkrainaHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="ערוץ 14 עכשיו HD" tvg-id="channel20.il" catchup="flussonic-ts" catchup-days="14" group-title="Израильские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/537.png", ערוץ 14 עכשיו HD 
+http://stream.rutvportal.com:8085/Aruz14HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="None" tvg-id="None" catchup="flussonic-ts" catchup-days="14" group-title="None" , None 
+http://stream.rutvportal.com:8085/Radio_Galaz/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="None" tvg-id="None" catchup="flussonic-ts" catchup-days="14" group-title="None" , None 
+http://stream.rutvportal.com:8085/Radio_Galgalaz/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="None" tvg-id="None" catchup="flussonic-ts" catchup-days="14" group-title="None" , None 
+http://stream.rutvportal.com:8085/Radio_KolBarama/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="None" tvg-id="None" catchup="flussonic-ts" catchup-days="14" group-title="None" , None 
+http://stream.rutvportal.com:8085/Radio_ReshetBet/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="None" tvg-id="None" catchup="flussonic-ts" catchup-days="14" group-title="None" , None 
+http://stream.rutvportal.com:8085/Radio_ReshetGimel/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="None" tvg-id="None" catchup="flussonic-ts" catchup-days="14" group-title="None" , None 
+http://stream.rutvportal.com:8085/Radio_Kan88/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="None" tvg-id="None" catchup="flussonic-ts" catchup-days="14" group-title="None" , None 
+http://stream.rutvportal.com:8085/Radio_KolHai/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="None" tvg-id="None" catchup="flussonic-ts" catchup-days="14" group-title="None" , None 
+http://stream.rutvportal.com:8085/Radio_KolHaiMusic/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="None" tvg-id="None" catchup="flussonic-ts" catchup-days="14" group-title="None" , None 
+http://stream.rutvportal.com:8085/Radio_Moreshet/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="None" tvg-id="None" catchup="flussonic-ts" catchup-days="14" group-title="None" , None 
+http://stream.rutvportal.com:8085/Radio_Musica/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="DTX HD" tvg-id="dtx" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/720.png", DTX HD 
+http://stream.rutvportal.com:8085/DTXHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Доктор" tvg-id="doktor" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/691.png", Доктор 
+http://stream.rutvportal.com:8085/Doctor/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Приключения HD" tvg-id="prikluchenia-hd" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/770.png", Приключения HD 
+http://stream.rutvportal.com:8085/PriklucheniaHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Т24" tvg-id="texno-24" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/693.png", Т24 
+http://stream.rutvportal.com:8085/T24/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Cinema HD" tvg-id="cinema-ru" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/840.png", Cinema HD 
+http://stream.rutvportal.com:8085/CinemaHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="КиноХит HD" tvg-id="kinoxit" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/619.png", КиноХит HD 
+http://stream.rutvportal.com:8085/KinoHitHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="MTV 90s" tvg-id="mtv-rocks" catchup="flussonic-ts" catchup-days="14" group-title="Музыка" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/574.png", MTV 90s 
+http://stream.rutvportal.com:8085/MTV90s/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Иллюзион+" tvg-id="illuzion-plus" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/612.png", Иллюзион+ 
+http://stream.rutvportal.com:8085/IllusionPlus/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="КиноСемья HD" tvg-id="kinosemiya" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/605.png", КиноСемья HD 
+http://stream.rutvportal.com:8085/KinosemyaHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Мир HD" tvg-id="mir" catchup="flussonic-ts" catchup-days="14" group-title="Информационные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/544.png", Мир HD 
+http://stream.rutvportal.com:8085/MirHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="РБК HD" tvg-id="rbk" catchup="flussonic-ts" catchup-days="14" group-title="Информационные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/557.png", РБК HD 
+http://stream.rutvportal.com:8085/RBKHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Kvartal TV HD" tvg-id="kvartal-tv" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/874.png", Kvartal TV HD 
+http://stream.rutvportal.com:8085/KvartalTVHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Luxury HD" tvg-id="luxury" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/785.png", Luxury HD 
+http://stream.rutvportal.com:8085/LuxuryHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Fashion Box HD" tvg-id="fashionbox-hd" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/886.png", Fashion Box HD 
+http://stream.rutvportal.com:8085/FashionBoxHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Наука 2.0 HD" tvg-id="nauka-20" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/692.png", Наука 2.0 HD 
+http://stream.rutvportal.com:8085/Nauka20HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Viasat History HD" tvg-id="viasat-history" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/695.png", Viasat History HD 
+http://stream.rutvportal.com:8085/ViasatHistoryHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Viasat Explore HD" tvg-id="viasat-explore" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/696.png", Viasat Explore HD 
+http://stream.rutvportal.com:8085/ViasatExploreHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="БоксТВ HD" tvg-id="box-tv" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/681.png", БоксТВ HD 
+http://stream.rutvportal.com:8085/BoxTVHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Футбол HD" tvg-id="football-ru" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/879.png", Футбол HD 
+http://stream.rutvportal.com:8085/FutbolHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="EuroSport 1 HD" tvg-id="eurosport1" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/677.png", EuroSport 1 HD 
+http://stream.rutvportal.com:8085/Eurosport1HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="MTV 00s" tvg-id="vh1-european" catchup="flussonic-ts" catchup-days="14" group-title="Музыка" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/924.png", MTV 00s 
+http://stream.rutvportal.com:8085/MTV00s/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="MTV 80s" tvg-id="vh1-classic" catchup="flussonic-ts" catchup-days="14" group-title="Музыка" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/923.png", MTV 80s 
+http://stream.rutvportal.com:8085/MTV80s/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Жара TV HD" tvg-id="zhara" catchup="flussonic-ts" catchup-days="14" group-title="Музыка" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/816.png", Жара TV HD 
+http://stream.rutvportal.com:8085/ZharaHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="1+1 HD" tvg-id="1plus1" catchup="flussonic-ts" catchup-days="14" group-title="Украинские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/727.png", 1+1 HD 
+http://stream.rutvportal.com:8085/1plus1HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="2+2 HD" tvg-id="2plus2" catchup="flussonic-ts" catchup-days="14" group-title="Украинские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/726.png", 2+2 HD 
+http://stream.rutvportal.com:8085/2plus2HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Новый Канал HD" tvg-id="novy-kanal-ua" catchup="flussonic-ts" catchup-days="14" group-title="Украинские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/852.png", Новый Канал HD 
+http://stream.rutvportal.com:8085/NoviyKanalHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Мега HD" tvg-id="mega-ua" catchup="flussonic-ts" catchup-days="14" group-title="Украинские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/732.png", Мега HD 
+http://stream.rutvportal.com:8085/MegaHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Viasat Nature HD" tvg-id="viasat-nature" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/700.png", Viasat Nature HD 
+http://stream.rutvportal.com:8085/ViasatNatureHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Fight Box HD" tvg-id="fightbox-hd" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/900.png", Fight Box HD 
+http://stream.rutvportal.com:8085/FightBoxHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Молдова 1 HD" tvg-id="moldova-1" catchup="flussonic-ts" catchup-days="14" group-title="Молдавские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/935.png", Молдова 1 HD 
+http://stream.rutvportal.com:8085/Moldova1HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Russia Today" tvg-id="russia-today-hd" catchup="flussonic-ts" catchup-days="14" group-title="Англоязычные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/851.png", Russia Today 
+http://stream.rutvportal.com:8085/RussiaToday/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="CNN International HD" tvg-id="cnn" catchup="flussonic-ts" catchup-days="14" group-title="Англоязычные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/821.png", CNN International HD 
+http://stream.rutvportal.com:8085/CNNIntHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Penthouse Passion HD" tvg-id="penthouse-passion-ua" catchup="flussonic-ts" catchup-days="14" group-title="Для взрослых" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/926.png", Penthouse Passion HD 
+http://stream.rutvportal.com:8085/PenthousePassionHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Живи! HD" tvg-id="113" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1024.png", Живи! HD 
+http://stream.rutvportal.com:8085/ZhiviHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Epoque HD" tvg-id="epoque" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1025.png", Epoque HD 
+http://stream.rutvportal.com:8085/EpohaHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Телеканал 360° HD" tvg-id="360-int" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1026.png", Телеканал 360° HD 
+http://stream.rutvportal.com:8085/Telekanal360HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="HD REX" tvg-id="russky-ekstrim" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/901.png", HD REX 
+http://stream.rutvportal.com:8085/HDREX/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="UDAR HD" tvg-id="ufc" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/988.png", UDAR HD 
+http://stream.rutvportal.com:8085/UDARHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Комедийное HD" tvg-id="138" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/637.png", Комедийное HD 
+http://stream.rutvportal.com:8085/KomediynoeHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Про Любовь HD" tvg-id="pro-lyubov" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/919.png", Про Любовь HD 
+http://stream.rutvportal.com:8085/ProLubovHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Penthouse Quickies HD" tvg-id="penthouse-quickies" catchup="flussonic-ts" catchup-days="14" group-title="Для взрослых" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1027.png", Penthouse Quickies HD 
+http://stream.rutvportal.com:8085/PenthouseQuickiesHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Дорама HD" tvg-id="dorama" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/885.png", Дорама HD 
+http://stream.rutvportal.com:8085/DoramaHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Fun Box UHD 4K" tvg-id="" catchup="flussonic-ts" catchup-days="14" group-title="Каналы UHD 4K" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1028.png", Fun Box UHD 4K 
+http://stream.rutvportal.com:8085/FunBoxUHD4K/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU Charm HD" tvg-id="bcu-charm" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/957.png", BCU Charm HD 
+http://stream.rutvportal.com:8085/BCUCharmHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Наша Сибирь 4К" tvg-id="nasha-sibir-4k" catchup="flussonic-ts" catchup-days="14" group-title="Каналы UHD 4K" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1029.png", Наша Сибирь 4К 
+http://stream.rutvportal.com:8085/NashaSibir4K/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU Kids 4K" tvg-id="bcu-kids-4k" catchup="flussonic-ts" catchup-days="14" group-title="Каналы UHD 4K" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1030.png", BCU Kids 4K 
+http://stream.rutvportal.com:8085/BCUKids4K/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Bolt HD" tvg-id="bolt" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1032.png", Bolt HD 
+http://stream.rutvportal.com:8085/BoltHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="СТС Kids HD" tvg-id="sts-kids-hd" catchup="flussonic-ts" catchup-days="14" group-title="Детские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1033.png", СТС Kids HD 
+http://stream.rutvportal.com:8085/STSKidsHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Erox HD" tvg-id="erox" catchup="flussonic-ts" catchup-days="14" group-title="Для взрослых" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/749.png", Erox HD 
+http://stream.rutvportal.com:8085/EroxHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Porn Force HD" tvg-id="" catchup="flussonic-ts" catchup-days="14" group-title="Для взрослых" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/876.png", Porn Force HD 
+http://stream.rutvportal.com:8085/PornForceHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Планета РТР" tvg-id="rtr-planeta-eu" catchup="flussonic-ts" catchup-days="14" group-title="Информационные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/532.png", Планета РТР 
+http://stream.rutvportal.com:8085/PlanetaRTR/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Cinema UHD 4K" tvg-id="ultra-hd-cinema" catchup="flussonic-ts" catchup-days="14" group-title="Каналы UHD 4K" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1008.png", Cinema UHD 4K 
+http://stream.rutvportal.com:8085/CinemaUHD4K/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Mtavari Arkhi" tvg-id="4283" catchup="flussonic-ts" catchup-days="14" group-title="Грузинские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/949.png", Mtavari Arkhi 
+http://stream.rutvportal.com:8085/MtavariArkhiGeo/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Любимое HD" tvg-id="nashe-lubimoe" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1034.png", Любимое HD 
+http://stream.rutvportal.com:8085/LubimoeHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Наше HD" tvg-id="nashehd" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/982.png", Наше HD 
+http://stream.rutvportal.com:8085/NasheHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Белоруссия 1 HD" tvg-id="belarus1" catchup="flussonic-ts" catchup-days="14" group-title="Белорусские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/882.png", Белоруссия 1 HD 
+http://stream.rutvportal.com:8085/Belorussia1HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Белоруссия 2 HD" tvg-id="belarus2" catchup="flussonic-ts" catchup-days="14" group-title="Белорусские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/883.png", Белоруссия 2 HD 
+http://stream.rutvportal.com:8085/Belorussia2HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Белоруссия 3 HD" tvg-id="belarus3" catchup="flussonic-ts" catchup-days="14" group-title="Белорусские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/884.png", Белоруссия 3 HD 
+http://stream.rutvportal.com:8085/Belorussia3HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Белоруссия 5 HD" tvg-id="belarus5" catchup="flussonic-ts" catchup-days="14" group-title="Белорусские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/753.png", Белоруссия 5 HD 
+http://stream.rutvportal.com:8085/Belorussia5HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Fast&Fun Box HD" tvg-id="fastfunbox-hd" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1031.png", Fast&Fun Box HD 
+http://stream.rutvportal.com:8085/FastFunBoxHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Maestro TV" tvg-id="2562" catchup="flussonic-ts" catchup-days="14" group-title="Грузинские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/909.png", Maestro TV 
+http://stream.rutvportal.com:8085/MaestroTVGeo/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Imedi TV" tvg-id="2563" catchup="flussonic-ts" catchup-days="14" group-title="Грузинские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/908.png", Imedi TV 
+http://stream.rutvportal.com:8085/ImediTVGeo/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="NASA 4K" tvg-id="nasa4k" catchup="flussonic-ts" catchup-days="14" group-title="Каналы UHD 4K" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1036.png", NASA 4K 
+http://stream.rutvportal.com:8085/Nasa4K/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Extasy 4K" tvg-id="extasy4k" catchup="flussonic-ts" catchup-days="14" group-title="Для взрослых" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1037.png", Extasy 4K 
+http://stream.rutvportal.com:8085/Extasy4K/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="• Sci-fi" tvg-id="sony-scifi" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/650.png", • Sci-fi 
+http://stream.rutvportal.com:8085/DotSciFi/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="• Black" tvg-id="sony-turbo" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/653.png", • Black 
+http://stream.rutvportal.com:8085/DotBlack/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU Premier Ultra 4K" tvg-id="bcu-premiere-4k" catchup="flussonic-ts" catchup-days="14" group-title="Каналы UHD 4K" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1039.png", BCU Premier Ultra 4K 
+http://stream.rutvportal.com:8085/BCUPremierUltra4K/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU Multserial HD" tvg-id="bcu-multserial" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1040.png", BCU Multserial HD 
+http://stream.rutvportal.com:8085/BCUMultserialHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU Media HD" tvg-id="bcu-media" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1046.png", BCU Media HD 
+http://stream.rutvportal.com:8085/BCUMediaHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU Reality HD" tvg-id="bcu-reality" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1042.png", BCU Reality HD 
+http://stream.rutvportal.com:8085/BCURealityHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU Survival HD" tvg-id="bcu-survival" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1043.png", BCU Survival HD 
+http://stream.rutvportal.com:8085/BCUSurvivalHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU Cosmo HD" tvg-id="6176" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1045.png", BCU Cosmo HD 
+http://stream.rutvportal.com:8085/BCUCosmoHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU TruMotion HD" tvg-id="bcu-trumotion" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1044.png", BCU TruMotion HD 
+http://stream.rutvportal.com:8085/BCUTruMotionHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Матч! Страна HD" tvg-id="match-nash-sport" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/674.png", Матч! Страна HD 
+http://stream.rutvportal.com:8085/MatchStranaHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="8 Канал International" tvg-id="8kanal-eu" catchup="flussonic-ts" catchup-days="14" group-title="Информационные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/797.png", 8 Канал International 
+http://stream.rutvportal.com:8085/8kanalInt/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Discovery Channel HD" tvg-id="discovery-channel" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/711.png", Discovery Channel HD 
+http://stream.rutvportal.com:8085/DiscoveryChannelHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Матч! Боец HD" tvg-id="match-boets" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/666.png", Матч! Боец HD 
+http://stream.rutvportal.com:8085/MatchBoetsHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BBC World News HD" tvg-id="bbc" catchup="flussonic-ts" catchup-days="14" group-title="Англоязычные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/822.png", BBC World News HD 
+http://stream.rutvportal.com:8085/BBCWorldNewsHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Русская Ночь" tvg-id="russkaya-noch" catchup="flussonic-ts" catchup-days="14" group-title="Для взрослых" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/747.png", Русская Ночь 
+http://stream.rutvportal.com:8085/RusskayaNoch/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="KHL Prime HD" tvg-id="kxl-hd" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/834.png", KHL Prime HD 
+http://stream.rutvportal.com:8085/KHLPrimeHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="AzTV HD" tvg-id="aztv" catchup="flussonic-ts" catchup-days="14" group-title="Азербайджанские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/738.png", AzTV HD 
+http://stream.rutvportal.com:8085/AzTVHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="1 TV HD" tvg-id="2560" catchup="flussonic-ts" catchup-days="14" group-title="Грузинские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/907.png", 1 TV HD 
+http://stream.rutvportal.com:8085/1TvGeoHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="BCU Stars HD" tvg-id="bcu-stars" catchup="flussonic-ts" catchup-days="14" group-title="Киноканалы BCU" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1041.png", BCU Stars HD 
+http://stream.rutvportal.com:8085/BCUStarsHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="ТВ3 HD" tvg-id="tv3-ru" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/608.png", ТВ3 HD 
+http://stream.rutvportal.com:8085/TV3HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Rustavi 2 HD" tvg-id="4291" catchup="flussonic-ts" catchup-days="14" group-title="Грузинские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/664.png", Rustavi 2 HD 
+http://stream.rutvportal.com:8085/Rustavi2HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="КиноКомедия HD" tvg-id="kinokomedia" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/623.png", КиноКомедия HD 
+http://stream.rutvportal.com:8085/KinokomediaHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="test" tvg-id="" catchup="flussonic-ts" catchup-days="14" group-title="Кино" , test 
+http://stream.rutvportal.com:8085/test/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="КиноСвидание HD" tvg-id="kinosvidanie" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/622.png", КиноСвидание HD 
+http://stream.rutvportal.com:8085/KinoswidanieHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="КиноCерия HD" tvg-id="kinoseria" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/606.png", КиноCерия HD 
+http://stream.rutvportal.com:8085/KinoseriaHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Наше Новое Кино HD" tvg-id="nashe-novoe-kino" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/614.png", Наше Новое Кино HD 
+http://stream.rutvportal.com:8085/NasheNowoeKinoHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Кухня ТВ HD" tvg-id="kuxnia-tv" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/564.png", Кухня ТВ HD 
+http://stream.rutvportal.com:8085/KuhnyaTVHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Авто Плюс HD" tvg-id="avto-plus" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/587.png", Авто Плюс HD 
+http://stream.rutvportal.com:8085/AutoPlusHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="• Red HD" tvg-id="sony-tv" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/649.png", • Red HD 
+http://stream.rutvportal.com:8085/DotRedHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Матч! Футбол 1 HD" tvg-id="match-football1" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/669.png", Матч! Футбол 1 HD 
+http://stream.rutvportal.com:8085/MatchFutbol1HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Матч! Футбол 2 HD" tvg-id="match-football2" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/688.png", Матч! Футбол 2 HD 
+http://stream.rutvportal.com:8085/MatchFutbol2HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Матч! Футбол 3 HD" tvg-id="match-football3" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/690.png", Матч! Футбол 3 HD 
+http://stream.rutvportal.com:8085/MatchFutbol3HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Setanta Sports 1 HD" tvg-id="setanta-sports" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/872.png", Setanta Sports 1 HD 
+http://stream.rutvportal.com:8085/SetantaSports1HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Setanta Sports 2 HD" tvg-id="setanta-sports-plus" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/873.png", Setanta Sports 2 HD 
+http://stream.rutvportal.com:8085/SetantaSports2HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="ערוץ מוסיקה iL" tvg-id="" catchup="flussonic-ts" catchup-days="14" group-title="Израильские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/565.png", ערוץ מוסיקה iL 
+http://stream.rutvportal.com:8085/AruzMusicIL/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Первый HD" tvg-id="pervy" catchup="flussonic-ts" catchup-days="14" group-title="Информационные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/525.png", Первый HD 
+http://stream.rutvportal.com:8085/PervyHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Россия 1 HD" tvg-id="rossia1" catchup="flussonic-ts" catchup-days="14" group-title="Информационные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/531.png", Россия 1 HD 
+http://stream.rutvportal.com:8085/Rossia1HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Россия 24" tvg-id="rossia-24" catchup="flussonic-ts" catchup-days="14" group-title="Информационные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/530.png", Россия 24 
+http://stream.rutvportal.com:8085/Rossia24/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Время" tvg-id="vremia" catchup="flussonic-ts" catchup-days="14" group-title="Информационные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/543.png", Время 
+http://stream.rutvportal.com:8085/Vremia/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Домашний International" tvg-id="domashny-int" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/555.png", Домашний International 
+http://stream.rutvportal.com:8085/DomashnyInt/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Звезда HD" tvg-id="zvezda" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/542.png", Звезда HD 
+http://stream.rutvportal.com:8085/ZvezdaHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Совершенно Секретно" tvg-id="sovsek" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/550.png", Совершенно Секретно 
+http://stream.rutvportal.com:8085/SovershennoSekretno/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Еда Premium HD" tvg-id="eda-hd" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/569.png", Еда Premium HD 
+http://stream.rutvportal.com:8085/EdaPremiumHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Первый вегетарианский" tvg-id="pervy-vegetariansky" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/861.png", Первый вегетарианский 
+http://stream.rutvportal.com:8085/PervyVegetarian/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Авто24" tvg-id="avto24" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/583.png", Авто24 
+http://stream.rutvportal.com:8085/Auto24/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Первый Автомобильный HD" tvg-id="4585" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/925.png", Первый Автомобильный HD 
+http://stream.rutvportal.com:8085/PervyAvtomobilnyHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Точка Отрыва" tvg-id="tochka-otryva" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/859.png", Точка Отрыва 
+http://stream.rutvportal.com:8085/TochkaOtriva/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Здоровое ТВ" tvg-id="zdorovoe-tv" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/721.png", Здоровое ТВ 
+http://stream.rutvportal.com:8085/ZdorovoeTV/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="RTG TV" tvg-id="rtg-tv" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/829.png", RTG TV 
+http://stream.rutvportal.com:8085/RTGTV/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Nano HD" tvg-id="nano-hd" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1054.png", Nano HD 
+http://stream.rutvportal.com:8085/NanoHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Travel Channel HD" tvg-id="travel-channel" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/702.png", Travel Channel HD 
+http://stream.rutvportal.com:8085/TravelChannelHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="365 дней" tvg-id="365-dnej" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/697.png", 365 дней 
+http://stream.rutvportal.com:8085/365dney/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Охотник и рыболов HD" tvg-id="oxotnik-i-rybolov-hd" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/715.png", Охотник и рыболов HD 
+http://stream.rutvportal.com:8085/OhotnikIRybolovHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Загородная Жизнь" tvg-id="zagorodnaya-zhizn" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/825.png", Загородная Жизнь 
+http://stream.rutvportal.com:8085/ZagorodnayaZhizn/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Домашние Животные" tvg-id="domashnie-zhivotnye" catchup="flussonic-ts" catchup-days="14" group-title="Научно-популярные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/722.png", Домашние Животные 
+http://stream.rutvportal.com:8085/DomashnieZhivotnie/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Da Vinci Kids" tvg-id="da-vinci" catchup="flussonic-ts" catchup-days="14" group-title="Детские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/588.png", Da Vinci Kids 
+http://stream.rutvportal.com:8085/DaVinciKids/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Gulli Girl" tvg-id="810" catchup="flussonic-ts" catchup-days="14" group-title="Детские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/597.png", Gulli Girl 
+http://stream.rutvportal.com:8085/GulliGirl/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Boomerang" tvg-id="boomerang" catchup="flussonic-ts" catchup-days="14" group-title="Детские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/842.png", Boomerang 
+http://stream.rutvportal.com:8085/Boomerang/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Детский Мир" tvg-id="detsky-mir" catchup="flussonic-ts" catchup-days="14" group-title="Детские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/596.png", Детский Мир 
+http://stream.rutvportal.com:8085/DetskyMir/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Наше Мужское HD" tvg-id="nashe-muzhskoe-hd" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1051.png", Наше Мужское HD 
+http://stream.rutvportal.com:8085/NasheMuzhskoeHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Душевное HD" tvg-id="dushevnoe-hd" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1049.png", Душевное HD 
+http://stream.rutvportal.com:8085/DushevnoeHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Epic Drama HD" tvg-id="epik-drama" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1052.png", Epic Drama HD 
+http://stream.rutvportal.com:8085/EpicDramaHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="КиноПремьера HD" tvg-id="kinopremiera-hd" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/639.png", КиноПремьера HD 
+http://stream.rutvportal.com:8085/KinopremieraHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="КиноУжас HD" tvg-id="kinouzhas" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1050.png", КиноУжас HD 
+http://stream.rutvportal.com:8085/KinouzhasHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Русский Бестселлер" tvg-id="russky-bestseller" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/610.png", Русский Бестселлер 
+http://stream.rutvportal.com:8085/RusskyBestseller/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Русский Детектив" tvg-id="russky-detektiv" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/611.png", Русский Детектив 
+http://stream.rutvportal.com:8085/RusskyDetektiv/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Настоящее Страшное ТВ" tvg-id="strashnoe-hd" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/642.png", Настоящее Страшное ТВ 
+http://stream.rutvportal.com:8085/NastoyasheyeStrashnoeTV/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Еврокино" tvg-id="evrokino" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/641.png", Еврокино 
+http://stream.rutvportal.com:8085/Eurokino/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Индийское Кино" tvg-id="indiyskoe-kino" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/634.png", Индийское Кино 
+http://stream.rutvportal.com:8085/IndiyskoeKino/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="FOX HD" tvg-id="fox" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/765.png", FOX HD 
+http://stream.rutvportal.com:8085/FOXHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Amedia A1 HD" tvg-id="amedia1" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/651.png", Amedia A1 HD 
+http://stream.rutvportal.com:8085/AmediaA1HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Amedia A2 HD" tvg-id="amedia2" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/983.png", Amedia A2 HD 
+http://stream.rutvportal.com:8085/AmediaA2HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="NBA TV HD" tvg-id="nba-tv" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1053.png", NBA TV HD 
+http://stream.rutvportal.com:8085/NBATVHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Мир баскетбола" tvg-id="mir-basketbola" catchup="flussonic-ts" catchup-days="14" group-title="Спортивные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/931.png", Мир баскетбола 
+http://stream.rutvportal.com:8085/MirBasketbola/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Первый Музыкальный HD" tvg-id="onemuz" catchup="flussonic-ts" catchup-days="14" group-title="Музыка" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/871.png", Первый Музыкальный HD 
+http://stream.rutvportal.com:8085/PervyMusicHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Музыка Первого" tvg-id="muzyka-pervogo" catchup="flussonic-ts" catchup-days="14" group-title="Музыка" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/568.png", Музыка Первого 
+http://stream.rutvportal.com:8085/MusicaPervogo/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="MTV Live HD" tvg-id="382" catchup="flussonic-ts" catchup-days="14" group-title="Музыка" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/579.png", MTV Live HD 
+http://stream.rutvportal.com:8085/MTVLiveHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="MTV Hits" tvg-id="mtv-hits" catchup="flussonic-ts" catchup-days="14" group-title="Музыка" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/576.png", MTV Hits 
+http://stream.rutvportal.com:8085/MTVHits/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="День Победы HD" tvg-id="denpobedy" catchup="flussonic-ts" catchup-days="14" group-title="Кино" , День Победы HD 
+http://stream.rutvportal.com:8085/DenPobedyHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Дождь HD" tvg-id="dozhd" catchup="flussonic-ts" catchup-days="14" group-title="Информационные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/549.png", Дождь HD 
+http://stream.rutvportal.com:8085/DozhdHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Ictimai TV" tvg-id="ictimai-tv" catchup="flussonic-ts" catchup-days="14" group-title="Азербайджанские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/740.png", Ictimai TV 
+http://stream.rutvportal.com:8085/IctimaiTV/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="None" tvg-id="None" catchup="flussonic-ts" catchup-days="14" group-title="None" , None 
+http://stream.rutvportal.com:8085/SkyHighEpochHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="None" tvg-id="None" catchup="flussonic-ts" catchup-days="14" group-title="None" , None 
+http://stream.rutvportal.com:8085/SkyHighHeroesHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="None" tvg-id="None" catchup="flussonic-ts" catchup-days="14" group-title="None" , None 
+http://stream.rutvportal.com:8085/SkyHighDanceHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="None" tvg-id="None" catchup="flussonic-ts" catchup-days="14" group-title="None" , None 
+http://stream.rutvportal.com:8085/SkyHighSpiritHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="None" tvg-id="None" catchup="flussonic-ts" catchup-days="14" group-title="None" , None 
+http://stream.rutvportal.com:8085/SkyHighFightHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="None" tvg-id="None" catchup="flussonic-ts" catchup-days="14" group-title="None" , None 
+http://stream.rutvportal.com:8085/SkyHighSeriesHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="None" tvg-id="None" catchup="flussonic-ts" catchup-days="14" group-title="None" , None 
+http://stream.rutvportal.com:8085/SkyHighManHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="None" tvg-id="None" catchup="flussonic-ts" catchup-days="14" group-title="None" , None 
+http://stream.rutvportal.com:8085/SkyHighConcertHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="None" tvg-id="None" catchup="flussonic-ts" catchup-days="14" group-title="None" , None 
+http://stream.rutvportal.com:8085/SkyHighFutureHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="None" tvg-id="None" catchup="flussonic-ts" catchup-days="14" group-title="None" , None 
+http://stream.rutvportal.com:8085/SkyHighFreshHDR/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="None" tvg-id="None" catchup="flussonic-ts" catchup-days="14" group-title="None" , None 
+http://stream.rutvportal.com:8085/SkyHighFreshHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="None" tvg-id="None" catchup="flussonic-ts" catchup-days="14" group-title="None" , None 
+http://stream.rutvportal.com:8085/SkyHighNature4K/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="None" tvg-id="None" catchup="flussonic-ts" catchup-days="14" group-title="None" , None 
+http://stream.rutvportal.com:8085/SkyHighCHBUHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="None" tvg-id="None" catchup="flussonic-ts" catchup-days="14" group-title="None" , None 
+http://stream.rutvportal.com:8085/SkyHighClassicHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="None" tvg-id="None" catchup="flussonic-ts" catchup-days="14" group-title="None" , None 
+http://stream.rutvportal.com:8085/SkyHighNature4KHDR/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="None" tvg-id="None" catchup="flussonic-ts" catchup-days="14" group-title="None" , None 
+http://stream.rutvportal.com:8085/test111/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="RTVi HD" tvg-id="rtvi" catchup="flussonic-ts" catchup-days="14" group-title="Информационные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/554.png", RTVi HD 
+http://stream.rutvportal.com:8085/RTViHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Euronews HD" tvg-id="euronews" catchup="flussonic-ts" catchup-days="14" group-title="Информационные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/553.png", Euronews HD 
+http://stream.rutvportal.com:8085/EuronewsHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Домашний HD" tvg-id="" catchup="flussonic-ts" catchup-days="14" group-title="Развлекательные" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/1058.png", Домашний HD 
+http://stream.rutvportal.com:8085/DomashniyHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Cartoon Network HD" tvg-id="cartoon-network" catchup="flussonic-ts" catchup-days="14" group-title="Детские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/593.png", Cartoon Network HD 
+http://stream.rutvportal.com:8085/CartoonNetworkHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Русский Роман HD" tvg-id="russky-roman" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/609.png", Русский Роман HD 
+http://stream.rutvportal.com:8085/RusskyRomanHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="FilmBox Premium HD" tvg-id="" catchup="flussonic-ts" catchup-days="14" group-title="Кино" , FilmBox Premium HD 
+http://stream.rutvportal.com:8085/FilmBoxPremiumHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Победа HD" tvg-id="pobeda" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/943.png", Победа HD 
+http://stream.rutvportal.com:8085/PobedaHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Bridge Rock" tvg-id="" catchup="flussonic-ts" catchup-days="14" group-title="Музыка" , Bridge Rock 
+http://stream.rutvportal.com:8085/BridgeRock/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Bridge Deluxe HD" tvg-id="bridge-hd" catchup="flussonic-ts" catchup-days="14" group-title="Музыка" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/946.png", Bridge Deluxe HD 
+http://stream.rutvportal.com:8085/BridgeDeluxeHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Bridge Classic" tvg-id="bridge-tv-classic" catchup="flussonic-ts" catchup-days="14" group-title="Музыка" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/847.png", Bridge Classic 
+http://stream.rutvportal.com:8085/BridgeClassic/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Bridge Русский Хит" tvg-id="bridge-tv-ruxit" catchup="flussonic-ts" catchup-days="14" group-title="Музыка" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/848.png", Bridge Русский Хит 
+http://stream.rutvportal.com:8085/BridgeRusskiyHit/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Bridge" tvg-id="" catchup="flussonic-ts" catchup-days="14" group-title="Музыка" , Bridge 
+http://stream.rutvportal.com:8085/Bridge/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Bridge Hits HD" tvg-id="bridge-tv-dance" catchup="flussonic-ts" catchup-days="14" group-title="Музыка" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/795.png", Bridge Hits HD 
+http://stream.rutvportal.com:8085/BridgeHitsHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Fireplace 4K" tvg-id="" catchup="flussonic-ts" catchup-days="14" group-title="Каналы UHD 4K" , Fireplace 4K 
+http://stream.rutvportal.com:8085/Fireplace4k/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Aquarium 4K" tvg-id="" catchup="flussonic-ts" catchup-days="14" group-title="Каналы UHD 4K" , Aquarium 4K 
+http://stream.rutvportal.com:8085/Aquarium4k/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Viju+ Megahit HD" tvg-id="vip-megahit" catchup="flussonic-ts" catchup-days="14" group-title="Кино" , Viju+ Megahit HD 
+http://stream.rutvportal.com:8085/VijuPlusMegahitHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Viju+ Premiere HD" tvg-id="vip-premiere" catchup="flussonic-ts" catchup-days="14" group-title="Кино" , Viju+ Premiere HD 
+http://stream.rutvportal.com:8085/VijuPlusPremiereHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Viju+ Comedy HD" tvg-id="vip-comedy" catchup="flussonic-ts" catchup-days="14" group-title="Кино" , Viju+ Comedy HD 
+http://stream.rutvportal.com:8085/VijuPlusComedyHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Viju+ Serial HD" tvg-id="vip-serial" catchup="flussonic-ts" catchup-days="14" group-title="Кино" , Viju+ Serial HD 
+http://stream.rutvportal.com:8085/VijuPlusSerialHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Viju TV1000HD" tvg-id="tv1000" catchup="flussonic-ts" catchup-days="14" group-title="Кино" , Viju TV1000HD 
+http://stream.rutvportal.com:8085/VijuTV1000HD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Viju TV1000 Action HD" tvg-id="tv1000-action-eu" catchup="flussonic-ts" catchup-days="14" group-title="Кино" , Viju TV1000 Action HD 
+http://stream.rutvportal.com:8085/VijuTV1000ActionHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Viju TV1000 Русское Кино HD" tvg-id="tv1000-russkoe-kino" catchup="flussonic-ts" catchup-days="14" group-title="Кино" , Viju TV1000 Русское Кино HD 
+http://stream.rutvportal.com:8085/VijuTV1000RusskoeKinoHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="В гостях у сказки HD" tvg-id="v-gostiax-u-skazki" catchup="flussonic-ts" catchup-days="14" group-title="Детские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/857.png", В гостях у сказки HD 
+http://stream.rutvportal.com:8085/VGostiahUSkazkiHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="ערוץ 12 קשת HD" tvg-id="12keshet.il" catchup="flussonic-ts" catchup-days="14" group-title="Израильские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/538.png", ערוץ 12 קשת HD 
+http://stream.rutvportal.com:8085/Aruz12KeshetHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="ערוץ 13 רשת HD" tvg-id="13reshet.il" catchup="flussonic-ts" catchup-days="14" group-title="Израильские" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/809.png", ערוץ 13 רשת HD 
+http://stream.rutvportal.com:8085/Aruz13ReshetHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Comedy Central HD" tvg-id="paramount-comedy" catchup="flussonic-ts" catchup-days="14" group-title="Кино" , Comedy Central HD 
+http://stream.rutvportal.com:8085/ComedyCentralHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
+#EXTINF:0 tvg-name="Shot TV HD" tvg-id="shot-tv" catchup="flussonic-ts" catchup-days="14" group-title="Кино" tvg-logo="https://ministra.rutvportal.com/stalker_portal/misc/logos/original/780.png", Shot TV HD 
+http://stream.rutvportal.com:8085/ShotTVHD/video.m3u8?token=QeHUZDtsuc56bX69kLWk9Q
