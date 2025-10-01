@@ -14,6 +14,14 @@ const loadUrlBtn = document.getElementById('loadUrlBtn');
 
 function parseM3U8(content) {
     console.log('Parsing M3U/M3U8 content, length:', content.length);
+    
+    if (content.trim().toLowerCase().startsWith('<!doctype') || 
+        content.trim().toLowerCase().startsWith('<html') ||
+        content.includes('<head>') || content.includes('<body>')) {
+        console.error('Content appears to be HTML, not M3U/M3U8');
+        throw new Error('Received HTML page instead of playlist. The URL may be blocked or invalid.');
+    }
+    
     const lines = content.split('\n');
     const channels = [];
     let currentChannel = {};
