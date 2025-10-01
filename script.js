@@ -15,11 +15,16 @@ const loadUrlBtn = document.getElementById('loadUrlBtn');
 function parseM3U8(content) {
     console.log('Parsing M3U/M3U8 content, length:', content.length);
     
-    if (content.trim().toLowerCase().startsWith('<!doctype') || 
-        content.trim().toLowerCase().startsWith('<html') ||
-        content.includes('<head>') || content.includes('<body>')) {
+    const trimmed = content.trim().toLowerCase();
+    if ((trimmed.startsWith('<!doctype') || trimmed.startsWith('<html')) && 
+        (trimmed.includes('<head>') || trimmed.includes('<body>'))) {
         console.error('Content appears to be HTML, not M3U/M3U8');
         throw new Error('Received HTML page instead of playlist. The URL may be blocked or invalid.');
+    }
+    
+    if (!trimmed.startsWith('#extm3u') && !trimmed.includes('http')) {
+        console.error('Content does not appear to be a valid M3U/M3U8 playlist');
+        throw new Error('Invalid playlist format. File must start with #EXTM3U or contain stream URLs.');
     }
     
     const lines = content.split('\n');
