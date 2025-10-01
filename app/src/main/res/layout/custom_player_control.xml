@@ -21,22 +21,10 @@
             android:layout_height="48dp" />
 
         <ImageButton
-            android:id="@id/exo_rew"
-            style="@style/ExoStyledControls.Button.Center.Rewind"
-            android:layout_width="48dp"
-            android:layout_height="48dp" />
-
-        <ImageButton
             android:id="@id/exo_play_pause"
             style="@style/ExoStyledControls.Button.Center.PlayPause"
             android:layout_width="64dp"
             android:layout_height="64dp" />
-
-        <ImageButton
-            android:id="@id/exo_ffwd"
-            style="@style/ExoStyledControls.Button.Center.FastForward"
-            android:layout_width="48dp"
-            android:layout_height="48dp" />
 
         <ImageButton
             android:id="@id/exo_next"
