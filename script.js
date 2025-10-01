@@ -8,6 +8,9 @@ const videoTitle = document.getElementById('videoTitle');
 const playlistContainer = document.getElementById('playlistContainer');
 const prevBtn = document.getElementById('prevBtn');
 const nextBtn = document.getElementById('nextBtn');
+const fileInput = document.getElementById('fileInput');
+const urlInput = document.getElementById('urlInput');
+const loadUrlBtn = document.getElementById('loadUrlBtn');
 
 function parseM3U8(content) {
     const lines = content.split('\n');
@@ -38,22 +41,76 @@ function parseM3U8(content) {
     return channels;
 }
 
-async function loadPlaylist() {
+async function loadPlaylist(source = 'playlist.m3u8') {
     try {
-        const response = await fetch('playlist.m3u8');
-        const content = await response.text();
+        let content;
+        
+        if (typeof source === 'string') {
+            const response = await fetch(source);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            content = await response.text();
+        } else {
+            content = source;
+        }
+        
         playlist = parseM3U8(content);
         
         if (playlist.length > 0) {
             console.log(`Loaded ${playlist.length} channels from M3U8 playlist`);
             createPlaylistUI();
             loadVideo(0);
+            videoTitle.textContent = playlist[0].title;
         } else {
             videoTitle.textContent = 'No channels found in playlist';
         }
     } catch (error) {
         console.error('Error loading playlist:', error);
-        videoTitle.textContent = 'Error loading playlist';
+        videoTitle.textContent = 'Error loading playlist: ' + error.message;
+        alert('Failed to load playlist: ' + error.message);
+    }
+}
+
+function loadPlaylistFromFile(file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const content = e.target.result;
+        loadPlaylist(content);
+    };
+    reader.onerror = function() {
+        alert('Error reading file');
+    };
+    reader.readAsText(file);
+}
+
+async function loadPlaylistFromURL(url) {
+    if (!url) {
+        alert('Please enter a URL');
+        return;
+    }
+    
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        alert('URL must start with http:// or https://');
+        return;
+    }
+    
+    loadUrlBtn.disabled = true;
+    loadUrlBtn.textContent = 'Loading...';
+    
+    try {
+        let fetchUrl = url;
+        if (url.startsWith('http://')) {
+            fetchUrl = `/proxy?url=${encodeURIComponent(url)}`;
+        }
+        
+        await loadPlaylist(fetchUrl);
+        urlInput.value = '';
+    } catch (error) {
+        console.error('Error loading from URL:', error);
+    } finally {
+        loadUrlBtn.disabled = false;
+        loadUrlBtn.textContent = 'Load URL';
     }
 }
 
@@ -303,5 +360,28 @@ videoPlayer.addEventListener('error', (e) => {
     console.error('Video error:', e);
     updateStatusError(currentIndex, 'Error loading');
 });
+
+if (fileInput) {
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            loadPlaylistFromFile(file);
+        }
+    });
+}
+
+if (loadUrlBtn && urlInput) {
+    loadUrlBtn.addEventListener('click', () => {
+        const url = urlInput.value.trim();
+        loadPlaylistFromURL(url);
+    });
+
+    urlInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            const url = urlInput.value.trim();
+            loadPlaylistFromURL(url);
+        }
+    });
+}
 
 loadPlaylist();

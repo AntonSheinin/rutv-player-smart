@@ -19,10 +19,16 @@ This project contains an Android video player application using Media3 (ExoPlaye
   - Custom player controls
 
 ### Web Demo (`/`)
-- **HTML/CSS/JavaScript** video player
+- **HTML/CSS/JavaScript** video player with HLS.js
 - **Purpose**: Demonstrates playlist functionality in browser
-- **Running**: Python HTTP server on port 5000
-- **Same feature set** as Android app
+- **Running**: Python proxy server on port 5000
+- **Key Features**:
+  - M3U/M3U8 playlist support (IPTV compatible)
+  - Upload local playlist files
+  - Load playlists from URLs
+  - HLS streaming with MPEG-TS support
+  - HTTP to HTTPS proxy for mixed content
+  - Enhanced error recovery and buffering
 
 ## Dependencies
 
@@ -54,22 +60,26 @@ The web demo runs in Replit and demonstrates the same playlist functionality:
 - Uses sample videos from Google Cloud Storage
 - Full playlist navigation and auto-advance
 
-## Sample Playlist
+## Playlist Support
 
-Both versions use the same sample videos:
-1. Big Buck Bunny
-2. Elephant Dream
-3. For Bigger Blazes
-4. For Bigger Escape
-5. For Bigger Fun
-6. Sintel
+The player supports M3U/M3U8 format playlists with:
+- Channel names and metadata
+- Channel logos
+- Group/category organization
+- HLS (HTTP Live Streaming) video sources
+- IPTV playlists
 
-All videos are publicly available from Google's sample video repository.
+### Loading Playlists
+- **Default**: Loads `playlist.m3u8` on startup
+- **Upload File**: Click "Upload M3U/M3U8 File" to load local playlist
+- **URL**: Enter a playlist URL and click "Load URL"
 
 ## Recent Changes (October 1, 2025)
 - Created Android project with Media3/ExoPlayer integration
-- Implemented playlist functionality with RecyclerView
-- Added custom player controls
+- Implemented M3U8 playlist parser for IPTV support
+- Added HLS.js with MPEG-TS support and enhanced buffering
+- Created HTTP proxy server for mixed content handling
+- Added playlist loader (upload file or load from URL)
+- Implemented channel logos and categories
+- Enhanced error recovery and network handling
 - Created web-based demo for in-browser testing
-- Updated Kotlin plugin to modern ID
-- Removed cleartext traffic permission (all videos use HTTPS)

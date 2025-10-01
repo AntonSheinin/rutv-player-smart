@@ -33,6 +33,85 @@ h1 {
     text-align: center;
 }
 
+.playlist-loader {
+    background: #1a1a1a;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.playlist-loader h3 {
+    color: #ff0000;
+    margin-bottom: 15px;
+    font-size: 1.1em;
+}
+
+.loader-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.loader-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.file-label {
+    background: #2d2d2d;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s;
+    border: 2px solid #444;
+    font-weight: 500;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.file-label:hover {
+    background: #3d3d3d;
+    border-color: #ff0000;
+}
+
+.url-input {
+    flex: 1;
+    padding: 10px 15px;
+    border-radius: 5px;
+    border: 2px solid #444;
+    background: #2d2d2d;
+    color: white;
+    font-size: 14px;
+}
+
+.url-input:focus {
+    outline: none;
+    border-color: #ff0000;
+}
+
+.load-btn {
+    background: #ff0000;
+    color: white;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background 0.3s;
+    white-space: nowrap;
+}
+
+.load-btn:hover {
+    background: #cc0000;
+}
+
+.load-btn:disabled {
+    background: #555;
+    cursor: not-allowed;
+}
+
 .video-container {
     position: relative;
     margin-bottom: 20px;
