@@ -211,7 +211,7 @@ class MainActivity : AppCompatActivity() {
                             Toast.LENGTH_SHORT
                         ).show()
                         
-                        if (hasNext()) {
+                        if (hasNextMediaItem()) {
                             seekToNext()
                             prepare()
                         }
