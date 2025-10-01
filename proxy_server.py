@@ -98,8 +98,9 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
     
     def log_message(self, format, *args):
-        if '/proxy?' not in args[0]:
-            super().log_message(format, *args)
+        if args and isinstance(args[0], str) and '/proxy?' in args[0]:
+            return
+        super().log_message(format, *args)
 
 Handler = ProxyHTTPRequestHandler
 

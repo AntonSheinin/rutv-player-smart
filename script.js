@@ -126,40 +126,118 @@ function loadVideo(index) {
             enableWorker: true,
             lowLatencyMode: false,
             debug: false,
+            maxBufferLength: 30,
+            maxMaxBufferLength: 600,
+            maxBufferSize: 60 * 1000 * 1000,
+            maxBufferHole: 0.5,
+            highBufferWatchdogPeriod: 2,
+            nudgeOffset: 0.1,
+            nudgeMaxRetry: 3,
+            maxFragLookUpTolerance: 0.25,
+            liveSyncDurationCount: 3,
+            liveMaxLatencyDurationCount: Infinity,
+            liveDurationInfinity: false,
+            enableWebVTT: true,
+            enableIMSC1: true,
+            enableCEA708Captions: true,
+            stretchShortVideoTrack: false,
+            maxAudioFramesDrift: 1,
+            forceKeyFrameOnDiscontinuity: true,
+            abrEwmaFastLive: 3.0,
+            abrEwmaSlowLive: 9.0,
+            abrEwmaFastVoD: 3.0,
+            abrEwmaSlowVoD: 9.0,
+            abrEwmaDefaultEstimate: 500000,
+            abrBandWidthFactor: 0.95,
+            abrBandWidthUpFactor: 0.7,
+            abrMaxWithRealBitrate: false,
+            maxStarvationDelay: 4,
+            maxLoadingDelay: 4,
+            minAutoBitrate: 0,
+            emeEnabled: false,
+            widevineLicenseUrl: undefined,
+            drmSystems: {},
+            requestMediaKeySystemAccessFunc: null,
+            testBandwidth: true,
+            progressive: false,
+            lowLatencyMode: false,
+            fpsDroppedMonitoringPeriod: 5000,
+            fpsDroppedMonitoringThreshold: 0.2,
+            appendErrorMaxRetry: 3,
+            loader: Hls.DefaultConfig.loader,
+            fLoader: undefined,
+            pLoader: undefined,
             xhrSetup: function(xhr, url) {
                 if (url.startsWith('http://')) {
                     xhr.open('GET', `/proxy?url=${encodeURIComponent(url)}`, true);
                 }
-            }
+            },
+            fetchSetup: undefined,
+            abrController: Hls.DefaultConfig.abrController,
+            timelineController: Hls.DefaultConfig.timelineController,
+            enableSoftwareAES: true,
+            manifestLoadingTimeOut: 10000,
+            manifestLoadingMaxRetry: 1,
+            manifestLoadingRetryDelay: 1000,
+            manifestLoadingMaxRetryTimeout: 64000,
+            startLevel: undefined,
+            levelLoadingTimeOut: 10000,
+            levelLoadingMaxRetry: 4,
+            levelLoadingRetryDelay: 1000,
+            levelLoadingMaxRetryTimeout: 64000,
+            fragLoadingTimeOut: 20000,
+            fragLoadingMaxRetry: 6,
+            fragLoadingRetryDelay: 1000,
+            fragLoadingMaxRetryTimeout: 64000,
+            startFragPrefetch: false,
+            testBandwidth: true,
+            progressive: false,
+            lowLatencyMode: false
         });
         
         hls.loadSource(streamUrl);
         hls.attachMedia(videoPlayer);
         
-        hls.on(Hls.Events.MANIFEST_PARSED, function() {
+        hls.on(Hls.Events.MANIFEST_PARSED, function(event, data) {
+            console.log('Manifest parsed, levels:', data.levels);
             videoPlayer.play().catch(error => {
                 console.error('Playback error:', error);
                 updateStatusError(currentIndex, 'Playback failed');
             });
         });
         
+        hls.on(Hls.Events.FRAG_LOADED, function(event, data) {
+            console.log('Fragment loaded:', data.frag.type, data.frag.sn);
+        });
+        
+        hls.on(Hls.Events.BUFFER_APPENDED, function(event, data) {
+            console.log('Buffer appended:', data.type);
+        });
+        
         hls.on(Hls.Events.ERROR, function(event, data) {
+            console.log('HLS Error:', data.type, data.details, data.fatal);
+            
             if (data.fatal) {
                 console.error('Fatal HLS error:', data);
                 updateStatusError(currentIndex, 'Stream error');
                 switch(data.type) {
                     case Hls.ErrorTypes.NETWORK_ERROR:
                         console.log('Network error, trying to recover...');
-                        hls.startLoad();
+                        setTimeout(() => {
+                            hls.startLoad();
+                        }, 1000);
                         break;
                     case Hls.ErrorTypes.MEDIA_ERROR:
                         console.log('Media error, trying to recover...');
                         hls.recoverMediaError();
                         break;
                     default:
+                        console.log('Unrecoverable error, destroying player');
                         hls.destroy();
                         break;
                 }
+            } else {
+                console.log('Non-fatal error, continuing playback');
             }
         });
     } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl') && isHLS) {
