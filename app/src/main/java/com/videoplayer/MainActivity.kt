@@ -20,7 +20,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.IOException
 import java.net.URL
 
 class MainActivity : AppCompatActivity() {
@@ -50,9 +49,7 @@ class MainActivity : AppCompatActivity() {
         btnLoadUrl = findViewById(R.id.btn_load_url)
         
         setupButtons()
-        setupPlaylist()
         setupRecyclerView()
-        initializePlayer()
     }
     
     private fun setupButtons() {
@@ -137,60 +134,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
-    private fun setupPlaylist() {
-        try {
-            val m3u8Content = assets.open("playlist.m3u8").bufferedReader().use { it.readText() }
-            val channels = M3U8Parser.parse(m3u8Content)
-            
-            if (channels.isNotEmpty()) {
-                playlist.addAll(channels.map { channel ->
-                    VideoItem(
-                        title = channel.title,
-                        url = channel.url,
-                        isPlaying = false,
-                        logo = channel.logo,
-                        group = channel.group
-                    )
-                })
-                Log.d("VideoPlayer", "Loaded ${channels.size} channels from M3U8 playlist")
-            } else {
-                loadDefaultPlaylist()
-            }
-        } catch (e: IOException) {
-            Log.e("VideoPlayer", "Error loading M3U8 playlist", e)
-            loadDefaultPlaylist()
-        }
-    }
-    
-    private fun loadDefaultPlaylist() {
-        playlist.addAll(listOf(
-            VideoItem(
-                "Big Buck Bunny",
-                "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-            ),
-            VideoItem(
-                "Elephant Dream",
-                "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4"
-            ),
-            VideoItem(
-                "For Bigger Blazes",
-                "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
-            ),
-            VideoItem(
-                "For Bigger Escape",
-                "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4"
-            ),
-            VideoItem(
-                "For Bigger Fun",
-                "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4"
-            ),
-            VideoItem(
-                "Sintel",
-                "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4"
-            )
-        ))
-    }
-    
     private fun setupRecyclerView() {
         playlistAdapter = PlaylistAdapter(playlist) { position ->
             player?.seekToDefaultPosition(position)
@@ -204,6 +147,11 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun initializePlayer() {
+        if (playlist.isEmpty()) {
+            Log.d("VideoPlayer", "Playlist is empty, player not initialized")
+            return
+        }
+        
         player = ExoPlayer.Builder(this)
             .build()
             .apply {
