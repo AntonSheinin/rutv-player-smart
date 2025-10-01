@@ -13,9 +13,11 @@ const urlInput = document.getElementById('urlInput');
 const loadUrlBtn = document.getElementById('loadUrlBtn');
 
 function parseM3U8(content) {
+    console.log('Parsing M3U/M3U8 content, length:', content.length);
     const lines = content.split('\n');
     const channels = [];
     let currentChannel = {};
+    let channelIndex = 1;
     
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
@@ -27,17 +29,33 @@ function parseM3U8(content) {
             const titleMatch = line.match(/,\s*(.+)$/);
             
             currentChannel = {
-                title: nameMatch ? nameMatch[1] : (titleMatch ? titleMatch[1] : 'Unknown'),
+                title: nameMatch ? nameMatch[1] : (titleMatch ? titleMatch[1] : `Channel ${channelIndex}`),
                 logo: logoMatch ? logoMatch[1] : '',
                 group: groupMatch ? groupMatch[1] : 'General'
             };
-        } else if (line && !line.startsWith('#') && currentChannel.title) {
-            currentChannel.url = line;
-            channels.push(currentChannel);
-            currentChannel = {};
+        } else if (line && !line.startsWith('#') && (line.startsWith('http') || line.includes('.'))) {
+            if (currentChannel.title) {
+                currentChannel.url = line;
+                channels.push(currentChannel);
+                console.log('Parsed channel:', currentChannel.title);
+                currentChannel = {};
+                channelIndex++;
+            } else {
+                const urlFromPath = line.split('/').pop().split('?')[0];
+                const titleFromUrl = urlFromPath.replace(/\.(m3u8?|ts|mp4)$/i, '').replace(/[_-]/g, ' ');
+                channels.push({
+                    title: titleFromUrl || `Channel ${channelIndex}`,
+                    url: line,
+                    logo: '',
+                    group: 'General'
+                });
+                console.log('Parsed simple URL:', line);
+                channelIndex++;
+            }
         }
     }
     
+    console.log('Total channels parsed:', channels.length);
     return channels;
 }
 
