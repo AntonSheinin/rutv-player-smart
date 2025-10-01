@@ -24,7 +24,9 @@ jobs:
       run: chmod +x ./gradlew
     
     - name: Build Debug APK
-      run: ./gradlew assembleDebug --stacktrace
+      run: ./gradlew assembleDebug --stacktrace --no-daemon
+      env:
+        GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx2048m"
     
     - name: Upload APK as artifact
       uses: actions/upload-artifact@v4
