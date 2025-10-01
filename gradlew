@@ -17,6 +17,6 @@ die ( ) {
 
 CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
 
-DEFAULT_JVM_OPTS='"-Xmx64m" "-Xms64m"'
+DEFAULT_JVM_OPTS="-Xmx64m -Xms64m"
 
 exec java $DEFAULT_JVM_OPTS $JAVA_OPTS -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"
