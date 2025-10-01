@@ -126,6 +126,9 @@ class MainActivity : AppCompatActivity() {
                                 Player.MEDIA_ITEM_TRANSITION_REASON_SEEK -> {
                                     Log.d("VideoPlayer", "User selected: ${it.mediaId}")
                                 }
+                                else -> {
+                                    Log.d("VideoPlayer", "Media item transition: ${it.mediaId}")
+                                }
                             }
                         }
                     }
@@ -140,6 +143,9 @@ class MainActivity : AppCompatActivity() {
                             }
                             Player.STATE_ENDED -> {
                                 Log.d("VideoPlayer", "Playback ended")
+                            }
+                            else -> {
+                                Log.d("VideoPlayer", "Playback state changed")
                             }
                         }
                     }
