@@ -4,6 +4,7 @@ import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 
@@ -15,7 +16,9 @@ class PlaylistAdapter(
     private var currentlyPlayingIndex = -1
     
     class PlaylistViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val logoImageView: ImageView = view.findViewById(R.id.channel_logo)
         val titleTextView: TextView = view.findViewById(R.id.video_title)
+        val groupTextView: TextView = view.findViewById(R.id.video_group)
         val statusTextView: TextView = view.findViewById(R.id.video_status)
     }
     
@@ -29,6 +32,13 @@ class PlaylistAdapter(
         val videoItem = playlist[position]
         
         holder.titleTextView.text = videoItem.title
+        holder.groupTextView.text = videoItem.group
+        
+        if (videoItem.logo.isNotEmpty()) {
+            holder.logoImageView.visibility = View.VISIBLE
+        } else {
+            holder.logoImageView.visibility = View.GONE
+        }
         
         if (position == currentlyPlayingIndex) {
             holder.statusTextView.text = "▶ Playing"
@@ -55,5 +65,11 @@ class PlaylistAdapter(
             notifyItemChanged(previousIndex)
         }
         notifyItemChanged(currentlyPlayingIndex)
+    }
+    
+    fun updateError(index: Int, error: String) {
+        if (index == currentlyPlayingIndex) {
+            notifyItemChanged(index)
+        }
     }
 }

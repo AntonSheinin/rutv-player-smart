@@ -9,6 +9,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import java.io.IOException
 
 class MainActivity : AppCompatActivity() {
     
@@ -32,6 +33,31 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun setupPlaylist() {
+        try {
+            val m3u8Content = assets.open("playlist.m3u8").bufferedReader().use { it.readText() }
+            val channels = M3U8Parser.parse(m3u8Content)
+            
+            if (channels.isNotEmpty()) {
+                playlist.addAll(channels.map { channel ->
+                    VideoItem(
+                        title = channel.title,
+                        url = channel.url,
+                        isPlaying = false,
+                        logo = channel.logo,
+                        group = channel.group
+                    )
+                })
+                Log.d("VideoPlayer", "Loaded ${channels.size} channels from M3U8 playlist")
+            } else {
+                loadDefaultPlaylist()
+            }
+        } catch (e: IOException) {
+            Log.e("VideoPlayer", "Error loading M3U8 playlist", e)
+            loadDefaultPlaylist()
+        }
+    }
+    
+    private fun loadDefaultPlaylist() {
         playlist.addAll(listOf(
             VideoItem(
                 "Big Buck Bunny",
