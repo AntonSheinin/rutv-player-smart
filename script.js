@@ -116,14 +116,24 @@ function loadVideo(index) {
     
     const isHLS = video.url.includes('.m3u8') || video.url.includes('application/x-mpegURL');
     
+    let streamUrl = video.url;
+    if (streamUrl.startsWith('http://')) {
+        streamUrl = `/proxy?url=${encodeURIComponent(streamUrl)}`;
+    }
+    
     if (Hls.isSupported() && isHLS) {
         hls = new Hls({
             enableWorker: true,
             lowLatencyMode: false,
-            debug: false
+            debug: false,
+            xhrSetup: function(xhr, url) {
+                if (url.startsWith('http://')) {
+                    xhr.open('GET', `/proxy?url=${encodeURIComponent(url)}`, true);
+                }
+            }
         });
         
-        hls.loadSource(video.url);
+        hls.loadSource(streamUrl);
         hls.attachMedia(videoPlayer);
         
         hls.on(Hls.Events.MANIFEST_PARSED, function() {
