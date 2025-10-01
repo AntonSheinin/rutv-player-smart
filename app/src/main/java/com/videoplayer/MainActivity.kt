@@ -4,14 +4,21 @@ import android.app.AlertDialog
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
+import android.view.View
+import android.view.WindowManager
 import android.widget.Button
 import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -30,6 +37,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var playlistAdapter: PlaylistAdapter
     private lateinit var btnLoadFile: Button
     private lateinit var btnLoadUrl: Button
+    private lateinit var buttonContainer: LinearLayout
     
     private val playlist = mutableListOf<VideoItem>()
     
@@ -47,9 +55,11 @@ class MainActivity : AppCompatActivity() {
         playlistRecyclerView = findViewById(R.id.playlist_container)
         btnLoadFile = findViewById(R.id.btn_load_file)
         btnLoadUrl = findViewById(R.id.btn_load_url)
+        buttonContainer = findViewById(R.id.button_container)
         
         setupButtons()
         setupRecyclerView()
+        setupFullscreen()
     }
     
     private fun setupButtons() {
@@ -59,6 +69,42 @@ class MainActivity : AppCompatActivity() {
         
         btnLoadUrl.setOnClickListener {
             showUrlDialog()
+        }
+    }
+    
+    private fun setupFullscreen() {
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        
+        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+        windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
+        
+        playerView.setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { visibility ->
+            if (visibility == View.VISIBLE) {
+                showUIElements()
+            } else {
+                hideUIElements()
+            }
+        })
+    }
+    
+    private fun hideUIElements() {
+        buttonContainer.visibility = View.GONE
+        playlistRecyclerView.visibility = View.GONE
+    }
+    
+    private fun showUIElements() {
+        buttonContainer.visibility = View.VISIBLE
+        playlistRecyclerView.visibility = View.VISIBLE
+    }
+    
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+            windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
         }
     }
     
@@ -152,7 +198,12 @@ class MainActivity : AppCompatActivity() {
             return
         }
         
-        player = ExoPlayer.Builder(this)
+        val renderersFactory = DefaultRenderersFactory(this)
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+        
+        player = ExoPlayer.Builder(this, renderersFactory)
+            .setSeekBackIncrementMs(10000)
+            .setSeekForwardIncrementMs(10000)
             .build()
             .apply {
                 val mediaItems = playlist.map { videoItem ->
@@ -196,6 +247,7 @@ class MainActivity : AppCompatActivity() {
                             }
                             Player.STATE_ENDED -> {
                                 Log.d("VideoPlayer", "Playback ended")
+                                showUIElements()
                             }
                             else -> {
                                 Log.d("VideoPlayer", "Playback state changed")
