@@ -87,6 +87,7 @@ The player supports M3U/M3U8 format playlists with:
 - Enabled cross-protocol redirects for IPTV compatibility
 - Added RTSP and SmoothStreaming protocol support
 - Set FFmpeg extension mode to PREFER for better codec fallback
+- Disabled subtitle/text renderer to prevent Teletext (telx) errors
 - On-screen debug log shows FFmpeg status, playback state, and errors
 
 ### Earlier October 2, 2025
