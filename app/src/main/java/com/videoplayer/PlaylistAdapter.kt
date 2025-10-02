@@ -54,14 +54,6 @@ class PlaylistAdapter(
         holder.itemView.setOnClickListener {
             onItemClick(position)
         }
-        
-        holder.itemView.setOnFocusChangeListener { view, hasFocus ->
-            if (hasFocus) {
-                view.animate().scaleX(1.05f).scaleY(1.05f).setDuration(150).start()
-            } else {
-                view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
-            }
-        }
     }
     
     override fun getItemCount(): Int = playlist.size

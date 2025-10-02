@@ -89,9 +89,10 @@ class FloatAudioRenderersFactory(context: Context) : DefaultRenderersFactory(con
                 requiresSecureDecoder: Boolean,
                 requiresTunnelingDecoder: Boolean
             ): List<androidx.media3.exoplayer.mediacodec.MediaCodecInfo> {
-                if (mimeType == androidx.media3.common.MimeTypes.AUDIO_MPEG_L2 || 
+                if (mimeType == androidx.media3.common.MimeTypes.AUDIO_MPEG || 
+                    mimeType == androidx.media3.common.MimeTypes.AUDIO_MPEG_L2 || 
                     mimeType == androidx.media3.common.MimeTypes.AUDIO_MPEG_L1) {
-                    Log.d("VideoPlayer", "Blocking MediaCodec for: $mimeType")
+                    Log.d("VideoPlayer", "Routing to FFmpeg for: $mimeType")
                     return emptyList()
                 }
                 return mediaCodecSelector.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder)
@@ -177,7 +178,6 @@ class MainActivity : AppCompatActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
@@ -287,10 +287,6 @@ class MainActivity : AppCompatActivity() {
             player?.release()
             initializePlayer()
             
-            playlistRecyclerView.post {
-                playlistRecyclerView.getChildAt(0)?.requestFocus()
-            }
-            
             Toast.makeText(this, "Loaded ${channels.size} channels", Toast.LENGTH_SHORT).show()
             Log.d("VideoPlayer", "Loaded ${channels.size} channels from playlist")
         } else {
@@ -331,7 +327,7 @@ class MainActivity : AppCompatActivity() {
         }
         
         val renderersFactory = FloatAudioRenderersFactory(this)
-            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
         
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
@@ -477,42 +473,6 @@ class MainActivity : AppCompatActivity() {
         bufferingStartTime = 0
     }
     
-    override fun dispatchKeyEvent(event: android.view.KeyEvent?): Boolean {
-        event?.let {
-            if (it.action == android.view.KeyEvent.ACTION_DOWN) {
-                when (it.keyCode) {
-                    android.view.KeyEvent.KEYCODE_DPAD_UP,
-                    android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
-                        return super.dispatchKeyEvent(it)
-                    }
-                    android.view.KeyEvent.KEYCODE_DPAD_CENTER,
-                    android.view.KeyEvent.KEYCODE_ENTER -> {
-                        playlistRecyclerView.focusedChild?.let { focusedView ->
-                            val position = playlistRecyclerView.getChildAdapterPosition(focusedView)
-                            if (position >= 0 && position < playlist.size) {
-                                player?.let { p ->
-                                    if (p.currentMediaItemIndex != position) {
-                                        addDebugMessage("→ STB: Playing channel #${position + 1}")
-                                        p.seekTo(position, C.TIME_UNSET)
-                                        p.play()
-                                    }
-                                }
-                            }
-                        }
-                        return true
-                    }
-                    android.view.KeyEvent.KEYCODE_MEDIA_PLAY,
-                    android.view.KeyEvent.KEYCODE_MEDIA_PAUSE,
-                    android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
-                    android.view.KeyEvent.KEYCODE_MEDIA_NEXT,
-                    android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS -> {
-                        return playerView.dispatchKeyEvent(it) || super.dispatchKeyEvent(it)
-                    }
-                }
-            }
-        }
-        return super.dispatchKeyEvent(event)
-    }
     
     override fun onStart() {
         super.onStart()

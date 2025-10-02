@@ -65,17 +65,17 @@ The player supports M3U/M3U8 format playlists with:
 ## Recent Changes
 
 ### October 2, 2025 (Latest)
-- **Fixed MP2/ADTS audio**: FFmpeg audio renderer prioritized before MediaCodec for all MPEG Layer 1/2 and ADTS streams (including 256kb/s high-bitrate)
-- **Fixed channel selection**: Restored proper renderer reset during seek/prepare operations
+- **CRITICAL MP2 AUDIO FIX**: Force all MPEG audio (audio/mpeg, audio/mpeg-L2, audio/mpeg-L1) through FFmpeg by blocking MediaCodec for these mime types. HLS/TS streams expose MP2 as "audio/mpeg" not "audio/mpeg-L2", so previous filtering was incomplete.
+- **Phone-only app**: Removed ALL STB D-pad navigation code, focus handling, and related UI complexity. App is now optimized for phone touch input only.
+- **FFmpeg renderer**: Explicitly added FfmpegAudioRenderer with context parameter, placed first in renderer list before MediaCodec
+- **Extension mode**: Changed to EXTENSION_RENDERER_MODE_ON to ensure FFmpeg handles unsupported formats while MediaCodec handles supported ones (AAC, etc)
+- **Simplified UI**: Removed STB focus states, scale animations, and dark yellow highlighting. Single tap to play with grey background for currently playing channel.
 - **Float audio output**: Enabled 32-bit float PCM support for advanced audio codecs
-- **Android STB remote control**: Full D-pad navigation with visual focus indicators (green background, scale animation)
-- **Disabled all subtitles**: Text/subtitle renderer completely removed (no Teletext, VTT, SRT, etc.)
-- **FFmpeg integration**: Proper integration with Jellyfin's media3-ffmpeg-decoder
+- **Disabled all subtitles**: Text/subtitle renderer completely removed
 - **Buffering timeout**: 30s timeout detection with user notification
 - **Custom HTTP data source**: 15s connect/read timeouts, cross-protocol redirects
-- **On-screen debug log**: Shows FFmpeg status, playback state, and errors
+- **On-screen debug log**: Shows FFmpeg status, playback state, mime type routing
 - **Fullscreen mode**: Auto-hiding UI during playback
-- **Removed web demo**: Cleaned up all unused web player files and playlists
 
 ### October 1, 2025
 - Initial Android project with Media3/ExoPlayer integration
