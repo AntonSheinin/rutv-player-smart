@@ -18,6 +18,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.decoder.ffmpeg.FfmpegLibrary
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
@@ -198,8 +199,14 @@ class MainActivity : AppCompatActivity() {
             return
         }
         
+        if (FfmpegLibrary.isAvailable()) {
+            Log.d("VideoPlayer", "FFmpeg available - version: ${FfmpegLibrary.getVersion()}")
+        } else {
+            Log.w("VideoPlayer", "FFmpeg NOT available - MP2 audio may not work")
+        }
+        
         val renderersFactory = DefaultRenderersFactory(this)
-            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
         
         player = ExoPlayer.Builder(this, renderersFactory)
             .setSeekBackIncrementMs(10000)
@@ -256,16 +263,22 @@ class MainActivity : AppCompatActivity() {
                     }
                     
                     override fun onPlayerError(error: PlaybackException) {
-                        Log.e("VideoPlayer", "Player error: ${error.message}", error)
+                        val channelName = currentMediaItem?.mediaId ?: "Unknown"
+                        Log.e("VideoPlayer", "Error playing '$channelName': ${error.message}", error)
+                        
                         Toast.makeText(
                             this@MainActivity, 
-                            "Playback error: ${error.message}", 
+                            "Cannot play '$channelName' - skipping to next channel", 
                             Toast.LENGTH_SHORT
                         ).show()
                         
                         if (hasNextMediaItem()) {
+                            Log.d("VideoPlayer", "Auto-skipping to next channel")
                             seekToNext()
                             prepare()
+                            play()
+                        } else {
+                            Log.d("VideoPlayer", "No more channels to play")
                         }
                     }
                 })

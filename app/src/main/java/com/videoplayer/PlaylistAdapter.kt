@@ -7,6 +7,8 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.engine.DiskCacheStrategy
 
 class PlaylistAdapter(
     private val playlist: List<VideoItem>,
@@ -36,8 +38,15 @@ class PlaylistAdapter(
         
         if (videoItem.logo.isNotEmpty()) {
             holder.logoImageView.visibility = View.VISIBLE
+            Glide.with(holder.itemView.context)
+                .load(videoItem.logo)
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .placeholder(R.drawable.ic_channel_placeholder)
+                .error(R.drawable.ic_channel_placeholder)
+                .into(holder.logoImageView)
         } else {
-            holder.logoImageView.visibility = View.GONE
+            holder.logoImageView.visibility = View.VISIBLE
+            holder.logoImageView.setImageResource(R.drawable.ic_channel_placeholder)
         }
         
         if (position == currentlyPlayingIndex) {
