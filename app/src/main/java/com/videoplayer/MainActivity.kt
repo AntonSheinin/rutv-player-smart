@@ -28,7 +28,6 @@ import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
-import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.upstream.DefaultHttpDataSource
 import androidx.media3.ui.PlayerView
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -235,7 +234,6 @@ class MainActivity : AppCompatActivity() {
             val version = FfmpegLibrary.getVersion()
             addDebugMessage("✓ FFmpeg: v$version")
             addDebugMessage("✓ MP2 audio: Supported")
-            addDebugMessage("✓ Teletext: Disabled")
         } else {
             addDebugMessage("✗ FFmpeg: NOT LOADED")
             addDebugMessage("✗ MP2 audio: NOT SUPPORTED")
@@ -258,15 +256,7 @@ class MainActivity : AppCompatActivity() {
             .setReadTimeoutMs(15000)
             .setAllowCrossProtocolRedirects(true)
         
-        val trackSelector = DefaultTrackSelector(this)
-        trackSelector.setParameters(
-            trackSelector.buildUponParameters()
-                .setRendererDisabled(C.TRACK_TYPE_TEXT, true)
-                .build()
-        )
-        
         player = ExoPlayer.Builder(this, renderersFactory)
-            .setTrackSelector(trackSelector)
             .setLoadControl(loadControl)
             .setMediaSourceFactory(
                 DefaultMediaSourceFactory(this)
