@@ -91,6 +91,15 @@ class FloatAudioRenderersFactory(context: Context) : DefaultRenderersFactory(con
             )
         )
     }
+    
+    override fun buildTextRenderers(
+        context: Context,
+        output: androidx.media3.exoplayer.text.TextOutput,
+        outputLooper: android.os.Looper,
+        extensionRendererMode: Int,
+        out: ArrayList<Renderer>
+    ) {
+    }
 }
 
 @OptIn(UnstableApi::class)

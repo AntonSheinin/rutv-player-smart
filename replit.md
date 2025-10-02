@@ -79,15 +79,20 @@ The player supports M3U/M3U8 format playlists with:
 
 ## Recent Changes
 
-### October 2, 2025 (Latest)
+### October 2, 2025 (Latest Session)
+- **Fixed MP2/ADTS audio buffering**: FFmpeg audio renderer prioritized before MediaCodec to handle all MPEG Layer 1/2 and ADTS streams (including 256kb/s high-bitrate)
+- **Float audio output**: Enabled 32-bit float PCM support for ADTS and other advanced audio codecs
+- **Android STB remote control support**: Full D-pad navigation with visual focus indicators (green background, scale animation)
+- **Disabled all subtitles**: Text/subtitle renderer completely removed (no Teletext, VTT, SRT, etc.)
+- **Reflection-based FFmpeg loading**: Proper integration with Jellyfin's media3-ffmpeg-decoder for codec support
+
+### Earlier October 2, 2025
 - Removed auto-skip on playback errors - users manually select channels
 - Added buffering timeout detection (30s) with user notification
 - Configured DefaultLoadControl with finite buffer durations (3s min, 15s max)
 - Added custom HTTP data source with 15s connect/read timeouts
 - Enabled cross-protocol redirects for IPTV compatibility
 - Added RTSP and SmoothStreaming protocol support
-- Set FFmpeg extension mode to PREFER for better codec fallback
-- Disabled subtitle/text renderer to prevent Teletext (telx) errors
 - On-screen debug log shows FFmpeg status, playback state, and errors
 
 ### Earlier October 2, 2025
