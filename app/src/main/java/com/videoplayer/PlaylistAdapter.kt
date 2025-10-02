@@ -48,6 +48,7 @@ class PlaylistAdapter(
             holder.logoImageView.setImageResource(R.drawable.ic_channel_placeholder)
         }
         
+        holder.itemView.isSelected = (position == currentlyPlayingIndex)
         holder.statusTextView.text = ""
         
         holder.itemView.setOnClickListener {
