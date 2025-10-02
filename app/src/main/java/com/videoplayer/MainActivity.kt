@@ -271,8 +271,13 @@ class MainActivity : AppCompatActivity() {
     
     private fun setupRecyclerView() {
         playlistAdapter = PlaylistAdapter(playlist) { position ->
-            player?.seekToDefaultPosition(position)
-            player?.playWhenReady = true
+            player?.let { p ->
+                if (p.currentMediaItemIndex != position) {
+                    addDebugMessage("→ Switching to channel #${position + 1}")
+                    p.seekTo(position, C.TIME_UNSET)
+                    p.play()
+                }
+            }
         }
         
         playlistRecyclerView.apply {
