@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#000000</color>
-    <color name="focused_background">#FF9966</color>
-    <color name="selected_background">#333333</color>
+    <color name="focused_background">#B8860B</color>
+    <color name="selected_background">#555555</color>
     <color name="default_background">#1a1a1a</color>
 </resources>

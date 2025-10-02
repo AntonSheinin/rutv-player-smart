@@ -69,6 +69,18 @@ class FloatAudioRenderersFactory(context: Context) : DefaultRenderersFactory(con
         eventListener: AudioRendererEventListener,
         out: ArrayList<Renderer>
     ) {
+        try {
+            out.add(
+                FfmpegAudioRenderer(
+                    eventHandler,
+                    eventListener,
+                    audioSink
+                )
+            )
+        } catch (e: Exception) {
+            Log.e("VideoPlayer", "Failed to add FFmpeg audio renderer", e)
+        }
+        
         val mp2FilteredSelector = object : MediaCodecSelector {
             override fun getDecoderInfos(
                 mimeType: String,
@@ -468,22 +480,23 @@ class MainActivity : AppCompatActivity() {
                 when (it.keyCode) {
                     android.view.KeyEvent.KEYCODE_DPAD_UP,
                     android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
-                        val handled = super.dispatchKeyEvent(it)
-                        playlistRecyclerView.postDelayed({
-                            playlistRecyclerView.focusedChild?.let { focusedView ->
-                                val position = playlistRecyclerView.getChildAdapterPosition(focusedView)
-                                if (position >= 0 && position < playlist.size) {
-                                    player?.let { p ->
-                                        if (p.currentMediaItemIndex != position) {
-                                            addDebugMessage("→ STB: Channel #${position + 1}")
-                                            p.seekTo(position, C.TIME_UNSET)
-                                            p.play()
-                                        }
+                        return super.dispatchKeyEvent(it)
+                    }
+                    android.view.KeyEvent.KEYCODE_DPAD_CENTER,
+                    android.view.KeyEvent.KEYCODE_ENTER -> {
+                        playlistRecyclerView.focusedChild?.let { focusedView ->
+                            val position = playlistRecyclerView.getChildAdapterPosition(focusedView)
+                            if (position >= 0 && position < playlist.size) {
+                                player?.let { p ->
+                                    if (p.currentMediaItemIndex != position) {
+                                        addDebugMessage("→ STB: Playing channel #${position + 1}")
+                                        p.seekTo(position, C.TIME_UNSET)
+                                        p.play()
                                     }
                                 }
                             }
-                        }, 50)
-                        return handled
+                        }
+                        return true
                     }
                     android.view.KeyEvent.KEYCODE_MEDIA_PLAY,
                     android.view.KeyEvent.KEYCODE_MEDIA_PAUSE,
