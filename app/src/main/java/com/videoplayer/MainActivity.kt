@@ -24,13 +24,18 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.decoder.ffmpeg.FfmpegAudioRenderer
 import androidx.media3.decoder.ffmpeg.FfmpegLibrary
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.Renderer
+import androidx.media3.exoplayer.audio.AudioRendererEventListener
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.exoplayer.audio.MediaCodecAudioRenderer
+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -43,6 +48,7 @@ import java.net.URL
 
 @OptIn(UnstableApi::class)
 class FloatAudioRenderersFactory(context: Context) : DefaultRenderersFactory(context) {
+    
     override fun buildAudioSink(
         context: Context,
         enableFloatOutput: Boolean,
@@ -52,6 +58,38 @@ class FloatAudioRenderersFactory(context: Context) : DefaultRenderersFactory(con
             .setEnableFloatOutput(true)
             .setEnableAudioTrackPlaybackParams(true)
             .build()
+    }
+    
+    override fun buildAudioRenderers(
+        context: Context,
+        extensionRendererMode: Int,
+        mediaCodecSelector: MediaCodecSelector,
+        enableDecoderFallback: Boolean,
+        audioSink: AudioSink,
+        eventHandler: android.os.Handler,
+        eventListener: AudioRendererEventListener,
+        out: ArrayList<Renderer>
+    ) {
+        if (FfmpegLibrary.isAvailable()) {
+            out.add(
+                FfmpegAudioRenderer(
+                    eventHandler,
+                    eventListener,
+                    audioSink
+                )
+            )
+        }
+        
+        out.add(
+            MediaCodecAudioRenderer(
+                context,
+                mediaCodecSelector,
+                true,
+                eventHandler,
+                eventListener,
+                audioSink
+            )
+        )
     }
 }
 
