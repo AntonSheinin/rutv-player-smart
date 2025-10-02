@@ -257,9 +257,12 @@ class MainActivity : AppCompatActivity() {
             .setAllowCrossProtocolRedirects(true)
         
         val trackSelector = DefaultTrackSelector(this).apply {
-            parameters = buildUponParameters()
-                .setRendererDisabled(C.TRACK_TYPE_TEXT, true)
-                .build()
+            setParameters(
+                parameters
+                    .buildUpon()
+                    .setRendererDisabled(C.TRACK_TYPE_TEXT, true)
+                    .build()
+            )
         }
         
         player = ExoPlayer.Builder(this, renderersFactory)
