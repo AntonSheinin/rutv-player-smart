@@ -38,7 +38,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.URL
 
-@androidx.annotation.OptIn(UnstableApi::class)
+@UnstableApi
 class MainActivity : AppCompatActivity() {
     
     private var player: ExoPlayer? = null
