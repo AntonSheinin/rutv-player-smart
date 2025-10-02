@@ -248,6 +248,10 @@ class MainActivity : AppCompatActivity() {
             player?.release()
             initializePlayer()
             
+            playlistRecyclerView.post {
+                playlistRecyclerView.getChildAt(0)?.requestFocus()
+            }
+            
             Toast.makeText(this, "Loaded ${channels.size} channels", Toast.LENGTH_SHORT).show()
             Log.d("VideoPlayer", "Loaded ${channels.size} channels from playlist")
         } else {
@@ -427,6 +431,23 @@ class MainActivity : AppCompatActivity() {
     private fun stopBufferingCheck() {
         cancelBufferingCheckCallbacks()
         bufferingStartTime = 0
+    }
+    
+    override fun dispatchKeyEvent(event: android.view.KeyEvent?): Boolean {
+        event?.let {
+            if (it.action == android.view.KeyEvent.ACTION_DOWN) {
+                when (it.keyCode) {
+                    android.view.KeyEvent.KEYCODE_MEDIA_PLAY,
+                    android.view.KeyEvent.KEYCODE_MEDIA_PAUSE,
+                    android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
+                    android.view.KeyEvent.KEYCODE_MEDIA_NEXT,
+                    android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS -> {
+                        return playerView.dispatchKeyEvent(it) || super.dispatchKeyEvent(it)
+                    }
+                }
+            }
+        }
+        return super.dispatchKeyEvent(event)
     }
     
     override fun onStart() {

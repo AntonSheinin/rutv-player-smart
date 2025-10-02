@@ -49,18 +49,36 @@ class PlaylistAdapter(
             holder.logoImageView.setImageResource(R.drawable.ic_channel_placeholder)
         }
         
+        holder.itemView.isSelected = (position == currentlyPlayingIndex)
+        
         if (position == currentlyPlayingIndex) {
             holder.statusTextView.text = "▶ Playing"
             holder.statusTextView.setTextColor(Color.parseColor("#00FF00"))
-            holder.itemView.setBackgroundColor(Color.parseColor("#333333"))
         } else {
             holder.statusTextView.text = "Ready"
             holder.statusTextView.setTextColor(Color.parseColor("#AAAAAA"))
-            holder.itemView.setBackgroundColor(Color.parseColor("#1a1a1a"))
         }
         
         holder.itemView.setOnClickListener {
             onItemClick(position)
+        }
+        
+        holder.itemView.setOnKeyListener { view, keyCode, keyEvent ->
+            if (keyEvent.action == android.view.KeyEvent.ACTION_DOWN && 
+                (keyCode == android.view.KeyEvent.KEYCODE_DPAD_CENTER || keyCode == android.view.KeyEvent.KEYCODE_ENTER)) {
+                onItemClick(position)
+                true
+            } else {
+                false
+            }
+        }
+        
+        holder.itemView.setOnFocusChangeListener { view, hasFocus ->
+            if (hasFocus) {
+                view.animate().scaleX(1.05f).scaleY(1.05f).setDuration(150).start()
+            } else {
+                view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
+            }
         }
     }
     
