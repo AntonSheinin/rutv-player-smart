@@ -63,16 +63,6 @@ class PlaylistAdapter(
             onItemClick(position)
         }
         
-        holder.itemView.setOnKeyListener { view, keyCode, keyEvent ->
-            if (keyEvent.action == android.view.KeyEvent.ACTION_DOWN && 
-                (keyCode == android.view.KeyEvent.KEYCODE_DPAD_CENTER || keyCode == android.view.KeyEvent.KEYCODE_ENTER)) {
-                onItemClick(position)
-                true
-            } else {
-                false
-            }
-        }
-        
         holder.itemView.setOnFocusChangeListener { view, hasFocus ->
             if (hasFocus) {
                 view.animate().scaleX(1.05f).scaleY(1.05f).setDuration(150).start()

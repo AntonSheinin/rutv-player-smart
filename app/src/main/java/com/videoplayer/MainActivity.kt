@@ -452,6 +452,25 @@ class MainActivity : AppCompatActivity() {
         event?.let {
             if (it.action == android.view.KeyEvent.ACTION_DOWN) {
                 when (it.keyCode) {
+                    android.view.KeyEvent.KEYCODE_DPAD_UP,
+                    android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
+                        val handled = super.dispatchKeyEvent(it)
+                        playlistRecyclerView.postDelayed({
+                            playlistRecyclerView.focusedChild?.let { focusedView ->
+                                val position = playlistRecyclerView.getChildAdapterPosition(focusedView)
+                                if (position >= 0 && position < playlist.size) {
+                                    player?.let { p ->
+                                        if (p.currentMediaItemIndex != position) {
+                                            addDebugMessage("→ STB: Channel #${position + 1}")
+                                            p.seekTo(position, C.TIME_UNSET)
+                                            p.play()
+                                        }
+                                    }
+                                }
+                            }
+                        }, 50)
+                        return handled
+                    }
                     android.view.KeyEvent.KEYCODE_MEDIA_PLAY,
                     android.view.KeyEvent.KEYCODE_MEDIA_PAUSE,
                     android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
