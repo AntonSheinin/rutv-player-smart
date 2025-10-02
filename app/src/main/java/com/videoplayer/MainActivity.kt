@@ -34,7 +34,6 @@ import androidx.media3.exoplayer.Renderer
 import androidx.media3.exoplayer.audio.AudioRendererEventListener
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
-import androidx.media3.exoplayer.audio.MediaCodecAudioRenderer
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
@@ -70,26 +69,25 @@ class FloatAudioRenderersFactory(context: Context) : DefaultRenderersFactory(con
         eventListener: AudioRendererEventListener,
         out: ArrayList<Renderer>
     ) {
-        if (FfmpegLibrary.isAvailable()) {
-            out.add(
-                FfmpegAudioRenderer(
-                    eventHandler,
-                    eventListener,
-                    audioSink
-                )
-            )
-        }
+        super.buildAudioRenderers(
+            context,
+            extensionRendererMode,
+            mediaCodecSelector,
+            enableDecoderFallback,
+            audioSink,
+            eventHandler,
+            eventListener,
+            out
+        )
         
-        out.add(
-            MediaCodecAudioRenderer(
-                context,
-                mediaCodecSelector,
-                true,
+        if (FfmpegLibrary.isAvailable() && out.isNotEmpty()) {
+            val ffmpegRenderer = FfmpegAudioRenderer(
                 eventHandler,
                 eventListener,
                 audioSink
             )
-        )
+            out.add(0, ffmpegRenderer)
+        }
     }
     
     override fun buildTextRenderers(
