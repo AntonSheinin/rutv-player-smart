@@ -256,14 +256,12 @@ class MainActivity : AppCompatActivity() {
             .setReadTimeoutMs(15000)
             .setAllowCrossProtocolRedirects(true)
         
-        val trackSelector = DefaultTrackSelector(this).apply {
-            setParameters(
-                parameters
-                    .buildUpon()
-                    .setRendererDisabled(C.TRACK_TYPE_TEXT, true)
-                    .build()
-            )
-        }
+        val trackSelector = DefaultTrackSelector(this)
+        trackSelector.setParameters(
+            trackSelector.buildUponParameters()
+                .setRendererDisabled(C.TRACK_TYPE_TEXT, true)
+                .build()
+        )
         
         player = ExoPlayer.Builder(this, renderersFactory)
             .setTrackSelector(trackSelector)
