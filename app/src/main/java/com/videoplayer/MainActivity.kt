@@ -69,18 +69,6 @@ class FloatAudioRenderersFactory(context: Context) : DefaultRenderersFactory(con
         eventListener: AudioRendererEventListener,
         out: ArrayList<Renderer>
     ) {
-        try {
-            out.add(
-                FfmpegAudioRenderer(
-                    eventHandler,
-                    eventListener,
-                    audioSink
-                )
-            )
-        } catch (e: Exception) {
-            Log.e("VideoPlayer", "Failed to add FFmpeg audio renderer", e)
-        }
-        
         val mp2FilteredSelector = object : MediaCodecSelector {
             override fun getDecoderInfos(
                 mimeType: String,
