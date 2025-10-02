@@ -187,7 +187,7 @@ class MainActivity : AppCompatActivity() {
         }
         
         playlistRecyclerView.apply {
-            layoutManager = LinearLayoutManager(this@MainActivity, LinearLayoutManager.HORIZONTAL, false)
+            layoutManager = LinearLayoutManager(this@MainActivity, LinearLayoutManager.VERTICAL, false)
             adapter = playlistAdapter
         }
     }
