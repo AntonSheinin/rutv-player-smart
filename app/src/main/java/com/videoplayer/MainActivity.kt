@@ -72,7 +72,6 @@ class FloatAudioRenderersFactory(context: Context) : DefaultRenderersFactory(con
         try {
             out.add(
                 FfmpegAudioRenderer(
-                    context,
                     eventHandler,
                     eventListener,
                     audioSink
