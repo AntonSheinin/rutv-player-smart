@@ -79,15 +79,6 @@ class FloatAudioRenderersFactory(context: Context) : DefaultRenderersFactory(con
             eventListener,
             out
         )
-        
-        if (FfmpegLibrary.isAvailable() && out.isNotEmpty()) {
-            val ffmpegRenderer = FfmpegAudioRenderer(
-                eventHandler,
-                eventListener,
-                audioSink
-            )
-            out.add(0, ffmpegRenderer)
-        }
     }
     
     override fun buildTextRenderers(
