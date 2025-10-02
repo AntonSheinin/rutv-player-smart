@@ -11,7 +11,9 @@ This project contains an Android video player application using Media3 (ExoPlaye
 - **Min SDK**: 24 (Android 7.0)
 - **Target SDK**: 34 (Android 14)
 - **Key Features**:
-  - Video playlist loading and playback
+  - M3U/M3U8 IPTV playlist loading (manual upload)
+  - MP2/mp2a audio codec support via FFmpeg extension
+  - Fullscreen playback with auto-hiding UI
   - Previous/Next navigation
   - Auto-advance to next video
   - Repeat all mode
@@ -38,6 +40,7 @@ This project contains an Android video player application using Media3 (ExoPlaye
 - `androidx.media3:media3-common:1.8.0`
 - `androidx.media3:media3-exoplayer-dash:1.8.0`
 - `androidx.media3:media3-exoplayer-hls:1.8.0`
+- `org.jellyfin.media3:media3-ffmpeg-decoder:1.8.0+1` (for MP2/mp2a audio codec support)
 
 ## Building the Android App
 
@@ -69,17 +72,25 @@ The player supports M3U/M3U8 format playlists with:
 - HLS (HTTP Live Streaming) video sources
 - IPTV playlists
 
-### Loading Playlists
-- **Default**: Loads `playlist.m3u8` on startup
-- **Upload File**: Click "Upload M3U/M3U8 File" to load local playlist
-- **URL**: Enter a playlist URL and click "Load URL"
+### Loading Playlists (Android App)
+- App starts with empty playlist
+- **Upload File**: Click "Load M3U/M3U8" to select playlist from device storage
+- **URL**: Click "Load URL" to enter playlist URL
 
-## Recent Changes (October 1, 2025)
+## Recent Changes
+
+### October 2, 2025
+- Added FFmpeg extension for MP2/mp2a audio codec support (Jellyfin pre-built AAR)
+- Implemented fullscreen mode with auto-hiding UI (buttons/playlist hide during playback)
+- Fixed button visibility with elevation layering
+- Configured DefaultRenderersFactory with EXTENSION_RENDERER_MODE_PREFER
+
+### October 1, 2025
 - Created Android project with Media3/ExoPlayer integration
 - Implemented M3U8 playlist parser for IPTV support
 - Added HLS.js with MPEG-TS support and enhanced buffering
 - Created HTTP proxy server for mixed content handling
-- Added playlist loader (upload file or load from URL)
+- Added manual playlist loader (upload file or load from URL)
 - Implemented channel logos and categories
 - Enhanced error recovery and network handling
 - Created web-based demo for in-browser testing
