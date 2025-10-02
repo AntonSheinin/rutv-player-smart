@@ -39,8 +39,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnLoadFile: Button
     private lateinit var btnLoadUrl: Button
     private lateinit var buttonContainer: LinearLayout
+    private lateinit var debugLog: TextView
     
     private val playlist = mutableListOf<VideoItem>()
+    private val debugMessages = mutableListOf<String>()
     
     private val filePickerLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
@@ -57,6 +59,9 @@ class MainActivity : AppCompatActivity() {
         btnLoadFile = findViewById(R.id.btn_load_file)
         btnLoadUrl = findViewById(R.id.btn_load_url)
         buttonContainer = findViewById(R.id.button_container)
+        debugLog = findViewById(R.id.debug_log)
+        
+        addDebugMessage("App Started")
         
         setupButtons()
         setupRecyclerView()
@@ -91,14 +96,27 @@ class MainActivity : AppCompatActivity() {
         })
     }
     
+    private fun addDebugMessage(message: String) {
+        runOnUiThread {
+            debugMessages.add(message)
+            if (debugMessages.size > 10) {
+                debugMessages.removeAt(0)
+            }
+            debugLog.text = debugMessages.joinToString("\n")
+            Log.d("VideoPlayer", message)
+        }
+    }
+    
     private fun hideUIElements() {
         buttonContainer.visibility = View.GONE
         playlistRecyclerView.visibility = View.GONE
+        debugLog.visibility = View.GONE
     }
     
     private fun showUIElements() {
         buttonContainer.visibility = View.VISIBLE
         playlistRecyclerView.visibility = View.VISIBLE
+        debugLog.visibility = View.VISIBLE
     }
     
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -200,9 +218,12 @@ class MainActivity : AppCompatActivity() {
         }
         
         if (FfmpegLibrary.isAvailable()) {
-            Log.d("VideoPlayer", "FFmpeg available - version: ${FfmpegLibrary.getVersion()}")
+            val version = FfmpegLibrary.getVersion()
+            addDebugMessage("✓ FFmpeg: v$version")
+            addDebugMessage("✓ MP2 audio: Supported")
         } else {
-            Log.w("VideoPlayer", "FFmpeg NOT available - MP2 audio may not work")
+            addDebugMessage("✗ FFmpeg: NOT LOADED")
+            addDebugMessage("✗ MP2 audio: NOT SUPPORTED")
         }
         
         val renderersFactory = DefaultRenderersFactory(this)
@@ -247,38 +268,39 @@ class MainActivity : AppCompatActivity() {
                     override fun onPlaybackStateChanged(playbackState: Int) {
                         when (playbackState) {
                             Player.STATE_READY -> {
-                                Log.d("VideoPlayer", "Ready to play")
+                                val channelName = currentMediaItem?.mediaId ?: "Unknown"
+                                addDebugMessage("▶ Playing: $channelName")
                             }
                             Player.STATE_BUFFERING -> {
-                                Log.d("VideoPlayer", "Buffering...")
+                                addDebugMessage("⏳ Buffering...")
                             }
                             Player.STATE_ENDED -> {
-                                Log.d("VideoPlayer", "Playback ended")
+                                addDebugMessage("⏹ Playback ended")
                                 showUIElements()
-                            }
-                            else -> {
-                                Log.d("VideoPlayer", "Playback state changed")
                             }
                         }
                     }
                     
                     override fun onPlayerError(error: PlaybackException) {
                         val channelName = currentMediaItem?.mediaId ?: "Unknown"
-                        Log.e("VideoPlayer", "Error playing '$channelName': ${error.message}", error)
+                        val errorMsg = error.message ?: "Unknown error"
+                        
+                        addDebugMessage("✗ Error: $channelName")
+                        addDebugMessage("  → $errorMsg")
                         
                         Toast.makeText(
                             this@MainActivity, 
-                            "Cannot play '$channelName' - skipping to next channel", 
+                            "Cannot play - skipping", 
                             Toast.LENGTH_SHORT
                         ).show()
                         
                         if (hasNextMediaItem()) {
-                            Log.d("VideoPlayer", "Auto-skipping to next channel")
+                            addDebugMessage("⏩ Skipping to next...")
                             seekToNext()
                             prepare()
                             play()
                         } else {
-                            Log.d("VideoPlayer", "No more channels to play")
+                            addDebugMessage("⏹ No more channels")
                         }
                     }
                 })
