@@ -79,11 +79,20 @@ The player supports M3U/M3U8 format playlists with:
 
 ## Recent Changes
 
-### October 2, 2025
+### October 2, 2025 (Latest)
+- Removed auto-skip on playback errors - users manually select channels
+- Added buffering timeout detection (30s) with user notification
+- Configured DefaultLoadControl with finite buffer durations (3s min, 15s max)
+- Added custom HTTP data source with 15s connect/read timeouts
+- Enabled cross-protocol redirects for IPTV compatibility
+- Added RTSP and SmoothStreaming protocol support
+- Set FFmpeg extension mode to PREFER for better codec fallback
+- On-screen debug log shows FFmpeg status, playback state, and errors
+
+### Earlier October 2, 2025
 - Added FFmpeg extension for MP2/mp2a audio codec support (Jellyfin pre-built AAR)
 - Implemented fullscreen mode with auto-hiding UI (buttons/playlist hide during playback)
 - Fixed button visibility with elevation layering
-- Configured DefaultRenderersFactory with EXTENSION_RENDERER_MODE_PREFER
 
 ### October 1, 2025
 - Created Android project with Media3/ExoPlayer integration

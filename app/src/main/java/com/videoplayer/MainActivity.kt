@@ -3,6 +3,8 @@ package com.videoplayer
 import android.app.AlertDialog
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.View
 import android.view.WindowManager
@@ -20,8 +22,10 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.decoder.ffmpeg.FfmpegLibrary
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.upstream.DefaultHttpDataSource
 import androidx.media3.ui.PlayerView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -44,6 +48,10 @@ class MainActivity : AppCompatActivity() {
     
     private val playlist = mutableListOf<VideoItem>()
     private val debugMessages = mutableListOf<String>()
+    private var bufferingStartTime: Long = 0
+    private val BUFFERING_TIMEOUT_MS = 30000L
+    private val bufferingCheckHandler = Handler(Looper.getMainLooper())
+    private var bufferingCheckRunnable: Runnable? = null
     
     private val filePickerLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
@@ -228,9 +236,28 @@ class MainActivity : AppCompatActivity() {
         }
         
         val renderersFactory = DefaultRenderersFactory(this)
-            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+        
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                3000,
+                15000,
+                1500,
+                2000
+            )
+            .build()
+        
+        val httpDataSourceFactory = DefaultHttpDataSource.Factory()
+            .setConnectTimeoutMs(15000)
+            .setReadTimeoutMs(15000)
+            .setAllowCrossProtocolRedirects(true)
         
         player = ExoPlayer.Builder(this, renderersFactory)
+            .setLoadControl(loadControl)
+            .setMediaSourceFactory(
+                androidx.media3.exoplayer.source.DefaultMediaSourceFactory(this)
+                    .setDataSourceFactory(httpDataSourceFactory)
+            )
             .setSeekBackIncrementMs(10000)
             .setSeekForwardIncrementMs(10000)
             .build()
@@ -271,13 +298,22 @@ class MainActivity : AppCompatActivity() {
                             Player.STATE_READY -> {
                                 val channelName = currentMediaItem?.mediaId ?: "Unknown"
                                 addDebugMessage("▶ Playing: $channelName")
+                                stopBufferingCheck()
                             }
                             Player.STATE_BUFFERING -> {
-                                addDebugMessage("⏳ Buffering...")
+                                if (bufferingStartTime == 0L) {
+                                    bufferingStartTime = System.currentTimeMillis()
+                                    addDebugMessage("⏳ Buffering...")
+                                    startBufferingCheck()
+                                }
                             }
                             Player.STATE_ENDED -> {
                                 addDebugMessage("⏹ Playback ended")
                                 showUIElements()
+                                stopBufferingCheck()
+                            }
+                            Player.STATE_IDLE -> {
+                                stopBufferingCheck()
                             }
                         }
                     }
@@ -289,20 +325,13 @@ class MainActivity : AppCompatActivity() {
                         addDebugMessage("✗ Error: $channelName")
                         addDebugMessage("  → $errorMsg")
                         
+                        stopBufferingCheck()
+                        
                         Toast.makeText(
                             this@MainActivity, 
-                            "Cannot play - skipping", 
-                            Toast.LENGTH_SHORT
+                            "Playback failed: ${error.errorCodeName}\nSelect another channel", 
+                            Toast.LENGTH_LONG
                         ).show()
-                        
-                        if (hasNextMediaItem()) {
-                            addDebugMessage("⏩ Skipping to next...")
-                            seekToNext()
-                            prepare()
-                            play()
-                        } else {
-                            addDebugMessage("⏹ No more channels")
-                        }
                     }
                 })
                 
@@ -312,6 +341,45 @@ class MainActivity : AppCompatActivity() {
         
         playerView.player = player
         playlistAdapter.updateCurrentlyPlaying(0)
+    }
+    
+    private fun startBufferingCheck() {
+        cancelBufferingCheckCallbacks()
+        bufferingCheckRunnable = object : Runnable {
+            override fun run() {
+                player?.let { p ->
+                    if (p.playbackState == Player.STATE_BUFFERING && bufferingStartTime > 0) {
+                        val bufferingDuration = System.currentTimeMillis() - bufferingStartTime
+                        if (bufferingDuration > BUFFERING_TIMEOUT_MS) {
+                            addDebugMessage("⚠ Buffering timeout (${bufferingDuration/1000}s)")
+                            addDebugMessage("→ Stream may be unavailable")
+                            stopBufferingCheck()
+                            p.playWhenReady = false
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Channel not responding - please try another",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        } else {
+                            bufferingCheckHandler.postDelayed(this, 1000)
+                        }
+                    }
+                }
+            }
+        }
+        bufferingCheckHandler.postDelayed(bufferingCheckRunnable!!, 1000)
+    }
+    
+    private fun cancelBufferingCheckCallbacks() {
+        bufferingCheckRunnable?.let {
+            bufferingCheckHandler.removeCallbacks(it)
+            bufferingCheckRunnable = null
+        }
+    }
+    
+    private fun stopBufferingCheck() {
+        cancelBufferingCheckCallbacks()
+        bufferingStartTime = 0
     }
     
     override fun onStart() {
@@ -330,6 +398,7 @@ class MainActivity : AppCompatActivity() {
     
     override fun onDestroy() {
         super.onDestroy()
+        stopBufferingCheck()
         player?.release()
         player = null
     }
