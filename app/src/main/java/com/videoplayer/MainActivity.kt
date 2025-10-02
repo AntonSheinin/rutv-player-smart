@@ -69,43 +69,35 @@ class FloatAudioRenderersFactory(context: Context) : DefaultRenderersFactory(con
         eventListener: AudioRendererEventListener,
         out: ArrayList<Renderer>
     ) {
-        try {
-            out.add(
-                FfmpegAudioRenderer(
-                    eventHandler,
-                    eventListener,
-                    audioSink
-                )
+        out.add(
+            FfmpegAudioRenderer(
+                eventHandler,
+                eventListener,
+                audioSink
             )
-            Log.d("VideoPlayer", "FFmpeg audio renderer added successfully")
-        } catch (e: Exception) {
-            Log.e("VideoPlayer", "Failed to add FFmpeg audio renderer", e)
-        }
-        
-        val mp2FilteredSelector = object : MediaCodecSelector {
-            override fun getDecoderInfos(
-                mimeType: String,
-                requiresSecureDecoder: Boolean,
-                requiresTunnelingDecoder: Boolean
-            ): List<androidx.media3.exoplayer.mediacodec.MediaCodecInfo> {
-                if (mimeType == androidx.media3.common.MimeTypes.AUDIO_MPEG || 
-                    mimeType == androidx.media3.common.MimeTypes.AUDIO_MPEG_L2 || 
-                    mimeType == androidx.media3.common.MimeTypes.AUDIO_MPEG_L1) {
-                    Log.d("VideoPlayer", "Routing to FFmpeg for: $mimeType")
-                    return emptyList()
-                }
-                return mediaCodecSelector.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder)
-            }
-        }
-        
-        super.buildAudioRenderers(
+        )
+        Log.d("VideoPlayer", "FFmpeg audio renderer added (all audio formats)")
+    }
+    
+    override fun buildVideoRenderers(
+        context: Context,
+        extensionRendererMode: Int,
+        mediaCodecSelector: MediaCodecSelector,
+        enableDecoderFallback: Boolean,
+        eventHandler: android.os.Handler,
+        eventListener: androidx.media3.exoplayer.video.VideoRendererEventListener,
+        allowedVideoJoiningTimeMs: Long,
+        out: ArrayList<Renderer>
+    ) {
+        Log.d("VideoPlayer", "Using FFmpeg for video rendering")
+        super.buildVideoRenderers(
             context,
             extensionRendererMode,
-            mp2FilteredSelector,
+            mediaCodecSelector,
             enableDecoderFallback,
-            audioSink,
             eventHandler,
             eventListener,
+            allowedVideoJoiningTimeMs,
             out
         )
     }

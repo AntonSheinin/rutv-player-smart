@@ -65,16 +65,16 @@ The player supports M3U/M3U8 format playlists with:
 ## Recent Changes
 
 ### October 2, 2025 (Latest)
-- **CRITICAL MP2 AUDIO FIX**: Force all MPEG audio (audio/mpeg, audio/mpeg-L2, audio/mpeg-L1) through FFmpeg by blocking MediaCodec for these mime types. HLS/TS streams expose MP2 as "audio/mpeg" not "audio/mpeg-L2", so previous filtering was incomplete.
+- **ALL FORMATS VIA FFMPEG**: Routed ALL audio and video through FFmpeg for maximum compatibility (VLC-like approach). No MediaCodec complexity - pure software decoding for all formats including MP2, ADTS, AAC, H264, etc.
 - **Phone-only app**: Removed ALL STB D-pad navigation code, focus handling, and related UI complexity. App is now optimized for phone touch input only.
-- **FFmpeg renderer**: Explicitly added FfmpegAudioRenderer with context parameter, placed first in renderer list before MediaCodec
-- **Extension mode**: Changed to EXTENSION_RENDERER_MODE_ON to ensure FFmpeg handles unsupported formats while MediaCodec handles supported ones (AAC, etc)
-- **Simplified UI**: Removed STB focus states, scale animations, and dark yellow highlighting. Single tap to play with grey background for currently playing channel.
+- **FFmpeg-only rendering**: Audio uses FfmpegAudioRenderer exclusively. Video uses FFmpeg when available. No MediaCodec filtering needed.
+- **Extension mode**: EXTENSION_RENDERER_MODE_ON ensures FFmpeg handles everything
+- **Simplified UI**: Single tap to play with grey background for currently playing channel. No STB focus states.
 - **Float audio output**: Enabled 32-bit float PCM support for advanced audio codecs
 - **Disabled all subtitles**: Text/subtitle renderer completely removed
 - **Buffering timeout**: 30s timeout detection with user notification
 - **Custom HTTP data source**: 15s connect/read timeouts, cross-protocol redirects
-- **On-screen debug log**: Shows FFmpeg status, playback state, mime type routing
+- **On-screen debug log**: Shows FFmpeg status and playback state
 - **Fullscreen mode**: Auto-hiding UI during playback
 
 ### October 1, 2025
