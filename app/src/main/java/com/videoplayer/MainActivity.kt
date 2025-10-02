@@ -69,10 +69,24 @@ class FloatAudioRenderersFactory(context: Context) : DefaultRenderersFactory(con
         eventListener: AudioRendererEventListener,
         out: ArrayList<Renderer>
     ) {
+        val mp2FilteredSelector = object : MediaCodecSelector {
+            override fun getDecoderInfos(
+                mimeType: String,
+                requiresSecureDecoder: Boolean,
+                requiresTunnelingDecoder: Boolean
+            ): List<androidx.media3.exoplayer.mediacodec.MediaCodecInfo> {
+                if (mimeType == androidx.media3.common.MimeTypes.AUDIO_MPEG_L2 || 
+                    mimeType == androidx.media3.common.MimeTypes.AUDIO_MPEG_L1) {
+                    return emptyList()
+                }
+                return mediaCodecSelector.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder)
+            }
+        }
+        
         super.buildAudioRenderers(
             context,
             extensionRendererMode,
-            mediaCodecSelector,
+            mp2FilteredSelector,
             enableDecoderFallback,
             audioSink,
             eventHandler,
