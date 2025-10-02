@@ -1,6 +1,5 @@
 package com.videoplayer
 
-import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -49,15 +48,7 @@ class PlaylistAdapter(
             holder.logoImageView.setImageResource(R.drawable.ic_channel_placeholder)
         }
         
-        holder.itemView.isSelected = (position == currentlyPlayingIndex)
-        
-        if (position == currentlyPlayingIndex) {
-            holder.statusTextView.text = "▶ Playing"
-            holder.statusTextView.setTextColor(Color.parseColor("#00FF00"))
-        } else {
-            holder.statusTextView.text = "Ready"
-            holder.statusTextView.setTextColor(Color.parseColor("#AAAAAA"))
-        }
+        holder.statusTextView.text = ""
         
         holder.itemView.setOnClickListener {
             onItemClick(position)
