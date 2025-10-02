@@ -1,7 +1,7 @@
-# Video Player Project
+# Android IPTV Player
 
 ## Overview
-This project contains an Android video player application using Media3 (ExoPlayer) with playlist support, plus a web-based demo that demonstrates the same functionality.
+Native Android video player application using Media3 (ExoPlayer) for IPTV playlist playback with advanced codec support.
 
 ## Project Structure
 
@@ -11,26 +11,17 @@ This project contains an Android video player application using Media3 (ExoPlaye
 - **Min SDK**: 24 (Android 7.0)
 - **Target SDK**: 34 (Android 14)
 - **Key Features**:
-  - M3U/M3U8 IPTV playlist loading (manual upload)
-  - MP2/mp2a audio codec support via FFmpeg extension
+  - M3U/M3U8 IPTV playlist loading (manual upload or URL)
+  - MP2/ADTS audio codec support via FFmpeg extension (all bitrates)
   - Fullscreen playback with auto-hiding UI
+  - Android STB remote control support (D-pad navigation)
   - Previous/Next navigation
   - Auto-advance to next video
   - Repeat all mode
-  - Horizontal scrolling playlist UI
+  - Vertical scrolling playlist with logos
   - Custom player controls
-
-### Web Demo (`/`)
-- **HTML/CSS/JavaScript** video player with HLS.js
-- **Purpose**: Demonstrates playlist functionality in browser
-- **Running**: Python proxy server on port 5000
-- **Key Features**:
-  - M3U/M3U8 playlist support (IPTV compatible)
-  - Upload local playlist files
-  - Load playlists from URLs
-  - HLS streaming with MPEG-TS support
-  - HTTP to HTTPS proxy for mixed content
-  - Enhanced error recovery and buffering
+  - All subtitles disabled
+  - On-screen debug log
 
 ## Dependencies
 
@@ -44,24 +35,17 @@ This project contains an Android video player application using Media3 (ExoPlaye
 
 ## Building the Android App
 
-**Note**: The Android app requires Android SDK and cannot be built/run directly in Replit. To build and run:
+**GitHub Actions**: This project uses GitHub Actions for automated APK builds. Push to GitHub and download the APK from the Actions artifacts.
 
-1. Download the project
-2. Open in Android Studio
-3. Sync Gradle files
-4. Run on emulator or physical device
+**Local Build** (requires Android SDK):
+1. Open project in Android Studio
+2. Sync Gradle files
+3. Run on emulator or physical device
 
 Alternatively, use command line with Android SDK:
 ```bash
 ./gradlew assembleDebug
 ```
-
-## Web Demo
-
-The web demo runs in Replit and demonstrates the same playlist functionality:
-- Accessible at port 5000
-- Uses sample videos from Google Cloud Storage
-- Full playlist navigation and auto-advance
 
 ## Playlist Support
 
@@ -72,40 +56,30 @@ The player supports M3U/M3U8 format playlists with:
 - HLS (HTTP Live Streaming) video sources
 - IPTV playlists
 
-### Loading Playlists (Android App)
+### Loading Playlists
 - App starts with empty playlist
-- **Upload File**: Click "Load M3U/M3U8" to select playlist from device storage
-- **URL**: Click "Load URL" to enter playlist URL
+- **Upload File**: Tap "Load M3U/M3U8" to select playlist from device storage
+- **URL**: Tap "Load URL" to enter playlist URL
+- Supports 300+ channel playlists with logos and categories
 
 ## Recent Changes
 
-### October 2, 2025 (Latest Session)
-- **Fixed MP2/ADTS audio buffering**: FFmpeg audio renderer prioritized before MediaCodec to handle all MPEG Layer 1/2 and ADTS streams (including 256kb/s high-bitrate)
-- **Float audio output**: Enabled 32-bit float PCM support for ADTS and other advanced audio codecs
-- **Android STB remote control support**: Full D-pad navigation with visual focus indicators (green background, scale animation)
+### October 2, 2025 (Latest)
+- **Fixed MP2/ADTS audio**: FFmpeg audio renderer prioritized before MediaCodec for all MPEG Layer 1/2 and ADTS streams (including 256kb/s high-bitrate)
+- **Fixed channel selection**: Restored proper renderer reset during seek/prepare operations
+- **Float audio output**: Enabled 32-bit float PCM support for advanced audio codecs
+- **Android STB remote control**: Full D-pad navigation with visual focus indicators (green background, scale animation)
 - **Disabled all subtitles**: Text/subtitle renderer completely removed (no Teletext, VTT, SRT, etc.)
-- **Reflection-based FFmpeg loading**: Proper integration with Jellyfin's media3-ffmpeg-decoder for codec support
-
-### Earlier October 2, 2025
-- Removed auto-skip on playback errors - users manually select channels
-- Added buffering timeout detection (30s) with user notification
-- Configured DefaultLoadControl with finite buffer durations (3s min, 15s max)
-- Added custom HTTP data source with 15s connect/read timeouts
-- Enabled cross-protocol redirects for IPTV compatibility
-- Added RTSP and SmoothStreaming protocol support
-- On-screen debug log shows FFmpeg status, playback state, and errors
-
-### Earlier October 2, 2025
-- Added FFmpeg extension for MP2/mp2a audio codec support (Jellyfin pre-built AAR)
-- Implemented fullscreen mode with auto-hiding UI (buttons/playlist hide during playback)
-- Fixed button visibility with elevation layering
+- **FFmpeg integration**: Proper integration with Jellyfin's media3-ffmpeg-decoder
+- **Buffering timeout**: 30s timeout detection with user notification
+- **Custom HTTP data source**: 15s connect/read timeouts, cross-protocol redirects
+- **On-screen debug log**: Shows FFmpeg status, playback state, and errors
+- **Fullscreen mode**: Auto-hiding UI during playback
+- **Removed web demo**: Cleaned up all unused web player files and playlists
 
 ### October 1, 2025
-- Created Android project with Media3/ExoPlayer integration
-- Implemented M3U8 playlist parser for IPTV support
-- Added HLS.js with MPEG-TS support and enhanced buffering
-- Created HTTP proxy server for mixed content handling
-- Added manual playlist loader (upload file or load from URL)
-- Implemented channel logos and categories
+- Initial Android project with Media3/ExoPlayer integration
+- M3U8 playlist parser for IPTV support
+- Manual playlist loader (upload file or load from URL)
+- Channel logos and categories support
 - Enhanced error recovery and network handling
-- Created web-based demo for in-browser testing
