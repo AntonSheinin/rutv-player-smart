@@ -69,6 +69,20 @@ class FloatAudioRenderersFactory(context: Context) : DefaultRenderersFactory(con
         eventListener: AudioRendererEventListener,
         out: ArrayList<Renderer>
     ) {
+        try {
+            out.add(
+                FfmpegAudioRenderer(
+                    context,
+                    eventHandler,
+                    eventListener,
+                    audioSink
+                )
+            )
+            Log.d("VideoPlayer", "FFmpeg audio renderer added successfully")
+        } catch (e: Exception) {
+            Log.e("VideoPlayer", "Failed to add FFmpeg audio renderer", e)
+        }
+        
         val mp2FilteredSelector = object : MediaCodecSelector {
             override fun getDecoderInfos(
                 mimeType: String,
@@ -77,6 +91,7 @@ class FloatAudioRenderersFactory(context: Context) : DefaultRenderersFactory(con
             ): List<androidx.media3.exoplayer.mediacodec.MediaCodecInfo> {
                 if (mimeType == androidx.media3.common.MimeTypes.AUDIO_MPEG_L2 || 
                     mimeType == androidx.media3.common.MimeTypes.AUDIO_MPEG_L1) {
+                    Log.d("VideoPlayer", "Blocking MediaCodec for: $mimeType")
                     return emptyList()
                 }
                 return mediaCodecSelector.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder)
