@@ -39,7 +39,7 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import kotlinx.coroutines.CoroutineScope
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -228,7 +228,7 @@ class MainActivity : AppCompatActivity() {
     private fun loadPlaylistFromUrl(urlString: String) {
         Toast.makeText(this, "Loading playlist from URL...", Toast.LENGTH_SHORT).show()
         
-        androidx.lifecycle.lifecycleScope.launch {
+        lifecycleScope.launch {
             try {
                 val content = withContext(Dispatchers.IO) {
                     URL(urlString).readText()

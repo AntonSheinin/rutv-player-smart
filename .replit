@@ -7,6 +7,27 @@ channel = "stable-25_05"
 packages = ["android-tools", "gradle"]
 
 [workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Android Build Info"
+
+[[workflows.workflow]]
+name = "Android Build Info"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"📱 Android IPTV Player - Build via GitHub Actions\" && echo \"\" && echo \"This Android app is built automatically via GitHub Actions.\" && echo \"\" && echo \"To build and test:\" && echo \"1. Push code to GitHub\" && echo \"2. GitHub Actions will build the APK\" && echo \"3. Download APK from Actions artifacts\" && echo \"4. Install on Android device\" && echo \"\" && echo \"Project uses Media3 ExoPlayer with FFmpeg for IPTV playback.\" && tail -f /dev/null"
+
+[workflows.workflow.metadata]
+outputType = "console"
 
 [[ports]]
 localPort = 5000
