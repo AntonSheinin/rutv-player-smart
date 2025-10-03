@@ -54,7 +54,7 @@ import java.net.URL
 class FfmpegRenderersFactory(context: Context) : DefaultRenderersFactory(context) {
     
     init {
-        setExtensionRendererMode(EXTENSION_RENDERER_MODE_PREFER)
+        setExtensionRendererMode(EXTENSION_RENDERER_MODE_ON)
     }
     
     override fun buildAudioSink(
@@ -355,11 +355,11 @@ class MainActivity : AppCompatActivity() {
         
         if (FfmpegLibrary.isAvailable()) {
             val version = FfmpegLibrary.getVersion()
-            addDebugMessage("✓ FFmpeg: v$version")
-            addDebugMessage("✓ FFmpeg loaded, MP2 should work")
+            addDebugMessage("✓ FFmpeg: v$version (fallback mode)")
+            addDebugMessage("✓ Built-in codecs first, FFmpeg if unsupported")
         } else {
             addDebugMessage("✗ FFmpeg: NOT LOADED")
-            addDebugMessage("✗ MP2 will NOT work")
+            addDebugMessage("✗ Some formats may not work")
         }
         
         val renderersFactory = FfmpegRenderersFactory(this)

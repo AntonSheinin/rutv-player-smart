@@ -62,33 +62,28 @@ The player supports M3U/M3U8 format playlists with:
 
 ## Recent Changes
 
-### October 3, 2025 (Latest - HLS-Specific Audio Fix)
-- **CRITICAL FIX: HLS Media Source for MPEG Audio Detection**
-  - Switched from DefaultMediaSourceFactory to HlsMediaSource.Factory for HLS-specific handling
-  - Configured DefaultExtractorsFactory with aggressive TS (Transport Stream) flags
-  - FLAG_DETECT_ACCESS_UNITS: Forces detection of all audio access units in TS
-  - FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS: Enables detection of additional audio formats
-  - TsExtractor.MODE_HLS: Optimized HLS transport stream parsing
-  - Extended timestamp search to 1500 packets for better audio track detection
+### October 3, 2025 (Latest - HLS Audio Detection + Codec Priority Fix)
+- **CRITICAL FIX: HLS Media Source for MPEG Audio Detection** ✅ WORKING
+  - Root cause: MPEG audio tracks not detected in HLS transport streams
+  - Solution: HlsMediaSource.Factory with DefaultHlsExtractorFactory
+  - Aggressive TS flags: FLAG_DETECT_ACCESS_UNITS, FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS
   - Disabled chunkless preparation to force full playlist parsing
-  - Targets "NO AUDIO TRACKS IN STREAM" issue for MPEG audio layers 1/2 in HLS
-- **ALL AUDIO & VIDEO VIA FFMPEG**: Software decoding for maximum compatibility
-  - FfmpegAudioRenderer: ALL audio formats (MP2, ADTS, AAC, etc.)
-  - FfmpegVideoRenderer: ALL video formats (H.264, H.265, VP8, VP9, MPEG-2, etc.) via reflection loading
-  - Falls back to hardware decoders only if FFmpeg video renderer unavailable
-  - Zero MediaCodec usage when FFmpeg available - pure software rendering
+  - Fixed "NO AUDIO TRACKS IN STREAM" issue for MPEG audio layers 1/2
+- **Codec Priority: Built-in First, FFmpeg Fallback**
+  - Hardware/MediaCodec decoders used by default (optimal performance)
+  - FFmpeg audio renderer available for unsupported formats (MP2, etc.)
+  - EXTENSION_RENDERER_MODE_ON: Built-in preferred, FFmpeg as fallback
+  - Battery-efficient hardware acceleration when available
 - **Modern Architecture**: 
   - Lifecycle-aware coroutines (lifecycleScope) for playlist loading
   - Proper cleanup in onStop() to prevent handler leaks
-  - Dedicated FfmpegRenderersFactory class with EXTENSION_RENDERER_MODE_PREFER
-  - Enhanced decoder diagnostics showing which renderer is actually used
-- **FFmpeg Integration**: Runtime availability check with error logging if FFmpeg library not loaded
+  - Dedicated FfmpegRenderersFactory with smart codec selection
+  - HLS-specific media source factory for IPTV streams
 - **Phone-only UI**: Single tap to play, grey background for currently playing channel
 - **Float audio output**: 32-bit float PCM for high-quality audio
 - **Subtitles disabled**: Text renderer completely removed
 - **Buffering timeout**: 30s detection with user notification
-- **Debug diagnostics**: FFmpeg version, library status, and actual decoder names logged on-screen
-- **Enhanced decoder logging**: Shows both audio and video decoder names, plus format details (resolution, framerate, sample rate, etc.)
+- **Enhanced diagnostics**: Track detection, codec names, format details (resolution, framerate, sample rate, bitrate)
 
 ### October 1, 2025
 - Initial Android project with Media3/ExoPlayer integration
