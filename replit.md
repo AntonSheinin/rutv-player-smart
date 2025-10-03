@@ -84,6 +84,7 @@ The player supports M3U/M3U8 format playlists with:
 - **Subtitles disabled**: Text renderer completely removed
 - **Buffering timeout**: 30s detection with user notification
 - **Enhanced diagnostics**: Track detection, codec names, format details (resolution, framerate, sample rate, bitrate)
+- **Aspect ratio control**: On-screen button to cycle through display modes (FIT/FILL/ZOOM) for 4:3 and 16:9 content
 
 ### October 1, 2025
 - Initial Android project with Media3/ExoPlayer integration

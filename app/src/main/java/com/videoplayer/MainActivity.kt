@@ -170,6 +170,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnLoadUrl: Button
     private lateinit var buttonContainer: LinearLayout
     private lateinit var debugLog: TextView
+    private lateinit var btnAspectRatio: Button
     
     private val playlist = mutableListOf<VideoItem>()
     private val debugMessages = mutableListOf<String>()
@@ -177,6 +178,8 @@ class MainActivity : AppCompatActivity() {
     private val BUFFERING_TIMEOUT_MS = 30000L
     private val bufferingCheckHandler = Handler(Looper.getMainLooper())
     private var bufferingCheckRunnable: Runnable? = null
+    
+    private var currentResizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
     
     private val filePickerLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
@@ -194,10 +197,12 @@ class MainActivity : AppCompatActivity() {
         btnLoadUrl = findViewById(R.id.btn_load_url)
         buttonContainer = findViewById(R.id.button_container)
         debugLog = findViewById(R.id.debug_log)
+        btnAspectRatio = findViewById(R.id.btn_aspect_ratio)
         
         addDebugMessage("App Started")
         
         setupButtons()
+        setupAspectRatioButton()
         setupRecyclerView()
         setupFullscreen()
     }
@@ -209,6 +214,43 @@ class MainActivity : AppCompatActivity() {
         
         btnLoadUrl.setOnClickListener {
             showUrlDialog()
+        }
+    }
+    
+    private fun setupAspectRatioButton() {
+        updateAspectRatioButtonText()
+        
+        btnAspectRatio.setOnClickListener {
+            currentResizeMode = when (currentResizeMode) {
+                androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT -> 
+                    androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
+                androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL -> 
+                    androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                else -> 
+                    androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+            }
+            
+            playerView.resizeMode = currentResizeMode
+            updateAspectRatioButtonText()
+            
+            Toast.makeText(
+                this,
+                "Aspect ratio: ${getResizeModeText()}",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+    
+    private fun updateAspectRatioButtonText() {
+        btnAspectRatio.text = getResizeModeText()
+    }
+    
+    private fun getResizeModeText(): String {
+        return when (currentResizeMode) {
+            androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT -> "FIT"
+            androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL -> "FILL"
+            androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM -> "ZOOM"
+            else -> "FIT"
         }
     }
     
@@ -244,12 +286,14 @@ class MainActivity : AppCompatActivity() {
         buttonContainer.visibility = View.GONE
         playlistRecyclerView.visibility = View.GONE
         debugLog.visibility = View.GONE
+        btnAspectRatio.visibility = View.GONE
     }
     
     private fun showUIElements() {
         buttonContainer.visibility = View.VISIBLE
         playlistRecyclerView.visibility = View.VISIBLE
         debugLog.visibility = View.VISIBLE
+        btnAspectRatio.visibility = View.VISIBLE
     }
     
     override fun onWindowFocusChanged(hasFocus: Boolean) {
