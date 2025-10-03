@@ -37,6 +37,7 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.hls.HlsMediaSource
+import androidx.media3.exoplayer.hls.DefaultHlsExtractorFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
 import androidx.media3.extractor.ts.TsExtractor
@@ -377,20 +378,18 @@ class MainActivity : AppCompatActivity() {
             .setReadTimeoutMs(15000)
             .setAllowCrossProtocolRedirects(true)
         
-        val extractorsFactory = DefaultExtractorsFactory()
-            .setTsExtractorFlags(
-                DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES or
-                DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS or
-                DefaultTsPayloadReaderFactory.FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS
-            )
-            .setTsExtractorTimestampSearchBytes(1500 * 188)
-            .setTsExtractorMode(TsExtractor.MODE_HLS)
+        val hlsExtractorFactory = DefaultHlsExtractorFactory(
+            DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES or
+            DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS or
+            DefaultTsPayloadReaderFactory.FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS,
+            true
+        )
         
         val hlsMediaSourceFactory = HlsMediaSource.Factory(httpDataSourceFactory)
-            .setExtractorFactory(extractorsFactory)
+            .setExtractorFactory(hlsExtractorFactory)
             .setAllowChunklessPreparation(false)
         
-        addDebugMessage("✓ TS extractor: HLS-specific with aggressive audio detection")
+        addDebugMessage("✓ HLS extractor: Aggressive MPEG audio detection enabled")
         
         player = ExoPlayer.Builder(this, renderersFactory)
             .setLoadControl(loadControl)
