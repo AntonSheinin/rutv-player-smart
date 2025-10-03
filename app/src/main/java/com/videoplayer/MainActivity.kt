@@ -38,6 +38,7 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
+import androidx.media3.extractor.ts.TsExtractor
 import androidx.media3.ui.PlayerView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -382,7 +383,7 @@ class MainActivity : AppCompatActivity() {
                 DefaultTsPayloadReaderFactory.FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS
             )
             .setTsExtractorTimestampSearchBytes(1500 * 188)
-            .setTsExtractorMode(DefaultExtractorsFactory.TS_EXTRACTOR_MODE_HLS)
+            .setTsExtractorMode(TsExtractor.MODE_HLS)
         
         addDebugMessage("✓ TS extractor: Aggressive audio detection enabled")
         
