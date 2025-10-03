@@ -36,6 +36,7 @@ import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
 import androidx.media3.extractor.ts.TsExtractor
@@ -385,14 +386,15 @@ class MainActivity : AppCompatActivity() {
             .setTsExtractorTimestampSearchBytes(1500 * 188)
             .setTsExtractorMode(TsExtractor.MODE_HLS)
         
-        addDebugMessage("✓ TS extractor: Aggressive audio detection enabled")
+        val hlsMediaSourceFactory = HlsMediaSource.Factory(httpDataSourceFactory)
+            .setExtractorFactory(extractorsFactory)
+            .setAllowChunklessPreparation(false)
+        
+        addDebugMessage("✓ TS extractor: HLS-specific with aggressive audio detection")
         
         player = ExoPlayer.Builder(this, renderersFactory)
             .setLoadControl(loadControl)
-            .setMediaSourceFactory(
-                DefaultMediaSourceFactory(this, extractorsFactory)
-                    .setDataSourceFactory(httpDataSourceFactory)
-            )
+            .setMediaSourceFactory(hlsMediaSourceFactory)
             .setSeekBackIncrementMs(10000)
             .setSeekForwardIncrementMs(10000)
             .build()

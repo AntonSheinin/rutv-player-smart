@@ -62,14 +62,16 @@ The player supports M3U/M3U8 format playlists with:
 
 ## Recent Changes
 
-### October 3, 2025 (Latest - Transport Stream Audio Fix)
-- **CRITICAL FIX: TS Extractor for MPEG Audio Detection**
+### October 3, 2025 (Latest - HLS-Specific Audio Fix)
+- **CRITICAL FIX: HLS Media Source for MPEG Audio Detection**
+  - Switched from DefaultMediaSourceFactory to HlsMediaSource.Factory for HLS-specific handling
   - Configured DefaultExtractorsFactory with aggressive TS (Transport Stream) flags
   - FLAG_DETECT_ACCESS_UNITS: Forces detection of all audio access units in TS
   - FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS: Enables detection of additional audio formats
-  - TS_EXTRACTOR_MODE_HLS: Optimized HLS transport stream parsing
+  - TsExtractor.MODE_HLS: Optimized HLS transport stream parsing
   - Extended timestamp search to 1500 packets for better audio track detection
-  - Fixes "NO AUDIO TRACKS IN STREAM" issue for MPEG audio layers 1/2 in HLS
+  - Disabled chunkless preparation to force full playlist parsing
+  - Targets "NO AUDIO TRACKS IN STREAM" issue for MPEG audio layers 1/2 in HLS
 - **ALL AUDIO & VIDEO VIA FFMPEG**: Software decoding for maximum compatibility
   - FfmpegAudioRenderer: ALL audio formats (MP2, ADTS, AAC, etc.)
   - FfmpegVideoRenderer: ALL video formats (H.264, H.265, VP8, VP9, MPEG-2, etc.) via reflection loading
