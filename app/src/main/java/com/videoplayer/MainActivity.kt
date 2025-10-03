@@ -25,6 +25,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.decoder.ffmpeg.FfmpegAudioRenderer
+import androidx.media3.decoder.ffmpeg.FfmpegVideoRenderer
 import androidx.media3.decoder.ffmpeg.FfmpegLibrary
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
@@ -81,9 +82,34 @@ class FfmpegRenderersFactory(context: Context) : DefaultRenderersFactory(context
                     audioSink
                 )
             )
-            Log.d("VideoPlayer", "✓ FFmpeg audio renderer added FIRST (handles all formats)")
+            Log.d("VideoPlayer", "✓ FFmpeg AUDIO renderer - ALL formats via FFmpeg")
         } else {
-            Log.e("VideoPlayer", "✗ FFmpeg library NOT available - MP2 will fail!")
+            Log.e("VideoPlayer", "✗ FFmpeg library NOT available - playback will fail!")
+        }
+    }
+    
+    override fun buildVideoRenderers(
+        context: Context,
+        extensionRendererMode: Int,
+        mediaCodecSelector: MediaCodecSelector,
+        enableDecoderFallback: Boolean,
+        eventHandler: android.os.Handler,
+        eventListener: androidx.media3.exoplayer.video.VideoRendererEventListener,
+        allowedVideoJoiningTimeMs: Long,
+        out: ArrayList<Renderer>
+    ) {
+        if (FfmpegLibrary.isAvailable()) {
+            out.add(
+                FfmpegVideoRenderer(
+                    allowedVideoJoiningTimeMs,
+                    eventHandler,
+                    eventListener,
+                    MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY
+                )
+            )
+            Log.d("VideoPlayer", "✓ FFmpeg VIDEO renderer - NO hardware decoders")
+        } else {
+            Log.e("VideoPlayer", "✗ FFmpeg library NOT available - video will fail!")
         }
     }
     
@@ -94,6 +120,10 @@ class FfmpegRenderersFactory(context: Context) : DefaultRenderersFactory(context
         extensionRendererMode: Int,
         out: ArrayList<Renderer>
     ) {
+    }
+    
+    companion object {
+        private const val MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY = 50
     }
 }
 

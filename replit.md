@@ -62,14 +62,17 @@ The player supports M3U/M3U8 format playlists with:
 
 ## Recent Changes
 
-### October 3, 2025 (Latest - Refactored)
-- **CRITICAL FFmpeg FIX**: Refactored to FfmpegRenderersFactory with EXTENSION_RENDERER_MODE_PREFER. FFmpeg audio renderer explicitly added FIRST to handle all audio formats (MP2, ADTS, AAC, etc.). Previous approach wasn't properly forcing FFmpeg routing.
+### October 3, 2025 (Latest - ALL FFmpeg)
+- **ALL VIDEO & AUDIO VIA FFMPEG**: Complete software decoding, NO hardware decoders
+  - FfmpegAudioRenderer: ALL audio formats (MP2, ADTS, AAC, etc.)
+  - FfmpegVideoRenderer: ALL video codecs (H.264, H.265, VP8, VP9, AV1, MPEG-2, etc.)
+  - Zero MediaCodec usage - pure FFmpeg rendering for maximum compatibility
 - **Modern Architecture**: 
   - Lifecycle-aware coroutines (lifecycleScope) for playlist loading
   - Proper cleanup in onStop() to prevent handler leaks
-  - Dedicated FfmpegRenderersFactory class with proper initialization
+  - Dedicated FfmpegRenderersFactory class with EXTENSION_RENDERER_MODE_PREFER
   - Enhanced decoder diagnostics showing which renderer is actually used
-- **FFmpeg Integration**: FfmpegAudioRenderer added as first audio renderer with runtime availability check. Fallback error logging if FFmpeg library not loaded.
+- **FFmpeg Integration**: Runtime availability check with error logging if FFmpeg library not loaded
 - **Phone-only UI**: Single tap to play, grey background for currently playing channel
 - **Float audio output**: 32-bit float PCM for high-quality audio
 - **Subtitles disabled**: Text renderer completely removed
