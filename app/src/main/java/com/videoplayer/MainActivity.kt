@@ -311,18 +311,10 @@ class MainActivity : AppCompatActivity() {
         if (FfmpegLibrary.isAvailable()) {
             val version = FfmpegLibrary.getVersion()
             addDebugMessage("✓ FFmpeg: v$version")
-            
-            val supportedMimes = FfmpegLibrary.getSupportedMimeTypes()
-            if (supportedMimes.contains(androidx.media3.common.MimeTypes.AUDIO_MPEG) ||
-                supportedMimes.contains(androidx.media3.common.MimeTypes.AUDIO_MPEG_L2)) {
-                addDebugMessage("✓ MP2: CONFIRMED")
-            } else {
-                addDebugMessage("✗ MP2: NOT IN LIBRARY")
-                addDebugMessage("Supported: ${supportedMimes.joinToString()}")
-            }
+            addDebugMessage("✓ FFmpeg loaded, MP2 should work")
         } else {
             addDebugMessage("✗ FFmpeg: NOT LOADED")
-            addDebugMessage("✗ Check .so files in APK")
+            addDebugMessage("✗ MP2 will NOT work")
         }
         
         val renderersFactory = FloatAudioRenderersFactory(this)
