@@ -311,10 +311,18 @@ class MainActivity : AppCompatActivity() {
         if (FfmpegLibrary.isAvailable()) {
             val version = FfmpegLibrary.getVersion()
             addDebugMessage("✓ FFmpeg: v$version")
-            addDebugMessage("✓ MP2 audio: Supported")
+            
+            val supportedMimes = FfmpegLibrary.getSupportedMimeTypes()
+            if (supportedMimes.contains(androidx.media3.common.MimeTypes.AUDIO_MPEG) ||
+                supportedMimes.contains(androidx.media3.common.MimeTypes.AUDIO_MPEG_L2)) {
+                addDebugMessage("✓ MP2: CONFIRMED")
+            } else {
+                addDebugMessage("✗ MP2: NOT IN LIBRARY")
+                addDebugMessage("Supported: ${supportedMimes.joinToString()}")
+            }
         } else {
             addDebugMessage("✗ FFmpeg: NOT LOADED")
-            addDebugMessage("✗ MP2 audio: NOT SUPPORTED")
+            addDebugMessage("✗ Check .so files in APK")
         }
         
         val renderersFactory = FloatAudioRenderersFactory(this)
@@ -354,6 +362,24 @@ class MainActivity : AppCompatActivity() {
                 setMediaItems(mediaItems)
                 
                 repeatMode = Player.REPEAT_MODE_ALL
+                
+                addAnalyticsListener(object : androidx.media3.exoplayer.analytics.AnalyticsListener {
+                    override fun onAudioDecoderInitialized(
+                        eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
+                        decoderName: String,
+                        initializedTimestampMs: Long
+                    ) {
+                        addDebugMessage("🔊 Audio decoder: $decoderName")
+                    }
+                    
+                    override fun onVideoDecoderInitialized(
+                        eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
+                        decoderName: String,
+                        initializedTimestampMs: Long
+                    ) {
+                        addDebugMessage("🎬 Video decoder: $decoderName")
+                    }
+                })
                 
                 addListener(object : Player.Listener {
                     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
