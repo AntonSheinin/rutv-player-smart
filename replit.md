@@ -12,16 +12,14 @@ Native Android video player application using Media3 (ExoPlayer) for IPTV playli
 - **Target SDK**: 34 (Android 14)
 - **Key Features**:
   - M3U/M3U8 IPTV playlist loading (manual upload or URL)
-  - MP2/ADTS audio codec support via FFmpeg extension (all bitrates)
+  - ALL audio/video formats via FFmpeg (MP2, ADTS, AAC, H264, etc.)
+  - Phone-optimized touch interface (single tap to play)
   - Fullscreen playback with auto-hiding UI
-  - Android STB remote control support (D-pad navigation)
-  - Previous/Next navigation
   - Auto-advance to next video
   - Repeat all mode
   - Vertical scrolling playlist with logos
-  - Custom player controls
   - All subtitles disabled
-  - On-screen debug log
+  - On-screen debug log with decoder diagnostics
 
 ## Dependencies
 
@@ -64,18 +62,19 @@ The player supports M3U/M3U8 format playlists with:
 
 ## Recent Changes
 
-### October 2, 2025 (Latest)
-- **ALL FORMATS VIA FFMPEG**: Routed ALL audio and video through FFmpeg for maximum compatibility (VLC-like approach). No MediaCodec complexity - pure software decoding for all formats including MP2, ADTS, AAC, H264, etc.
-- **Phone-only app**: Removed ALL STB D-pad navigation code, focus handling, and related UI complexity. App is now optimized for phone touch input only.
-- **FFmpeg-only rendering**: Audio uses FfmpegAudioRenderer exclusively. Video uses FFmpeg when available. No MediaCodec filtering needed.
-- **Extension mode**: EXTENSION_RENDERER_MODE_ON ensures FFmpeg handles everything
-- **Simplified UI**: Single tap to play with grey background for currently playing channel. No STB focus states.
-- **Float audio output**: Enabled 32-bit float PCM support for advanced audio codecs
-- **Disabled all subtitles**: Text/subtitle renderer completely removed
-- **Buffering timeout**: 30s timeout detection with user notification
-- **Custom HTTP data source**: 15s connect/read timeouts, cross-protocol redirects
-- **On-screen debug log**: Shows FFmpeg status and playback state
-- **Fullscreen mode**: Auto-hiding UI during playback
+### October 3, 2025 (Latest - Refactored)
+- **CRITICAL FFmpeg FIX**: Refactored to FfmpegRenderersFactory with EXTENSION_RENDERER_MODE_PREFER. FFmpeg audio renderer explicitly added FIRST to handle all audio formats (MP2, ADTS, AAC, etc.). Previous approach wasn't properly forcing FFmpeg routing.
+- **Modern Architecture**: 
+  - Lifecycle-aware coroutines (lifecycleScope) for playlist loading
+  - Proper cleanup in onStop() to prevent handler leaks
+  - Dedicated FfmpegRenderersFactory class with proper initialization
+  - Enhanced decoder diagnostics showing which renderer is actually used
+- **FFmpeg Integration**: FfmpegAudioRenderer added as first audio renderer with runtime availability check. Fallback error logging if FFmpeg library not loaded.
+- **Phone-only UI**: Single tap to play, grey background for currently playing channel
+- **Float audio output**: 32-bit float PCM for high-quality audio
+- **Subtitles disabled**: Text renderer completely removed
+- **Buffering timeout**: 30s detection with user notification
+- **Debug diagnostics**: FFmpeg version, library status, and actual decoder names logged on-screen
 
 ### October 1, 2025
 - Initial Android project with Media3/ExoPlayer integration

@@ -46,7 +46,11 @@ import kotlinx.coroutines.withContext
 import java.net.URL
 
 @OptIn(UnstableApi::class)
-class FloatAudioRenderersFactory(context: Context) : DefaultRenderersFactory(context) {
+class FfmpegRenderersFactory(context: Context) : DefaultRenderersFactory(context) {
+    
+    init {
+        setExtensionRendererMode(EXTENSION_RENDERER_MODE_PREFER)
+    }
     
     override fun buildAudioSink(
         context: Context,
@@ -69,37 +73,18 @@ class FloatAudioRenderersFactory(context: Context) : DefaultRenderersFactory(con
         eventListener: AudioRendererEventListener,
         out: ArrayList<Renderer>
     ) {
-        out.add(
-            FfmpegAudioRenderer(
-                eventHandler,
-                eventListener,
-                audioSink
+        if (FfmpegLibrary.isAvailable()) {
+            out.add(
+                FfmpegAudioRenderer(
+                    eventHandler,
+                    eventListener,
+                    audioSink
+                )
             )
-        )
-        Log.d("VideoPlayer", "FFmpeg audio renderer added (all audio formats)")
-    }
-    
-    override fun buildVideoRenderers(
-        context: Context,
-        extensionRendererMode: Int,
-        mediaCodecSelector: MediaCodecSelector,
-        enableDecoderFallback: Boolean,
-        eventHandler: android.os.Handler,
-        eventListener: androidx.media3.exoplayer.video.VideoRendererEventListener,
-        allowedVideoJoiningTimeMs: Long,
-        out: ArrayList<Renderer>
-    ) {
-        Log.d("VideoPlayer", "Using FFmpeg for video rendering")
-        super.buildVideoRenderers(
-            context,
-            extensionRendererMode,
-            mediaCodecSelector,
-            enableDecoderFallback,
-            eventHandler,
-            eventListener,
-            allowedVideoJoiningTimeMs,
-            out
-        )
+            Log.d("VideoPlayer", "✓ FFmpeg audio renderer added FIRST (handles all formats)")
+        } else {
+            Log.e("VideoPlayer", "✗ FFmpeg library NOT available - MP2 will fail!")
+        }
     }
     
     override fun buildTextRenderers(
@@ -243,17 +228,15 @@ class MainActivity : AppCompatActivity() {
     private fun loadPlaylistFromUrl(urlString: String) {
         Toast.makeText(this, "Loading playlist from URL...", Toast.LENGTH_SHORT).show()
         
-        CoroutineScope(Dispatchers.IO).launch {
+        androidx.lifecycle.lifecycleScope.launch {
             try {
-                val content = URL(urlString).readText()
-                withContext(Dispatchers.Main) {
-                    loadPlaylistContent(content)
+                val content = withContext(Dispatchers.IO) {
+                    URL(urlString).readText()
                 }
+                loadPlaylistContent(content)
             } catch (e: Exception) {
                 Log.e("VideoPlayer", "Error loading playlist from URL", e)
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(this@MainActivity, "Failed to load URL: ${e.message}", Toast.LENGTH_LONG).show()
-                }
+                Toast.makeText(this@MainActivity, "Failed to load URL: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -317,8 +300,7 @@ class MainActivity : AppCompatActivity() {
             addDebugMessage("✗ MP2 will NOT work")
         }
         
-        val renderersFactory = FloatAudioRenderersFactory(this)
-            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+        val renderersFactory = FfmpegRenderersFactory(this)
         
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
@@ -482,7 +464,6 @@ class MainActivity : AppCompatActivity() {
         bufferingStartTime = 0
     }
     
-    
     override fun onStart() {
         super.onStart()
         if (player == null) {
@@ -492,9 +473,8 @@ class MainActivity : AppCompatActivity() {
     
     override fun onStop() {
         super.onStop()
-        player?.let {
-            it.playWhenReady = false
-        }
+        stopBufferingCheck()
+        player?.playWhenReady = false
     }
     
     override fun onDestroy() {
