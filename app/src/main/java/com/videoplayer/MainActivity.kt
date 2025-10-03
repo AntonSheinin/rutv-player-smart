@@ -81,10 +81,63 @@ class FfmpegRenderersFactory(context: Context) : DefaultRenderersFactory(context
                     audioSink
                 )
             )
-            Log.d("VideoPlayer", "✓ FFmpeg AUDIO renderer - ALL audio via software decoding")
+            Log.d("VideoPlayer", "✓ FFmpeg AUDIO renderer added - ALL audio formats")
         } else {
-            Log.e("VideoPlayer", "✗ FFmpeg library NOT available - MP2 audio will fail!")
+            Log.e("VideoPlayer", "✗ FFmpeg library NOT available!")
         }
+    }
+    
+    override fun buildVideoRenderers(
+        context: Context,
+        extensionRendererMode: Int,
+        mediaCodecSelector: MediaCodecSelector,
+        enableDecoderFallback: Boolean,
+        eventHandler: android.os.Handler,
+        eventListener: androidx.media3.exoplayer.video.VideoRendererEventListener,
+        allowedVideoJoiningTimeMs: Long,
+        out: ArrayList<Renderer>
+    ) {
+        if (FfmpegLibrary.isAvailable()) {
+            try {
+                val videoRendererClass = Class.forName("androidx.media3.decoder.ffmpeg.FfmpegVideoRenderer")
+                val constructor = videoRendererClass.getConstructor(
+                    Long::class.javaPrimitiveType,
+                    android.os.Handler::class.java,
+                    androidx.media3.exoplayer.video.VideoRendererEventListener::class.java,
+                    Int::class.javaPrimitiveType,
+                    Boolean::class.javaPrimitiveType,
+                    Float::class.javaPrimitiveType
+                )
+                val renderer = constructor.newInstance(
+                    allowedVideoJoiningTimeMs,
+                    eventHandler,
+                    eventListener,
+                    MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY,
+                    enableDecoderFallback,
+                    30.0f
+                ) as Renderer
+                
+                out.add(renderer)
+                Log.d("VideoPlayer", "✓ FFmpeg VIDEO renderer added FIRST - ALL video via FFmpeg")
+            } catch (e: ClassNotFoundException) {
+                Log.w("VideoPlayer", "FfmpegVideoRenderer class not found in library")
+            } catch (e: NoSuchMethodException) {
+                Log.e("VideoPlayer", "FfmpegVideoRenderer constructor mismatch: ${e.message}", e)
+            } catch (e: Exception) {
+                Log.e("VideoPlayer", "Error instantiating FFmpeg video renderer", e)
+            }
+        }
+        
+        super.buildVideoRenderers(
+            context,
+            extensionRendererMode,
+            mediaCodecSelector,
+            enableDecoderFallback,
+            eventHandler,
+            eventListener,
+            allowedVideoJoiningTimeMs,
+            out
+        )
     }
     
     override fun buildTextRenderers(
@@ -94,6 +147,10 @@ class FfmpegRenderersFactory(context: Context) : DefaultRenderersFactory(context
         extensionRendererMode: Int,
         out: ArrayList<Renderer>
     ) {
+    }
+    
+    companion object {
+        private const val MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY = 50
     }
 }
 

@@ -63,10 +63,11 @@ The player supports M3U/M3U8 format playlists with:
 ## Recent Changes
 
 ### October 3, 2025 (Latest - ALL FFmpeg)
-- **ALL AUDIO VIA FFMPEG**: Software audio decoding for maximum compatibility
+- **ALL AUDIO & VIDEO VIA FFMPEG**: Software decoding for maximum compatibility
   - FfmpegAudioRenderer: ALL audio formats (MP2, ADTS, AAC, etc.)
-  - Note: Jellyfin FFmpeg library only provides audio decoding (no video renderer available)
-  - Video uses hardware MediaCodec decoders (standard Android approach)
+  - FfmpegVideoRenderer: ALL video formats (H.264, H.265, VP8, VP9, MPEG-2, etc.) via reflection loading
+  - Falls back to hardware decoders only if FFmpeg video renderer unavailable
+  - Zero MediaCodec usage when FFmpeg available - pure software rendering
 - **Modern Architecture**: 
   - Lifecycle-aware coroutines (lifecycleScope) for playlist loading
   - Proper cleanup in onStop() to prevent handler leaks
