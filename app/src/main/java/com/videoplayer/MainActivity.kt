@@ -432,11 +432,62 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                     
+                    override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
+                        addDebugMessage("📋 Tracks detected:")
+                        
+                        var hasAudio = false
+                        var hasVideo = false
+                        
+                        for (trackGroup in tracks.groups) {
+                            val type = trackGroup.type
+                            val typeStr = when (type) {
+                                C.TRACK_TYPE_VIDEO -> {
+                                    hasVideo = true
+                                    "VIDEO"
+                                }
+                                C.TRACK_TYPE_AUDIO -> {
+                                    hasAudio = true
+                                    "AUDIO"
+                                }
+                                C.TRACK_TYPE_TEXT -> "TEXT"
+                                else -> "OTHER($type)"
+                            }
+                            
+                            addDebugMessage("  $typeStr: ${trackGroup.length} track(s)")
+                            
+                            for (i in 0 until trackGroup.length) {
+                                val format = trackGroup.getTrackFormat(i)
+                                val supported = trackGroup.isTrackSupported(i)
+                                val selected = trackGroup.isTrackSelected(i)
+                                
+                                addDebugMessage("    [$i] ${format.sampleMimeType} - support=$supported, selected=$selected")
+                                
+                                if (type == C.TRACK_TYPE_AUDIO) {
+                                    addDebugMessage("       ${format.channelCount}ch @ ${format.sampleRate}Hz, bitrate=${format.bitrate}")
+                                    
+                                    if (!supported) {
+                                        addDebugMessage("       ⚠️ AUDIO NOT SUPPORTED BY ANY RENDERER!")
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if (!hasAudio) {
+                            addDebugMessage("  ⚠️ NO AUDIO TRACKS IN STREAM!")
+                        }
+                    }
+                    
                     override fun onPlaybackStateChanged(playbackState: Int) {
                         when (playbackState) {
                             Player.STATE_READY -> {
                                 val channelName = currentMediaItem?.mediaId ?: "Unknown"
                                 addDebugMessage("▶ Playing: $channelName")
+                                
+                                val audioFormat = audioFormat
+                                if (audioFormat == null) {
+                                    addDebugMessage("  ⚠️ NO AUDIO FORMAT ACTIVE!")
+                                }
+                                
                                 stopBufferingCheck()
                             }
                             Player.STATE_BUFFERING -> {
