@@ -481,6 +481,8 @@ class MainActivity : AppCompatActivity() {
                                     if (!supported) {
                                         addDebugMessage("       ⚠️ AUDIO NOT SUPPORTED BY ANY RENDERER!")
                                     }
+                                } else if (type == C.TRACK_TYPE_VIDEO) {
+                                    addDebugMessage("       ${format.width}x${format.height} @ ${format.frameRate}fps")
                                 }
                             }
                         }
@@ -496,8 +498,16 @@ class MainActivity : AppCompatActivity() {
                                 val channelName = currentMediaItem?.mediaId ?: "Unknown"
                                 addDebugMessage("▶ Playing: $channelName")
                                 
-                                val audioFormat = audioFormat
-                                if (audioFormat == null) {
+                                val vFormat = videoFormat
+                                val aFormat = audioFormat
+                                
+                                if (vFormat != null) {
+                                    addDebugMessage("  📺 Video: ${vFormat.sampleMimeType} (${vFormat.width}x${vFormat.height})")
+                                }
+                                
+                                if (aFormat != null) {
+                                    addDebugMessage("  🔊 Audio: ${aFormat.sampleMimeType} (${aFormat.channelCount}ch @ ${aFormat.sampleRate}Hz)")
+                                } else {
                                     addDebugMessage("  ⚠️ NO AUDIO FORMAT ACTIVE!")
                                 }
                                 

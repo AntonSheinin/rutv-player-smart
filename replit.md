@@ -86,6 +86,7 @@ The player supports M3U/M3U8 format playlists with:
 - **Subtitles disabled**: Text renderer completely removed
 - **Buffering timeout**: 30s detection with user notification
 - **Debug diagnostics**: FFmpeg version, library status, and actual decoder names logged on-screen
+- **Enhanced decoder logging**: Shows both audio and video decoder names, plus format details (resolution, framerate, sample rate, etc.)
 
 ### October 1, 2025
 - Initial Android project with Media3/ExoPlayer integration
