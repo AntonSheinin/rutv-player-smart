@@ -1,4 +1,4 @@
-modules = ["java-graalvm22.3", "python-3.11"]
+modules = ["java-graalvm22.3", "python-3.11", "nodejs-20"]
 [agent]
 expertMode = true
 
@@ -16,18 +16,23 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Android Build Info"
+args = "Auth Backend"
 
 [[workflows.workflow]]
-name = "Android Build Info"
+name = "Auth Backend"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "echo \"📱 Android IPTV Player - Build via GitHub Actions\" && echo \"\" && echo \"This Android app is built automatically via GitHub Actions.\" && echo \"\" && echo \"To build and test:\" && echo \"1. Push code to GitHub\" && echo \"2. GitHub Actions will build the APK\" && echo \"3. Download APK from Actions artifacts\" && echo \"4. Install on Android device\" && echo \"\" && echo \"Project uses Media3 ExoPlayer with FFmpeg for IPTV playback.\" && tail -f /dev/null"
+args = "PORT=3000 node server/index.js"
+waitForPort = 3000
 
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[ports]]
+localPort = 3000
+externalPort = 3000
 
 [[ports]]
 localPort = 5000
