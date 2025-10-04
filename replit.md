@@ -1,20 +1,9 @@
-# Android IPTV Player + Flussonic Auth Backend
+# Android IPTV Player
 
 ## Overview
-Native Android video player application using Media3 (ExoPlayer) for IPTV playlist playback with advanced codec support, plus HTTP authorization backend for Flussonic Media Server.
+Native Android video player application using Media3 (ExoPlayer) for IPTV playlist playback with advanced codec support. Designed to work with Flussonic Media Server using built-in token authentication.
 
 ## Project Structure
-
-### Auth Backend Server (`/server`)
-- **HTTP authorization backend** for Flussonic Media Server
-- **Language**: Node.js (Express)
-- **Port**: 3000
-- **Key Features**:
-  - Token validation for stream access
-  - RESTful API for token management
-  - Session duration and max concurrent sessions control
-  - Per-stream access control
-  - Request logging and monitoring
 
 ### Android App (`/app`)
 - **Native Android application** with Media3/ExoPlayer
@@ -34,9 +23,6 @@ Native Android video player application using Media3 (ExoPlayer) for IPTV playli
 
 ## Dependencies
 
-### Auth Backend (Node.js)
-- `express` - Web server framework
-
 ### Android (Media3)
 - `androidx.media3:media3-exoplayer:1.8.0`
 - `androidx.media3:media3-ui:1.8.0`
@@ -44,57 +30,6 @@ Native Android video player application using Media3 (ExoPlayer) for IPTV playli
 - `androidx.media3:media3-exoplayer-dash:1.8.0`
 - `androidx.media3:media3-exoplayer-hls:1.8.0`
 - `org.jellyfin.media3:media3-ffmpeg-decoder:1.8.0+1` (for MP2/mp2a audio codec support)
-
-## Running the Auth Backend
-
-The auth backend runs automatically on port 3000. It provides HTTP authorization for Flussonic Media Server.
-
-### API Endpoints
-
-**Authorization Endpoint** (called by Flussonic):
-```
-GET/POST /auth?token=xxx&ip=xxx&name=stream_name
-```
-
-**Token Management**:
-```bash
-# List all tokens
-GET /tokens
-
-# Add new token
-POST /tokens
-{
-  "token": "abc123",
-  "userId": "user1",
-  "maxSessions": 3,
-  "duration": 3600,
-  "allowedStreams": ["*"]
-}
-
-# Delete token
-DELETE /tokens/{token}
-
-# Health check
-GET /health
-```
-
-### Flussonic Configuration
-
-Add to your Flussonic config:
-```conf
-auth_backend myauth {
-  backend http://YOUR_SERVER_IP:3000/auth;
-}
-
-stream example {
-  input udp://239.255.0.1:1234;
-  on_play auth://myauth;
-}
-```
-
-### Pre-configured Tokens
-
-- `wLaPEFi23KFwI0` - Default token for testing (user1, 3 sessions, 1 hour)
 
 ## Building the Android App
 
@@ -127,7 +62,11 @@ The player supports M3U/M3U8 format playlists with:
 
 ## Recent Changes
 
-### October 3, 2025 (Latest - HLS Audio Detection + Codec Priority Fix)
+### October 4, 2025 (Latest - Project Cleanup)
+- Removed Node.js auth backend server (using Flussonic built-in authentication instead)
+- Project now consists of Android app only
+
+### October 3, 2025 (HLS Audio Detection + Codec Priority Fix)
 - **CRITICAL FIX: HLS Media Source for MPEG Audio Detection** ✅ WORKING
   - Root cause: MPEG audio tracks not detected in HLS transport streams
   - Solution: HlsMediaSource.Factory with DefaultHlsExtractorFactory

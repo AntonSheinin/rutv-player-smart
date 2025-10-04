@@ -7,28 +7,6 @@ channel = "stable-25_05"
 packages = ["android-tools", "gradle"]
 
 [workflows]
-runButton = "Project"
-
-[[workflows.workflow]]
-name = "Project"
-mode = "parallel"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Auth Backend"
-
-[[workflows.workflow]]
-name = "Auth Backend"
-author = "agent"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "PORT=3000 node server/index.js"
-waitForPort = 3000
 
 [[ports]]
 localPort = 3000
