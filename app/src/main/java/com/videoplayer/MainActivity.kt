@@ -421,6 +421,12 @@ class MainActivity : AppCompatActivity() {
             .setConnectTimeoutMs(15000)
             .setReadTimeoutMs(15000)
             .setAllowCrossProtocolRedirects(true)
+            .setUserAgent("Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36")
+            .setDefaultRequestProperties(mapOf(
+                "Accept" to "*/*",
+                "Accept-Encoding" to "gzip, deflate",
+                "Connection" to "keep-alive"
+            ))
         
         val hlsExtractorFactory = DefaultHlsExtractorFactory(
             DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES or
@@ -434,6 +440,7 @@ class MainActivity : AppCompatActivity() {
             .setAllowChunklessPreparation(false)
         
         addDebugMessage("✓ HLS extractor: Aggressive MPEG audio detection enabled")
+        addDebugMessage("✓ HTTP: User-Agent and headers configured")
         
         player = ExoPlayer.Builder(this, renderersFactory)
             .setLoadControl(loadControl)
@@ -583,6 +590,14 @@ class MainActivity : AppCompatActivity() {
                         
                         addDebugMessage("✗ Error: $channelName")
                         addDebugMessage("  → $errorMsg")
+                        
+                        if (error.cause != null) {
+                            addDebugMessage("  → Cause: ${error.cause?.message}")
+                            Log.e("VideoPlayer", "Error cause:", error.cause)
+                        }
+                        
+                        val errorCode = error.errorCode
+                        addDebugMessage("  → Code: ${error.errorCodeName} ($errorCode)")
                         
                         stopBufferingCheck()
                         
