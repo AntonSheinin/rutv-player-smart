@@ -63,13 +63,22 @@ The player supports M3U/M3U8 format playlists with:
 
 ## Recent Changes
 
-### October 5, 2025 (Latest - Settings Page & Persistent Playlist)
+### October 5, 2025 (Latest - UI/UX Enhancements & Branding)
+- **App Rebranding**: Changed app name from "Video Player" to "RuTV" with updated APK output filename (rutv-*.apk)
+- **RuTV Logo**: Added RuTV logo in upper left corner (120x60dp)
+- **Screen Orientation Toggle**: Added rotation button to switch between landscape/portrait modes (manifest now uses "sensor" orientation)
+- **Channel Info Display**: Shows "#[number] • [channel name]" at top center when playlist is open
+- **Material Design Icons**: Redesigned all control buttons (aspect ratio, orientation, settings) with circular backgrounds and white borders
+- **Improved Channel List**: 
+  - MaterialCardView with rounded corners (16dp) and elevation
+  - Channel numbers displayed (#1, #2, etc.)
+  - Better spacing and padding
+  - "▶ Playing" indicator for current channel
 - **Settings Page**: Dedicated settings screen accessible via ⚙ button (bottom right)
 - **Persistent Storage**: 
   - File upload mode: Playlist content stored locally in SharedPreferences
   - URL mode: Playlist URL stored and reloaded automatically on app start
 - **Auto-load**: App automatically loads saved playlist on startup
-- **Clean UI**: Removed playlist loading buttons from main screen for cleaner playback interface
 
 ### October 4, 2025 (Project Cleanup)
 - Removed Node.js auth backend server (using Flussonic built-in authentication instead)
