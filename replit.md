@@ -73,8 +73,9 @@ The player supports M3U/M3U8 format playlists with:
 ### October 5, 2025 (Latest - Version 1.2 - Bug Fixes & Logo Update)
 - **CRITICAL FIX: RecyclerView crash with large playlists** - Deferred updateCurrentlyPlaying() to post-layout using playlistRecyclerView.post{} to prevent IllegalStateException when loading 393+ channels
 - **Error Recovery**: App now clears corrupted playlists automatically on startup with proper try-catch handling
-- **Updated RuTV Logo**: New square RuTV logo (yellow/white/black design) implemented as launcher icon (all densities) and in-app UI (64x64dp, top-left corner)
+- **Updated RuTV Logo**: New square RuTV logo (yellow/white/black design) implemented as launcher icon (adaptive) and in-app UI (48x48dp, top-left corner)
 - **Logo Display**: Logo only appears on app start screen - automatically hides during channel playback
+- **Logo Sizing**: Reduced in-app logo to 48dp for better screen proportion
 - **Version Incremented**: versionCode 3, versionName "1.2", APK output: rutv-debug-1.2.apk
 - **Video Rotation Only**: Orientation toggle now rotates only video playback (0°/90°/180°/270°), UI stays landscape
 - **Auto-play Channels**: Selecting a channel from list automatically starts playback (no play button needed)
