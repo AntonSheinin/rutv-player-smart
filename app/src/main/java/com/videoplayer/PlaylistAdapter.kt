@@ -63,18 +63,24 @@ class PlaylistAdapter(
     override fun getItemCount(): Int = playlist.size
     
     fun updateCurrentlyPlaying(index: Int) {
+        if (index < 0 || index >= playlist.size) {
+            return
+        }
+        
         val previousIndex = currentlyPlayingIndex
         currentlyPlayingIndex = index
         selectedPosition = index
         
-        if (previousIndex >= 0) {
+        if (previousIndex >= 0 && previousIndex < playlist.size) {
             notifyItemChanged(previousIndex)
         }
-        notifyItemChanged(currentlyPlayingIndex)
+        if (currentlyPlayingIndex >= 0 && currentlyPlayingIndex < playlist.size) {
+            notifyItemChanged(currentlyPlayingIndex)
+        }
     }
     
     fun updateError(index: Int, error: String) {
-        if (index == currentlyPlayingIndex) {
+        if (index >= 0 && index < playlist.size && index == currentlyPlayingIndex) {
             notifyItemChanged(index)
         }
     }
