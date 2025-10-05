@@ -376,14 +376,16 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun updateChannelInfo() {
-        if (playlistRecyclerView.visibility == View.VISIBLE && ::playlistAdapter.isInitialized && playlistAdapter.selectedPosition >= 0) {
-            val item = playlist.getOrNull(playlistAdapter.selectedPosition)
-            item?.let {
-                channelInfo.text = "#${playlistAdapter.selectedPosition + 1} • ${it.title}"
-                channelInfo.visibility = View.VISIBLE
+        playlistRecyclerView.post {
+            if (playlistRecyclerView.visibility == View.VISIBLE && ::playlistAdapter.isInitialized && playlistAdapter.selectedPosition >= 0) {
+                val item = playlist.getOrNull(playlistAdapter.selectedPosition)
+                item?.let {
+                    channelInfo.text = "#${playlistAdapter.selectedPosition + 1} • ${it.title}"
+                    channelInfo.visibility = View.VISIBLE
+                }
+            } else {
+                channelInfo.visibility = View.GONE
             }
-        } else {
-            channelInfo.visibility = View.GONE
         }
     }
     
