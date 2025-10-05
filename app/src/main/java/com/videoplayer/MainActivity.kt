@@ -184,6 +184,8 @@ class MainActivity : AppCompatActivity() {
     private var bufferingCheckRunnable: Runnable? = null
     
     private var currentResizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+    private var videoRotation = 0f
+    private var showDebugLog = true
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -198,6 +200,7 @@ class MainActivity : AppCompatActivity() {
         channelInfo = findViewById(R.id.channel_info)
         logo = findViewById(R.id.logo)
         
+        loadPreferences()
         addDebugMessage("App Started")
         
         setupSettingsButton()
@@ -209,9 +212,30 @@ class MainActivity : AppCompatActivity() {
         autoLoadPlaylist()
     }
     
+    private val settingsLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        loadPreferences()
+        autoLoadPlaylist()
+    }
+    
     private fun setupSettingsButton() {
         btnSettings.setOnClickListener {
-            startActivity(android.content.Intent(this, SettingsActivity::class.java))
+            settingsLauncher.launch(android.content.Intent(this, SettingsActivity::class.java))
+        }
+    }
+    
+    private fun loadPreferences() {
+        val prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE)
+        showDebugLog = prefs.getBoolean(SettingsActivity.KEY_SHOW_DEBUG_LOG, true)
+        updateDebugLogVisibility()
+    }
+    
+    private fun updateDebugLogVisibility() {
+        if (::debugLog.isInitialized && ::playlistRecyclerView.isInitialized) {
+            debugLog.visibility = if (showDebugLog && playlistRecyclerView.visibility == View.VISIBLE) {
+                View.VISIBLE
+            } else {
+                View.GONE
+            }
         }
     }
     
@@ -266,16 +290,25 @@ class MainActivity : AppCompatActivity() {
     
     private fun setupOrientationButton() {
         btnOrientation.setOnClickListener {
-            requestedOrientation = when (requestedOrientation) {
-                ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE -> {
-                    Toast.makeText(this, "Portrait mode", Toast.LENGTH_SHORT).show()
-                    ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            videoRotation = when (videoRotation) {
+                0f -> {
+                    Toast.makeText(this, "Video rotated 90°", Toast.LENGTH_SHORT).show()
+                    90f
+                }
+                90f -> {
+                    Toast.makeText(this, "Video rotated 180°", Toast.LENGTH_SHORT).show()
+                    180f
+                }
+                180f -> {
+                    Toast.makeText(this, "Video rotated 270°", Toast.LENGTH_SHORT).show()
+                    270f
                 }
                 else -> {
-                    Toast.makeText(this, "Landscape mode", Toast.LENGTH_SHORT).show()
-                    ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                    Toast.makeText(this, "Video rotation reset", Toast.LENGTH_SHORT).show()
+                    0f
                 }
             }
+            playerView.rotation = videoRotation
         }
     }
     
@@ -303,6 +336,7 @@ class MainActivity : AppCompatActivity() {
                 debugMessages.removeAt(0)
             }
             debugLog.text = debugMessages.joinToString("\n")
+            updateDebugLogVisibility()
             Log.d("VideoPlayer", message)
         }
     }
@@ -319,7 +353,7 @@ class MainActivity : AppCompatActivity() {
     
     private fun showUIElements() {
         playlistRecyclerView.visibility = View.VISIBLE
-        debugLog.visibility = View.VISIBLE
+        updateDebugLogVisibility()
         btnAspectRatio.visibility = View.VISIBLE
         btnOrientation.visibility = View.VISIBLE
         btnSettings.visibility = View.VISIBLE
@@ -328,7 +362,7 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun updateChannelInfo() {
-        if (playlistRecyclerView.visibility == View.VISIBLE && playlistAdapter.selectedPosition >= 0) {
+        if (playlistRecyclerView.visibility == View.VISIBLE && ::playlistAdapter.isInitialized && playlistAdapter.selectedPosition >= 0) {
             val item = playlist.getOrNull(playlistAdapter.selectedPosition)
             item?.let {
                 channelInfo.text = "#${playlistAdapter.selectedPosition + 1} • ${it.title}"

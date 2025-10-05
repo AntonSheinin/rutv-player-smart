@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.widget.Button
 import android.widget.EditText
+import android.widget.Switch
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -21,6 +22,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var btnLoadFile: Button
     private lateinit var btnLoadUrl: Button
     private lateinit var btnBack: Button
+    private lateinit var switchDebugLog: Switch
     
     private val filePickerLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
@@ -35,8 +37,10 @@ class SettingsActivity : AppCompatActivity() {
         btnLoadFile = findViewById(R.id.btn_load_file)
         btnLoadUrl = findViewById(R.id.btn_load_url)
         btnBack = findViewById(R.id.btn_back)
+        switchDebugLog = findViewById(R.id.switch_debug_log)
         
         setupButtons()
+        setupDebugLogSwitch()
     }
     
     private fun setupButtons() {
@@ -50,6 +54,16 @@ class SettingsActivity : AppCompatActivity() {
         
         btnBack.setOnClickListener {
             finish()
+        }
+    }
+    
+    private fun setupDebugLogSwitch() {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        switchDebugLog.isChecked = prefs.getBoolean(KEY_SHOW_DEBUG_LOG, true)
+        
+        switchDebugLog.setOnCheckedChangeListener { _, isChecked ->
+            prefs.edit().putBoolean(KEY_SHOW_DEBUG_LOG, isChecked).apply()
+            Toast.makeText(this, if (isChecked) "Debug log enabled" else "Debug log disabled", Toast.LENGTH_SHORT).show()
         }
     }
     
@@ -80,7 +94,7 @@ class SettingsActivity : AppCompatActivity() {
             val content = contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
             content?.let { 
                 savePlaylistContent(it)
-                Toast.makeText(this, "Playlist saved! Restart app to load it.", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Playlist saved!", Toast.LENGTH_SHORT).show()
                 finish()
             }
         } catch (e: Exception) {
@@ -95,7 +109,7 @@ class SettingsActivity : AppCompatActivity() {
                     URL(url).readText()
                 }
                 savePlaylistUrl(url)
-                Toast.makeText(this@SettingsActivity, "Playlist URL saved! Restart app to load it.", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@SettingsActivity, "Playlist URL saved!", Toast.LENGTH_SHORT).show()
                 finish()
             } catch (e: Exception) {
                 Toast.makeText(this@SettingsActivity, "Failed to load URL: ${e.message}", Toast.LENGTH_LONG).show()
@@ -128,6 +142,7 @@ class SettingsActivity : AppCompatActivity() {
         const val KEY_PLAYLIST_CONTENT = "playlist_content"
         const val KEY_PLAYLIST_URL = "playlist_url"
         const val KEY_PLAYLIST_TYPE = "playlist_type"
+        const val KEY_SHOW_DEBUG_LOG = "show_debug_log"
         const val TYPE_FILE = "file"
         const val TYPE_URL = "url"
     }
