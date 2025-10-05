@@ -561,7 +561,9 @@ class MainActivity : AppCompatActivity() {
                     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                         mediaItem?.let {
                             val currentIndex = currentMediaItemIndex
-                            playlistAdapter.updateCurrentlyPlaying(currentIndex)
+                            playlistRecyclerView.post {
+                                playlistAdapter.updateCurrentlyPlaying(currentIndex)
+                            }
                             
                             when (reason) {
                                 Player.MEDIA_ITEM_TRANSITION_REASON_AUTO -> {
