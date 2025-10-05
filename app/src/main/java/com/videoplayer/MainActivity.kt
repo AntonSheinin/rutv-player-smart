@@ -693,7 +693,12 @@ class MainActivity : AppCompatActivity() {
             }
         
             playerView.player = player
-            playlistAdapter.updateCurrentlyPlaying(0)
+            
+            playlistRecyclerView.post {
+                if (playlist.isNotEmpty()) {
+                    playlistAdapter.updateCurrentlyPlaying(0)
+                }
+            }
             
         } catch (e: Exception) {
             Log.e("VideoPlayer", "Error initializing player", e)
