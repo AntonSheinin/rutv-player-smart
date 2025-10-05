@@ -63,10 +63,15 @@ The player supports M3U/M3U8 format playlists with:
 
 ## Recent Changes
 
-### October 5, 2025 (Latest - UI/UX Enhancements & Branding)
+### October 5, 2025 (Latest - Bug Fixes & Feature Improvements)
+- **CRITICAL FIX: Crash after playlist load** - Added initialization checks to prevent accessing adapter before it's ready
+- **App Icon Updated**: RuTV logo now used as launcher icon (all densities)
+- **Video Rotation Only**: Orientation toggle now rotates only video playback (0°/90°/180°/270°), UI stays landscape
+- **Auto-play Channels**: Selecting a channel from list automatically starts playback (no play button needed)
+- **Instant Playlist Reload**: Adding playlist in settings auto-reloads it immediately (no app restart required)
+- **Debug Log Toggle**: New setting to show/hide on-screen debug logs
 - **App Rebranding**: Changed app name from "Video Player" to "RuTV" with updated APK output filename (rutv-*.apk)
-- **RuTV Logo**: Added RuTV logo in upper left corner (120x60dp)
-- **Screen Orientation Toggle**: Added rotation button to switch between landscape/portrait modes (manifest now uses "sensor" orientation)
+- **RuTV Logo**: Added RuTV logo in upper left corner (120x60dp) and as launcher icon
 - **Channel Info Display**: Shows "#[number] • [channel name]" at top center when playlist is open
 - **Material Design Icons**: Redesigned all control buttons (aspect ratio, orientation, settings) with circular backgrounds and white borders
 - **Improved Channel List**: 
