@@ -166,11 +166,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var playerView: PlayerView
     private lateinit var playlistRecyclerView: RecyclerView
     private lateinit var playlistAdapter: PlaylistAdapter
-    private lateinit var btnLoadFile: Button
-    private lateinit var btnLoadUrl: Button
-    private lateinit var buttonContainer: LinearLayout
     private lateinit var debugLog: TextView
     private lateinit var btnAspectRatio: Button
+    private lateinit var btnSettings: Button
     
     private val playlist = mutableListOf<VideoItem>()
     private val debugMessages = mutableListOf<String>()
@@ -181,39 +179,54 @@ class MainActivity : AppCompatActivity() {
     
     private var currentResizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
     
-    private val filePickerLauncher = registerForActivityResult(
-        ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        uri?.let { loadPlaylistFromUri(it) }
-    }
-    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         
         playerView = findViewById(R.id.player_view)
         playlistRecyclerView = findViewById(R.id.playlist_container)
-        btnLoadFile = findViewById(R.id.btn_load_file)
-        btnLoadUrl = findViewById(R.id.btn_load_url)
-        buttonContainer = findViewById(R.id.button_container)
         debugLog = findViewById(R.id.debug_log)
         btnAspectRatio = findViewById(R.id.btn_aspect_ratio)
+        btnSettings = findViewById(R.id.btn_settings)
         
         addDebugMessage("App Started")
         
-        setupButtons()
+        setupSettingsButton()
         setupAspectRatioButton()
         setupRecyclerView()
         setupFullscreen()
+        
+        autoLoadPlaylist()
     }
     
-    private fun setupButtons() {
-        btnLoadFile.setOnClickListener {
-            filePickerLauncher.launch("*/*")
+    private fun setupSettingsButton() {
+        btnSettings.setOnClickListener {
+            startActivity(android.content.Intent(this, SettingsActivity::class.java))
         }
+    }
+    
+    private fun autoLoadPlaylist() {
+        val prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE)
+        val playlistType = prefs.getString(SettingsActivity.KEY_PLAYLIST_TYPE, null)
         
-        btnLoadUrl.setOnClickListener {
-            showUrlDialog()
+        when (playlistType) {
+            SettingsActivity.TYPE_FILE -> {
+                val content = prefs.getString(SettingsActivity.KEY_PLAYLIST_CONTENT, null)
+                content?.let { 
+                    addDebugMessage("Auto-loading saved playlist file")
+                    loadPlaylistContent(it)
+                }
+            }
+            SettingsActivity.TYPE_URL -> {
+                val url = prefs.getString(SettingsActivity.KEY_PLAYLIST_URL, null)
+                url?.let {
+                    addDebugMessage("Auto-loading playlist from URL")
+                    loadPlaylistFromUrl(it)
+                }
+            }
+            else -> {
+                addDebugMessage("No saved playlist - tap ⚙ to configure")
+            }
         }
     }
     
@@ -283,17 +296,17 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun hideUIElements() {
-        buttonContainer.visibility = View.GONE
         playlistRecyclerView.visibility = View.GONE
         debugLog.visibility = View.GONE
         btnAspectRatio.visibility = View.GONE
+        btnSettings.visibility = View.GONE
     }
     
     private fun showUIElements() {
-        buttonContainer.visibility = View.VISIBLE
         playlistRecyclerView.visibility = View.VISIBLE
         debugLog.visibility = View.VISIBLE
         btnAspectRatio.visibility = View.VISIBLE
+        btnSettings.visibility = View.VISIBLE
     }
     
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -301,33 +314,6 @@ class MainActivity : AppCompatActivity() {
         if (hasFocus) {
             val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
             windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
-        }
-    }
-    
-    private fun showUrlDialog() {
-        val input = EditText(this)
-        input.hint = "Enter M3U/M3U8 URL"
-        
-        AlertDialog.Builder(this)
-            .setTitle("Load Playlist from URL")
-            .setView(input)
-            .setPositiveButton("Load") { _, _ ->
-                val url = input.text.toString()
-                if (url.isNotBlank()) {
-                    loadPlaylistFromUrl(url)
-                }
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
-    
-    private fun loadPlaylistFromUri(uri: Uri) {
-        try {
-            val content = contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
-            content?.let { loadPlaylistContent(it) }
-        } catch (e: Exception) {
-            Log.e("VideoPlayer", "Error loading playlist from URI", e)
-            Toast.makeText(this, "Failed to load playlist: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
     

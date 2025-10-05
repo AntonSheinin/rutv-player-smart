@@ -55,14 +55,23 @@ The player supports M3U/M3U8 format playlists with:
 - IPTV playlists
 
 ### Loading Playlists
-- App starts with empty playlist
-- **Upload File**: Tap "Load M3U/M3U8" to select playlist from device storage
-- **URL**: Tap "Load URL" to enter playlist URL
+- **Settings Button**: Tap the ⚙ icon (bottom right) to access settings
+- **Upload File**: Select M3U/M3U8 file from device - stored permanently on device
+- **Playlist URL**: Enter M3U8 URL - reloads automatically on app start
+- Auto-loads last configured playlist on startup
 - Supports 300+ channel playlists with logos and categories
 
 ## Recent Changes
 
-### October 4, 2025 (Latest - Project Cleanup)
+### October 5, 2025 (Latest - Settings Page & Persistent Playlist)
+- **Settings Page**: Dedicated settings screen accessible via ⚙ button (bottom right)
+- **Persistent Storage**: 
+  - File upload mode: Playlist content stored locally in SharedPreferences
+  - URL mode: Playlist URL stored and reloaded automatically on app start
+- **Auto-load**: App automatically loads saved playlist on startup
+- **Clean UI**: Removed playlist loading buttons from main screen for cleaner playback interface
+
+### October 4, 2025 (Project Cleanup)
 - Removed Node.js auth backend server (using Flussonic built-in authentication instead)
 - Project now consists of Android app only
 
