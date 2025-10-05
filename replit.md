@@ -34,16 +34,23 @@ Native Android video player application using Media3 (ExoPlayer) for IPTV playli
 ## Building the Android App
 
 **GitHub Actions**: This project uses GitHub Actions for automated APK builds. 
-- Push to GitHub and the workflow will automatically build `rutv-debug-1.0.apk`
+- Push to GitHub and the workflow will automatically build `rutv-debug-1.1.apk`
 - Download the APK from GitHub Actions artifacts under "rutv-debug-apk"
+- **Updatable APK**: Uses consistent debug.keystore for all builds - update without uninstalling!
 
 **Local Build** (requires Android SDK):
 1. Open project in Android Studio
 2. Sync Gradle files
 3. Build APK: `./gradlew assembleDebug`
-4. Output: `app/build/outputs/apk/debug/rutv-debug-1.0.apk`
+4. Output: `app/build/outputs/apk/debug/rutv-debug-1.1.apk`
 
 Or run directly on emulator/physical device from Android Studio.
+
+**For Future Updates**: 
+- Increment `versionCode` in app/build.gradle (currently: 2)
+- Update `versionName` (currently: "1.1")
+- Update APK filename in GitHub Actions workflow
+- Keep `debug.keystore` file for consistent signing
 
 ## Playlist Support
 
