@@ -10,9 +10,12 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import android.content.pm.ActivityInfo
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
@@ -167,8 +170,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var playlistRecyclerView: RecyclerView
     private lateinit var playlistAdapter: PlaylistAdapter
     private lateinit var debugLog: TextView
-    private lateinit var btnAspectRatio: Button
-    private lateinit var btnSettings: Button
+    private lateinit var btnAspectRatio: ImageButton
+    private lateinit var btnOrientation: ImageButton
+    private lateinit var btnSettings: ImageButton
+    private lateinit var channelInfo: TextView
+    private lateinit var logo: ImageView
     
     private val playlist = mutableListOf<VideoItem>()
     private val debugMessages = mutableListOf<String>()
@@ -187,12 +193,16 @@ class MainActivity : AppCompatActivity() {
         playlistRecyclerView = findViewById(R.id.playlist_container)
         debugLog = findViewById(R.id.debug_log)
         btnAspectRatio = findViewById(R.id.btn_aspect_ratio)
+        btnOrientation = findViewById(R.id.btn_orientation)
         btnSettings = findViewById(R.id.btn_settings)
+        channelInfo = findViewById(R.id.channel_info)
+        logo = findViewById(R.id.logo)
         
         addDebugMessage("App Started")
         
         setupSettingsButton()
         setupAspectRatioButton()
+        setupOrientationButton()
         setupRecyclerView()
         setupFullscreen()
         
@@ -231,8 +241,6 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun setupAspectRatioButton() {
-        updateAspectRatioButtonText()
-        
         btnAspectRatio.setOnClickListener {
             currentResizeMode = when (currentResizeMode) {
                 androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT -> 
@@ -244,26 +252,30 @@ class MainActivity : AppCompatActivity() {
             }
             
             playerView.resizeMode = currentResizeMode
-            updateAspectRatioButtonText()
             
-            Toast.makeText(
-                this,
-                "Aspect ratio: ${getResizeModeText()}",
-                Toast.LENGTH_SHORT
-            ).show()
+            val modeText = when (currentResizeMode) {
+                androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT -> "FIT"
+                androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL -> "FILL"
+                androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM -> "ZOOM"
+                else -> "FIT"
+            }
+            
+            Toast.makeText(this, "Aspect ratio: $modeText", Toast.LENGTH_SHORT).show()
         }
     }
     
-    private fun updateAspectRatioButtonText() {
-        btnAspectRatio.text = getResizeModeText()
-    }
-    
-    private fun getResizeModeText(): String {
-        return when (currentResizeMode) {
-            androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT -> "FIT"
-            androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL -> "FILL"
-            androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM -> "ZOOM"
-            else -> "FIT"
+    private fun setupOrientationButton() {
+        btnOrientation.setOnClickListener {
+            requestedOrientation = when (requestedOrientation) {
+                ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE -> {
+                    Toast.makeText(this, "Portrait mode", Toast.LENGTH_SHORT).show()
+                    ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                }
+                else -> {
+                    Toast.makeText(this, "Landscape mode", Toast.LENGTH_SHORT).show()
+                    ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                }
+            }
         }
     }
     
@@ -299,14 +311,32 @@ class MainActivity : AppCompatActivity() {
         playlistRecyclerView.visibility = View.GONE
         debugLog.visibility = View.GONE
         btnAspectRatio.visibility = View.GONE
+        btnOrientation.visibility = View.GONE
         btnSettings.visibility = View.GONE
+        channelInfo.visibility = View.GONE
+        logo.visibility = View.GONE
     }
     
     private fun showUIElements() {
         playlistRecyclerView.visibility = View.VISIBLE
         debugLog.visibility = View.VISIBLE
         btnAspectRatio.visibility = View.VISIBLE
+        btnOrientation.visibility = View.VISIBLE
         btnSettings.visibility = View.VISIBLE
+        logo.visibility = View.VISIBLE
+        updateChannelInfo()
+    }
+    
+    private fun updateChannelInfo() {
+        if (playlistRecyclerView.visibility == View.VISIBLE && playlistAdapter.selectedPosition >= 0) {
+            val item = playlist.getOrNull(playlistAdapter.selectedPosition)
+            item?.let {
+                channelInfo.text = "#${playlistAdapter.selectedPosition + 1} • ${it.title}"
+                channelInfo.visibility = View.VISIBLE
+            }
+        } else {
+            channelInfo.visibility = View.GONE
+        }
     }
     
     override fun onWindowFocusChanged(hasFocus: Boolean) {

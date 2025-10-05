@@ -15,9 +15,11 @@ class PlaylistAdapter(
 ) : RecyclerView.Adapter<PlaylistAdapter.PlaylistViewHolder>() {
     
     private var currentlyPlayingIndex = -1
+    var selectedPosition = -1
     
     class PlaylistViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val logoImageView: ImageView = view.findViewById(R.id.channel_logo)
+        val numberTextView: TextView = view.findViewById(R.id.channel_number)
         val titleTextView: TextView = view.findViewById(R.id.video_title)
         val groupTextView: TextView = view.findViewById(R.id.video_group)
         val statusTextView: TextView = view.findViewById(R.id.video_status)
@@ -32,6 +34,7 @@ class PlaylistAdapter(
     override fun onBindViewHolder(holder: PlaylistViewHolder, position: Int) {
         val videoItem = playlist[position]
         
+        holder.numberTextView.text = "#${position + 1}"
         holder.titleTextView.text = videoItem.title
         holder.groupTextView.text = videoItem.group
         
@@ -49,9 +52,10 @@ class PlaylistAdapter(
         }
         
         holder.itemView.isSelected = (position == currentlyPlayingIndex)
-        holder.statusTextView.text = ""
+        holder.statusTextView.text = if (position == currentlyPlayingIndex) "▶ Playing" else ""
         
         holder.itemView.setOnClickListener {
+            selectedPosition = position
             onItemClick(position)
         }
     }
@@ -61,6 +65,7 @@ class PlaylistAdapter(
     fun updateCurrentlyPlaying(index: Int) {
         val previousIndex = currentlyPlayingIndex
         currentlyPlayingIndex = index
+        selectedPosition = index
         
         if (previousIndex >= 0) {
             notifyItemChanged(previousIndex)

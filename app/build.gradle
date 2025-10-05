@@ -20,6 +20,13 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
+        all {
+            applicationVariants.all { variant ->
+                variant.outputs.all {
+                    outputFileName = "rutv-${variant.name}-${variant.versionName}.apk"
+                }
+            }
+        }
     }
 
     compileOptions {
