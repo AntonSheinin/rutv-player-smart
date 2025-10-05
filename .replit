@@ -7,6 +7,27 @@ channel = "stable-25_05"
 packages = ["android-tools", "gradle"]
 
 [workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Android Project Info"
+
+[[workflows.workflow]]
+name = "Android Project Info"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"⚠️ This is an Android project that requires Android Studio or Android SDK to build.\" && echo \"\" && echo \"📱 To build the RuTV APK:\" && echo \"  1. Push to GitHub - the automated workflow will build the APK\" && echo \"  2. Download the APK from GitHub Actions artifacts\" && echo \"\" && echo \"Or build locally with: ./gradlew assembleDebug\" && sleep infinity"
+
+[workflows.workflow.metadata]
+outputType = "console"
 
 [[ports]]
 localPort = 3000

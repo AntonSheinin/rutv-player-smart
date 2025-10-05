@@ -33,17 +33,17 @@ Native Android video player application using Media3 (ExoPlayer) for IPTV playli
 
 ## Building the Android App
 
-**GitHub Actions**: This project uses GitHub Actions for automated APK builds. Push to GitHub and download the APK from the Actions artifacts.
+**GitHub Actions**: This project uses GitHub Actions for automated APK builds. 
+- Push to GitHub and the workflow will automatically build `rutv-debug-1.0.apk`
+- Download the APK from GitHub Actions artifacts under "rutv-debug-apk"
 
 **Local Build** (requires Android SDK):
 1. Open project in Android Studio
 2. Sync Gradle files
-3. Run on emulator or physical device
+3. Build APK: `./gradlew assembleDebug`
+4. Output: `app/build/outputs/apk/debug/rutv-debug-1.0.apk`
 
-Alternatively, use command line with Android SDK:
-```bash
-./gradlew assembleDebug
-```
+Or run directly on emulator/physical device from Android Studio.
 
 ## Playlist Support
 
@@ -82,7 +82,9 @@ The player supports M3U/M3U8 format playlists with:
 
 ### October 4, 2025 (Project Cleanup)
 - Removed Node.js auth backend server (using Flussonic built-in authentication instead)
+- Cleaned up Node.js dependencies and server files
 - Project now consists of Android app only
+- Fixed GitHub Actions workflow to use correct APK filename (rutv-debug-1.0.apk)
 
 ### October 3, 2025 (HLS Audio Detection + Codec Priority Fix)
 - **CRITICAL FIX: HLS Media Source for MPEG Audio Detection** ✅ WORKING
