@@ -72,6 +72,8 @@ The player supports M3U/M3U8 format playlists with:
 
 ### October 5, 2025 (Latest - Bug Fixes & Feature Improvements)
 - **CRITICAL FIX: Crash after playlist load** - Added initialization checks to prevent accessing adapter before it's ready
+- **CRITICAL FIX: Large playlist crash** - Added 500KB limit for file uploads, use URL mode for large playlists (300+ channels)
+- **Error Recovery**: App now clears corrupted playlists automatically on startup
 - **App Icon Updated**: RuTV logo now used as launcher icon (all densities)
 - **Video Rotation Only**: Orientation toggle now rotates only video playback (0°/90°/180°/270°), UI stays landscape
 - **Auto-play Channels**: Selecting a channel from list automatically starts playback (no play button needed)

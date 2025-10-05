@@ -119,6 +119,12 @@ class SettingsActivity : AppCompatActivity() {
     
     private fun savePlaylistContent(content: String) {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        
+        if (content.length > 500000) {
+            Toast.makeText(this, "⚠️ Playlist too large (${content.length} bytes). Use URL mode instead.", Toast.LENGTH_LONG).show()
+            return
+        }
+        
         prefs.edit().apply {
             putString(KEY_PLAYLIST_CONTENT, content)
             putString(KEY_PLAYLIST_TYPE, TYPE_FILE)

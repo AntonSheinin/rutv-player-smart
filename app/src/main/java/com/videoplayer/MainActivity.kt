@@ -243,24 +243,37 @@ class MainActivity : AppCompatActivity() {
         val prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE)
         val playlistType = prefs.getString(SettingsActivity.KEY_PLAYLIST_TYPE, null)
         
-        when (playlistType) {
-            SettingsActivity.TYPE_FILE -> {
-                val content = prefs.getString(SettingsActivity.KEY_PLAYLIST_CONTENT, null)
-                content?.let { 
-                    addDebugMessage("Auto-loading saved playlist file")
-                    loadPlaylistContent(it)
+        try {
+            when (playlistType) {
+                SettingsActivity.TYPE_FILE -> {
+                    val content = prefs.getString(SettingsActivity.KEY_PLAYLIST_CONTENT, null)
+                    content?.let { 
+                        addDebugMessage("Auto-loading saved playlist file")
+                        if (it.length > 500000) {
+                            addDebugMessage("⚠️ Playlist too large, clearing...")
+                            prefs.edit().remove(SettingsActivity.KEY_PLAYLIST_CONTENT).apply()
+                            Toast.makeText(this, "Saved playlist too large. Please use URL mode for large playlists.", Toast.LENGTH_LONG).show()
+                        } else {
+                            loadPlaylistContent(it)
+                        }
+                    }
+                }
+                SettingsActivity.TYPE_URL -> {
+                    val url = prefs.getString(SettingsActivity.KEY_PLAYLIST_URL, null)
+                    url?.let {
+                        addDebugMessage("Auto-loading playlist from URL")
+                        loadPlaylistFromUrl(it)
+                    }
+                }
+                else -> {
+                    addDebugMessage("No saved playlist - tap ⚙ to configure")
                 }
             }
-            SettingsActivity.TYPE_URL -> {
-                val url = prefs.getString(SettingsActivity.KEY_PLAYLIST_URL, null)
-                url?.let {
-                    addDebugMessage("Auto-loading playlist from URL")
-                    loadPlaylistFromUrl(it)
-                }
-            }
-            else -> {
-                addDebugMessage("No saved playlist - tap ⚙ to configure")
-            }
+        } catch (e: Exception) {
+            Log.e("VideoPlayer", "Error auto-loading playlist", e)
+            addDebugMessage("✗ Failed to auto-load playlist")
+            prefs.edit().clear().apply()
+            Toast.makeText(this, "Cleared corrupted playlist. Please reload.", Toast.LENGTH_LONG).show()
         }
     }
     
@@ -398,29 +411,38 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun loadPlaylistContent(content: String) {
-        val channels = M3U8Parser.parse(content)
-        
-        if (channels.isNotEmpty()) {
-            playlist.clear()
-            playlist.addAll(channels.map { channel ->
-                VideoItem(
-                    title = channel.title,
-                    url = channel.url,
-                    isPlaying = false,
-                    logo = channel.logo,
-                    group = channel.group
-                )
-            })
+        try {
+            val channels = M3U8Parser.parse(content)
             
-            playlistAdapter.notifyDataSetChanged()
-            
-            player?.release()
-            initializePlayer()
-            
-            Toast.makeText(this, "Loaded ${channels.size} channels", Toast.LENGTH_SHORT).show()
-            Log.d("VideoPlayer", "Loaded ${channels.size} channels from playlist")
-        } else {
-            Toast.makeText(this, "No valid channels found in playlist", Toast.LENGTH_LONG).show()
+            if (channels.isNotEmpty()) {
+                playlist.clear()
+                playlist.addAll(channels.map { channel ->
+                    VideoItem(
+                        title = channel.title,
+                        url = channel.url,
+                        isPlaying = false,
+                        logo = channel.logo,
+                        group = channel.group
+                    )
+                })
+                
+                playlistAdapter.notifyDataSetChanged()
+                
+                player?.release()
+                player = null
+                
+                initializePlayer()
+                
+                Toast.makeText(this, "Loaded ${channels.size} channels", Toast.LENGTH_SHORT).show()
+                addDebugMessage("✓ Loaded ${channels.size} channels")
+                Log.d("VideoPlayer", "Loaded ${channels.size} channels from playlist")
+            } else {
+                Toast.makeText(this, "No valid channels found in playlist", Toast.LENGTH_LONG).show()
+            }
+        } catch (e: Exception) {
+            Log.e("VideoPlayer", "Error loading playlist content", e)
+            addDebugMessage("✗ Error loading playlist: ${e.message}")
+            Toast.makeText(this, "Error loading playlist: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
     
@@ -447,14 +469,19 @@ class MainActivity : AppCompatActivity() {
             return
         }
         
-        if (FfmpegLibrary.isAvailable()) {
-            val version = FfmpegLibrary.getVersion()
-            addDebugMessage("✓ FFmpeg: v$version (fallback mode)")
-            addDebugMessage("✓ Built-in codecs first, FFmpeg if unsupported")
-        } else {
-            addDebugMessage("✗ FFmpeg: NOT LOADED")
-            addDebugMessage("✗ Some formats may not work")
-        }
+        try {
+            if (FfmpegLibrary.isAvailable()) {
+                val version = FfmpegLibrary.getVersion()
+                addDebugMessage("✓ FFmpeg: v$version (fallback mode)")
+                addDebugMessage("✓ Built-in codecs first, FFmpeg if unsupported")
+            } else {
+                addDebugMessage("✗ FFmpeg: NOT LOADED")
+                addDebugMessage("✗ Some formats may not work")
+            }
+            
+            if (playlist.size > 500) {
+                addDebugMessage("⚠️ Large playlist (${playlist.size} channels) - may take time to load")
+            }
         
         val renderersFactory = FfmpegRenderersFactory(this)
         
@@ -507,6 +534,8 @@ class MainActivity : AppCompatActivity() {
                 }
                 
                 setMediaItems(mediaItems)
+                
+                addDebugMessage("📺 Loaded ${mediaItems.size} channels into player")
                 
                 repeatMode = Player.REPEAT_MODE_ALL
                 
@@ -663,8 +692,14 @@ class MainActivity : AppCompatActivity() {
                 playWhenReady = true
             }
         
-        playerView.player = player
-        playlistAdapter.updateCurrentlyPlaying(0)
+            playerView.player = player
+            playlistAdapter.updateCurrentlyPlaying(0)
+            
+        } catch (e: Exception) {
+            Log.e("VideoPlayer", "Error initializing player", e)
+            addDebugMessage("✗ Player init failed: ${e.message}")
+            Toast.makeText(this, "Failed to initialize player: ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
     
     private fun startBufferingCheck() {
