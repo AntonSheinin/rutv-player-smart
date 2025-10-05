@@ -203,6 +203,8 @@ class MainActivity : AppCompatActivity() {
         loadPreferences()
         addDebugMessage("App Started")
         
+        logo.visibility = View.VISIBLE
+        
         setupSettingsButton()
         setupAspectRatioButton()
         setupOrientationButton()
@@ -370,7 +372,6 @@ class MainActivity : AppCompatActivity() {
         btnAspectRatio.visibility = View.VISIBLE
         btnOrientation.visibility = View.VISIBLE
         btnSettings.visibility = View.VISIBLE
-        logo.visibility = View.VISIBLE
         updateChannelInfo()
     }
     
