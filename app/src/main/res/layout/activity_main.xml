@@ -8,10 +8,10 @@
     <ImageView
         android:id="@+id/logo"
         android:layout_width="120dp"
-        android:layout_height="60dp"
+        android:layout_height="120dp"
         android:layout_margin="16dp"
-        android:src="@drawable/logo_rutv"
-        android:scaleType="fitStart"
+        android:src="@drawable/rutv_logo"
+        android:scaleType="fitCenter"
         android:elevation="20dp"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent" />

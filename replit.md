@@ -34,7 +34,7 @@ Native Android video player application using Media3 (ExoPlayer) for IPTV playli
 ## Building the Android App
 
 **GitHub Actions**: This project uses GitHub Actions for automated APK builds. 
-- Push to GitHub and the workflow will automatically build `rutv-debug-1.1.apk`
+- Push to GitHub and the workflow will automatically build `rutv-debug-1.2.apk`
 - Download the APK from GitHub Actions artifacts under "rutv-debug-apk"
 - **Updatable APK**: Uses consistent debug.keystore for all builds - update without uninstalling!
 
@@ -42,13 +42,13 @@ Native Android video player application using Media3 (ExoPlayer) for IPTV playli
 1. Open project in Android Studio
 2. Sync Gradle files
 3. Build APK: `./gradlew assembleDebug`
-4. Output: `app/build/outputs/apk/debug/rutv-debug-1.1.apk`
+4. Output: `app/build/outputs/apk/debug/rutv-debug-1.2.apk`
 
 Or run directly on emulator/physical device from Android Studio.
 
 **For Future Updates**: 
-- Increment `versionCode` in app/build.gradle (currently: 2)
-- Update `versionName` (currently: "1.1")
+- Increment `versionCode` in app/build.gradle (currently: 3)
+- Update `versionName` (currently: "1.2")
 - Update APK filename in GitHub Actions workflow
 - Keep `debug.keystore` file for consistent signing
 
@@ -70,11 +70,11 @@ The player supports M3U/M3U8 format playlists with:
 
 ## Recent Changes
 
-### October 5, 2025 (Latest - Bug Fixes & Feature Improvements)
-- **CRITICAL FIX: Crash after playlist load** - Added initialization checks to prevent accessing adapter before it's ready
-- **CRITICAL FIX: Large playlist crash** - Added 500KB limit for file uploads, use URL mode for large playlists (300+ channels)
-- **Error Recovery**: App now clears corrupted playlists automatically on startup
-- **App Icon Updated**: RuTV logo now used as launcher icon (all densities)
+### October 5, 2025 (Latest - Version 1.2 - Bug Fixes & Logo Update)
+- **CRITICAL FIX: RecyclerView crash with large playlists** - Deferred updateCurrentlyPlaying() to post-layout using playlistRecyclerView.post{} to prevent IllegalStateException when loading 393+ channels
+- **Error Recovery**: App now clears corrupted playlists automatically on startup with proper try-catch handling
+- **Updated RuTV Logo**: New square RuTV logo (yellow/white/black design) implemented as launcher icon (all densities) and in-app UI (120x120dp, top-left corner)
+- **Version Incremented**: versionCode 3, versionName "1.2", APK output: rutv-debug-1.2.apk
 - **Video Rotation Only**: Orientation toggle now rotates only video playback (0°/90°/180°/270°), UI stays landscape
 - **Auto-play Channels**: Selecting a channel from list automatically starts playback (no play button needed)
 - **Instant Playlist Reload**: Adding playlist in settings auto-reloads it immediately (no app restart required)
