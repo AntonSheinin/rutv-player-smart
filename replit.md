@@ -34,7 +34,7 @@ Native Android video player application using Media3 (ExoPlayer) for IPTV playli
 ## Building the Android App
 
 **GitHub Actions**: This project uses GitHub Actions for automated APK builds. 
-- Push to GitHub and the workflow will automatically build `rutv-debug-1.2.apk`
+- Push to GitHub and the workflow will automatically build `rutv-debug-1.3.apk`
 - Download the APK from GitHub Actions artifacts under "rutv-debug-apk"
 - **Updatable APK**: Uses consistent debug.keystore for all builds - update without uninstalling!
 
@@ -47,8 +47,8 @@ Native Android video player application using Media3 (ExoPlayer) for IPTV playli
 Or run directly on emulator/physical device from Android Studio.
 
 **For Future Updates**: 
-- Increment `versionCode` in app/build.gradle (currently: 3)
-- Update `versionName` (currently: "1.2")
+- Increment `versionCode` in app/build.gradle (currently: 4)
+- Update `versionName` (currently: "1.3")
 - Update APK filename in GitHub Actions workflow
 - Keep `debug.keystore` file for consistent signing
 
@@ -70,10 +70,15 @@ The player supports M3U/M3U8 format playlists with:
 
 ## Recent Changes
 
-### October 5, 2025 (Latest - Version 1.2 - Bug Fixes & Logo Update)
+### October 5, 2025 (Latest - Version 1.3 - CRASH FIX)
+- **🔥 CRITICAL FIX: Theme Crash Resolved** - Fixed MaterialCardView crash by changing app theme from `Theme.AppCompat` to `Theme.MaterialComponents` (root cause: MaterialCardView requires MaterialComponents theme)
+- **Updated RuTV Logo**: New square RuTV logo with yellow/white/black design implemented as launcher icon and in-app UI (48x48dp)
+- **Logo Files Updated**: All mipmap densities and drawable updated with new logo (18KB PNG files)
+- **Version Incremented**: versionCode 4, versionName "1.3", APK output: rutv-debug-1.3.apk
+
+### October 5, 2025 (Version 1.2 - Bug Fixes & Logo Update)
 - **CRITICAL FIX: Playlist loading crash** - Fixed RecyclerView update timing to prevent crashes with all playlist sizes
 - **Error Recovery**: App now clears corrupted playlists automatically on startup with proper try-catch handling
-- **Updated RuTV Logo**: New square RuTV logo (yellow/white/black design) implemented as launcher icon and in-app UI (48x48dp, top-left corner)
 - **Logo Display**: Logo only appears on app start screen - automatically hides during channel playback
 - **Logo Sizing**: Reduced in-app logo to 48dp for better screen proportion
 - **Version Incremented**: versionCode 3, versionName "1.2", APK output: rutv-debug-1.2.apk
