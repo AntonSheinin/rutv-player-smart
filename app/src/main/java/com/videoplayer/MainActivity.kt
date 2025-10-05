@@ -376,16 +376,14 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun updateChannelInfo() {
-        playlistRecyclerView.post {
-            if (playlistRecyclerView.visibility == View.VISIBLE && ::playlistAdapter.isInitialized && playlistAdapter.selectedPosition >= 0) {
-                val item = playlist.getOrNull(playlistAdapter.selectedPosition)
-                item?.let {
-                    channelInfo.text = "#${playlistAdapter.selectedPosition + 1} • ${it.title}"
-                    channelInfo.visibility = View.VISIBLE
-                }
-            } else {
-                channelInfo.visibility = View.GONE
+        if (playlistRecyclerView.visibility == View.VISIBLE && ::playlistAdapter.isInitialized && playlistAdapter.selectedPosition >= 0) {
+            val item = playlist.getOrNull(playlistAdapter.selectedPosition)
+            item?.let {
+                channelInfo.text = "#${playlistAdapter.selectedPosition + 1} • ${it.title}"
+                channelInfo.visibility = View.VISIBLE
             }
+        } else {
+            channelInfo.visibility = View.GONE
         }
     }
     
@@ -564,9 +562,7 @@ class MainActivity : AppCompatActivity() {
                     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                         mediaItem?.let {
                             val currentIndex = currentMediaItemIndex
-                            playlistRecyclerView.post {
-                                playlistAdapter.updateCurrentlyPlaying(currentIndex)
-                            }
+                            playlistAdapter.updateCurrentlyPlaying(currentIndex)
                             
                             when (reason) {
                                 Player.MEDIA_ITEM_TRANSITION_REASON_AUTO -> {
@@ -698,12 +694,7 @@ class MainActivity : AppCompatActivity() {
             }
         
             playerView.player = player
-            
-            playlistRecyclerView.post {
-                if (playlist.isNotEmpty()) {
-                    playlistAdapter.updateCurrentlyPlaying(0)
-                }
-            }
+            playlistAdapter.updateCurrentlyPlaying(0)
             
         } catch (e: Exception) {
             Log.e("VideoPlayer", "Error initializing player", e)
