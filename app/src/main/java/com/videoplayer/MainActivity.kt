@@ -217,7 +217,17 @@ class MainActivity : AppCompatActivity() {
         setupRecyclerView()
         setupFullscreen()
         
-        autoLoadPlaylist()
+        lifecycleScope.launch {
+            if (autoLoadPlaylist()) {
+                val prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE)
+                val playlistType = prefs.getString(SettingsActivity.KEY_PLAYLIST_TYPE, null)
+                lastPlaylistHash = when (playlistType) {
+                    SettingsActivity.TYPE_FILE -> prefs.getString(SettingsActivity.KEY_PLAYLIST_CONTENT, "")?.hashCode().toString()
+                    SettingsActivity.TYPE_URL -> prefs.getString(SettingsActivity.KEY_PLAYLIST_URL, "")?.hashCode().toString()
+                    else -> ""
+                }
+            }
+        }
     }
     
     private val settingsLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -258,46 +268,44 @@ class MainActivity : AppCompatActivity() {
         }
         
         if (currentHash != lastPlaylistHash) {
-            lastPlaylistHash = currentHash
-            autoLoadPlaylist()
+            lifecycleScope.launch {
+                if (autoLoadPlaylist()) {
+                    lastPlaylistHash = currentHash
+                }
+            }
         }
     }
     
-    private fun autoLoadPlaylist() {
+    private suspend fun autoLoadPlaylist(): Boolean {
         val prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE)
         val playlistType = prefs.getString(SettingsActivity.KEY_PLAYLIST_TYPE, null)
-        
-        val currentHash = when (playlistType) {
-            SettingsActivity.TYPE_FILE -> prefs.getString(SettingsActivity.KEY_PLAYLIST_CONTENT, "")?.hashCode().toString()
-            SettingsActivity.TYPE_URL -> prefs.getString(SettingsActivity.KEY_PLAYLIST_URL, "")?.hashCode().toString()
-            else -> ""
-        }
-        lastPlaylistHash = currentHash
         
         try {
             when (playlistType) {
                 SettingsActivity.TYPE_FILE -> {
                     val content = prefs.getString(SettingsActivity.KEY_PLAYLIST_CONTENT, null)
-                    content?.let { 
+                    return content?.let { 
                         addDebugMessage("Auto-loading saved playlist file")
                         if (it.length > 500000) {
                             addDebugMessage("⚠️ Playlist too large, clearing...")
                             prefs.edit().remove(SettingsActivity.KEY_PLAYLIST_CONTENT).apply()
                             Toast.makeText(this, "Saved playlist too large. Please use URL mode for large playlists.", Toast.LENGTH_LONG).show()
+                            false
                         } else {
                             loadPlaylistContent(it)
                         }
-                    }
+                    } ?: false
                 }
                 SettingsActivity.TYPE_URL -> {
                     val url = prefs.getString(SettingsActivity.KEY_PLAYLIST_URL, null)
-                    url?.let {
+                    return url?.let {
                         addDebugMessage("Auto-loading playlist from URL")
-                        loadPlaylistFromUrl(it)
-                    }
+                        loadPlaylistFromUrlWithResult(it)
+                    } ?: false
                 }
                 else -> {
                     addDebugMessage("No saved playlist - tap ⚙ to configure")
+                    return false
                 }
             }
         } catch (e: Exception) {
@@ -305,6 +313,22 @@ class MainActivity : AppCompatActivity() {
             addDebugMessage("✗ Failed to auto-load playlist")
             prefs.edit().clear().apply()
             Toast.makeText(this, "Cleared corrupted playlist. Please reload.", Toast.LENGTH_LONG).show()
+            return false
+        }
+    }
+    
+    private suspend fun loadPlaylistFromUrlWithResult(urlString: String): Boolean {
+        Toast.makeText(this, "Loading playlist from URL...", Toast.LENGTH_SHORT).show()
+        
+        return try {
+            val content = withContext(Dispatchers.IO) {
+                URL(urlString).readText()
+            }
+            loadPlaylistContent(content)
+        } catch (e: Exception) {
+            Log.e("VideoPlayer", "Error loading playlist from URL", e)
+            Toast.makeText(this@MainActivity, "Failed to load URL: ${e.message}", Toast.LENGTH_LONG).show()
+            false
         }
     }
     
@@ -387,7 +411,7 @@ class MainActivity : AppCompatActivity() {
                 btnOrientation.visibility = View.VISIBLE
                 btnSettings.visibility = View.VISIBLE
                 logo.visibility = View.VISIBLE
-                channelInfo.visibility = if (playlistAdapter.selectedPosition >= 0) View.VISIBLE else View.GONE
+                updateChannelInfo()
                 showUIElements()
             } else {
                 btnPlaylist.visibility = View.GONE
@@ -396,7 +420,6 @@ class MainActivity : AppCompatActivity() {
                 btnSettings.visibility = View.GONE
                 logo.visibility = View.GONE
                 channelInfo.visibility = View.GONE
-                playlistUserVisible = false
                 hideUIElements()
             }
         })
@@ -431,7 +454,10 @@ class MainActivity : AppCompatActivity() {
             val item = playlist.getOrNull(playlistAdapter.selectedPosition)
             item?.let {
                 channelInfo.text = "#${playlistAdapter.selectedPosition + 1} • ${it.title}"
+                channelInfo.visibility = View.VISIBLE
             }
+        } else {
+            channelInfo.visibility = View.GONE
         }
     }
     
@@ -443,23 +469,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
-    private fun loadPlaylistFromUrl(urlString: String) {
-        Toast.makeText(this, "Loading playlist from URL...", Toast.LENGTH_SHORT).show()
-        
-        lifecycleScope.launch {
-            try {
-                val content = withContext(Dispatchers.IO) {
-                    URL(urlString).readText()
-                }
-                loadPlaylistContent(content)
-            } catch (e: Exception) {
-                Log.e("VideoPlayer", "Error loading playlist from URL", e)
-                Toast.makeText(this@MainActivity, "Failed to load URL: ${e.message}", Toast.LENGTH_LONG).show()
-            }
-        }
-    }
     
-    private fun loadPlaylistContent(content: String) {
+    private fun loadPlaylistContent(content: String): Boolean {
         try {
             val channels = M3U8Parser.parse(content)
             
@@ -485,13 +496,16 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "Loaded ${channels.size} channels", Toast.LENGTH_SHORT).show()
                 addDebugMessage("✓ Loaded ${channels.size} channels")
                 Log.d("VideoPlayer", "Loaded ${channels.size} channels from playlist")
+                return true
             } else {
                 Toast.makeText(this, "No valid channels found in playlist", Toast.LENGTH_LONG).show()
+                return false
             }
         } catch (e: Exception) {
             Log.e("VideoPlayer", "Error loading playlist content", e)
             addDebugMessage("✗ Error loading playlist: ${e.message}")
             Toast.makeText(this, "Error loading playlist: ${e.message}", Toast.LENGTH_LONG).show()
+            return false
         }
     }
     
