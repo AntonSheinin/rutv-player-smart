@@ -10,9 +10,26 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center"
+        android:gravity="center_vertical"
         android:orientation="horizontal"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
         android:paddingTop="4dp">
+
+        <ImageButton
+            android:id="@+id/btn_playlist"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/control_button_background"
+            android:src="@drawable/ic_playlist"
+            android:scaleType="fitCenter"
+            android:padding="8dp"
+            android:contentDescription="Playlist" />
+
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
 
         <ImageButton
             android:id="@id/exo_prev"
@@ -31,6 +48,43 @@
             style="@style/ExoStyledControls.Button.Center.Next"
             android:layout_width="48dp"
             android:layout_height="48dp" />
+
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <ImageButton
+            android:id="@+id/btn_aspect_ratio"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/control_button_background"
+            android:src="@drawable/ic_aspect_ratio"
+            android:scaleType="fitCenter"
+            android:padding="8dp"
+            android:contentDescription="Aspect Ratio" />
+
+        <ImageButton
+            android:id="@+id/btn_orientation"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/control_button_background"
+            android:src="@drawable/ic_rotate"
+            android:scaleType="fitCenter"
+            android:padding="8dp"
+            android:contentDescription="Orientation" />
+
+        <ImageButton
+            android:id="@+id/btn_settings"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/control_button_background"
+            android:src="@drawable/ic_settings"
+            android:scaleType="fitCenter"
+            android:padding="8dp"
+            android:contentDescription="Settings" />
 
     </LinearLayout>
 

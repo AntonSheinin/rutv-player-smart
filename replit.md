@@ -74,7 +74,11 @@ The player supports M3U/M3U8 format playlists with:
 ## Recent Changes
 
 ### October 6, 2025 (Latest - Version 1.3 - UI/UX Polish & Bug Fixes)
-- **Control Buttons Repositioned**: Moved 80dp higher to prevent covering playback timers
+- **Control Buttons in One Line**: All control buttons now integrated into player controller in one horizontal row:
+  - Left: Playlist button
+  - Center: Previous, Play/Pause, Next buttons
+  - Right: Aspect Ratio, Orientation, Settings buttons
+  - Auto-show/hide with controller
 - **Channel Info Auto-Hide**: Now disappears with controls (tap screen to toggle visibility)
 - **Smart Playlist Reload**: Only reloads when playlist changes in settings (hash-based detection)
 - **Fixed Video Rotation**: Orientation toggle now properly rotates video using TextureView surface type and videoSurfaceView.rotation (rotates only video, not controls)

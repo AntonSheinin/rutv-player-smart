@@ -197,12 +197,13 @@ class MainActivity : AppCompatActivity() {
         playerView = findViewById(R.id.player_view)
         playlistRecyclerView = findViewById(R.id.playlist_container)
         debugLog = findViewById(R.id.debug_log)
-        btnAspectRatio = findViewById(R.id.btn_aspect_ratio)
-        btnOrientation = findViewById(R.id.btn_orientation)
-        btnSettings = findViewById(R.id.btn_settings)
-        btnPlaylist = findViewById(R.id.btn_playlist)
         channelInfo = findViewById(R.id.channel_info)
         logo = findViewById(R.id.logo)
+        
+        btnAspectRatio = playerView.findViewById(R.id.btn_aspect_ratio)
+        btnOrientation = playerView.findViewById(R.id.btn_orientation)
+        btnSettings = playerView.findViewById(R.id.btn_settings)
+        btnPlaylist = playerView.findViewById(R.id.btn_playlist)
         
         loadPreferences()
         addDebugMessage("App Started")
@@ -410,18 +411,10 @@ class MainActivity : AppCompatActivity() {
         
         playerView.setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { visibility ->
             if (visibility == View.VISIBLE) {
-                btnPlaylist.visibility = View.VISIBLE
-                btnAspectRatio.visibility = View.VISIBLE
-                btnOrientation.visibility = View.VISIBLE
-                btnSettings.visibility = View.VISIBLE
                 logo.visibility = View.VISIBLE
                 updateChannelInfo()
                 showUIElements()
             } else {
-                btnPlaylist.visibility = View.GONE
-                btnAspectRatio.visibility = View.GONE
-                btnOrientation.visibility = View.GONE
-                btnSettings.visibility = View.GONE
                 logo.visibility = View.GONE
                 channelInfo.visibility = View.GONE
                 hideUIElements()
