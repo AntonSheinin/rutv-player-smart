@@ -188,6 +188,7 @@ class MainActivity : AppCompatActivity() {
     private var videoRotation = 0f
     private var showDebugLog = true
     private var playlistUserVisible = true
+    private var lastPlaylistHash = ""
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -221,7 +222,7 @@ class MainActivity : AppCompatActivity() {
     
     private val settingsLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         loadPreferences()
-        autoLoadPlaylist()
+        checkAndReloadPlaylist()
     }
     
     private fun setupSettingsButton() {
@@ -246,9 +247,32 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
+    private fun checkAndReloadPlaylist() {
+        val prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE)
+        val playlistType = prefs.getString(SettingsActivity.KEY_PLAYLIST_TYPE, null)
+        
+        val currentHash = when (playlistType) {
+            SettingsActivity.TYPE_FILE -> prefs.getString(SettingsActivity.KEY_PLAYLIST_CONTENT, "")?.hashCode().toString()
+            SettingsActivity.TYPE_URL -> prefs.getString(SettingsActivity.KEY_PLAYLIST_URL, "")?.hashCode().toString()
+            else -> ""
+        }
+        
+        if (currentHash != lastPlaylistHash) {
+            lastPlaylistHash = currentHash
+            autoLoadPlaylist()
+        }
+    }
+    
     private fun autoLoadPlaylist() {
         val prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE)
         val playlistType = prefs.getString(SettingsActivity.KEY_PLAYLIST_TYPE, null)
+        
+        val currentHash = when (playlistType) {
+            SettingsActivity.TYPE_FILE -> prefs.getString(SettingsActivity.KEY_PLAYLIST_CONTENT, "")?.hashCode().toString()
+            SettingsActivity.TYPE_URL -> prefs.getString(SettingsActivity.KEY_PLAYLIST_URL, "")?.hashCode().toString()
+            else -> ""
+        }
+        lastPlaylistHash = currentHash
         
         try {
             when (playlistType) {
@@ -328,7 +352,7 @@ class MainActivity : AppCompatActivity() {
                     0f
                 }
             }
-            playerView.rotation = videoRotation
+            playerView.findViewById<View>(androidx.media3.ui.R.id.exo_content_frame)?.rotation = videoRotation
         }
     }
     
@@ -363,6 +387,7 @@ class MainActivity : AppCompatActivity() {
                 btnOrientation.visibility = View.VISIBLE
                 btnSettings.visibility = View.VISIBLE
                 logo.visibility = View.VISIBLE
+                channelInfo.visibility = if (playlistAdapter.selectedPosition >= 0) View.VISIBLE else View.GONE
                 showUIElements()
             } else {
                 btnPlaylist.visibility = View.GONE
@@ -370,9 +395,10 @@ class MainActivity : AppCompatActivity() {
                 btnOrientation.visibility = View.GONE
                 btnSettings.visibility = View.GONE
                 logo.visibility = View.GONE
+                channelInfo.visibility = View.GONE
+                playlistUserVisible = false
                 hideUIElements()
             }
-            updateChannelInfo()
         })
     }
     
@@ -405,10 +431,7 @@ class MainActivity : AppCompatActivity() {
             val item = playlist.getOrNull(playlistAdapter.selectedPosition)
             item?.let {
                 channelInfo.text = "#${playlistAdapter.selectedPosition + 1} • ${it.title}"
-                channelInfo.visibility = View.VISIBLE
             }
-        } else {
-            channelInfo.visibility = View.GONE
         }
     }
     
