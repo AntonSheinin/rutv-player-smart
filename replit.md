@@ -13,13 +13,15 @@ Native Android video player application using Media3 (ExoPlayer) for IPTV playli
 - **Key Features**:
   - M3U/M3U8 IPTV playlist loading (manual upload or URL)
   - ALL audio/video formats via FFmpeg (MP2, ADTS, AAC, H264, etc.)
-  - Phone-optimized touch interface (single tap to play)
+  - Phone-optimized touch interface (tap screen to show/hide controls)
   - Fullscreen playback with auto-hiding UI
+  - Independent playlist toggle button (bottom-left)
+  - Channel info display (always visible during playback)
   - Auto-advance to next video
   - Repeat all mode
   - Vertical scrolling playlist with logos
   - All subtitles disabled
-  - On-screen debug log with decoder diagnostics
+  - On-screen debug log with decoder diagnostics (toggle in Settings)
 
 ## Dependencies
 
@@ -70,7 +72,19 @@ The player supports M3U/M3U8 format playlists with:
 
 ## Recent Changes
 
-### October 5, 2025 (Latest - Version 1.3 - CRASH FIX)
+### October 6, 2025 (Latest - Version 1.3 - UI/UX Improvements)
+- **Tap-to-Show Controls**: Tap screen to show/hide bottom control buttons and logo (uses PlayerView's built-in controller)
+- **Channel List Button**: New playlist button (📋 icon) in bottom-left corner toggles channel list visibility independently
+- **Smart Playlist State**: Playlist visibility preference preserved across controller show/hide cycles using `playlistUserVisible` flag
+- **Channel Info Display**: Shows "#[number] • [channel name]" at top center during playback (visible even when controls hidden)
+- **Auto-play Fix**: Channel selection now calls `prepare()` and sets `playWhenReady = true` to ensure playback resumes after error states
+- **UI Organization**: 
+  - Bottom-left: Playlist button
+  - Bottom-right: Aspect ratio, orientation, settings buttons
+  - Controller auto-hides after timeout, channel info stays visible
+- **Debug Log Toggle**: Already exists in Settings page (show/hide on-screen debug logs)
+
+### October 5, 2025 (Version 1.3 - CRASH FIX)
 - **🔥 CRITICAL FIX: Theme Crash Resolved** - Fixed MaterialCardView crash by changing app theme from `Theme.AppCompat` to `Theme.MaterialComponents` (root cause: MaterialCardView requires MaterialComponents theme)
 - **Updated RuTV Logo**: New square RuTV logo with yellow/white/black design implemented as launcher icon and in-app UI (48x48dp)
 - **Logo Files Updated**: All mipmap densities and drawable updated with new logo (18KB PNG files)
