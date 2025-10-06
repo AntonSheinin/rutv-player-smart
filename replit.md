@@ -75,20 +75,27 @@ The player supports M3U/M3U8 format playlists with:
 
 ### October 6, 2025 (Latest - Version 1.3 - UI/UX Polish & Bug Fixes)
 - **Control Buttons in One Line**: All control buttons now integrated into player controller in one horizontal row:
-  - Left: Playlist button
+  - Left: Playlist button (48dp)
   - Center: Previous, Play/Pause, Next buttons
-  - Right: Aspect Ratio, Orientation, Settings buttons
+  - Right: Aspect Ratio, Orientation, Settings buttons (all 48dp - uniform sizing)
   - Auto-show/hide with controller
+- **Channel List Smart Behavior**: Channel list now properly closes when controls hide (tap or timeout) and does NOT automatically reopen when controls show - user must explicitly click playlist button to reopen
 - **Channel Info Auto-Hide**: Now disappears with controls (tap screen to toggle visibility)
 - **Smart Playlist Reload**: Only reloads when playlist changes in settings (hash-based detection)
-- **Fixed Video Rotation**: Orientation toggle now properly rotates video using TextureView surface type and videoSurfaceView.rotation (rotates only video, not controls)
+- **Simplified Video Rotation**: Orientation button now toggles between only 2 positions:
+  - Horizontal (0°) ↔ Vertical (90°)
+  - Shows clear "Horizontal" / "Vertical" toast messages
+  - No longer cycles through 4 degrees (0°/90°/180°/270°)
+- **Fixed Vertical Rotation Display**: Vertical rotation now shows full video without cutting edges:
+  - Applies scale transformation (scaleFactor = height/width) when rotated 90°
+  - Full video visible in portrait orientation
+  - Resets to 1x scale when horizontal
 - **Refactored Channel List**:
   - Channel number on left (20sp, bold, 40dp min width)
   - Smaller logo (40dp instead of 56dp)
   - Narrower items (2dp margin, 8dp padding)
   - Group/category text shown below title (11sp, gray)
-- **Auto-Hide Channel List**: List automatically hides when controller times out or channel selected
-- **Debug Log Toggle**: Confirmed working in Settings page (lines 60-68 in SettingsActivity)
+- **Settings Scroll Fix**: Settings page now uses ScrollView - debug log toggle accessible on all screen sizes (was previously hidden below fold on small screens)
 
 ### October 5, 2025 (Version 1.3 - CRASH FIX)
 - **🔥 CRITICAL FIX: Theme Crash Resolved** - Fixed MaterialCardView crash by changing app theme from `Theme.AppCompat` to `Theme.MaterialComponents` (root cause: MaterialCardView requires MaterialComponents theme)
