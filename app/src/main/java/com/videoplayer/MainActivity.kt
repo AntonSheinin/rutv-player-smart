@@ -359,28 +359,26 @@ class MainActivity : AppCompatActivity() {
     
     private fun setupOrientationButton() {
         btnOrientation.setOnClickListener {
-            videoRotation = when (videoRotation) {
-                0f -> {
-                    Toast.makeText(this, "Video rotated 90°", Toast.LENGTH_SHORT).show()
-                    90f
-                }
-                90f -> {
-                    Toast.makeText(this, "Video rotated 180°", Toast.LENGTH_SHORT).show()
-                    180f
-                }
-                180f -> {
-                    Toast.makeText(this, "Video rotated 270°", Toast.LENGTH_SHORT).show()
-                    270f
-                }
-                else -> {
-                    Toast.makeText(this, "Video rotation reset", Toast.LENGTH_SHORT).show()
-                    0f
-                }
+            videoRotation = if (videoRotation == 0f) {
+                Toast.makeText(this, "Vertical", Toast.LENGTH_SHORT).show()
+                90f
+            } else {
+                Toast.makeText(this, "Horizontal", Toast.LENGTH_SHORT).show()
+                0f
             }
             playerView.videoSurfaceView?.apply {
                 rotation = videoRotation
                 pivotX = width / 2f
                 pivotY = height / 2f
+                
+                if (videoRotation == 90f || videoRotation == 270f) {
+                    val scaleFactor = height.toFloat() / width.toFloat()
+                    scaleX = scaleFactor
+                    scaleY = scaleFactor
+                } else {
+                    scaleX = 1f
+                    scaleY = 1f
+                }
             }
         }
     }
@@ -435,6 +433,7 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun hideUIElements() {
+        playlistUserVisible = false
         playlistRecyclerView.visibility = View.GONE
         debugLog.visibility = View.GONE
     }

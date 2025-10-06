@@ -18,8 +18,8 @@
 
         <ImageButton
             android:id="@+id/btn_playlist"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:background="@drawable/control_button_background"
             android:src="@drawable/ic_playlist"
             android:scaleType="fitCenter"
@@ -56,8 +56,8 @@
 
         <ImageButton
             android:id="@+id/btn_aspect_ratio"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:background="@drawable/control_button_background"
             android:src="@drawable/ic_aspect_ratio"
             android:scaleType="fitCenter"
@@ -66,8 +66,8 @@
 
         <ImageButton
             android:id="@+id/btn_orientation"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_marginStart="8dp"
             android:background="@drawable/control_button_background"
             android:src="@drawable/ic_rotate"
@@ -77,8 +77,8 @@
 
         <ImageButton
             android:id="@+id/btn_settings"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_marginStart="8dp"
             android:background="@drawable/control_button_background"
             android:src="@drawable/ic_settings"
