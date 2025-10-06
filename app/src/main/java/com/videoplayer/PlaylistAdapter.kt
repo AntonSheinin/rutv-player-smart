@@ -21,6 +21,7 @@ class PlaylistAdapter(
         val logoImageView: ImageView = view.findViewById(R.id.channel_logo)
         val numberTextView: TextView = view.findViewById(R.id.channel_number)
         val titleTextView: TextView = view.findViewById(R.id.video_title)
+        val groupTextView: TextView = view.findViewById(R.id.video_group)
         val statusTextView: TextView = view.findViewById(R.id.video_status)
     }
     
@@ -35,6 +36,7 @@ class PlaylistAdapter(
         
         holder.numberTextView.text = "${position + 1}"
         holder.titleTextView.text = videoItem.title
+        holder.groupTextView.text = videoItem.group
         
         if (videoItem.logo.isNotEmpty()) {
             holder.logoImageView.visibility = View.VISIBLE
