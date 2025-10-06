@@ -376,7 +376,11 @@ class MainActivity : AppCompatActivity() {
                     0f
                 }
             }
-            playerView.findViewById<View>(androidx.media3.ui.R.id.exo_content_frame)?.rotation = videoRotation
+            playerView.videoSurfaceView?.apply {
+                rotation = videoRotation
+                pivotX = width / 2f
+                pivotY = height / 2f
+            }
         }
     }
     

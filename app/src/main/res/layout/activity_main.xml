@@ -46,7 +46,8 @@
         app:show_shuffle_button="true"
         app:show_previous_button="true"
         app:show_next_button="true"
-        app:controller_layout_id="@layout/custom_player_control" />
+        app:controller_layout_id="@layout/custom_player_control"
+        app:surface_type="texture_view" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/playlist_container"

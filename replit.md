@@ -77,12 +77,12 @@ The player supports M3U/M3U8 format playlists with:
 - **Control Buttons Repositioned**: Moved 80dp higher to prevent covering playback timers
 - **Channel Info Auto-Hide**: Now disappears with controls (tap screen to toggle visibility)
 - **Smart Playlist Reload**: Only reloads when playlist changes in settings (hash-based detection)
-- **Fixed Video Rotation**: Orientation toggle now properly rotates video surface (exo_content_frame)
+- **Fixed Video Rotation**: Orientation toggle now properly rotates video using TextureView surface type and videoSurfaceView.rotation (rotates only video, not controls)
 - **Refactored Channel List**:
   - Channel number on left (20sp, bold, 40dp min width)
   - Smaller logo (40dp instead of 56dp)
   - Narrower items (2dp margin, 8dp padding)
-  - Removed group/category text for cleaner look
+  - Group/category text shown below title (11sp, gray)
 - **Auto-Hide Channel List**: List automatically hides when controller times out or channel selected
 - **Debug Log Toggle**: Confirmed working in Settings page (lines 60-68 in SettingsActivity)
 
