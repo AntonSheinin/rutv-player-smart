@@ -173,6 +173,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnAspectRatio: ImageButton
     private lateinit var btnOrientation: ImageButton
     private lateinit var btnSettings: ImageButton
+    private lateinit var btnPlaylist: ImageButton
     private lateinit var channelInfo: TextView
     private lateinit var logo: ImageView
     
@@ -186,6 +187,7 @@ class MainActivity : AppCompatActivity() {
     private var currentResizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
     private var videoRotation = 0f
     private var showDebugLog = true
+    private var playlistUserVisible = true
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -197,6 +199,7 @@ class MainActivity : AppCompatActivity() {
         btnAspectRatio = findViewById(R.id.btn_aspect_ratio)
         btnOrientation = findViewById(R.id.btn_orientation)
         btnSettings = findViewById(R.id.btn_settings)
+        btnPlaylist = findViewById(R.id.btn_playlist)
         channelInfo = findViewById(R.id.channel_info)
         logo = findViewById(R.id.logo)
         
@@ -208,6 +211,8 @@ class MainActivity : AppCompatActivity() {
         setupSettingsButton()
         setupAspectRatioButton()
         setupOrientationButton()
+        setupPlaylistButton()
+        setupPlayerTapGesture()
         setupRecyclerView()
         setupFullscreen()
         
@@ -327,6 +332,22 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
+    private fun setupPlaylistButton() {
+        btnPlaylist.setOnClickListener {
+            playlistUserVisible = !playlistUserVisible
+            if (playlistUserVisible) {
+                playlistRecyclerView.visibility = View.VISIBLE
+                updateDebugLogVisibility()
+            } else {
+                playlistRecyclerView.visibility = View.GONE
+                debugLog.visibility = View.GONE
+            }
+        }
+    }
+    
+    private fun setupPlayerTapGesture() {
+    }
+    
     private fun setupFullscreen() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         
@@ -337,10 +358,21 @@ class MainActivity : AppCompatActivity() {
         
         playerView.setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { visibility ->
             if (visibility == View.VISIBLE) {
+                btnPlaylist.visibility = View.VISIBLE
+                btnAspectRatio.visibility = View.VISIBLE
+                btnOrientation.visibility = View.VISIBLE
+                btnSettings.visibility = View.VISIBLE
+                logo.visibility = View.VISIBLE
                 showUIElements()
             } else {
+                btnPlaylist.visibility = View.GONE
+                btnAspectRatio.visibility = View.GONE
+                btnOrientation.visibility = View.GONE
+                btnSettings.visibility = View.GONE
+                logo.visibility = View.GONE
                 hideUIElements()
             }
+            updateChannelInfo()
         })
     }
     
@@ -359,24 +391,17 @@ class MainActivity : AppCompatActivity() {
     private fun hideUIElements() {
         playlistRecyclerView.visibility = View.GONE
         debugLog.visibility = View.GONE
-        btnAspectRatio.visibility = View.GONE
-        btnOrientation.visibility = View.GONE
-        btnSettings.visibility = View.GONE
-        channelInfo.visibility = View.GONE
-        logo.visibility = View.GONE
     }
     
     private fun showUIElements() {
-        playlistRecyclerView.visibility = View.VISIBLE
-        updateDebugLogVisibility()
-        btnAspectRatio.visibility = View.VISIBLE
-        btnOrientation.visibility = View.VISIBLE
-        btnSettings.visibility = View.VISIBLE
-        updateChannelInfo()
+        if (playlistUserVisible) {
+            playlistRecyclerView.visibility = View.VISIBLE
+            updateDebugLogVisibility()
+        }
     }
     
     private fun updateChannelInfo() {
-        if (playlistRecyclerView.visibility == View.VISIBLE && ::playlistAdapter.isInitialized && playlistAdapter.selectedPosition >= 0) {
+        if (::playlistAdapter.isInitialized && playlistAdapter.selectedPosition >= 0) {
             val item = playlist.getOrNull(playlistAdapter.selectedPosition)
             item?.let {
                 channelInfo.text = "#${playlistAdapter.selectedPosition + 1} • ${it.title}"
@@ -453,7 +478,13 @@ class MainActivity : AppCompatActivity() {
                 if (p.currentMediaItemIndex != position) {
                     addDebugMessage("→ Switching to channel #${position + 1}")
                     p.seekTo(position, C.TIME_UNSET)
+                    p.prepare()
+                    p.playWhenReady = true
                     p.play()
+                    
+                    playlistUserVisible = false
+                    hideUIElements()
+                    updateChannelInfo()
                 }
             }
         }
