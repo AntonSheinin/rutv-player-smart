@@ -665,14 +665,17 @@ class MainActivity : AppCompatActivity() {
         val renderersFactory = FfmpegRenderersFactory(this, useFfmpeg)
         
         val bufferMs = bufferSeconds * 1000
-        val minBufferMs = 5000
-        val maxBufferMs = maxOf(bufferMs, minBufferMs)
+        val minBufferMs = maxOf(15000, bufferMs)
+        val maxBufferMs = maxOf(50000, bufferMs)
+        val bufferForPlaybackMs = 7500
+        val bufferForPlaybackAfterRebufferMs = 10000
+        
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
                 minBufferMs,
                 maxBufferMs,
-                2500,
-                5000
+                bufferForPlaybackMs,
+                bufferForPlaybackAfterRebufferMs
             )
             .build()
         
