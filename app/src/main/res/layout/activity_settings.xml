@@ -83,6 +83,81 @@
 
     </LinearLayout>
 
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Playback Settings"
+        android:textSize="20sp"
+        android:textColor="#AAAAAA"
+        android:layout_marginBottom="16dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="16dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Use FFmpeg Audio Decoder"
+            android:textSize="16sp"
+            android:textColor="#FFFFFF" />
+
+        <Switch
+            android:id="@+id/switch_ffmpeg"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="FFmpeg supports all audio formats (MP2, AAC, etc.) but may cause lag on some devices. Disable for hardware decoding only."
+        android:textSize="12sp"
+        android:textColor="#888888"
+        android:layout_marginBottom="24dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="16dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Buffer Duration (seconds)"
+            android:textSize="16sp"
+            android:textColor="#FFFFFF" />
+
+        <EditText
+            android:id="@+id/input_buffer_seconds"
+            android:layout_width="80dp"
+            android:layout_height="wrap_content"
+            android:inputType="number"
+            android:hint="15"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#666666"
+            android:background="@android:color/darker_gray"
+            android:padding="8dp"
+            android:gravity="center" />
+
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Higher values reduce lag but increase startup time. Default: 15 seconds. Range: 3-60 seconds."
+        android:textSize="12sp"
+        android:textColor="#888888"
+        android:layout_marginBottom="32dp" />
+
     <Button
         android:id="@+id/btn_back"
         android:layout_width="match_parent"

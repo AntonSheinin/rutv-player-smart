@@ -27,6 +27,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.decoder.ffmpeg.FfmpegAudioRenderer
 import androidx.media3.decoder.ffmpeg.FfmpegLibrary
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
@@ -53,10 +54,10 @@ import kotlinx.coroutines.withContext
 import java.net.URL
 
 @OptIn(UnstableApi::class)
-class FfmpegRenderersFactory(context: Context) : DefaultRenderersFactory(context) {
+class FfmpegRenderersFactory(context: Context, private val useFfmpeg: Boolean) : DefaultRenderersFactory(context) {
     
     init {
-        setExtensionRendererMode(EXTENSION_RENDERER_MODE_ON)
+        setExtensionRendererMode(if (useFfmpeg) EXTENSION_RENDERER_MODE_ON else EXTENSION_RENDERER_MODE_OFF)
     }
     
     override fun buildAudioSink(
@@ -80,7 +81,7 @@ class FfmpegRenderersFactory(context: Context) : DefaultRenderersFactory(context
         allowedVideoJoiningTimeMs: Long,
         out: ArrayList<Renderer>
     ) {
-        if (FfmpegLibrary.isAvailable()) {
+        if (useFfmpeg && FfmpegLibrary.isAvailable()) {
             try {
                 val videoRendererClass = Class.forName("androidx.media3.decoder.ffmpeg.FfmpegVideoRenderer")
                 val constructor = videoRendererClass.getConstructor(
@@ -595,19 +596,30 @@ class MainActivity : AppCompatActivity() {
         }
         
         try {
-            addDebugMessage("✓ Hardware decoders: ENABLED")
-            addDebugMessage("✓ Using built-in MediaCodec for all audio/video")
+            val prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE)
+            val useFfmpeg = prefs.getBoolean(SettingsActivity.KEY_USE_FFMPEG, true)
+            val bufferSeconds = prefs.getInt(SettingsActivity.KEY_BUFFER_SECONDS, 15)
+            
+            if (useFfmpeg && FfmpegLibrary.isAvailable()) {
+                val version = FfmpegLibrary.getVersion()
+                addDebugMessage("✓ FFmpeg: v$version (audio decoder)")
+            } else {
+                addDebugMessage("✓ Hardware decoders only")
+            }
+            
+            addDebugMessage("✓ Buffer: ${bufferSeconds}s")
             
             if (playlist.size > 500) {
                 addDebugMessage("⚠️ Large playlist (${playlist.size} channels) - may take time to load")
             }
         
-        val renderersFactory = FfmpegRenderersFactory(this)
+        val renderersFactory = FfmpegRenderersFactory(this, useFfmpeg)
         
+        val bufferMs = bufferSeconds * 1000
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
                 3000,
-                15000,
+                bufferMs,
                 1500,
                 2000
             )

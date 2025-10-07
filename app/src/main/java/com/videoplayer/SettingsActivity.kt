@@ -23,6 +23,8 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var btnLoadUrl: Button
     private lateinit var btnBack: Button
     private lateinit var switchDebugLog: Switch
+    private lateinit var switchFfmpeg: Switch
+    private lateinit var inputBufferSeconds: EditText
     
     private val filePickerLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
@@ -38,9 +40,13 @@ class SettingsActivity : AppCompatActivity() {
         btnLoadUrl = findViewById(R.id.btn_load_url)
         btnBack = findViewById(R.id.btn_back)
         switchDebugLog = findViewById(R.id.switch_debug_log)
+        switchFfmpeg = findViewById(R.id.switch_ffmpeg)
+        inputBufferSeconds = findViewById(R.id.input_buffer_seconds)
         
         setupButtons()
         setupDebugLogSwitch()
+        setupFfmpegSwitch()
+        setupBufferInput()
     }
     
     private fun setupButtons() {
@@ -64,6 +70,32 @@ class SettingsActivity : AppCompatActivity() {
         switchDebugLog.setOnCheckedChangeListener { _, isChecked ->
             prefs.edit().putBoolean(KEY_SHOW_DEBUG_LOG, isChecked).apply()
             Toast.makeText(this, if (isChecked) "Debug log enabled" else "Debug log disabled", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    private fun setupFfmpegSwitch() {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        switchFfmpeg.isChecked = prefs.getBoolean(KEY_USE_FFMPEG, true)
+        
+        switchFfmpeg.setOnCheckedChangeListener { _, isChecked ->
+            prefs.edit().putBoolean(KEY_USE_FFMPEG, isChecked).apply()
+            Toast.makeText(this, if (isChecked) "FFmpeg audio decoder enabled" else "Hardware decoder only", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    private fun setupBufferInput() {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val bufferSeconds = prefs.getInt(KEY_BUFFER_SECONDS, 15)
+        inputBufferSeconds.setText(bufferSeconds.toString())
+        
+        inputBufferSeconds.setOnFocusChangeListener { _, hasFocus ->
+            if (!hasFocus) {
+                val value = inputBufferSeconds.text.toString().toIntOrNull() ?: 15
+                val clampedValue = value.coerceIn(3, 60)
+                inputBufferSeconds.setText(clampedValue.toString())
+                prefs.edit().putInt(KEY_BUFFER_SECONDS, clampedValue).apply()
+                Toast.makeText(this, "Buffer duration set to $clampedValue seconds", Toast.LENGTH_SHORT).show()
+            }
         }
     }
     
@@ -149,6 +181,8 @@ class SettingsActivity : AppCompatActivity() {
         const val KEY_PLAYLIST_URL = "playlist_url"
         const val KEY_PLAYLIST_TYPE = "playlist_type"
         const val KEY_SHOW_DEBUG_LOG = "show_debug_log"
+        const val KEY_USE_FFMPEG = "use_ffmpeg"
+        const val KEY_BUFFER_SECONDS = "buffer_seconds"
         const val TYPE_FILE = "file"
         const val TYPE_URL = "url"
     }
