@@ -361,7 +361,7 @@ class MainActivity : AppCompatActivity() {
         btnOrientation.setOnClickListener {
             videoRotation = if (videoRotation == 0f) {
                 Toast.makeText(this, "Vertical", Toast.LENGTH_SHORT).show()
-                90f
+                270f
             } else {
                 Toast.makeText(this, "Horizontal", Toast.LENGTH_SHORT).show()
                 0f
