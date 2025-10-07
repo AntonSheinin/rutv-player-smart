@@ -217,7 +217,7 @@ class MainActivity : AppCompatActivity() {
         loadPreferences()
         addDebugMessage("App Started")
         
-        logo.visibility = View.VISIBLE
+        logo.visibility = View.GONE
         
         setupSettingsButton()
         setupAspectRatioButton()
