@@ -4,10 +4,10 @@
 The Android IPTV Player is a native Android application built with Media3 (ExoPlayer) for robust IPTV playlist playback. It offers extensive codec support via FFmpeg and is designed for seamless interaction with Flussonic Media Server using token authentication. The project aims to provide a high-performance, user-friendly video player capable of handling various IPTV stream formats and offering advanced features like channel caching, favorites management, and per-channel aspect ratio persistence.
 
 ## Recent Changes
-- **October 07, 2025**: Fixed three critical UI bugs:
+- **October 07, 2025**: Fixed critical UI bugs:
   - Buffer value persistence: Changed from TextWatcher to onFocusChangeListener with onPause() backup to ensure settings save reliably
   - Channel number dialog: Added IME_ACTION_DONE handler so keyboard "Done" button properly switches channels
-  - Debug log scrollability: Wrapped TextView in 300dp ScrollView and updated visibility control to hide entire container when toggled off
+  - Debug log improvements: Wrapped TextView in 150dp ScrollView with auto-scroll to bottom, increased message limit to 50, and fixed visibility control to hide entire container when toggled off
 
 ## User Preferences
 - I prefer simple language and clear explanations.

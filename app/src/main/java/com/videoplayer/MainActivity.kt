@@ -507,11 +507,16 @@ class MainActivity : AppCompatActivity() {
     private fun addDebugMessage(message: String) {
         runOnUiThread {
             debugMessages.add(message)
-            if (debugMessages.size > 10) {
+            if (debugMessages.size > 50) {
                 debugMessages.removeAt(0)
             }
             debugLog.text = debugMessages.joinToString("\n")
             updateDebugLogVisibility()
+            
+            debugLogScroll.post {
+                debugLogScroll.fullScroll(android.view.View.FOCUS_DOWN)
+            }
+            
             Log.d("VideoPlayer", message)
         }
     }
