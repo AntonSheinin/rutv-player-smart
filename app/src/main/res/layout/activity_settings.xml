@@ -116,7 +116,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="FFmpeg supports all audio formats (MP2, AAC, etc.) but may cause lag on some devices. Disable for hardware decoding only."
+        android:text="Enable FFmpeg for audio decoding to support all formats (MP2, AAC, etc.). May cause lag on some devices. Disable to use hardware audio decoding only."
         android:textSize="12sp"
         android:textColor="#888888"
         android:layout_marginBottom="24dp" />

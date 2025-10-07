@@ -24,7 +24,7 @@ The Android IPTV Player is a native Android application built with Media3 (ExoPl
 
 ### Technical Implementations
 - **Core Player**: Native Android application using Kotlin, Media3 (ExoPlayer), targeting Min SDK 24 (Android 7.0) and Target SDK 34 (Android 14).
-- **Codec Support**: Utilizes `media3-ffmpeg-decoder` for comprehensive audio/video format support (e.g., MP2, ADTS, AAC, H264).
+- **Codec Support**: Utilizes `media3-ffmpeg-decoder` for comprehensive audio format support (e.g., MP2, ADTS, AAC). Hardware decoders handle all video formats.
 - **Playlist Management**: Supports M3U/M3U8 playlists from local files or URLs. Playlists are stored permanently (local) or reloaded automatically (URL).
 - **Channel Caching**: Implemented `ChannelStorage.kt` with JSON serialization and content-based hash detection to avoid redundant playlist parsing.
 - **Favorites Functionality**: Allows users to mark and filter favorite channels, with persistence across app restarts.
@@ -40,7 +40,7 @@ The Android IPTV Player is a native Android application built with Media3 (ExoPl
 
 ### Feature Specifications
 - M3U/M3U8 IPTV playlist loading (manual upload or URL).
-- Support for all audio/video formats via FFmpeg.
+- Support for all audio formats via FFmpeg (MP2, AAC, ADTS, etc.).
 - Auto-advance to next video and repeat all mode.
 - All subtitles disabled by default.
 - On-screen debug log with decoder diagnostics (toggleable).
