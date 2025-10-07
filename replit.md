@@ -6,7 +6,7 @@ The Android IPTV Player is a native Android application built with Media3 (ExoPl
 ## Recent Changes
 - **October 07, 2025**: Major improvements and fixes:
   - **Video stuttering fix**: Increased buffer startup thresholds from 2.5s to 7.5s (bufferForPlaybackMs) and 10s (bufferForPlaybackAfterRebufferMs), with min buffer at 15s and max at 50s. Previous settings caused constant rebuffering cycles creating "shaking" effect on 1080p HLS streams.
-  - **ExoPlayer enhancements**: Added DefaultTrackSelector for adaptive bitrate, DefaultLoadErrorHandlingPolicy for automatic retry with exponential backoff, and enabled decoder fallback for improved reliability
+  - **ExoPlayer enhancements**: Added DefaultTrackSelector for adaptive bitrate and enabled decoder fallback for improved reliability
   - **UI improvements**: Enlarged favorite star from 24sp to 32sp for better visibility, added rewind/forward buttons (10-second seeks) to player controls
   - Buffer value persistence: Changed from TextWatcher to onFocusChangeListener with onPause() backup to ensure settings save reliably
   - Channel number dialog: Added IME_ACTION_DONE handler so keyboard "Done" button properly switches channels
