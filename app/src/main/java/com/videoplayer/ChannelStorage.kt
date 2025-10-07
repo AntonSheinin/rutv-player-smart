@@ -11,6 +11,7 @@ object ChannelStorage {
     private const val KEY_FAVORITES = "favorites"
     private const val KEY_ASPECT_RATIOS = "aspect_ratios"
     private const val KEY_PLAYLIST_HASH = "playlist_hash"
+    private const val KEY_LAST_PLAYED_INDEX = "last_played_index"
     
     fun saveChannels(context: Context, channels: List<VideoItem>, playlistHash: String) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -121,5 +122,15 @@ object ChannelStorage {
     fun clearAspectRatios(context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().remove(KEY_ASPECT_RATIOS).apply()
+    }
+    
+    fun saveLastPlayedIndex(context: Context, index: Int) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putInt(KEY_LAST_PLAYED_INDEX, index).apply()
+    }
+    
+    fun getLastPlayedIndex(context: Context): Int {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getInt(KEY_LAST_PLAYED_INDEX, 0)
     }
 }
