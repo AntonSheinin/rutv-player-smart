@@ -161,13 +161,19 @@ class MainActivity : AppCompatActivity() {
         loadPreferences()
         lifecycleScope.launch {
             val hadPlayer = player != null
+            val prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE)
+            val bufferSeconds = prefs.getInt(SettingsActivity.KEY_BUFFER_SECONDS, 15)
+            val useFfmpeg = prefs.getBoolean(SettingsActivity.KEY_USE_FFMPEG, true)
+            
+            addDebugMessage("Settings: Buffer=${bufferSeconds}s, FFmpeg=${if (useFfmpeg) "ON" else "OFF"}")
+            
             autoLoadPlaylist()
             
             if (hadPlayer && playlist.isNotEmpty()) {
                 player?.release()
                 player = null
                 initializePlayer()
-                addDebugMessage("Player restarted with new settings")
+                addDebugMessage("✓ Player restarted with new settings")
             }
         }
     }
@@ -185,8 +191,8 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun updateDebugLogVisibility() {
-        if (::debugLog.isInitialized && ::playlistWrapper.isInitialized) {
-            debugLog.visibility = if (showDebugLog && playlistWrapper.visibility == View.VISIBLE) {
+        if (::debugLog.isInitialized) {
+            debugLog.visibility = if (showDebugLog) {
                 View.VISIBLE
             } else {
                 View.GONE
@@ -443,10 +449,8 @@ class MainActivity : AppCompatActivity() {
             playlistTitle.text = if (showFavoritesOnly) "Favorites" else "Channels"
             playlistWrapper.visibility = View.VISIBLE
             playlistAdapter.updateFilter(filteredPlaylist, showFavoritesOnly)
-            updateDebugLogVisibility()
         } else {
             playlistWrapper.visibility = View.GONE
-            debugLog.visibility = View.GONE
         }
     }
     
@@ -496,7 +500,6 @@ class MainActivity : AppCompatActivity() {
     private fun hideUIElements() {
         playlistUserVisible = false
         playlistWrapper.visibility = View.GONE
-        debugLog.visibility = View.GONE
     }
     
     private fun showUIElements() {
