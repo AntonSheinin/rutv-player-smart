@@ -11,13 +11,17 @@ import com.bumptech.glide.load.engine.DiskCacheStrategy
 
 class PlaylistAdapter(
     private val playlist: List<VideoItem>,
-    private val onItemClick: (Int) -> Unit
+    private val onChannelClick: (Int) -> Unit,
+    private val onFavoriteClick: (Int) -> Unit
 ) : RecyclerView.Adapter<PlaylistAdapter.PlaylistViewHolder>() {
     
     private var currentlyPlayingIndex = -1
     var selectedPosition = -1
+    private var displayList: List<VideoItem> = playlist
+    private var showingFavoritesOnly = false
     
     class PlaylistViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val favoriteButton: TextView = view.findViewById(R.id.favorite_button)
         val logoImageView: ImageView = view.findViewById(R.id.channel_logo)
         val numberTextView: TextView = view.findViewById(R.id.channel_number)
         val titleTextView: TextView = view.findViewById(R.id.video_title)
@@ -32,9 +36,22 @@ class PlaylistAdapter(
     }
     
     override fun onBindViewHolder(holder: PlaylistViewHolder, position: Int) {
-        val videoItem = playlist[position]
+        val videoItem = displayList[position]
+        val actualIndex = playlist.indexOf(videoItem)
         
-        holder.numberTextView.text = "${position + 1}"
+        holder.favoriteButton.text = if (videoItem.isFavorite) "★" else "☆"
+        holder.favoriteButton.setTextColor(
+            if (videoItem.isFavorite) 
+                android.graphics.Color.parseColor("#FFD700")
+            else 
+                android.graphics.Color.parseColor("#666666")
+        )
+        
+        holder.favoriteButton.setOnClickListener {
+            onFavoriteClick(actualIndex)
+        }
+        
+        holder.numberTextView.text = "${actualIndex + 1}"
         holder.titleTextView.text = videoItem.title
         holder.groupTextView.text = videoItem.group
         
@@ -51,16 +68,22 @@ class PlaylistAdapter(
             holder.logoImageView.setImageResource(R.drawable.ic_channel_placeholder)
         }
         
-        holder.itemView.isSelected = (position == currentlyPlayingIndex)
-        holder.statusTextView.text = if (position == currentlyPlayingIndex) "▶ Playing" else ""
+        holder.itemView.isSelected = (actualIndex == currentlyPlayingIndex)
+        holder.statusTextView.text = if (actualIndex == currentlyPlayingIndex) "▶ Playing" else ""
         
         holder.itemView.setOnClickListener {
-            selectedPosition = position
-            onItemClick(position)
+            selectedPosition = actualIndex
+            onChannelClick(actualIndex)
         }
     }
     
-    override fun getItemCount(): Int = playlist.size
+    override fun getItemCount(): Int = displayList.size
+    
+    fun updateFilter(filteredList: List<VideoItem>, favoritesOnly: Boolean) {
+        displayList = filteredList
+        showingFavoritesOnly = favoritesOnly
+        notifyDataSetChanged()
+    }
     
     fun updateCurrentlyPlaying(index: Int) {
         val previousIndex = currentlyPlayingIndex

@@ -174,6 +174,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnOrientation: ImageButton
     private lateinit var btnSettings: ImageButton
     private lateinit var btnPlaylist: ImageButton
+    private lateinit var btnFavorites: ImageButton
     private lateinit var channelInfo: TextView
     private lateinit var logo: ImageView
     
@@ -188,7 +189,8 @@ class MainActivity : AppCompatActivity() {
     private var videoRotation = 0f
     private var showDebugLog = true
     private var playlistUserVisible = true
-    private var lastPlaylistHash = ""
+    private var showFavoritesOnly = false
+    private var currentChannelUrl: String? = null
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -204,6 +206,7 @@ class MainActivity : AppCompatActivity() {
         btnOrientation = playerView.findViewById(R.id.btn_orientation)
         btnSettings = playerView.findViewById(R.id.btn_settings)
         btnPlaylist = playerView.findViewById(R.id.btn_playlist)
+        btnFavorites = playerView.findViewById(R.id.btn_favorites)
         
         loadPreferences()
         addDebugMessage("App Started")
@@ -214,26 +217,21 @@ class MainActivity : AppCompatActivity() {
         setupAspectRatioButton()
         setupOrientationButton()
         setupPlaylistButton()
+        setupFavoritesButton()
         setupPlayerTapGesture()
         setupRecyclerView()
         setupFullscreen()
         
         lifecycleScope.launch {
-            if (autoLoadPlaylist()) {
-                val prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE)
-                val playlistType = prefs.getString(SettingsActivity.KEY_PLAYLIST_TYPE, null)
-                lastPlaylistHash = when (playlistType) {
-                    SettingsActivity.TYPE_FILE -> prefs.getString(SettingsActivity.KEY_PLAYLIST_CONTENT, "")?.hashCode().toString()
-                    SettingsActivity.TYPE_URL -> prefs.getString(SettingsActivity.KEY_PLAYLIST_URL, "")?.hashCode().toString()
-                    else -> ""
-                }
-            }
+            autoLoadPlaylist()
         }
     }
     
     private val settingsLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         loadPreferences()
-        checkAndReloadPlaylist()
+        lifecycleScope.launch {
+            autoLoadPlaylist()
+        }
     }
     
     private fun setupSettingsButton() {
@@ -258,25 +256,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
-    private fun checkAndReloadPlaylist() {
-        val prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE)
-        val playlistType = prefs.getString(SettingsActivity.KEY_PLAYLIST_TYPE, null)
-        
-        val currentHash = when (playlistType) {
-            SettingsActivity.TYPE_FILE -> prefs.getString(SettingsActivity.KEY_PLAYLIST_CONTENT, "")?.hashCode().toString()
-            SettingsActivity.TYPE_URL -> prefs.getString(SettingsActivity.KEY_PLAYLIST_URL, "")?.hashCode().toString()
-            else -> ""
-        }
-        
-        if (currentHash != lastPlaylistHash) {
-            lifecycleScope.launch {
-                if (autoLoadPlaylist()) {
-                    lastPlaylistHash = currentHash
-                }
-            }
-        }
-    }
-    
     private suspend fun autoLoadPlaylist(): Boolean {
         val prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE)
         val playlistType = prefs.getString(SettingsActivity.KEY_PLAYLIST_TYPE, null)
@@ -286,22 +265,66 @@ class MainActivity : AppCompatActivity() {
                 SettingsActivity.TYPE_FILE -> {
                     val content = prefs.getString(SettingsActivity.KEY_PLAYLIST_CONTENT, null)
                     return content?.let { 
-                        addDebugMessage("Auto-loading saved playlist file")
                         if (it.length > 500000) {
                             addDebugMessage("⚠️ Playlist too large, clearing...")
                             prefs.edit().remove(SettingsActivity.KEY_PLAYLIST_CONTENT).apply()
                             Toast.makeText(this, "Saved playlist too large. Please use URL mode for large playlists.", Toast.LENGTH_LONG).show()
                             false
                         } else {
-                            loadPlaylistContent(it)
+                            val contentHash = it.hashCode().toString()
+                            val storedHash = ChannelStorage.getStoredPlaylistHash(this)
+                            
+                            if (contentHash == storedHash) {
+                                val cachedChannels = ChannelStorage.loadChannels(this)
+                                if (cachedChannels != null && cachedChannels.isNotEmpty()) {
+                                    addDebugMessage("✓ Loading ${cachedChannels.size} channels from cache")
+                                    playlist.clear()
+                                    playlist.addAll(cachedChannels)
+                                    playlistAdapter.notifyDataSetChanged()
+                                    initializePlayer()
+                                    return true
+                                }
+                            }
+                            
+                            addDebugMessage("Parsing playlist file")
+                            loadPlaylistContent(it, contentHash)
                         }
                     } ?: false
                 }
                 SettingsActivity.TYPE_URL -> {
                     val url = prefs.getString(SettingsActivity.KEY_PLAYLIST_URL, null)
                     return url?.let {
-                        addDebugMessage("Auto-loading playlist from URL")
-                        loadPlaylistFromUrlWithResult(it)
+                        addDebugMessage("Fetching playlist from URL")
+                        val content = withContext(Dispatchers.IO) {
+                            try {
+                                URL(it).readText()
+                            } catch (e: Exception) {
+                                null
+                            }
+                        }
+                        
+                        content?.let { playlistContent ->
+                            val contentHash = playlistContent.hashCode().toString()
+                            val storedHash = ChannelStorage.getStoredPlaylistHash(this)
+                            
+                            if (contentHash == storedHash) {
+                                val cachedChannels = ChannelStorage.loadChannels(this)
+                                if (cachedChannels != null && cachedChannels.isNotEmpty()) {
+                                    addDebugMessage("✓ Loading ${cachedChannels.size} channels from cache")
+                                    playlist.clear()
+                                    playlist.addAll(cachedChannels)
+                                    playlistAdapter.notifyDataSetChanged()
+                                    initializePlayer()
+                                    return true
+                                }
+                            }
+                            
+                            addDebugMessage("Parsing playlist (content changed)")
+                            loadPlaylistContent(playlistContent, contentHash)
+                        } ?: run {
+                            Toast.makeText(this, "Failed to load playlist from URL", Toast.LENGTH_LONG).show()
+                            false
+                        }
                     } ?: false
                 }
                 else -> {
@@ -318,14 +341,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
-    private suspend fun loadPlaylistFromUrlWithResult(urlString: String): Boolean {
+    private suspend fun loadPlaylistFromUrlWithResult(urlString: String, playlistHash: String = ""): Boolean {
         Toast.makeText(this, "Loading playlist from URL...", Toast.LENGTH_SHORT).show()
         
         return try {
             val content = withContext(Dispatchers.IO) {
                 URL(urlString).readText()
             }
-            loadPlaylistContent(content)
+            loadPlaylistContent(content, playlistHash)
         } catch (e: Exception) {
             Log.e("VideoPlayer", "Error loading playlist from URL", e)
             Toast.makeText(this@MainActivity, "Failed to load URL: ${e.message}", Toast.LENGTH_LONG).show()
@@ -345,6 +368,11 @@ class MainActivity : AppCompatActivity() {
             }
             
             playerView.resizeMode = currentResizeMode
+            
+            currentChannelUrl?.let { url ->
+                ChannelStorage.setAspectRatio(this, url, currentResizeMode)
+                playlist.find { it.url == url }?.aspectRatio = currentResizeMode
+            }
             
             val modeText = when (currentResizeMode) {
                 androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT -> "FIT"
@@ -386,13 +414,33 @@ class MainActivity : AppCompatActivity() {
     private fun setupPlaylistButton() {
         btnPlaylist.setOnClickListener {
             playlistUserVisible = !playlistUserVisible
-            if (playlistUserVisible) {
-                playlistRecyclerView.visibility = View.VISIBLE
-                updateDebugLogVisibility()
+            showFavoritesOnly = false
+            updatePlaylistView()
+        }
+    }
+    
+    private fun setupFavoritesButton() {
+        btnFavorites.setOnClickListener {
+            playlistUserVisible = !playlistUserVisible
+            showFavoritesOnly = true
+            updatePlaylistView()
+        }
+    }
+    
+    private fun updatePlaylistView() {
+        if (playlistUserVisible) {
+            val filteredPlaylist = if (showFavoritesOnly) {
+                playlist.filter { it.isFavorite }
             } else {
-                playlistRecyclerView.visibility = View.GONE
-                debugLog.visibility = View.GONE
+                playlist
             }
+            
+            playlistRecyclerView.visibility = View.VISIBLE
+            playlistAdapter.updateFilter(filteredPlaylist, showFavoritesOnly)
+            updateDebugLogVisibility()
+        } else {
+            playlistRecyclerView.visibility = View.GONE
+            debugLog.visibility = View.GONE
         }
     }
     
@@ -466,11 +514,13 @@ class MainActivity : AppCompatActivity() {
     }
     
     
-    private fun loadPlaylistContent(content: String): Boolean {
+    private fun loadPlaylistContent(content: String, playlistHash: String = ""): Boolean {
         try {
             val channels = M3U8Parser.parse(content)
             
             if (channels.isNotEmpty()) {
+                ChannelStorage.clearAspectRatios(this)
+                
                 playlist.clear()
                 playlist.addAll(channels.map { channel ->
                     VideoItem(
@@ -478,9 +528,13 @@ class MainActivity : AppCompatActivity() {
                         url = channel.url,
                         isPlaying = false,
                         logo = channel.logo,
-                        group = channel.group
+                        group = channel.group,
+                        isFavorite = ChannelStorage.isFavorite(this, channel.url),
+                        aspectRatio = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
                     )
                 })
+                
+                ChannelStorage.saveChannels(this, playlist, playlistHash)
                 
                 playlistAdapter.notifyDataSetChanged()
                 
@@ -506,21 +560,37 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun setupRecyclerView() {
-        playlistAdapter = PlaylistAdapter(playlist) { position ->
-            player?.let { p ->
-                if (p.currentMediaItemIndex != position) {
-                    addDebugMessage("→ Switching to channel #${position + 1}")
-                    p.seekTo(position, C.TIME_UNSET)
-                    p.prepare()
-                    p.playWhenReady = true
-                    p.play()
-                    
-                    playlistUserVisible = false
-                    hideUIElements()
-                    updateChannelInfo()
+        playlistAdapter = PlaylistAdapter(playlist, 
+            onChannelClick = { position ->
+                player?.let { p ->
+                    if (p.currentMediaItemIndex != position) {
+                        addDebugMessage("→ Switching to channel #${position + 1}")
+                        p.seekTo(position, C.TIME_UNSET)
+                        p.prepare()
+                        p.playWhenReady = true
+                        p.play()
+                        
+                        currentChannelUrl = playlist.getOrNull(position)?.url
+                        currentChannelUrl?.let { url ->
+                            currentResizeMode = ChannelStorage.getAspectRatio(this, url)
+                            playerView.resizeMode = currentResizeMode
+                        }
+                        
+                        playlistUserVisible = false
+                        hideUIElements()
+                        updateChannelInfo()
+                    }
+                }
+            },
+            onFavoriteClick = { position ->
+                val channel = playlist.getOrNull(position)
+                channel?.let {
+                    it.isFavorite = !it.isFavorite
+                    ChannelStorage.setFavorite(this, it.url, it.isFavorite)
+                    playlistAdapter.notifyItemChanged(position)
                 }
             }
-        }
+        )
         
         playlistRecyclerView.apply {
             layoutManager = LinearLayoutManager(this@MainActivity, LinearLayoutManager.VERTICAL, false)

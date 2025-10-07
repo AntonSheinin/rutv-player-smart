@@ -14,16 +14,34 @@
         android:paddingEnd="8dp"
         android:paddingTop="4dp">
 
-        <ImageButton
-            android:id="@+id/btn_playlist"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:layout_gravity="start|center_vertical"
-            android:background="@drawable/control_button_background"
-            android:src="@drawable/ic_playlist"
-            android:scaleType="fitCenter"
-            android:padding="8dp"
-            android:contentDescription="Playlist" />
+            android:orientation="horizontal">
+
+            <ImageButton
+                android:id="@+id/btn_playlist"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="@drawable/control_button_background"
+                android:src="@drawable/ic_playlist"
+                android:scaleType="fitCenter"
+                android:padding="8dp"
+                android:contentDescription="Playlist" />
+
+            <ImageButton
+                android:id="@+id/btn_favorites"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/control_button_background"
+                android:src="@drawable/ic_favorite"
+                android:scaleType="fitCenter"
+                android:padding="8dp"
+                android:contentDescription="Favorites" />
+
+        </LinearLayout>
 
         <LinearLayout
             android:layout_width="wrap_content"
