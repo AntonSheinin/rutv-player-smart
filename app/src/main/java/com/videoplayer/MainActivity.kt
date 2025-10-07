@@ -384,10 +384,26 @@ class MainActivity : AppCompatActivity() {
                 val channelNumber = input.text.toString().toIntOrNull()
                 if (channelNumber != null && channelNumber > 0 && channelNumber <= playlist.size) {
                     val channelIndex = channelNumber - 1
-                    playVideo(playlist[channelIndex], channelIndex)
-                    playlistWrapper.visibility = View.GONE
-                    playlistUserVisible = false
-                    addDebugMessage("Jumped to channel #$channelNumber")
+                    player?.let { p ->
+                        if (p.currentMediaItemIndex != channelIndex) {
+                            addDebugMessage("→ Jumping to channel #$channelNumber")
+                            p.seekTo(channelIndex, C.TIME_UNSET)
+                            p.prepare()
+                            p.playWhenReady = true
+                            p.play()
+                            
+                            currentChannelUrl = playlist.getOrNull(channelIndex)?.url
+                            currentChannelUrl?.let { url ->
+                                currentResizeMode = ChannelStorage.getAspectRatio(this, url)
+                                playerView.resizeMode = currentResizeMode
+                            }
+                            
+                            playlistUserVisible = false
+                            playlistWrapper.visibility = View.GONE
+                            hideUIElements()
+                            updateChannelInfo()
+                        }
+                    }
                 } else {
                     Toast.makeText(this, "Invalid channel number. Enter 1-${playlist.size}", Toast.LENGTH_SHORT).show()
                 }
