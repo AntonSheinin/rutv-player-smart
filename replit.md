@@ -31,7 +31,7 @@ The Android IPTV Player is a native Android application built with Media3 (ExoPl
 - **Per-Channel Aspect Ratio Persistence**: Saves and restores aspect ratio preferences for individual channels.
 - **Last Channel Resume**: Remembers and auto-plays the last watched channel on startup.
 - **FFmpeg Toggle**: User-configurable option to enable/disable software decoding via FFmpeg. Uses EXTENSION_RENDERER_MODE_PREFER to prioritize FFmpeg audio renderer over hardware decoders when enabled, ensuring FFmpeg actually handles audio decoding.
-- **Configurable Buffering**: Users can adjust buffer duration (5-60 seconds) for playback stability versus startup speed. Minimum 5s prevents rebuffering stutter. Safe TextWatcher implementation prevents recursion crashes.
+- **Configurable Buffering**: Users can adjust buffer duration (5-60 seconds) for playback stability versus startup speed. Minimum 5s prevents rebuffering stutter. Focus-based validation allows free typing without keystroke interference. Player automatically restarts when buffer settings change.
 - **Video Rotation**: Orientation button toggles between horizontal (0°) and vertical (270°) display, with scaling for full visibility in portrait.
 - **Error Handling**: Robust error recovery, including automatic clearing of corrupted playlists and detailed logging.
 - **HLS Optimization**: Specific HlsMediaSource.Factory with DefaultHlsExtractorFactory and aggressive TS flags for reliable MPEG audio detection in HLS streams.
