@@ -30,7 +30,9 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.decoder.ffmpeg.FfmpegAudioRenderer
 import androidx.media3.decoder.ffmpeg.FfmpegLibrary
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.Renderer
@@ -86,6 +88,19 @@ class FfmpegRenderersFactory(context: Context, private val useFfmpeg: Boolean) :
 
 @OptIn(UnstableApi::class)
 class MainActivity : AppCompatActivity() {
+    
+    companion object {
+        private var sharedBandwidthMeter: DefaultBandwidthMeter? = null
+        
+        fun getBandwidthMeter(context: Context): DefaultBandwidthMeter {
+            if (sharedBandwidthMeter == null) {
+                sharedBandwidthMeter = DefaultBandwidthMeter.Builder(context.applicationContext)
+                    .setInitialBitrateEstimate(2800000L)
+                    .build()
+            }
+            return sharedBandwidthMeter!!
+        }
+    }
     
     private var player: ExoPlayer? = null
     private lateinit var playerView: PlayerView
@@ -666,6 +681,8 @@ class MainActivity : AppCompatActivity() {
         
         val renderersFactory = FfmpegRenderersFactory(this, useFfmpeg)
         
+        val bandwidthMeter = getBandwidthMeter(this)
+        
         val bufferMs = bufferSeconds * 1000
         val minBufferMs = maxOf(15000, bufferMs)
         val maxBufferMs = maxOf(50000, bufferMs)
@@ -679,6 +696,7 @@ class MainActivity : AppCompatActivity() {
                 bufferForPlaybackMs,
                 bufferForPlaybackAfterRebufferMs
             )
+            .setPrioritizeTimeOverSizeThresholds(true)
             .build()
         
         val httpDataSourceFactory = DefaultHttpDataSource.Factory()
@@ -686,6 +704,7 @@ class MainActivity : AppCompatActivity() {
             .setReadTimeoutMs(15000)
             .setAllowCrossProtocolRedirects(true)
             .setUserAgent("Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36")
+            .setTransferListener(bandwidthMeter)
             .setDefaultRequestProperties(mapOf(
                 "Accept" to "*/*",
                 "Accept-Encoding" to "gzip, deflate",
@@ -711,7 +730,9 @@ class MainActivity : AppCompatActivity() {
         
         addDebugMessage("✓ HLS extractor: Aggressive MPEG audio detection enabled")
         addDebugMessage("✓ HTTP: User-Agent and headers configured")
+        addDebugMessage("✓ Bandwidth meter: Shared instance with 2.8 Mbps initial estimate")
         addDebugMessage("✓ Track selector: Adaptive bitrate enabled")
+        addDebugMessage("✓ Buffer priority: Time-based for smoother playback")
         
         player = ExoPlayer.Builder(this, renderersFactory)
             .setLoadControl(loadControl)

@@ -30,28 +30,57 @@
     <Button
         android:id="@+id/btn_load_file"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="48dp"
         android:text="Upload M3U/M3U8 File"
-        android:textSize="16sp"
-        android:padding="16dp"
+        android:textSize="14sp"
         android:layout_marginBottom="12dp" />
 
     <Button
         android:id="@+id/btn_load_url"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="48dp"
         android:text="Set Playlist URL"
-        android:textSize="16sp"
-        android:padding="16dp"
-        android:layout_marginBottom="32dp" />
+        android:textSize="14sp"
+        android:layout_marginBottom="16dp" />
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="• File: Playlist is stored locally\n• URL: Playlist reloads from URL on app start"
-        android:textSize="14sp"
+        android:textSize="12sp"
         android:textColor="#888888"
-        android:layout_marginBottom="32dp" />
+        android:layout_marginBottom="24dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Current Playlist"
+        android:textSize="16sp"
+        android:textColor="#AAAAAA"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:id="@+id/current_playlist_info"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="No playlist loaded"
+        android:textSize="14sp"
+        android:textColor="#FFFFFF"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:id="@+id/current_playlist_url"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textSize="12sp"
+        android:textColor="#888888"
+        android:autoLink="web"
+        android:linksClickable="true"
+        android:ellipsize="middle"
+        android:singleLine="true"
+        android:layout_marginBottom="32dp"
+        android:visibility="gone" />
 
     <TextView
         android:layout_width="wrap_content"

@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Switch
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -25,6 +26,8 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var switchDebugLog: Switch
     private lateinit var switchFfmpeg: Switch
     private lateinit var inputBufferSeconds: EditText
+    private lateinit var currentPlaylistInfo: TextView
+    private lateinit var currentPlaylistUrl: TextView
     
     private val filePickerLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
@@ -42,11 +45,14 @@ class SettingsActivity : AppCompatActivity() {
         switchDebugLog = findViewById(R.id.switch_debug_log)
         switchFfmpeg = findViewById(R.id.switch_ffmpeg)
         inputBufferSeconds = findViewById(R.id.input_buffer_seconds)
+        currentPlaylistInfo = findViewById(R.id.current_playlist_info)
+        currentPlaylistUrl = findViewById(R.id.current_playlist_url)
         
         setupButtons()
         setupDebugLogSwitch()
         setupFfmpegSwitch()
         setupBufferInput()
+        updatePlaylistInfo()
     }
     
     override fun onPause() {
@@ -202,6 +208,28 @@ class SettingsActivity : AppCompatActivity() {
             putString(KEY_PLAYLIST_TYPE, TYPE_URL)
             remove(KEY_PLAYLIST_CONTENT)
             apply()
+        }
+    }
+    
+    private fun updatePlaylistInfo() {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val playlistType = prefs.getString(KEY_PLAYLIST_TYPE, null)
+        
+        when (playlistType) {
+            TYPE_FILE -> {
+                currentPlaylistInfo.text = "Loaded from file (stored locally)"
+                currentPlaylistUrl.visibility = android.view.View.GONE
+            }
+            TYPE_URL -> {
+                val url = prefs.getString(KEY_PLAYLIST_URL, "")
+                currentPlaylistInfo.text = "Loaded from URL"
+                currentPlaylistUrl.text = url
+                currentPlaylistUrl.visibility = android.view.View.VISIBLE
+            }
+            else -> {
+                currentPlaylistInfo.text = "No playlist loaded"
+                currentPlaylistUrl.visibility = android.view.View.GONE
+            }
         }
     }
     
