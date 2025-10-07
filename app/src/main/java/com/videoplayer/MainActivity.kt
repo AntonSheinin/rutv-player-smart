@@ -697,6 +697,7 @@ class MainActivity : AppCompatActivity() {
                         mediaItem?.let {
                             val currentIndex = currentMediaItemIndex
                             playlistAdapter.updateCurrentlyPlaying(currentIndex)
+                            ChannelStorage.saveLastPlayedIndex(this@MainActivity, currentIndex)
                             
                             when (reason) {
                                 Player.MEDIA_ITEM_TRANSITION_REASON_AUTO -> {
@@ -708,7 +709,6 @@ class MainActivity : AppCompatActivity() {
                                 else -> {
                                     Log.d("VideoPlayer", "Media item transition: ${it.mediaId}")
                                 }
-                            }
                         }
                     }
                     
@@ -823,12 +823,19 @@ class MainActivity : AppCompatActivity() {
                     }
                 })
                 
+                val lastPlayedIndex = ChannelStorage.getLastPlayedIndex(this@MainActivity)
+                if (lastPlayedIndex > 0 && lastPlayedIndex < playlist.size) {
+                    seekTo(lastPlayedIndex, C.TIME_UNSET)
+                    addDebugMessage("⏩ Resuming from channel #${lastPlayedIndex + 1}")
+                }
+                
                 prepare()
                 playWhenReady = true
             }
         
             playerView.player = player
-            playlistAdapter.updateCurrentlyPlaying(0)
+            val startIndex = player?.currentMediaItemIndex ?: 0
+            playlistAdapter.updateCurrentlyPlaying(startIndex)
             
         } catch (e: Exception) {
             Log.e("VideoPlayer", "Error initializing player", e)
