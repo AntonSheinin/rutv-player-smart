@@ -76,18 +76,19 @@ The player supports M3U/M3U8 format playlists with:
 ### October 6, 2025 (Latest - Version 1.3 - UI/UX Polish & Bug Fixes)
 - **Control Buttons in One Line**: All control buttons now integrated into player controller in one horizontal row:
   - Left: Playlist button (48dp)
-  - Center: Previous, Play/Pause, Next buttons
+  - Center: Previous, Play/Pause, Next buttons (truly centered using FrameLayout)
   - Right: Aspect Ratio, Orientation, Settings buttons (all 48dp - uniform sizing)
   - Auto-show/hide with controller
 - **Channel List Smart Behavior**: Channel list now properly closes when controls hide (tap or timeout) and does NOT automatically reopen when controls show - user must explicitly click playlist button to reopen
+- **Channel List Z-Order**: Channel list now covers RuTV logo when opened (logo elevation reduced to 5dp, appears behind playlist)
 - **Channel Info Auto-Hide**: Now disappears with controls (tap screen to toggle visibility)
 - **Smart Playlist Reload**: Only reloads when playlist changes in settings (hash-based detection)
 - **Simplified Video Rotation**: Orientation button now toggles between only 2 positions:
-  - Horizontal (0°) ↔ Vertical (90°)
+  - Horizontal (0°) ↔ Vertical (270°)
   - Shows clear "Horizontal" / "Vertical" toast messages
   - No longer cycles through 4 degrees (0°/90°/180°/270°)
 - **Fixed Vertical Rotation Display**: Vertical rotation now shows full video without cutting edges:
-  - Applies scale transformation (scaleFactor = height/width) when rotated 90°
+  - Applies scale transformation (scaleFactor = height/width) when rotated 90° or 270°
   - Full video visible in portrait orientation
   - Resets to 1x scale when horizontal
 - **Refactored Channel List**:
