@@ -7,6 +7,12 @@ The Android IPTV Player is a native Android application built with Media3 (ExoPl
 - **October 07, 2025**: Major improvements and fixes:
   - **Video stuttering fix**: Increased buffer startup thresholds from 2.5s to 7.5s (bufferForPlaybackMs) and 10s (bufferForPlaybackAfterRebufferMs), with min buffer at 15s and max at 50s. Previous settings caused constant rebuffering cycles creating "shaking" effect on 1080p HLS streams.
   - **Channel smoothness improvements**: Implemented shared bandwidth meter with 2.8 Mbps initial estimate to maintain bandwidth learning across channel switches. Added setPrioritizeTimeOverSizeThresholds for time-based buffer optimization. Enabled asynchronous MediaCodec mode (dedicated thread with async queueing) to significantly improve rendering performance and eliminate stuttering on streams that play smoothly in other players. Fixed memory leak by using applicationContext.
+  - **Comprehensive decoder stability fixes**:
+    - **SurfaceView rendering**: Switched from TextureView to SurfaceView for hardware-accelerated video rendering, eliminating decoder pipeline issues
+    - **PTS jitter tolerance**: Added 10s timestamp adjuster initialization timeout in HLS source to handle timestamp discontinuities gracefully
+    - **Conservative ABR**: Disabled seamless video/audio adaptiveness and mixed MIME type switching to prevent stutter from bitrate changes
+    - **Video joining time**: Increased to 10s (from 5s default) for seamless decoder initialization without frame drops
+    - **Bitrate cap**: Set max video bitrate to 10 Mbps to prevent aggressive quality switching
   - **ExoPlayer enhancements**: Added DefaultTrackSelector for adaptive bitrate and enabled decoder fallback for improved reliability
   - **UI improvements**: Enlarged favorite star from 24sp to 40sp for better visibility, added rewind/forward buttons (10-second seeks) to player controls
   - **Settings enhancements**: Added "Current Playlist" display showing loaded playlist source (file/URL) with URL visibility. Reduced button sizes to 48dp height following Material Design best practices.

@@ -63,6 +63,7 @@ class FfmpegRenderersFactory(context: Context, private val useFfmpeg: Boolean) :
         setExtensionRendererMode(if (useFfmpeg) EXTENSION_RENDERER_MODE_PREFER else EXTENSION_RENDERER_MODE_OFF)
         setEnableDecoderFallback(true)
         forceEnableMediaCodecAsynchronousQueueing()
+        setAllowedVideoJoiningTimeMs(10000)
     }
     
     override fun buildAudioSink(
@@ -724,17 +725,23 @@ class MainActivity : AppCompatActivity() {
         val hlsMediaSourceFactory = HlsMediaSource.Factory(httpDataSourceFactory)
             .setExtractorFactory(hlsExtractorFactory)
             .setAllowChunklessPreparation(false)
+            .setTimestampAdjusterInitializationTimeoutMs(10000)
         
         val trackSelector = DefaultTrackSelector(this).apply {
             parameters = buildUponParameters()
                 .setForceHighestSupportedBitrate(false)
+                .setAllowVideoMixedMimeTypeAdaptiveness(false)
+                .setAllowVideoNonSeamlessAdaptiveness(false)
+                .setAllowAudioMixedMimeTypeAdaptiveness(false)
+                .setAllowAudioMixedSampleRateAdaptiveness(false)
+                .setMaxVideoBitrate(10000000)
                 .build()
         }
         
-        addDebugMessage("✓ HLS extractor: Aggressive MPEG audio detection enabled")
-        addDebugMessage("✓ HTTP: User-Agent and headers configured")
-        addDebugMessage("✓ Bandwidth meter: Shared instance with 2.8 Mbps initial estimate")
-        addDebugMessage("✓ Track selector: Adaptive bitrate enabled")
+        addDebugMessage("✓ Surface: SurfaceView (hardware accelerated)")
+        addDebugMessage("✓ HLS: Timestamp adjuster timeout 10s (PTS jitter tolerance)")
+        addDebugMessage("✓ Track selector: Conservative ABR (prevent stutter from bitrate switches)")
+        addDebugMessage("✓ Video joining time: 10s (seamless decoder initialization)")
         addDebugMessage("✓ Buffer priority: Time-based for smoother playback")
         
         player = ExoPlayer.Builder(this, renderersFactory)
