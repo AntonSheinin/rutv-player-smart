@@ -27,7 +27,6 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.decoder.ffmpeg.FfmpegAudioRenderer
 import androidx.media3.decoder.ffmpeg.FfmpegLibrary
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
@@ -69,30 +68,6 @@ class FfmpegRenderersFactory(context: Context) : DefaultRenderersFactory(context
             .setEnableFloatOutput(true)
             .setEnableAudioTrackPlaybackParams(true)
             .build()
-    }
-    
-    override fun buildAudioRenderers(
-        context: Context,
-        extensionRendererMode: Int,
-        mediaCodecSelector: MediaCodecSelector,
-        enableDecoderFallback: Boolean,
-        audioSink: AudioSink,
-        eventHandler: android.os.Handler,
-        eventListener: AudioRendererEventListener,
-        out: ArrayList<Renderer>
-    ) {
-        if (FfmpegLibrary.isAvailable()) {
-            out.add(
-                FfmpegAudioRenderer(
-                    eventHandler,
-                    eventListener,
-                    audioSink
-                )
-            )
-            Log.d("VideoPlayer", "✓ FFmpeg AUDIO renderer added - ALL audio formats")
-        } else {
-            Log.e("VideoPlayer", "✗ FFmpeg library NOT available!")
-        }
     }
     
     override fun buildVideoRenderers(
@@ -620,14 +595,8 @@ class MainActivity : AppCompatActivity() {
         }
         
         try {
-            if (FfmpegLibrary.isAvailable()) {
-                val version = FfmpegLibrary.getVersion()
-                addDebugMessage("✓ FFmpeg: v$version (fallback mode)")
-                addDebugMessage("✓ Built-in codecs first, FFmpeg if unsupported")
-            } else {
-                addDebugMessage("✗ FFmpeg: NOT LOADED")
-                addDebugMessage("✗ Some formats may not work")
-            }
+            addDebugMessage("✓ Hardware decoders: ENABLED")
+            addDebugMessage("✓ Using built-in MediaCodec for all audio/video")
             
             if (playlist.size > 500) {
                 addDebugMessage("⚠️ Large playlist (${playlist.size} channels) - may take time to load")
