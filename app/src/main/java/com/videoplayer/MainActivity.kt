@@ -840,7 +840,7 @@ class MainActivity : AppCompatActivity() {
                 })
                 
                 val lastPlayedIndex = ChannelStorage.getLastPlayedIndex(this@MainActivity)
-                if (lastPlayedIndex > 0 && lastPlayedIndex < playlist.size) {
+                if (lastPlayedIndex >= 0 && lastPlayedIndex < playlist.size) {
                     seekTo(lastPlayedIndex, C.TIME_UNSET)
                     addDebugMessage("⏩ Resuming from channel #${lastPlayedIndex + 1}")
                 }

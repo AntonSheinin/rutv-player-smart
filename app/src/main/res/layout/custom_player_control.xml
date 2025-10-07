@@ -55,21 +55,21 @@
                 style="@style/ExoStyledControls.Button.Center.Previous"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
-                android:layout_gravity="center_vertical" />
+                android:layout_gravity="center" />
 
             <ImageButton
                 android:id="@id/exo_play_pause"
                 style="@style/ExoStyledControls.Button.Center.PlayPause"
-                android:layout_width="64dp"
-                android:layout_height="64dp"
-                android:layout_gravity="center_vertical" />
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_gravity="center" />
 
             <ImageButton
                 android:id="@id/exo_next"
                 style="@style/ExoStyledControls.Button.Center.Next"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
-                android:layout_gravity="center_vertical" />
+                android:layout_gravity="center" />
 
         </LinearLayout>
 
