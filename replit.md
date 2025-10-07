@@ -47,6 +47,8 @@ The Android IPTV Player is a native Android application built with Media3 (ExoPl
 - Channel info display (channel number and name) that hides with controls.
 - Playlist close button to dismiss the channel list without changing channels.
 - Smart playlist reload based on content hash detection for URL playlists.
+- **Channel number input**: Direct channel navigation via numeric keypad dialog (button next to favorites).
+- **Yellow toggle indicator**: FFmpeg toggle shows gold color when enabled for visual feedback.
 
 ## External Dependencies
 - **AndroidX Media3**:
