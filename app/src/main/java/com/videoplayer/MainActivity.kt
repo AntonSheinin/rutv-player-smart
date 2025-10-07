@@ -725,16 +725,13 @@ class MainActivity : AppCompatActivity() {
         val trackSelector = DefaultTrackSelector(this).apply {
             parameters = buildUponParameters()
                 .setForceHighestSupportedBitrate(false)
-                .setMinDurationForQualityIncreaseMs(10000)
-                .setMaxDurationForQualityDecreaseMs(25000)
-                .setMinDurationToRetainAfterDiscardMs(25000)
                 .build()
         }
         
         addDebugMessage("✓ HLS extractor: Aggressive MPEG audio detection enabled")
         addDebugMessage("✓ HTTP: User-Agent and headers configured")
         addDebugMessage("✓ Bandwidth meter: Shared instance with 2.8 Mbps initial estimate")
-        addDebugMessage("✓ Track selector: Adaptive bitrate with 10s quality switch delay")
+        addDebugMessage("✓ Track selector: Adaptive bitrate enabled")
         addDebugMessage("✓ Buffer priority: Time-based for smoother playback")
         
         player = ExoPlayer.Builder(this, renderersFactory)
