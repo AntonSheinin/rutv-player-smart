@@ -414,12 +414,11 @@ class MainActivity : AppCompatActivity() {
             }
             .create()
         
+        dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
         dialog.window?.setBackgroundDrawableResource(android.R.color.black)
         dialog.show()
         
         input.requestFocus()
-        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
-        imm.showSoftInput(input, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
     }
     
     private fun updatePlaylistView() {

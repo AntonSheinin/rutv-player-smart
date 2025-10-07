@@ -67,8 +67,11 @@ class SettingsActivity : AppCompatActivity() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         switchDebugLog.isChecked = prefs.getBoolean(KEY_SHOW_DEBUG_LOG, true)
         
+        updateSwitchColor(switchDebugLog, switchDebugLog.isChecked)
+        
         switchDebugLog.setOnCheckedChangeListener { _, isChecked ->
             prefs.edit().putBoolean(KEY_SHOW_DEBUG_LOG, isChecked).apply()
+            updateSwitchColor(switchDebugLog, isChecked)
             Toast.makeText(this, if (isChecked) "Debug log enabled" else "Debug log disabled", Toast.LENGTH_SHORT).show()
         }
     }
@@ -77,22 +80,22 @@ class SettingsActivity : AppCompatActivity() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         switchFfmpeg.isChecked = prefs.getBoolean(KEY_USE_FFMPEG, true)
         
-        updateSwitchColor(switchFfmpeg.isChecked)
+        updateSwitchColor(switchFfmpeg, switchFfmpeg.isChecked)
         
         switchFfmpeg.setOnCheckedChangeListener { _, isChecked ->
             prefs.edit().putBoolean(KEY_USE_FFMPEG, isChecked).apply()
-            updateSwitchColor(isChecked)
+            updateSwitchColor(switchFfmpeg, isChecked)
             Toast.makeText(this, if (isChecked) "FFmpeg audio decoder enabled" else "Hardware decoder only", Toast.LENGTH_SHORT).show()
         }
     }
     
-    private fun updateSwitchColor(isChecked: Boolean) {
+    private fun updateSwitchColor(switch: Switch, isChecked: Boolean) {
         if (isChecked) {
-            switchFfmpeg.thumbTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#FFD700"))
-            switchFfmpeg.trackTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#80FFD700"))
+            switch.thumbTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#FFD700"))
+            switch.trackTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#80FFD700"))
         } else {
-            switchFfmpeg.thumbTintList = null
-            switchFfmpeg.trackTintList = null
+            switch.thumbTintList = null
+            switch.trackTintList = null
         }
     }
     
@@ -101,15 +104,19 @@ class SettingsActivity : AppCompatActivity() {
         val bufferSeconds = prefs.getInt(KEY_BUFFER_SECONDS, 15)
         inputBufferSeconds.setText(bufferSeconds.toString())
         
-        inputBufferSeconds.setOnFocusChangeListener { _, hasFocus ->
-            if (!hasFocus) {
-                val value = inputBufferSeconds.text.toString().toIntOrNull() ?: 15
+        inputBufferSeconds.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                val value = s?.toString()?.toIntOrNull() ?: 15
                 val clampedValue = value.coerceIn(3, 60)
-                inputBufferSeconds.setText(clampedValue.toString())
+                if (clampedValue != value && s != null && s.isNotEmpty()) {
+                    inputBufferSeconds.setText(clampedValue.toString())
+                    inputBufferSeconds.setSelection(clampedValue.toString().length)
+                }
                 prefs.edit().putInt(KEY_BUFFER_SECONDS, clampedValue).apply()
-                Toast.makeText(this, "Buffer duration set to $clampedValue seconds", Toast.LENGTH_SHORT).show()
             }
-        }
+        })
     }
     
     private fun showUrlDialog() {
