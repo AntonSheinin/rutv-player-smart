@@ -40,7 +40,7 @@ Native Android video player application using Media3 (ExoPlayer) for IPTV playli
 ## Building the Android App
 
 **GitHub Actions**: This project uses GitHub Actions for automated APK builds. 
-- Push to GitHub and the workflow will automatically build `rutv-debug-1.3.apk`
+- Push to GitHub and the workflow will automatically build `rutv-debug-1.4.apk`
 - Download the APK from GitHub Actions artifacts under "rutv-debug-apk"
 - **Updatable APK**: Uses consistent debug.keystore for all builds - update without uninstalling!
 
@@ -48,14 +48,14 @@ Native Android video player application using Media3 (ExoPlayer) for IPTV playli
 1. Open project in Android Studio
 2. Sync Gradle files
 3. Build APK: `./gradlew assembleDebug`
-4. Output: `app/build/outputs/apk/debug/rutv-debug-1.2.apk`
+4. Output: `app/build/outputs/apk/debug/rutv-debug-1.4.apk`
 
 Or run directly on emulator/physical device from Android Studio.
 
 **For Future Updates**: 
-- Increment `versionCode` in app/build.gradle (currently: 4, ready for 5 in v1.4)
-- Update `versionName` (currently: "1.3", ready for "1.4")
-- Update APK filename in GitHub Actions workflow (rutv-debug-1.4.apk)
+- Increment `versionCode` in app/build.gradle (currently: 5)
+- Update `versionName` (currently: "1.4")
+- Update APK filename in GitHub Actions workflow
 - Keep `debug.keystore` file for consistent signing
 
 ## Playlist Support
@@ -101,7 +101,7 @@ The player supports M3U/M3U8 format playlists with:
   - Fetches playlist content and compares actual content (not URL string)
   - Only updates when remote playlist file changes
   - Avoids unnecessary re-parsing when content unchanged
-- **Version Notes**: Ready for version 1.4 (increment versionCode to 5, versionName to "1.4")
+- **Version**: versionCode 5, versionName "1.4"
 
 ### October 6, 2025 (Version 1.3 - UI/UX Polish & Bug Fixes)
 - **Control Buttons in One Line**: All control buttons now integrated into player controller in one horizontal row:
