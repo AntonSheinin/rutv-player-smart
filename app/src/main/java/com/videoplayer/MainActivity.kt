@@ -62,7 +62,7 @@ class FfmpegRenderersFactory(context: Context, private val useFfmpeg: Boolean) :
     init {
         setExtensionRendererMode(if (useFfmpeg) EXTENSION_RENDERER_MODE_PREFER else EXTENSION_RENDERER_MODE_OFF)
         setEnableDecoderFallback(true)
-        setMediaCodecOperationMode(OPERATION_MODE_ASYNCHRONOUS_DEDICATED_THREAD_ASYNCHRONOUS_QUEUEING)
+        forceEnableMediaCodecAsynchronousQueueing()
     }
     
     override fun buildAudioSink(
