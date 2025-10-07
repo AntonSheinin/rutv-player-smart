@@ -22,7 +22,10 @@ Native Android video player application using Media3 (ExoPlayer) for IPTV playli
   - Compact channel list (number-first layout, 40dp logos)
   - All subtitles disabled
   - On-screen debug log with decoder diagnostics (toggle in Settings)
-  - Video rotation toggle (0°/90°/180°/270°)
+  - Video rotation toggle (Horizontal ↔ Vertical)
+  - **Channel caching** - avoid re-parsing playlists on startup (content-based change detection)
+  - **Favorites** - mark channels with ★ and filter to show only favorites
+  - **Per-channel aspect ratio** - app remembers your choice for each channel
 
 ## Dependencies
 
@@ -50,9 +53,9 @@ Native Android video player application using Media3 (ExoPlayer) for IPTV playli
 Or run directly on emulator/physical device from Android Studio.
 
 **For Future Updates**: 
-- Increment `versionCode` in app/build.gradle (currently: 4)
-- Update `versionName` (currently: "1.3")
-- Update APK filename in GitHub Actions workflow
+- Increment `versionCode` in app/build.gradle (currently: 4, ready for 5 in v1.4)
+- Update `versionName` (currently: "1.3", ready for "1.4")
+- Update APK filename in GitHub Actions workflow (rutv-debug-1.4.apk)
 - Keep `debug.keystore` file for consistent signing
 
 ## Playlist Support
@@ -73,7 +76,34 @@ The player supports M3U/M3U8 format playlists with:
 
 ## Recent Changes
 
-### October 6, 2025 (Latest - Version 1.3 - UI/UX Polish & Bug Fixes)
+### October 7, 2025 (Latest - Version 1.4 - Channel Caching, Favorites & Aspect Ratio Persistence)
+- **🚀 Channel Caching System**: Intelligent caching to avoid re-parsing playlists on every app start
+  - Created ChannelStorage.kt persistence layer with JSON serialization
+  - Channels cached with content-based hash detection (not URL-based)
+  - Auto-reloads from cache when playlist content unchanged
+  - Only re-parses when playlist content actually changes
+  - Shows "✓ Loading X channels from cache" or "Parsing playlist (content changed)" messages
+  - Works for both file uploads and URL playlists
+- **⭐ Favorites Functionality**: Mark and filter favorite channels
+  - Yellow asterisk button (☆/★) for each channel in playlist
+  - Tap to toggle favorite status (empty star = not favorite, solid star = favorite)
+  - Favorites persist across app restarts via ChannelStorage
+  - Filter button (⭐) next to playlist button shows only favorited channels
+  - Channel numbers always show original position (not filtered position)
+  - Playing indicator works correctly in both full and filtered views
+- **🎬 Per-Channel Aspect Ratio Persistence**: App remembers aspect ratio choice for each channel
+  - Aspect ratio (FIT/FILL/ZOOM) saved per channel URL
+  - Automatically restored when returning to a channel
+  - Resets when new playlist loaded (all aspect ratios cleared)
+  - Seamless experience when browsing channels
+- **🔧 Smart Diff for URL Playlists**: Content-based change detection
+  - CRITICAL FIX: Changed from URL hash to content hash
+  - Fetches playlist content and compares actual content (not URL string)
+  - Only updates when remote playlist file changes
+  - Avoids unnecessary re-parsing when content unchanged
+- **Version Notes**: Ready for version 1.4 (increment versionCode to 5, versionName to "1.4")
+
+### October 6, 2025 (Version 1.3 - UI/UX Polish & Bug Fixes)
 - **Control Buttons in One Line**: All control buttons now integrated into player controller in one horizontal row:
   - Left: Playlist button (48dp)
   - Center: Previous, Play/Pause, Next buttons (truly centered using FrameLayout)
