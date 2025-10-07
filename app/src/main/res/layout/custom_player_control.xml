@@ -41,6 +41,17 @@
                 android:padding="8dp"
                 android:contentDescription="Favorites" />
 
+            <ImageButton
+                android:id="@+id/btn_go_to_channel"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/control_button_background"
+                android:src="@drawable/ic_numbers"
+                android:scaleType="fitCenter"
+                android:padding="8dp"
+                android:contentDescription="Go to Channel" />
+
         </LinearLayout>
 
         <LinearLayout

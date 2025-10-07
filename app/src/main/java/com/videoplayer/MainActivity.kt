@@ -154,6 +154,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnSettings: ImageButton
     private lateinit var btnPlaylist: ImageButton
     private lateinit var btnFavorites: ImageButton
+    private lateinit var btnGoToChannel: ImageButton
     private lateinit var channelInfo: TextView
     private lateinit var logo: ImageView
     
@@ -189,6 +190,7 @@ class MainActivity : AppCompatActivity() {
         btnSettings = playerView.findViewById(R.id.btn_settings)
         btnPlaylist = playerView.findViewById(R.id.btn_playlist)
         btnFavorites = playerView.findViewById(R.id.btn_favorites)
+        btnGoToChannel = playerView.findViewById(R.id.btn_go_to_channel)
         
         loadPreferences()
         addDebugMessage("App Started")
@@ -200,6 +202,7 @@ class MainActivity : AppCompatActivity() {
         setupOrientationButton()
         setupPlaylistButton()
         setupFavoritesButton()
+        setupGoToChannelButton()
         setupPlayerTapGesture()
         setupRecyclerView()
         setupClosePlaylistButton()
@@ -408,6 +411,55 @@ class MainActivity : AppCompatActivity() {
             showFavoritesOnly = true
             updatePlaylistView()
         }
+    }
+    
+    private fun setupGoToChannelButton() {
+        btnGoToChannel.setOnClickListener {
+            showChannelNumberDialog()
+        }
+    }
+    
+    private fun showChannelNumberDialog() {
+        if (playlist.isEmpty()) {
+            Toast.makeText(this, "No playlist loaded. Load a playlist in settings first.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        val input = EditText(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            hint = "Enter channel number (1-${playlist.size})"
+            textSize = 24f
+            gravity = android.view.Gravity.CENTER
+            setPadding(32, 32, 32, 32)
+        }
+        
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Go to Channel")
+            .setView(input)
+            .setPositiveButton("OK") { dialogInterface, _ ->
+                val channelNumber = input.text.toString().toIntOrNull()
+                if (channelNumber != null && channelNumber > 0 && channelNumber <= playlist.size) {
+                    val channelIndex = channelNumber - 1
+                    playVideo(playlist[channelIndex], channelIndex)
+                    playlistWrapper.visibility = View.GONE
+                    playlistUserVisible = false
+                    addDebugMessage("Jumped to channel #$channelNumber")
+                } else {
+                    Toast.makeText(this, "Invalid channel number. Enter 1-${playlist.size}", Toast.LENGTH_SHORT).show()
+                }
+                dialogInterface.dismiss()
+            }
+            .setNegativeButton("Cancel") { dialogInterface, _ ->
+                dialogInterface.dismiss()
+            }
+            .create()
+        
+        dialog.window?.setBackgroundDrawableResource(android.R.color.black)
+        dialog.show()
+        
+        input.requestFocus()
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+        imm.showSoftInput(input, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
     }
     
     private fun updatePlaylistView() {

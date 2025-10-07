@@ -77,9 +77,22 @@ class SettingsActivity : AppCompatActivity() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         switchFfmpeg.isChecked = prefs.getBoolean(KEY_USE_FFMPEG, true)
         
+        updateSwitchColor(switchFfmpeg.isChecked)
+        
         switchFfmpeg.setOnCheckedChangeListener { _, isChecked ->
             prefs.edit().putBoolean(KEY_USE_FFMPEG, isChecked).apply()
+            updateSwitchColor(isChecked)
             Toast.makeText(this, if (isChecked) "FFmpeg audio decoder enabled" else "Hardware decoder only", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    private fun updateSwitchColor(isChecked: Boolean) {
+        if (isChecked) {
+            switchFfmpeg.thumbTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#FFD700"))
+            switchFfmpeg.trackTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#80FFD700"))
+        } else {
+            switchFfmpeg.thumbTintList = null
+            switchFfmpeg.trackTintList = null
         }
     }
     
