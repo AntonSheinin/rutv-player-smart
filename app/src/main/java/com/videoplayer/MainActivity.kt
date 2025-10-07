@@ -168,6 +168,9 @@ class MainActivity : AppCompatActivity() {
     private var player: ExoPlayer? = null
     private lateinit var playerView: PlayerView
     private lateinit var playlistRecyclerView: RecyclerView
+    private lateinit var playlistWrapper: LinearLayout
+    private lateinit var playlistTitle: TextView
+    private lateinit var btnClosePlaylist: ImageButton
     private lateinit var playlistAdapter: PlaylistAdapter
     private lateinit var debugLog: TextView
     private lateinit var btnAspectRatio: ImageButton
@@ -198,6 +201,9 @@ class MainActivity : AppCompatActivity() {
         
         playerView = findViewById(R.id.player_view)
         playlistRecyclerView = findViewById(R.id.playlist_container)
+        playlistWrapper = findViewById(R.id.playlist_wrapper)
+        playlistTitle = findViewById(R.id.playlist_title)
+        btnClosePlaylist = findViewById(R.id.btn_close_playlist)
         debugLog = findViewById(R.id.debug_log)
         channelInfo = findViewById(R.id.channel_info)
         logo = findViewById(R.id.logo)
@@ -220,6 +226,7 @@ class MainActivity : AppCompatActivity() {
         setupFavoritesButton()
         setupPlayerTapGesture()
         setupRecyclerView()
+        setupClosePlaylistButton()
         setupFullscreen()
         
         lifecycleScope.launch {
@@ -247,8 +254,8 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun updateDebugLogVisibility() {
-        if (::debugLog.isInitialized && ::playlistRecyclerView.isInitialized) {
-            debugLog.visibility = if (showDebugLog && playlistRecyclerView.visibility == View.VISIBLE) {
+        if (::debugLog.isInitialized && ::playlistWrapper.isInitialized) {
+            debugLog.visibility = if (showDebugLog && playlistWrapper.visibility == View.VISIBLE) {
                 View.VISIBLE
             } else {
                 View.GONE
@@ -435,16 +442,24 @@ class MainActivity : AppCompatActivity() {
                 playlist
             }
             
-            playlistRecyclerView.visibility = View.VISIBLE
+            playlistTitle.text = if (showFavoritesOnly) "Favorites" else "Channels"
+            playlistWrapper.visibility = View.VISIBLE
             playlistAdapter.updateFilter(filteredPlaylist, showFavoritesOnly)
             updateDebugLogVisibility()
         } else {
-            playlistRecyclerView.visibility = View.GONE
+            playlistWrapper.visibility = View.GONE
             debugLog.visibility = View.GONE
         }
     }
     
     private fun setupPlayerTapGesture() {
+    }
+    
+    private fun setupClosePlaylistButton() {
+        btnClosePlaylist.setOnClickListener {
+            playlistUserVisible = false
+            updatePlaylistView()
+        }
     }
     
     private fun setupFullscreen() {
@@ -482,13 +497,13 @@ class MainActivity : AppCompatActivity() {
     
     private fun hideUIElements() {
         playlistUserVisible = false
-        playlistRecyclerView.visibility = View.GONE
+        playlistWrapper.visibility = View.GONE
         debugLog.visibility = View.GONE
     }
     
     private fun showUIElements() {
         if (playlistUserVisible) {
-            playlistRecyclerView.visibility = View.VISIBLE
+            playlistWrapper.visibility = View.VISIBLE
             updateDebugLogVisibility()
         }
     }

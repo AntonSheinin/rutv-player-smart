@@ -49,16 +49,57 @@
         app:controller_layout_id="@layout/custom_player_control"
         app:surface_type="texture_view" />
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/playlist_container"
+    <LinearLayout
+        android:id="@+id/playlist_wrapper"
         android:layout_width="280dp"
         android:layout_height="0dp"
+        android:orientation="vertical"
         android:background="#1a1a1a"
         android:elevation="10dp"
-        android:focusable="false"
+        android:visibility="gone"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        app:layout_constraintStart_toStartOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="8dp"
+            android:gravity="center_vertical"
+            android:background="#2a2a2a">
+
+            <TextView
+                android:id="@+id/playlist_title"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Channels"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <ImageButton
+                android:id="@+id/btn_close_playlist"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@android:drawable/ic_menu_close_clear_cancel"
+                android:tint="#FFFFFF"
+                android:scaleType="fitCenter"
+                android:contentDescription="Close" />
+
+        </LinearLayout>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/playlist_container"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:background="#1a1a1a"
+            android:focusable="false" />
+
+    </LinearLayout>
 
     <TextView
         android:id="@+id/debug_log"
