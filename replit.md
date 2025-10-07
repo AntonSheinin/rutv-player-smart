@@ -26,6 +26,8 @@ Native Android video player application using Media3 (ExoPlayer) for IPTV playli
   - **Channel caching** - avoid re-parsing playlists on startup (content-based change detection)
   - **Favorites** - mark channels with ★ and filter to show only favorites
   - **Per-channel aspect ratio** - app remembers your choice for each channel
+  - **Resume last channel** - app remembers and auto-plays last watched channel on startup
+  - **Playlist close button** - close channel list without switching channels
 
 ## Dependencies
 
@@ -76,7 +78,23 @@ The player supports M3U/M3U8 format playlists with:
 
 ## Recent Changes
 
-### October 7, 2025 (Latest - Version 1.4 - Channel Caching, Favorites & Aspect Ratio Persistence)
+### October 7, 2025 (Latest - Version 1.4 Update 2 - UX Improvements)
+- **📺 Resume Last Channel**: App remembers and auto-plays last watched channel
+  - Saves channel index whenever user switches channels
+  - Auto-seeks to last played channel on app startup
+  - Shows "⏩ Resuming from channel #X" debug message
+  - Seamless viewing experience across app restarts
+- **🎯 Aligned Playback Controls**: Prev/Next buttons now vertically aligned with Play button
+  - Fixed visual offset between 48dp prev/next and 64dp play button
+  - All controls centered vertically in control bar
+  - More polished and professional appearance
+- **❌ Playlist Close Button**: Added X button to close channel list
+  - Header bar with "Channels" or "Favorites" title
+  - Close button allows dismissing playlist without channel switch
+  - Title updates dynamically based on filter state
+  - Better user control over UI visibility
+
+### October 7, 2025 (Version 1.4 - Channel Caching, Favorites & Aspect Ratio Persistence)
 - **🚀 Channel Caching System**: Intelligent caching to avoid re-parsing playlists on every app start
   - Created ChannelStorage.kt persistence layer with JSON serialization
   - Channels cached with content-based hash detection (not URL-based)
