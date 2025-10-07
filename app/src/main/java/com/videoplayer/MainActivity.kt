@@ -160,7 +160,15 @@ class MainActivity : AppCompatActivity() {
     private val settingsLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         loadPreferences()
         lifecycleScope.launch {
+            val hadPlayer = player != null
             autoLoadPlaylist()
+            
+            if (hadPlayer && playlist.isNotEmpty()) {
+                player?.release()
+                player = null
+                initializePlayer()
+                addDebugMessage("Player restarted with new settings")
+            }
         }
     }
     
