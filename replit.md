@@ -30,8 +30,8 @@ The Android IPTV Player is a native Android application built with Media3 (ExoPl
 - **Favorites Functionality**: Allows users to mark and filter favorite channels, with persistence across app restarts.
 - **Per-Channel Aspect Ratio Persistence**: Saves and restores aspect ratio preferences for individual channels.
 - **Last Channel Resume**: Remembers and auto-plays the last watched channel on startup.
-- **FFmpeg Toggle**: User-configurable option to enable/disable software decoding via FFmpeg, allowing preference for hardware decoding when available.
-- **Configurable Buffering**: Users can adjust buffer duration (3-60 seconds) for playback stability versus startup speed.
+- **FFmpeg Toggle**: User-configurable option to enable/disable software decoding via FFmpeg. Uses EXTENSION_RENDERER_MODE_PREFER to prioritize FFmpeg audio renderer over hardware decoders when enabled, ensuring FFmpeg actually handles audio decoding.
+- **Configurable Buffering**: Users can adjust buffer duration (5-60 seconds) for playback stability versus startup speed. Minimum 5s prevents rebuffering stutter. Safe TextWatcher implementation prevents recursion crashes.
 - **Video Rotation**: Orientation button toggles between horizontal (0°) and vertical (270°) display, with scaling for full visibility in portrait.
 - **Error Handling**: Robust error recovery, including automatic clearing of corrupted playlists and detailed logging.
 - **HLS Optimization**: Specific HlsMediaSource.Factory with DefaultHlsExtractorFactory and aggressive TS flags for reliable MPEG audio detection in HLS streams.
@@ -47,8 +47,8 @@ The Android IPTV Player is a native Android application built with Media3 (ExoPl
 - Channel info display (channel number and name) that hides with controls.
 - Playlist close button to dismiss the channel list without changing channels.
 - Smart playlist reload based on content hash detection for URL playlists.
-- **Channel number input**: Direct channel navigation via numeric keypad dialog (button next to favorites).
-- **Yellow toggle indicator**: FFmpeg toggle shows gold color when enabled for visual feedback.
+- **Channel number input**: Direct channel navigation via numeric keypad dialog with proper styling (white text, gray hint, dark background) and SOFT_INPUT_STATE_ALWAYS_VISIBLE for immediate keyboard display.
+- **Yellow toggle indicator**: All toggle switches (FFmpeg, Debug Log) show gold color (#FFD700) when enabled for consistent RuTV branding.
 
 ## External Dependencies
 - **AndroidX Media3**:
