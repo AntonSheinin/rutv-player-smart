@@ -724,6 +724,7 @@ class MainActivity : AppCompatActivity() {
                                 else -> {
                                     Log.d("VideoPlayer", "Media item transition: ${it.mediaId}")
                                 }
+                            }
                         }
                     }
                     
