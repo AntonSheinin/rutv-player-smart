@@ -70,10 +70,13 @@
 
             <ImageButton
                 android:id="@id/exo_rew"
-                style="@style/ExoStyledControls.Button.Center.Rewind"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
-                android:layout_gravity="center" />
+                android:layout_gravity="center"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/exo_legacy_controls_rewind"
+                android:tint="#FFFFFF"
+                android:contentDescription="Rewind" />
 
             <ImageButton
                 android:id="@id/exo_play_pause"
@@ -84,10 +87,13 @@
 
             <ImageButton
                 android:id="@id/exo_ffwd"
-                style="@style/ExoStyledControls.Button.Center.FastForward"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
-                android:layout_gravity="center" />
+                android:layout_gravity="center"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/exo_legacy_controls_fastforward"
+                android:tint="#FFFFFF"
+                android:contentDescription="Fast Forward" />
 
             <ImageButton
                 android:id="@id/exo_next"
