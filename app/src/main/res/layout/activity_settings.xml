@@ -153,7 +153,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Higher values reduce lag but increase startup time. Default: 15 seconds. Range: 3-60 seconds."
+        android:text="Higher values reduce lag but increase startup time. Default: 15 seconds. Range: 5-60 seconds."
         android:textSize="12sp"
         android:textColor="#888888"
         android:layout_marginBottom="32dp" />

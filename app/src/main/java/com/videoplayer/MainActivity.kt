@@ -57,7 +57,7 @@ import java.net.URL
 class FfmpegRenderersFactory(context: Context, private val useFfmpeg: Boolean) : DefaultRenderersFactory(context) {
     
     init {
-        setExtensionRendererMode(if (useFfmpeg) EXTENSION_RENDERER_MODE_ON else EXTENSION_RENDERER_MODE_OFF)
+        setExtensionRendererMode(if (useFfmpeg) EXTENSION_RENDERER_MODE_PREFER else EXTENSION_RENDERER_MODE_OFF)
     }
     
     override fun buildAudioSink(
@@ -375,6 +375,9 @@ class MainActivity : AppCompatActivity() {
             textSize = 24f
             gravity = android.view.Gravity.CENTER
             setPadding(32, 32, 32, 32)
+            setTextColor(android.graphics.Color.WHITE)
+            setHintTextColor(android.graphics.Color.GRAY)
+            setBackgroundColor(android.graphics.Color.parseColor("#1A1A1A"))
         }
         
         val dialog = AlertDialog.Builder(this)
@@ -627,12 +630,14 @@ class MainActivity : AppCompatActivity() {
         val renderersFactory = FfmpegRenderersFactory(this, useFfmpeg)
         
         val bufferMs = bufferSeconds * 1000
+        val minBufferMs = 5000
+        val maxBufferMs = maxOf(bufferMs, minBufferMs)
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
-                3000,
-                bufferMs,
-                1500,
-                2000
+                minBufferMs,
+                maxBufferMs,
+                2500,
+                5000
             )
             .build()
         

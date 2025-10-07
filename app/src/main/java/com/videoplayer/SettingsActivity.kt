@@ -25,6 +25,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var switchDebugLog: Switch
     private lateinit var switchFfmpeg: Switch
     private lateinit var inputBufferSeconds: EditText
+    private var isSettingBufferText = false
     
     private val filePickerLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
@@ -108,12 +109,21 @@ class SettingsActivity : AppCompatActivity() {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: android.text.Editable?) {
-                val value = s?.toString()?.toIntOrNull() ?: 15
-                val clampedValue = value.coerceIn(3, 60)
-                if (clampedValue != value && s != null && s.isNotEmpty()) {
+                if (isSettingBufferText) return
+                
+                val text = s?.toString() ?: ""
+                if (text.isEmpty()) return
+                
+                val value = text.toIntOrNull() ?: 15
+                val clampedValue = value.coerceIn(5, 60)
+                
+                if (clampedValue != value) {
+                    isSettingBufferText = true
                     inputBufferSeconds.setText(clampedValue.toString())
                     inputBufferSeconds.setSelection(clampedValue.toString().length)
+                    isSettingBufferText = false
                 }
+                
                 prefs.edit().putInt(KEY_BUFFER_SECONDS, clampedValue).apply()
             }
         })
