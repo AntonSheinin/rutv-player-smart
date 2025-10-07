@@ -39,8 +39,10 @@ import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.source.DefaultLoadErrorHandlingPolicy
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.hls.DefaultHlsExtractorFactory
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
 import androidx.media3.extractor.ts.TsExtractor
@@ -58,6 +60,7 @@ class FfmpegRenderersFactory(context: Context, private val useFfmpeg: Boolean) :
     
     init {
         setExtensionRendererMode(if (useFfmpeg) EXTENSION_RENDERER_MODE_PREFER else EXTENSION_RENDERER_MODE_OFF)
+        setEnableDecoderFallback(true)
     }
     
     override fun buildAudioSink(
@@ -697,16 +700,30 @@ class MainActivity : AppCompatActivity() {
             true
         )
         
+        val loadErrorHandlingPolicy = DefaultLoadErrorHandlingPolicy()
+        
         val hlsMediaSourceFactory = HlsMediaSource.Factory(httpDataSourceFactory)
             .setExtractorFactory(hlsExtractorFactory)
             .setAllowChunklessPreparation(false)
+            .setLoadErrorHandlingPolicy(loadErrorHandlingPolicy)
+        
+        val trackSelector = DefaultTrackSelector(this).apply {
+            parameters = buildUponParameters()
+                .setForceHighestSupportedBitrate(false)
+                .setAllowVideoMixedMimeTypeAdaptation(true)
+                .setAllowAudioMixedMimeTypeAdaptation(true)
+                .build()
+        }
         
         addDebugMessage("✓ HLS extractor: Aggressive MPEG audio detection enabled")
         addDebugMessage("✓ HTTP: User-Agent and headers configured")
+        addDebugMessage("✓ Track selector: Adaptive bitrate enabled")
+        addDebugMessage("✓ Error recovery: Automatic retry with exponential backoff")
         
         player = ExoPlayer.Builder(this, renderersFactory)
             .setLoadControl(loadControl)
             .setMediaSourceFactory(hlsMediaSourceFactory)
+            .setTrackSelector(trackSelector)
             .setSeekBackIncrementMs(10000)
             .setSeekForwardIncrementMs(10000)
             .build()

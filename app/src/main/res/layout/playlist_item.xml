@@ -25,7 +25,7 @@
             android:layout_marginEnd="4dp"
             android:text="☆"
             android:textColor="#666666"
-            android:textSize="24sp"
+            android:textSize="32sp"
             android:clickable="true"
             android:focusable="true"
             android:background="?attr/selectableItemBackgroundBorderless"
