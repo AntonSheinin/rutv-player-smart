@@ -64,6 +64,8 @@ class FfmpegRenderersFactory(context: Context, private val useFfmpeg: Boolean) :
         setEnableDecoderFallback(true)
         forceEnableMediaCodecAsynchronousQueueing()
         setAllowedVideoJoiningTimeMs(10000)
+        experimentalSetEnableMediaCodecVideoRendererPrewarming(false)
+        experimentalSetParseAv1SampleDependencies(false)
     }
     
     override fun buildAudioSink(
@@ -359,18 +361,31 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "Horizontal", Toast.LENGTH_SHORT).show()
                 0f
             }
-            playerView.videoSurfaceView?.apply {
-                rotation = videoRotation
-                pivotX = width / 2f
-                pivotY = height / 2f
-                
-                if (videoRotation == 90f || videoRotation == 270f) {
-                    val scaleFactor = height.toFloat() / width.toFloat()
-                    scaleX = scaleFactor
-                    scaleY = scaleFactor
-                } else {
-                    scaleX = 1f
-                    scaleY = 1f
+            
+            val contentFrame = playerView.findViewById<android.widget.FrameLayout>(
+                androidx.media3.ui.R.id.exo_content_frame
+            )
+            
+            contentFrame?.apply {
+                for (i in 0 until childCount) {
+                    val child = getChildAt(i)
+                    if (child is android.view.SurfaceView) {
+                        child.apply {
+                            rotation = videoRotation
+                            pivotX = width / 2f
+                            pivotY = height / 2f
+                            
+                            if (videoRotation == 90f || videoRotation == 270f) {
+                                val scaleFactor = height.toFloat() / width.toFloat()
+                                scaleX = scaleFactor
+                                scaleY = scaleFactor
+                            } else {
+                                scaleX = 1f
+                                scaleY = 1f
+                            }
+                        }
+                        break
+                    }
                 }
             }
         }
@@ -735,6 +750,9 @@ class MainActivity : AppCompatActivity() {
                 .setAllowAudioMixedMimeTypeAdaptiveness(false)
                 .setAllowAudioMixedSampleRateAdaptiveness(false)
                 .setMaxVideoBitrate(10000000)
+                .setIgnoredTextSelectionFlags(C.SELECTION_FLAG_DEFAULT or C.SELECTION_FLAG_FORCED)
+                .setDisabledTextTrackSelectionFlags(C.SELECTION_FLAG_DEFAULT or C.SELECTION_FLAG_FORCED)
+                .setSelectUndeterminedTextLanguage(false)
                 .build()
         }
         
@@ -750,6 +768,7 @@ class MainActivity : AppCompatActivity() {
             .setTrackSelector(trackSelector)
             .setSeekBackIncrementMs(10000)
             .setSeekForwardIncrementMs(10000)
+            .setVideoScalingMode(C.VIDEO_SCALING_MODE_SCALE_TO_FIT)
             .build()
             .apply {
                 val mediaItems = playlist.map { videoItem ->
@@ -780,6 +799,30 @@ class MainActivity : AppCompatActivity() {
                         initializedTimestampMs: Long
                     ) {
                         addDebugMessage("🎬 Video decoder: $decoderName")
+                    }
+                    
+                    override fun onDroppedVideoFrames(
+                        eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
+                        droppedFrames: Int,
+                        elapsedMs: Long
+                    ) {
+                        if (droppedFrames > 0) {
+                            val fps = if (elapsedMs > 0) (droppedFrames * 1000f / elapsedMs) else 0f
+                            addDebugMessage("⚠️ Dropped $droppedFrames frames in ${elapsedMs}ms (${String.format("%.1f", fps)} fps)")
+                        }
+                    }
+                    
+                    override fun onVideoFrameProcessingOffset(
+                        eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
+                        totalProcessingOffsetUs: Long,
+                        frameCount: Int
+                    ) {
+                        if (frameCount > 0) {
+                            val avgOffsetMs = totalProcessingOffsetUs / 1000f / frameCount
+                            if (avgOffsetMs > 20) {
+                                addDebugMessage("⏱️ Frame processing slow: ${String.format("%.1f", avgOffsetMs)}ms avg offset")
+                            }
+                        }
                     }
                 })
                 
