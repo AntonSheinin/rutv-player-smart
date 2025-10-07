@@ -824,11 +824,23 @@ class MainActivity : AppCompatActivity() {
                         
                         stopBufferingCheck()
                         
-                        Toast.makeText(
-                            this@MainActivity, 
-                            "Playback failed: ${error.errorCodeName}\nSelect another channel", 
-                            Toast.LENGTH_LONG
-                        ).show()
+                        if (errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
+                            addDebugMessage("  → Recovering: Seeking to live edge...")
+                            seekToDefaultPosition()
+                            prepare()
+                            playWhenReady = true
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Stream fell behind - jumping to live",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        } else {
+                            Toast.makeText(
+                                this@MainActivity, 
+                                "Playback failed: ${error.errorCodeName}\nSelect another channel", 
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
                     }
                 })
                 
