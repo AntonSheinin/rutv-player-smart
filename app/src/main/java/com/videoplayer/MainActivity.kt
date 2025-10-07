@@ -191,7 +191,7 @@ class MainActivity : AppCompatActivity() {
     private var currentResizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
     private var videoRotation = 0f
     private var showDebugLog = true
-    private var playlistUserVisible = true
+    private var playlistUserVisible = false
     private var showFavoritesOnly = false
     private var currentChannelUrl: String? = null
     

@@ -83,6 +83,7 @@ The player supports M3U/M3U8 format playlists with:
   - Saves channel index whenever user switches channels
   - Auto-seeks to last played channel on app startup
   - Shows "⏩ Resuming from channel #X" debug message
+  - Channel list hidden on startup - only shows when user opens it
   - Seamless viewing experience across app restarts
 - **🎯 Aligned Playback Controls**: Prev/Next buttons now vertically aligned with Play button
   - Fixed visual offset between 48dp prev/next and 64dp play button
