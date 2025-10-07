@@ -49,6 +49,19 @@ class SettingsActivity : AppCompatActivity() {
         setupBufferInput()
     }
     
+    override fun onPause() {
+        super.onPause()
+        saveBufferValue()
+    }
+    
+    private fun saveBufferValue() {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val text = inputBufferSeconds.text.toString()
+        val value = text.toIntOrNull() ?: 15
+        val clampedValue = value.coerceIn(5, 60)
+        prefs.edit().putInt(KEY_BUFFER_SECONDS, clampedValue).apply()
+    }
+    
     private fun setupButtons() {
         btnLoadFile.setOnClickListener {
             filePickerLauncher.launch("*/*")

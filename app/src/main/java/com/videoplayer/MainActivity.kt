@@ -93,6 +93,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnClosePlaylist: ImageButton
     private lateinit var playlistAdapter: PlaylistAdapter
     private lateinit var debugLog: TextView
+    private lateinit var debugLogScroll: android.widget.ScrollView
     private lateinit var btnAspectRatio: ImageButton
     private lateinit var btnOrientation: ImageButton
     private lateinit var btnSettings: ImageButton
@@ -126,6 +127,7 @@ class MainActivity : AppCompatActivity() {
         playlistTitle = findViewById(R.id.playlist_title)
         btnClosePlaylist = findViewById(R.id.btn_close_playlist)
         debugLog = findViewById(R.id.debug_log)
+        debugLogScroll = findViewById(R.id.debug_log_scroll)
         channelInfo = findViewById(R.id.channel_info)
         logo = findViewById(R.id.logo)
         
@@ -191,8 +193,8 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun updateDebugLogVisibility() {
-        if (::debugLog.isInitialized) {
-            debugLog.visibility = if (showDebugLog) {
+        if (::debugLogScroll.isInitialized) {
+            debugLogScroll.visibility = if (showDebugLog) {
                 View.VISIBLE
             } else {
                 View.GONE
@@ -392,38 +394,55 @@ class MainActivity : AppCompatActivity() {
             setTextColor(android.graphics.Color.WHITE)
             setHintTextColor(android.graphics.Color.GRAY)
             setBackgroundColor(android.graphics.Color.parseColor("#1A1A1A"))
+            imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE
         }
         
-        val dialog = AlertDialog.Builder(this)
+        val switchChannel: () -> Unit = {
+            val channelNumber = input.text.toString().toIntOrNull()
+            if (channelNumber != null && channelNumber > 0 && channelNumber <= playlist.size) {
+                val channelIndex = channelNumber - 1
+                player?.let { p ->
+                    if (p.currentMediaItemIndex != channelIndex) {
+                        addDebugMessage("→ Jumping to channel #$channelNumber")
+                        p.seekTo(channelIndex, C.TIME_UNSET)
+                        p.prepare()
+                        p.playWhenReady = true
+                        p.play()
+                        
+                        currentChannelUrl = playlist.getOrNull(channelIndex)?.url
+                        currentChannelUrl?.let { url ->
+                            currentResizeMode = ChannelStorage.getAspectRatio(this, url)
+                            playerView.resizeMode = currentResizeMode
+                        }
+                        
+                        playlistUserVisible = false
+                        playlistWrapper.visibility = View.GONE
+                        hideUIElements()
+                        updateChannelInfo()
+                    }
+                }
+            } else {
+                Toast.makeText(this, "Invalid channel number. Enter 1-${playlist.size}", Toast.LENGTH_SHORT).show()
+            }
+        }
+        
+        var currentDialog: AlertDialog? = null
+        
+        input.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
+                switchChannel()
+                currentDialog?.dismiss()
+                true
+            } else {
+                false
+            }
+        }
+        
+        currentDialog = AlertDialog.Builder(this)
             .setTitle("Go to Channel")
             .setView(input)
             .setPositiveButton("OK") { dialogInterface, _ ->
-                val channelNumber = input.text.toString().toIntOrNull()
-                if (channelNumber != null && channelNumber > 0 && channelNumber <= playlist.size) {
-                    val channelIndex = channelNumber - 1
-                    player?.let { p ->
-                        if (p.currentMediaItemIndex != channelIndex) {
-                            addDebugMessage("→ Jumping to channel #$channelNumber")
-                            p.seekTo(channelIndex, C.TIME_UNSET)
-                            p.prepare()
-                            p.playWhenReady = true
-                            p.play()
-                            
-                            currentChannelUrl = playlist.getOrNull(channelIndex)?.url
-                            currentChannelUrl?.let { url ->
-                                currentResizeMode = ChannelStorage.getAspectRatio(this, url)
-                                playerView.resizeMode = currentResizeMode
-                            }
-                            
-                            playlistUserVisible = false
-                            playlistWrapper.visibility = View.GONE
-                            hideUIElements()
-                            updateChannelInfo()
-                        }
-                    }
-                } else {
-                    Toast.makeText(this, "Invalid channel number. Enter 1-${playlist.size}", Toast.LENGTH_SHORT).show()
-                }
+                switchChannel()
                 dialogInterface.dismiss()
             }
             .setNegativeButton("Cancel") { dialogInterface, _ ->
@@ -431,9 +450,9 @@ class MainActivity : AppCompatActivity() {
             }
             .create()
         
-        dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
-        dialog.window?.setBackgroundDrawableResource(android.R.color.black)
-        dialog.show()
+        currentDialog?.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
+        currentDialog?.window?.setBackgroundDrawableResource(android.R.color.black)
+        currentDialog?.show()
         
         input.requestFocus()
     }

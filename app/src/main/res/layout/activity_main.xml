@@ -103,21 +103,27 @@
 
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/debug_log"
+    <ScrollView
+        android:id="@+id/debug_log_scroll"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_height="300dp"
         android:layout_margin="16dp"
-        android:padding="12dp"
         android:background="#CC000000"
-        android:textColor="#00FF00"
-        android:textSize="12sp"
-        android:fontFamily="monospace"
         android:elevation="20dp"
-        android:maxLines="10"
-        android:scrollbars="vertical"
-        android:text="Debug Log"
+        android:fillViewport="true"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent">
+        
+        <TextView
+            android:id="@+id/debug_log"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="12dp"
+            android:textColor="#00FF00"
+            android:textSize="12sp"
+            android:fontFamily="monospace"
+            android:text="Debug Log" />
+    
+    </ScrollView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
