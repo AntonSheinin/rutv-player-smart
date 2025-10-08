@@ -63,7 +63,7 @@ class FfmpegRenderersFactory(
 ) : NextRenderersFactory(context) {
     
     init {
-        setEnableDecoderFallback(true)
+        setEnableDecoderFallback(false)
         forceEnableMediaCodecAsynchronousQueueing()
         setAllowedVideoJoiningTimeMs(10000)
         experimentalSetEnableMediaCodecVideoRendererPrewarming(false)
@@ -85,7 +85,7 @@ class FfmpegRenderersFactory(
             context,
             videoMode,
             mediaCodecSelector,
-            true,
+            false,
             eventHandler,
             eventListener,
             allowedVideoJoiningTimeMs,
@@ -108,7 +108,7 @@ class FfmpegRenderersFactory(
             context,
             audioMode,
             mediaCodecSelector,
-            true,
+            false,
             audioSink,
             eventHandler,
             eventListener,
