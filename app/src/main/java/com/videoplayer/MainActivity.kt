@@ -66,7 +66,6 @@ class FfmpegRenderersFactory(context: Context, private val useFfmpeg: Boolean) :
         setAllowedVideoJoiningTimeMs(10000)
         experimentalSetEnableMediaCodecVideoRendererPrewarming(false)
         experimentalSetParseAv1SampleDependencies(false)
-        setMediaCodecOperationMode(MEDIA_CODEC_OPERATION_MODE_ASYNCHRONOUS_DEDICATED_THREAD_ASYNCHRONOUS_QUEUEING)
     }
     
     override fun buildAudioSink(
