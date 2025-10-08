@@ -26,6 +26,7 @@
         android:textColor="#FFFFFF"
         android:textSize="18sp"
         android:textStyle="bold"
+        android:gravity="center"
         android:elevation="5dp"
         android:visibility="gone"
         android:text=""

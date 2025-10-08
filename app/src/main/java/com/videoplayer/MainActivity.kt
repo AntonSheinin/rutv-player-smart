@@ -460,7 +460,7 @@ class MainActivity : AppCompatActivity() {
                 startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
                 endToEnd = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
                 topMargin = 0
-                bottomMargin = 80
+                bottomMargin = 120
                 marginStart = 0
                 marginEnd = 0
             }
