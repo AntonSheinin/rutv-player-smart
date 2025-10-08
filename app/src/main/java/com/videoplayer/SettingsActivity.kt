@@ -24,10 +24,13 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var btnLoadUrl: Button
     private lateinit var btnBack: Button
     private lateinit var switchDebugLog: Switch
-    private lateinit var switchFfmpeg: Switch
+    private lateinit var switchFfmpegAudio: Switch
+    private lateinit var switchFfmpegVideo: Switch
     private lateinit var inputBufferSeconds: EditText
     private lateinit var currentPlaylistInfo: TextView
     private lateinit var currentPlaylistUrl: TextView
+    private lateinit var currentFileName: TextView
+    private lateinit var currentUrlName: TextView
     
     private val filePickerLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
@@ -43,14 +46,18 @@ class SettingsActivity : AppCompatActivity() {
         btnLoadUrl = findViewById(R.id.btn_load_url)
         btnBack = findViewById(R.id.btn_back)
         switchDebugLog = findViewById(R.id.switch_debug_log)
-        switchFfmpeg = findViewById(R.id.switch_ffmpeg)
+        switchFfmpegAudio = findViewById(R.id.switch_ffmpeg_audio)
+        switchFfmpegVideo = findViewById(R.id.switch_ffmpeg_video)
         inputBufferSeconds = findViewById(R.id.input_buffer_seconds)
         currentPlaylistInfo = findViewById(R.id.current_playlist_info)
         currentPlaylistUrl = findViewById(R.id.current_playlist_url)
+        currentFileName = findViewById(R.id.current_file_name)
+        currentUrlName = findViewById(R.id.current_url_name)
         
         setupButtons()
         setupDebugLogSwitch()
-        setupFfmpegSwitch()
+        setupFfmpegAudioSwitch()
+        setupFfmpegVideoSwitch()
         setupBufferInput()
         updatePlaylistInfo()
     }
@@ -95,16 +102,29 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
     
-    private fun setupFfmpegSwitch() {
+    private fun setupFfmpegAudioSwitch() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        switchFfmpeg.isChecked = prefs.getBoolean(KEY_USE_FFMPEG, true)
+        switchFfmpegAudio.isChecked = prefs.getBoolean(KEY_USE_FFMPEG_AUDIO, true)
         
-        updateSwitchColor(switchFfmpeg, switchFfmpeg.isChecked)
+        updateSwitchColor(switchFfmpegAudio, switchFfmpegAudio.isChecked)
         
-        switchFfmpeg.setOnCheckedChangeListener { _, isChecked ->
-            prefs.edit().putBoolean(KEY_USE_FFMPEG, isChecked).apply()
-            updateSwitchColor(switchFfmpeg, isChecked)
-            Toast.makeText(this, if (isChecked) "FFmpeg audio decoder enabled" else "Hardware decoder only", Toast.LENGTH_SHORT).show()
+        switchFfmpegAudio.setOnCheckedChangeListener { _, isChecked ->
+            prefs.edit().putBoolean(KEY_USE_FFMPEG_AUDIO, isChecked).apply()
+            updateSwitchColor(switchFfmpegAudio, isChecked)
+            Toast.makeText(this, if (isChecked) "FFmpeg audio decoder enabled" else "Hardware audio decoder enabled", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    private fun setupFfmpegVideoSwitch() {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        switchFfmpegVideo.isChecked = prefs.getBoolean(KEY_USE_FFMPEG_VIDEO, false)
+        
+        updateSwitchColor(switchFfmpegVideo, switchFfmpegVideo.isChecked)
+        
+        switchFfmpegVideo.setOnCheckedChangeListener { _, isChecked ->
+            prefs.edit().putBoolean(KEY_USE_FFMPEG_VIDEO, isChecked).apply()
+            updateSwitchColor(switchFfmpegVideo, isChecked)
+            Toast.makeText(this, if (isChecked) "FFmpeg video decoder enabled" else "Hardware video decoder enabled", Toast.LENGTH_SHORT).show()
         }
     }
     
@@ -219,16 +239,22 @@ class SettingsActivity : AppCompatActivity() {
             TYPE_FILE -> {
                 currentPlaylistInfo.text = "Loaded from file (stored locally)"
                 currentPlaylistUrl.visibility = android.view.View.GONE
+                currentFileName.text = "File"
+                currentUrlName.text = "None"
             }
             TYPE_URL -> {
                 val url = prefs.getString(KEY_PLAYLIST_URL, "")
                 currentPlaylistInfo.text = "Loaded from URL"
                 currentPlaylistUrl.text = url
                 currentPlaylistUrl.visibility = android.view.View.VISIBLE
+                currentFileName.text = "None"
+                currentUrlName.text = url?.substringAfterLast('/')?.take(20) ?: "URL"
             }
             else -> {
                 currentPlaylistInfo.text = "No playlist loaded"
                 currentPlaylistUrl.visibility = android.view.View.GONE
+                currentFileName.text = "None"
+                currentUrlName.text = "None"
             }
         }
     }
@@ -239,7 +265,8 @@ class SettingsActivity : AppCompatActivity() {
         const val KEY_PLAYLIST_URL = "playlist_url"
         const val KEY_PLAYLIST_TYPE = "playlist_type"
         const val KEY_SHOW_DEBUG_LOG = "show_debug_log"
-        const val KEY_USE_FFMPEG = "use_ffmpeg"
+        const val KEY_USE_FFMPEG_AUDIO = "use_ffmpeg_audio"
+        const val KEY_USE_FFMPEG_VIDEO = "use_ffmpeg_video"
         const val KEY_BUFFER_SECONDS = "buffer_seconds"
         const val TYPE_FILE = "file"
         const val TYPE_URL = "url"

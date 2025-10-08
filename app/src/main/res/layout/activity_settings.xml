@@ -27,21 +27,61 @@
         android:textColor="#AAAAAA"
         android:layout_marginBottom="16dp" />
 
-    <Button
-        android:id="@+id/btn_load_file"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:text="Upload M3U/M3U8 File"
-        android:textSize="14sp"
-        android:layout_marginBottom="12dp" />
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="8dp">
+        
+        <Button
+            android:id="@+id/btn_load_file"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="48dp"
+            android:text="Upload M3U/M3U8 File"
+            android:textSize="14sp"
+            android:layout_marginEnd="8dp" />
+        
+        <TextView
+            android:id="@+id/current_file_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="None"
+            android:textSize="12sp"
+            android:textColor="#888888"
+            android:maxLines="1"
+            android:ellipsize="end" />
+    
+    </LinearLayout>
 
-    <Button
-        android:id="@+id/btn_load_url"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:text="Set Playlist URL"
-        android:textSize="14sp"
-        android:layout_marginBottom="16dp" />
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="16dp">
+        
+        <Button
+            android:id="@+id/btn_load_url"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="48dp"
+            android:text="Set Playlist URL"
+            android:textSize="14sp"
+            android:layout_marginEnd="8dp" />
+        
+        <TextView
+            android:id="@+id/current_url_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="None"
+            android:textSize="12sp"
+            android:textColor="#888888"
+            android:maxLines="1"
+            android:ellipsize="end" />
+    
+    </LinearLayout>
 
     <TextView
         android:layout_width="wrap_content"
@@ -136,7 +176,7 @@
             android:textColor="#FFFFFF" />
 
         <Switch
-            android:id="@+id/switch_ffmpeg"
+            android:id="@+id/switch_ffmpeg_audio"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content" />
 
@@ -145,7 +185,37 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Enable FFmpeg for audio decoding to support all formats (MP2, AAC, etc.). May cause lag on some devices. Disable to use hardware audio decoding only."
+        android:text="Enable FFmpeg for audio decoding to support all formats (MP2, AAC, etc.)."
+        android:textSize="12sp"
+        android:textColor="#888888"
+        android:layout_marginBottom="24dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="16dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Use FFmpeg Video Decoder"
+            android:textSize="16sp"
+            android:textColor="#FFFFFF" />
+
+        <Switch
+            android:id="@+id/switch_ffmpeg_video"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Enable FFmpeg for software video decoding. Hardware decoder is faster for most streams."
         android:textSize="12sp"
         android:textColor="#888888"
         android:layout_marginBottom="24dp" />
