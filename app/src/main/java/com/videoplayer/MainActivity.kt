@@ -671,15 +671,10 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun hideUIElements() {
-        playlistUserVisible = false
-        playlistWrapper.visibility = View.GONE
     }
     
     private fun showUIElements() {
-        if (playlistUserVisible) {
-            playlistWrapper.visibility = View.VISIBLE
-            updateDebugLogVisibility()
-        }
+        updateDebugLogVisibility()
     }
     
     private fun updateChannelInfo() {
