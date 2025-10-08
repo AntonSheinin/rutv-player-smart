@@ -143,7 +143,6 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         
         playerView = findViewById(R.id.player_view)
-        playerView.setUseTextureView(true)
         playlistRecyclerView = findViewById(R.id.playlist_container)
         playlistWrapper = findViewById(R.id.playlist_wrapper)
         playlistTitle = findViewById(R.id.playlist_title)
