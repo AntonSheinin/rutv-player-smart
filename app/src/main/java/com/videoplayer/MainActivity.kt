@@ -424,9 +424,17 @@ class MainActivity : AppCompatActivity() {
                 
                 this.scaleX = scaleFactor
                 this.scaleY = scaleFactor
+                
+                if (videoRotation == 270f) {
+                    val offset = (containerHeight - containerWidth) / 2f
+                    translationX = -offset
+                    translationY = offset
+                }
             } else {
                 scaleX = 1f
                 scaleY = 1f
+                translationX = 0f
+                translationY = 0f
             }
         }
     }
