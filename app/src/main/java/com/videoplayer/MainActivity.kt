@@ -143,6 +143,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         
         playerView = findViewById(R.id.player_view)
+        playerView.setUseTextureView(true)
         playlistRecyclerView = findViewById(R.id.playlist_container)
         playlistWrapper = findViewById(R.id.playlist_wrapper)
         playlistTitle = findViewById(R.id.playlist_title)
@@ -369,7 +370,7 @@ class MainActivity : AppCompatActivity() {
             contentFrame?.apply {
                 for (i in 0 until childCount) {
                     val child = getChildAt(i)
-                    if (child is android.view.SurfaceView) {
+                    if (child is android.view.TextureView) {
                         child.apply {
                             rotation = videoRotation
                             pivotX = width / 2f
@@ -762,7 +763,7 @@ class MainActivity : AppCompatActivity() {
                 .build()
         }
         
-        addDebugMessage("✓ Surface: SurfaceView (hardware accelerated)")
+        addDebugMessage("✓ Surface: TextureView (supports rotation transforms)")
         addDebugMessage("✓ Audio: Standard PCM mode (no float/params)")
         addDebugMessage("✓ HLS: Simplified flags (better AAC timestamp handling)")
         addDebugMessage("✓ Timestamp adjuster: 30s timeout (handle discontinuities)")

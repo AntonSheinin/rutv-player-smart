@@ -10,12 +10,12 @@ The Android IPTV Player is a native Android application built with Media3 (ExoPl
   - **Frame rate strategy**: Changed to VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF to disable display refresh rate changes that could trigger frame drops
   - **Audio sink**: Standard PCM mode (disabled float output and AudioTrack playback params) for clean timing
   - **Enhanced diagnostics**: Added dropped frame monitoring and frame processing offset tracking to identify decoder bottlenecks
-  - **Rotation fix**: Updated orientation toggle to properly find and transform SurfaceView in the content frame hierarchy with correct aspect-ratio scaling to prevent cropping when rotated
+  - **Rotation fix**: Switched from SurfaceView to TextureView rendering to enable actual video rotation (SurfaceView composites in separate layer that ignores transforms). Updated orientation toggle to properly find and transform TextureView in the content frame hierarchy with correct aspect-ratio scaling
 - **October 07, 2025**: Major improvements and fixes:
   - **Video stuttering fix**: Increased buffer startup thresholds from 2.5s to 7.5s (bufferForPlaybackMs) and 10s (bufferForPlaybackAfterRebufferMs), with min buffer at 15s and max at 50s. Previous settings caused constant rebuffering cycles creating "shaking" effect on 1080p HLS streams.
   - **Channel smoothness improvements**: Implemented shared bandwidth meter with 2.8 Mbps initial estimate to maintain bandwidth learning across channel switches. Added setPrioritizeTimeOverSizeThresholds for time-based buffer optimization. Enabled asynchronous MediaCodec mode (dedicated thread with async queueing) to significantly improve rendering performance and eliminate stuttering on streams that play smoothly in other players. Fixed memory leak by using applicationContext.
   - **Comprehensive decoder stability fixes**:
-    - **SurfaceView rendering**: Switched from TextureView to SurfaceView for hardware-accelerated video rendering, eliminating decoder pipeline issues
+    - **TextureView rendering**: Uses TextureView for video rendering to support rotation transforms (enables video rotation button functionality)
     - **PTS jitter tolerance**: Added 10s timestamp adjuster initialization timeout in HLS source to handle timestamp discontinuities gracefully
     - **Conservative ABR**: Disabled seamless video/audio adaptiveness and mixed MIME type switching to prevent stutter from bitrate changes
     - **Video joining time**: Increased to 10s (from 5s default) for seamless decoder initialization without frame drops
