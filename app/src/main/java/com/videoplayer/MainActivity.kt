@@ -762,10 +762,6 @@ class MainActivity : AppCompatActivity() {
         } else {
             DefaultRenderersFactory(this).apply {
                 setEnableDecoderFallback(true)
-                forceEnableMediaCodecAsynchronousQueueing()
-                setAllowedVideoJoiningTimeMs(10000)
-                experimentalSetEnableMediaCodecVideoRendererPrewarming(false)
-                experimentalSetParseAv1SampleDependencies(false)
             }
         }
         
