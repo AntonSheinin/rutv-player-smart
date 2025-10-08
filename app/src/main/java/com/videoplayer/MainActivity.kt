@@ -454,6 +454,7 @@ class MainActivity : AppCompatActivity() {
                 params.bottomMargin = 0
                 container.layoutParams = params
                 Log.d("OrientationChange", "CENTER buttons moved to TOP with margin $topMargin")
+                addDebugMessage("Playback controls → TOP (${topMargin}dp)")
             }
             
             // Move all 6 buttons to bottom in one row
