@@ -7,6 +7,7 @@ The Android IPTV Player is a native Android application built with Media3 (ExoPl
 - **October 08, 2025**: NextLib FFmpeg integration for audio and video decoding:
   - **Replaced Jellyfin**: Migrated to NextLib (`io.github.anilbeesetti:nextlib-media3ext:1.8.0-0.9.0`) with proper package path (`io.github.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory`)
   - **Separate toggles**: Added "Use FFmpeg Audio Decoder" and "Use FFmpeg Video Decoder" settings - both work independently
+  - **Factory switching fix**: When both FFmpeg decoders are disabled, uses standard DefaultRenderersFactory instead of NextRenderersFactory to prevent MediaCodec initialization errors (ERROR_CODE_DECODER_INIT_FAILED). Enables decoder fallback for hardware-only mode.
   - **Kotlin 2.0.21**: Upgraded from 1.9.25 for NextLib compatibility
   - **Playlist indicators**: Added filename/URL display next to "Load Playlist" and "Load from URL" buttons
 - **October 08, 2025**: Critical frame drop fix for stuttering channels with 24kHz AAC audio:

@@ -56,17 +56,17 @@ import kotlinx.coroutines.withContext
 import java.net.URL
 
 @OptIn(UnstableApi::class)
-class CustomRenderersFactory(
-    context: Context, 
-    private val useFfmpeg: Boolean
+class FfmpegRenderersFactory(
+    context: Context,
+    private val useFfmpegAudio: Boolean,
+    private val useFfmpegVideo: Boolean
 ) : NextRenderersFactory(context) {
     
     init {
-        if (useFfmpeg) {
-            setExtensionRendererMode(EXTENSION_RENDERER_MODE_PREFER)
-        } else {
-            setExtensionRendererMode(EXTENSION_RENDERER_MODE_OFF)
-        }
+        val audioMode = if (useFfmpegAudio) EXTENSION_RENDERER_MODE_PREFER else EXTENSION_RENDERER_MODE_OFF
+        val videoMode = if (useFfmpegVideo) EXTENSION_RENDERER_MODE_PREFER else EXTENSION_RENDERER_MODE_OFF
+        
+        setExtensionRendererMode(if (useFfmpegAudio || useFfmpegVideo) EXTENSION_RENDERER_MODE_PREFER else EXTENSION_RENDERER_MODE_OFF)
         setEnableDecoderFallback(false)
         forceEnableMediaCodecAsynchronousQueueing()
         setAllowedVideoJoiningTimeMs(10000)
@@ -715,8 +715,17 @@ class MainActivity : AppCompatActivity() {
                 addDebugMessage("⚠️ Large playlist (${playlist.size} channels) - may take time to load")
             }
         
-        val useFfmpeg = useFfmpegAudio || useFfmpegVideo
-        val renderersFactory = CustomRenderersFactory(this, useFfmpeg)
+        val renderersFactory = if (useFfmpegAudio || useFfmpegVideo) {
+            FfmpegRenderersFactory(this, useFfmpegAudio, useFfmpegVideo)
+        } else {
+            DefaultRenderersFactory(this).apply {
+                setEnableDecoderFallback(true)
+                forceEnableMediaCodecAsynchronousQueueing()
+                setAllowedVideoJoiningTimeMs(10000)
+                experimentalSetEnableMediaCodecVideoRendererPrewarming(false)
+                experimentalSetParseAv1SampleDependencies(false)
+            }
+        }
         
         val bandwidthMeter = getBandwidthMeter(this)
         
