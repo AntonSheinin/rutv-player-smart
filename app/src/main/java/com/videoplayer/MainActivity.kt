@@ -486,33 +486,36 @@ class MainActivity : AppCompatActivity() {
         Log.d("VideoPlayer", "Found containers - left: ${leftButtons != null}, center: ${centerButtons != null}, right: ${rightButtons != null}")
         
         if (isVertical) {
-            val dp60 = (60 * resources.displayMetrics.density).toInt()
+            val dp16 = (16 * resources.displayMetrics.density).toInt()
+            val dp80 = (80 * resources.displayMetrics.density).toInt()
             
-            Log.d("VideoPlayer", "Applying VERTICAL layout with dp60=$dp60")
+            Log.d("VideoPlayer", "Applying VERTICAL layout")
             
             centerButtons?.let { container ->
                 val params = container.layoutParams as android.widget.FrameLayout.LayoutParams
-                params.gravity = android.view.Gravity.CENTER
+                params.gravity = android.view.Gravity.CENTER_HORIZONTAL or android.view.Gravity.BOTTOM
                 params.topMargin = 0
-                params.bottomMargin = 0
+                params.bottomMargin = dp80
                 container.layoutParams = params
-                Log.d("VideoPlayer", "Updated CENTER buttons to CENTER")
+                Log.d("VideoPlayer", "Updated CENTER buttons (playback) to BOTTOM with margin $dp80")
             }
             
             leftButtons?.let { container ->
                 val params = container.layoutParams as android.widget.FrameLayout.LayoutParams
                 params.gravity = android.view.Gravity.BOTTOM or android.view.Gravity.START
-                params.bottomMargin = dp60
+                params.bottomMargin = dp16
+                params.setMarginStart(dp16)
                 container.layoutParams = params
-                Log.d("VideoPlayer", "Updated LEFT buttons to BOTTOM|START with margin $dp60")
+                Log.d("VideoPlayer", "Updated LEFT buttons to BOTTOM|START")
             }
             
             rightButtons?.let { container ->
                 val params = container.layoutParams as android.widget.FrameLayout.LayoutParams
                 params.gravity = android.view.Gravity.BOTTOM or android.view.Gravity.END
-                params.bottomMargin = dp60
+                params.bottomMargin = dp16
+                params.setMarginEnd(dp16)
                 container.layoutParams = params
-                Log.d("VideoPlayer", "Updated RIGHT buttons to BOTTOM|END with margin $dp60")
+                Log.d("VideoPlayer", "Updated RIGHT buttons to BOTTOM|END")
             }
         } else {
             Log.d("VideoPlayer", "Applying HORIZONTAL layout")

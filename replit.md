@@ -14,9 +14,9 @@ The Android IPTV Player is a native Android application built with Media3 (ExoPl
   - **Vertical orientation UI redesign**: Complete layout reorganization for 270° vertical mode:
     - **Logo**: Top-left corner (16dp margins) - visible and properly positioned in portrait view
     - **Channel info**: Above video (70dp from top) - centered horizontally for clear channel identification
-    - **Playback controls** (prev/rewind/play/forward/next): Centered on screen at normal size (no rotation)
-    - **Navigation buttons** (playlist/favorites/channel number): Bottom-left corner (60dp bottom margin)
-    - **Settings buttons** (aspect ratio/orientation/settings): Bottom-right corner (60dp bottom margin)
+    - **Playback controls** (prev/rewind/play/forward/next): Below video (80dp from bottom) - centered horizontally
+    - **Navigation buttons** (playlist/favorites/channel number): Bottom-left corner (16dp margins)
+    - **Settings buttons** (aspect ratio/orientation/settings): Bottom-right corner (16dp margins)
     - All dp values properly converted to pixels using displayMetrics.density for correct multi-density screen support
     - Opens channel list in vertical orientation automatically rotates back to horizontal first
   - **Playlist persistence**: Channel list and favorites list remain visible without auto-hiding. They only close when switching channels or pressing the close button
