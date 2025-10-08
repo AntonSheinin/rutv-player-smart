@@ -74,8 +74,9 @@ class FfmpegRenderersFactory(context: Context, private val useFfmpeg: Boolean) :
         enableAudioTrackPlaybackParams: Boolean
     ): AudioSink {
         return DefaultAudioSink.Builder(context)
-            .setEnableFloatOutput(true)
-            .setEnableAudioTrackPlaybackParams(true)
+            .setEnableFloatOutput(false)
+            .setEnableAudioTrackPlaybackParams(false)
+            .setOffloadMode(DefaultAudioSink.OFFLOAD_MODE_DISABLED)
             .build()
     }
     
@@ -757,10 +758,10 @@ class MainActivity : AppCompatActivity() {
         }
         
         addDebugMessage("✓ Surface: SurfaceView (hardware accelerated)")
-        addDebugMessage("✓ HLS: Timestamp adjuster timeout 10s (PTS jitter tolerance)")
-        addDebugMessage("✓ Track selector: Conservative ABR (prevent stutter from bitrate switches)")
-        addDebugMessage("✓ Video joining time: 10s (seamless decoder initialization)")
-        addDebugMessage("✓ Buffer priority: Time-based for smoother playback")
+        addDebugMessage("✓ Audio sink: Standard PCM (no float/offload for timing accuracy)")
+        addDebugMessage("✓ Frame rate: Seamless strategy (prevent display rate conflicts)")
+        addDebugMessage("✓ Video joining: 10s (decoder warmup)")
+        addDebugMessage("✓ Buffer: Time-based priority for smooth playback")
         
         player = ExoPlayer.Builder(this, renderersFactory)
             .setLoadControl(loadControl)
@@ -769,6 +770,7 @@ class MainActivity : AppCompatActivity() {
             .setSeekBackIncrementMs(10000)
             .setSeekForwardIncrementMs(10000)
             .setVideoScalingMode(C.VIDEO_SCALING_MODE_SCALE_TO_FIT)
+            .setVideoChangeFrameRateStrategy(C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_ONLY_IF_SEAMLESS)
             .build()
             .apply {
                 val mediaItems = playlist.map { videoItem ->

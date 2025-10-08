@@ -4,6 +4,11 @@
 The Android IPTV Player is a native Android application built with Media3 (ExoPlayer) for robust IPTV playlist playback. It offers extensive codec support via FFmpeg and is designed for seamless interaction with Flussonic Media Server using token authentication. The project aims to provide a high-performance, user-friendly video player capable of handling various IPTV stream formats and offering advanced features like channel caching, favorites management, and per-channel aspect ratio persistence.
 
 ## Recent Changes
+- **October 08, 2025**: Critical frame drop fix for stuttering channels:
+  - **Frame release timing fix**: Changed audio sink to standard PCM mode (disabled float output and AudioTrack playback params) to eliminate audio/video sync issues causing 50-frame drops every 2-3 seconds
+  - **Display rate strategy**: Added VIDEO_CHANGE_FRAME_RATE_STRATEGY_ONLY_IF_SEAMLESS to prevent display refresh rate conflicts
+  - **Enhanced diagnostics**: Added dropped frame monitoring and frame processing offset tracking to identify decoder bottlenecks
+  - **Rotation fix**: Updated orientation toggle to properly find and transform SurfaceView in the content frame hierarchy
 - **October 07, 2025**: Major improvements and fixes:
   - **Video stuttering fix**: Increased buffer startup thresholds from 2.5s to 7.5s (bufferForPlaybackMs) and 10s (bufferForPlaybackAfterRebufferMs), with min buffer at 15s and max at 50s. Previous settings caused constant rebuffering cycles creating "shaking" effect on 1080p HLS streams.
   - **Channel smoothness improvements**: Implemented shared bandwidth meter with 2.8 Mbps initial estimate to maintain bandwidth learning across channel switches. Added setPrioritizeTimeOverSizeThresholds for time-based buffer optimization. Enabled asynchronous MediaCodec mode (dedicated thread with async queueing) to significantly improve rendering performance and eliminate stuttering on streams that play smoothly in other players. Fixed memory leak by using applicationContext.
