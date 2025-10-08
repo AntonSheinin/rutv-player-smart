@@ -10,6 +10,7 @@ The Android IPTV Player is a native Android application built with Media3 (ExoPl
   - **No decoder fallback**: Removed fallback to hardware decoders when FFmpeg is selected (EXTENSION_RENDERER_MODE_PREFER vs OFF only)
   - **Playlist indicators**: Added filename/URL display next to "Load Playlist" and "Load from URL" buttons showing current source
   - **Extended NextRenderersFactory**: Custom factory extends NextLib's NextRenderersFactory to control audio/video FFmpeg usage independently
+  - **Kotlin 2.1.0 upgrade**: Updated from Kotlin 1.9.25 to 2.1.0 for NextLib compatibility
 - **October 08, 2025**: Critical frame drop fix for stuttering channels with 24kHz AAC audio:
   - **HLS timestamp fix**: Simplified HLS extractor flags to FLAG_ALLOW_NON_IDR_KEYFRAMES only (removed FLAG_DETECT_ACCESS_UNITS and FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS) to fix known ExoPlayer bug with AAC timestamp discontinuities causing 50-frame drops every 2-3 seconds
   - **Timestamp adjuster**: Increased timeout to 30s (from 10s) to handle HLS segment-based timestamp discontinuities with non-standard 24kHz AAC audio
