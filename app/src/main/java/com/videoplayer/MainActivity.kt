@@ -363,45 +363,107 @@ class MainActivity : AppCompatActivity() {
                 0f
             }
             
-            val contentFrame = playerView.findViewById<android.widget.FrameLayout>(
-                androidx.media3.ui.R.id.exo_content_frame
-            )
-            
-            contentFrame?.apply {
-                for (i in 0 until childCount) {
-                    val child = getChildAt(i)
-                    if (child is android.view.TextureView) {
-                        child.apply {
-                            rotation = videoRotation
-                            pivotX = width / 2f
-                            pivotY = height / 2f
+            applyVideoRotation()
+            rearrangeControlsForOrientation()
+        }
+    }
+    
+    private fun applyVideoRotation() {
+        val contentFrame = playerView.findViewById<android.widget.FrameLayout>(
+            androidx.media3.ui.R.id.exo_content_frame
+        )
+        
+        contentFrame?.apply {
+            for (i in 0 until childCount) {
+                val child = getChildAt(i)
+                if (child is android.view.TextureView) {
+                    child.apply {
+                        rotation = videoRotation
+                        pivotX = width / 2f
+                        pivotY = height / 2f
+                        
+                        if (videoRotation == 90f || videoRotation == 270f) {
+                            val containerWidth = this@apply.width.toFloat()
+                            val containerHeight = this@apply.height.toFloat()
+                            val viewWidth = width.toFloat()
+                            val viewHeight = height.toFloat()
                             
-                            if (videoRotation == 90f || videoRotation == 270f) {
-                                val containerWidth = this@apply.width.toFloat()
-                                val containerHeight = this@apply.height.toFloat()
-                                val viewWidth = width.toFloat()
-                                val viewHeight = height.toFloat()
-                                
-                                val scaleX = containerWidth / viewHeight
-                                val scaleY = containerHeight / viewWidth
-                                val scaleFactor = minOf(scaleX, scaleY)
-                                
-                                this.scaleX = scaleFactor
-                                this.scaleY = scaleFactor
-                            } else {
-                                scaleX = 1f
-                                scaleY = 1f
-                            }
+                            val scaleX = containerWidth / viewHeight
+                            val scaleY = containerHeight / viewWidth
+                            val scaleFactor = minOf(scaleX, scaleY)
+                            
+                            this.scaleX = scaleFactor
+                            this.scaleY = scaleFactor
+                        } else {
+                            scaleX = 1f
+                            scaleY = 1f
                         }
-                        break
                     }
+                    break
                 }
             }
         }
     }
     
+    private fun rearrangeControlsForOrientation() {
+        val isVertical = (videoRotation == 90f || videoRotation == 270f)
+        
+        if (isVertical) {
+            logo.layoutParams = (logo.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams).apply {
+                topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+                bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+                startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+                endToEnd = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+                topMargin = 0
+                bottomMargin = 0
+                marginEnd = 8
+            }
+            
+            channelInfo.layoutParams = (channelInfo.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams).apply {
+                topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+                bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+                startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+                endToEnd = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+                topMargin = 0
+                bottomMargin = 0
+                marginEnd = 64
+            }
+        } else {
+            logo.layoutParams = (logo.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams).apply {
+                topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+                bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+                startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+                endToEnd = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+                topMargin = 8
+                bottomMargin = 0
+                marginEnd = 0
+                marginStart = 8
+            }
+            
+            channelInfo.layoutParams = (channelInfo.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams).apply {
+                topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+                bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+                startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+                endToEnd = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+                topMargin = 16
+                bottomMargin = 0
+                marginEnd = 0
+            }
+        }
+        
+        logo.requestLayout()
+        channelInfo.requestLayout()
+    }
+    
     private fun setupPlaylistButton() {
         btnPlaylist.setOnClickListener {
+            if (videoRotation != 0f && !playlistUserVisible) {
+                videoRotation = 0f
+                applyVideoRotation()
+                rearrangeControlsForOrientation()
+                Toast.makeText(this, "Rotated to horizontal for channel list", Toast.LENGTH_SHORT).show()
+            }
+            
             playlistUserVisible = !playlistUserVisible
             showFavoritesOnly = false
             updatePlaylistView()
@@ -410,6 +472,13 @@ class MainActivity : AppCompatActivity() {
     
     private fun setupFavoritesButton() {
         btnFavorites.setOnClickListener {
+            if (videoRotation != 0f && !playlistUserVisible) {
+                videoRotation = 0f
+                applyVideoRotation()
+                rearrangeControlsForOrientation()
+                Toast.makeText(this, "Rotated to horizontal for channel list", Toast.LENGTH_SHORT).show()
+            }
+            
             playlistUserVisible = !playlistUserVisible
             showFavoritesOnly = true
             updatePlaylistView()
