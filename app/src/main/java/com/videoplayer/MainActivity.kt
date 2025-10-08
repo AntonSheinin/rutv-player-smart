@@ -27,8 +27,8 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import dev.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory as BaseNextRenderersFactory
-import dev.anilbeesetti.nextlib.media3ext.ffdecoder.NextFFmpegInfo
+import androidx.media3.decoder.ffmpeg.FfmpegAudioRenderer
+import androidx.media3.decoder.ffmpeg.FfmpegLibrary
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
@@ -59,44 +59,20 @@ import java.net.URL
 @OptIn(UnstableApi::class)
 class FfmpegRenderersFactory(
     context: Context, 
-    private val useFfmpegAudio: Boolean,
-    private val useFfmpegVideo: Boolean
-) : BaseNextRenderersFactory(context) {
+    private val useFfmpegAudio: Boolean
+) : DefaultRenderersFactory(context) {
     
     init {
+        if (useFfmpegAudio) {
+            setExtensionRendererMode(EXTENSION_RENDERER_MODE_PREFER)
+        } else {
+            setExtensionRendererMode(EXTENSION_RENDERER_MODE_OFF)
+        }
         setEnableDecoderFallback(false)
         forceEnableMediaCodecAsynchronousQueueing()
         setAllowedVideoJoiningTimeMs(10000)
         experimentalSetEnableMediaCodecVideoRendererPrewarming(false)
         experimentalSetParseAv1SampleDependencies(false)
-    }
-    
-    override fun buildVideoRenderers(
-        context: Context,
-        extensionRendererMode: Int,
-        mediaCodecSelector: androidx.media3.exoplayer.mediacodec.MediaCodecSelector,
-        enableDecoderFallback: Boolean,
-        eventHandler: android.os.Handler,
-        eventListener: androidx.media3.exoplayer.video.VideoRendererEventListener,
-        allowedVideoJoiningTimeMs: Long,
-        out: ArrayList<Renderer>
-    ) {
-        val mode = if (useFfmpegVideo) EXTENSION_RENDERER_MODE_PREFER else EXTENSION_RENDERER_MODE_OFF
-        super.buildVideoRenderers(context, mode, mediaCodecSelector, false, eventHandler, eventListener, allowedVideoJoiningTimeMs, out)
-    }
-    
-    override fun buildAudioRenderers(
-        context: Context,
-        extensionRendererMode: Int,
-        mediaCodecSelector: androidx.media3.exoplayer.mediacodec.MediaCodecSelector,
-        enableDecoderFallback: Boolean,
-        audioSink: AudioSink,
-        eventHandler: android.os.Handler,
-        eventListener: androidx.media3.exoplayer.audio.AudioRendererEventListener,
-        out: ArrayList<Renderer>
-    ) {
-        val mode = if (useFfmpegAudio) EXTENSION_RENDERER_MODE_PREFER else EXTENSION_RENDERER_MODE_OFF
-        super.buildAudioRenderers(context, mode, mediaCodecSelector, false, audioSink, eventHandler, eventListener, out)
     }
     
     override fun buildAudioSink(
@@ -723,13 +699,10 @@ class MainActivity : AppCompatActivity() {
             val useFfmpegVideo = prefs.getBoolean(SettingsActivity.KEY_USE_FFMPEG_VIDEO, false)
             val bufferSeconds = prefs.getInt(SettingsActivity.KEY_BUFFER_SECONDS, 15)
             
-            if (NextFFmpegInfo.isAvailable()) {
-                val version = NextFFmpegInfo.version
-                val modes = mutableListOf<String>()
-                if (useFfmpegAudio) modes.add("audio")
-                if (useFfmpegVideo) modes.add("video")
-                if (modes.isNotEmpty()) {
-                    addDebugMessage("✓ NextLib FFmpeg v$version: ${modes.joinToString(", ")} decoder")
+            if (FfmpegLibrary.isAvailable()) {
+                val version = FfmpegLibrary.getVersion()
+                if (useFfmpegAudio) {
+                    addDebugMessage("✓ FFmpeg v$version: audio decoder")
                 } else {
                     addDebugMessage("✓ Hardware decoders only")
                 }
@@ -745,7 +718,7 @@ class MainActivity : AppCompatActivity() {
                 addDebugMessage("⚠️ Large playlist (${playlist.size} channels) - may take time to load")
             }
         
-        val renderersFactory = FfmpegRenderersFactory(this, useFfmpegAudio, useFfmpegVideo)
+        val renderersFactory = FfmpegRenderersFactory(this, useFfmpegAudio)
         
         val bandwidthMeter = getBandwidthMeter(this)
         
