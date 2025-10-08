@@ -363,7 +363,9 @@ class MainActivity : AppCompatActivity() {
             }
             
             applyVideoRotation()
-            rearrangeControlsForOrientation()
+            playerView.post {
+                rearrangeControlsForOrientation()
+            }
         }
     }
     
@@ -482,10 +484,12 @@ class MainActivity : AppCompatActivity() {
         for (i in 0 until topFrame.childCount) {
             val child = topFrame.getChildAt(i) as? android.view.ViewGroup ?: continue
             
+            val lp = child.layoutParams as? android.widget.FrameLayout.LayoutParams ?: continue
+            
             when {
-                child.findViewById<android.widget.ImageButton>(btnPlaylist.id) != null -> leftButtons = child
-                child.findViewById<android.widget.ImageButton>(androidx.media3.ui.R.id.exo_play_pause) != null -> centerButtons = child
-                child.findViewById<android.widget.ImageButton>(btnAspectRatio.id) != null -> rightButtons = child
+                (lp.gravity and android.view.Gravity.HORIZONTAL_GRAVITY_MASK) == android.view.Gravity.START -> leftButtons = child
+                (lp.gravity and android.view.Gravity.HORIZONTAL_GRAVITY_MASK) == android.view.Gravity.CENTER_HORIZONTAL -> centerButtons = child
+                (lp.gravity and android.view.Gravity.HORIZONTAL_GRAVITY_MASK) == android.view.Gravity.END -> rightButtons = child
             }
         }
         
@@ -520,6 +524,8 @@ class MainActivity : AppCompatActivity() {
             centerButtons?.let { container ->
                 (container.layoutParams as? android.widget.FrameLayout.LayoutParams)?.apply {
                     gravity = android.view.Gravity.CENTER
+                    topMargin = 0
+                    bottomMargin = 0
                 }
                 container.requestLayout()
             }
