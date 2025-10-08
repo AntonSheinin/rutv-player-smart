@@ -4,8 +4,11 @@
 The Android IPTV Player is a native Android application built with Media3 (ExoPlayer) for robust IPTV playlist playback. It offers extensive codec support via FFmpeg and is designed for seamless interaction with Flussonic Media Server using token authentication. The project aims to provide a high-performance, user-friendly video player capable of handling various IPTV stream formats and offering advanced features like channel caching, favorites management, and per-channel aspect ratio persistence.
 
 ## Recent Changes
-- **October 08, 2025**: Settings UI improvements:
-  - **Playlist indicators**: Added filename/URL display next to "Load Playlist" and "Load from URL" buttons showing current source in settings
+- **October 08, 2025**: NextLib FFmpeg integration for audio and video decoding:
+  - **Replaced Jellyfin**: Migrated to NextLib (`io.github.anilbeesetti:nextlib-media3ext:1.8.0-0.9.0`) for both audio AND video FFmpeg support
+  - **Separate toggles**: Added "Use FFmpeg Audio Decoder" and "Use FFmpeg Video Decoder" settings
+  - **Kotlin 2.0.21**: Upgraded for NextLib compatibility
+  - **Playlist indicators**: Added filename/URL display next to "Load Playlist" and "Load from URL" buttons
 - **October 08, 2025**: Critical frame drop fix for stuttering channels with 24kHz AAC audio:
   - **HLS timestamp fix**: Simplified HLS extractor flags to FLAG_ALLOW_NON_IDR_KEYFRAMES only (removed FLAG_DETECT_ACCESS_UNITS and FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS) to fix known ExoPlayer bug with AAC timestamp discontinuities causing 50-frame drops every 2-3 seconds
   - **Timestamp adjuster**: Increased timeout to 30s (from 10s) to handle HLS segment-based timestamp discontinuities with non-standard 24kHz AAC audio
@@ -50,13 +53,13 @@ The Android IPTV Player is a native Android application built with Media3 (ExoPl
 
 ### Technical Implementations
 - **Core Player**: Native Android application using Kotlin, Media3 (ExoPlayer), targeting Min SDK 24 (Android 7.0) and Target SDK 34 (Android 14).
-- **Codec Support**: Utilizes `media3-ffmpeg-decoder` for comprehensive audio format support (e.g., MP2, ADTS, AAC). Hardware decoders handle all video formats.
+- **Codec Support**: Utilizes NextLib FFmpeg for both audio (Vorbis, Opus, FLAC, MP2, MP3, AAC, AC3, etc.) and video (H.264, HEVC, VP8, VP9) software decoding with separate toggles for each.
 - **Playlist Management**: Supports M3U/M3U8 playlists from local files or URLs. Playlists are stored permanently (local) or reloaded automatically (URL).
 - **Channel Caching**: Implemented `ChannelStorage.kt` with JSON serialization and content-based hash detection to avoid redundant playlist parsing.
 - **Favorites Functionality**: Allows users to mark and filter favorite channels, with persistence across app restarts.
 - **Per-Channel Aspect Ratio Persistence**: Saves and restores aspect ratio preferences for individual channels.
 - **Last Channel Resume**: Remembers and auto-plays the last watched channel on startup.
-- **FFmpeg Toggle**: User-configurable option to enable/disable software decoding via FFmpeg. Uses EXTENSION_RENDERER_MODE_PREFER to prioritize FFmpeg audio renderer over hardware decoders when enabled, ensuring FFmpeg actually handles audio decoding.
+- **FFmpeg Toggles**: Separate user-configurable options for audio and video FFmpeg decoding. When enabled, uses EXTENSION_RENDERER_MODE_PREFER to prioritize FFmpeg decoders over hardware.
 - **Configurable Buffering**: Users can adjust buffer duration (5-60 seconds) for playback stability versus startup speed. Minimum 5s prevents rebuffering stutter. Focus-based validation allows free typing without keystroke interference. Player automatically restarts when buffer settings change.
 - **Video Rotation**: Orientation button toggles between horizontal (0°) and vertical (270°) display, with scaling for full visibility in portrait.
 - **Error Handling**: Robust error recovery, including automatic clearing of corrupted playlists and detailed logging.
@@ -83,5 +86,5 @@ The Android IPTV Player is a native Android application built with Media3 (ExoPl
     - `androidx.media3:media3-common`
     - `androidx.media3:media3-exoplayer-dash`
     - `androidx.media3:media3-exoplayer-hls`
-- **FFmpeg Decoder**: `org.jellyfin.media3:media3-ffmpeg-decoder` (specifically for MP2/mp2a audio codec support).
+- **NextLib FFmpeg**: `io.github.anilbeesetti:nextlib-media3ext:1.8.0-0.9.0` (provides audio and video FFmpeg decoding - H.264, HEVC, VP8, VP9, MP2, AAC, AC3, etc.).
 - **Flussonic Media Server**: Integrated for IPTV streaming, utilizing its built-in token authentication.

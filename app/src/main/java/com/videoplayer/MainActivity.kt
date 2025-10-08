@@ -27,8 +27,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.decoder.ffmpeg.FfmpegAudioRenderer
-import androidx.media3.decoder.ffmpeg.FfmpegLibrary
+import io.github.anilbeesetti.nextlib.media3ext.NextRenderersFactory
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
@@ -57,13 +56,13 @@ import kotlinx.coroutines.withContext
 import java.net.URL
 
 @OptIn(UnstableApi::class)
-class FfmpegRenderersFactory(
+class CustomRenderersFactory(
     context: Context, 
-    private val useFfmpegAudio: Boolean
-) : DefaultRenderersFactory(context) {
+    private val useFfmpeg: Boolean
+) : NextRenderersFactory(context) {
     
     init {
-        if (useFfmpegAudio) {
+        if (useFfmpeg) {
             setExtensionRendererMode(EXTENSION_RENDERER_MODE_PREFER)
         } else {
             setExtensionRendererMode(EXTENSION_RENDERER_MODE_OFF)
@@ -699,13 +698,11 @@ class MainActivity : AppCompatActivity() {
             val useFfmpegVideo = prefs.getBoolean(SettingsActivity.KEY_USE_FFMPEG_VIDEO, false)
             val bufferSeconds = prefs.getInt(SettingsActivity.KEY_BUFFER_SECONDS, 15)
             
-            if (FfmpegLibrary.isAvailable()) {
-                val version = FfmpegLibrary.getVersion()
-                if (useFfmpegAudio) {
-                    addDebugMessage("✓ FFmpeg v$version: audio decoder")
-                } else {
-                    addDebugMessage("✓ Hardware decoders only")
-                }
+            val modes = mutableListOf<String>()
+            if (useFfmpegAudio) modes.add("audio")
+            if (useFfmpegVideo) modes.add("video")
+            if (modes.isNotEmpty()) {
+                addDebugMessage("✓ NextLib FFmpeg: ${modes.joinToString(", ")} decoder")
             } else {
                 addDebugMessage("✓ Hardware decoders only")
             }
@@ -718,7 +715,8 @@ class MainActivity : AppCompatActivity() {
                 addDebugMessage("⚠️ Large playlist (${playlist.size} channels) - may take time to load")
             }
         
-        val renderersFactory = FfmpegRenderersFactory(this, useFfmpegAudio)
+        val useFfmpeg = useFfmpegAudio || useFfmpegVideo
+        val renderersFactory = CustomRenderersFactory(this, useFfmpeg)
         
         val bandwidthMeter = getBandwidthMeter(this)
         
