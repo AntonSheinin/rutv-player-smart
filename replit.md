@@ -4,11 +4,11 @@
 The Android IPTV Player is a native Android application built with Media3 (ExoPlayer) for robust IPTV playlist playback. It offers extensive codec support via FFmpeg and is designed for seamless interaction with Flussonic Media Server using token authentication. The project aims to provide a high-performance, user-friendly video player capable of handling various IPTV stream formats and offering advanced features like channel caching, favorites management, and per-channel aspect ratio persistence.
 
 ## Recent Changes
-- **October 08, 2025**: Critical frame drop fix for stuttering channels:
-  - **Late frame drop threshold**: Increased decoder late threshold to 500ms to prevent sync-based frame drops that were causing 50-frame stutters every 2-3 seconds on channels with 24kHz AAC audio
-  - **Audio processing removal**: Disabled all audio processing chain to eliminate timing delays and sync drift with non-standard sample rates
-  - **Frame release timing**: Changed audio sink to standard PCM mode (disabled float output and AudioTrack playback params) for clean timing
-  - **Display rate strategy**: Added VIDEO_CHANGE_FRAME_RATE_STRATEGY_ONLY_IF_SEAMLESS to prevent display refresh rate conflicts
+- **October 08, 2025**: Critical frame drop fix for stuttering channels with 24kHz AAC audio:
+  - **HLS timestamp fix**: Simplified HLS extractor flags to FLAG_ALLOW_NON_IDR_KEYFRAMES only (removed FLAG_DETECT_ACCESS_UNITS and FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS) to fix known ExoPlayer bug with AAC timestamp discontinuities causing 50-frame drops every 2-3 seconds
+  - **Timestamp adjuster**: Increased timeout to 30s (from 10s) to handle HLS segment-based timestamp discontinuities with non-standard 24kHz AAC audio
+  - **Frame rate strategy**: Changed to VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF to disable display refresh rate changes that could trigger frame drops
+  - **Audio sink**: Standard PCM mode (disabled float output and AudioTrack playback params) for clean timing
   - **Enhanced diagnostics**: Added dropped frame monitoring and frame processing offset tracking to identify decoder bottlenecks
   - **Rotation fix**: Updated orientation toggle to properly find and transform SurfaceView in the content frame hierarchy
 - **October 07, 2025**: Major improvements and fixes:

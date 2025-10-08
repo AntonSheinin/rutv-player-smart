@@ -66,7 +66,7 @@ class FfmpegRenderersFactory(context: Context, private val useFfmpeg: Boolean) :
         setAllowedVideoJoiningTimeMs(10000)
         experimentalSetEnableMediaCodecVideoRendererPrewarming(false)
         experimentalSetParseAv1SampleDependencies(false)
-        experimentalSetLateThresholdToDropDecoderInputUs(500000)
+        setMediaCodecOperationMode(MEDIA_CODEC_OPERATION_MODE_ASYNCHRONOUS_DEDICATED_THREAD_ASYNCHRONOUS_QUEUEING)
     }
     
     override fun buildAudioSink(
@@ -732,16 +732,14 @@ class MainActivity : AppCompatActivity() {
             ))
         
         val hlsExtractorFactory = DefaultHlsExtractorFactory(
-            DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES or
-            DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS or
-            DefaultTsPayloadReaderFactory.FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS,
+            DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES,
             true
         )
         
         val hlsMediaSourceFactory = HlsMediaSource.Factory(httpDataSourceFactory)
             .setExtractorFactory(hlsExtractorFactory)
             .setAllowChunklessPreparation(false)
-            .setTimestampAdjusterInitializationTimeoutMs(10000)
+            .setTimestampAdjusterInitializationTimeoutMs(30000)
         
         val trackSelector = DefaultTrackSelector(this).apply {
             parameters = buildUponParameters()
@@ -758,9 +756,10 @@ class MainActivity : AppCompatActivity() {
         }
         
         addDebugMessage("✓ Surface: SurfaceView (hardware accelerated)")
-        addDebugMessage("✓ Audio: Standard PCM mode (clean timing, no float/params)")
-        addDebugMessage("✓ Late drop: 500ms threshold (prevents sync frame drops)")
-        addDebugMessage("✓ Frame rate: Seamless strategy (no display conflicts)")
+        addDebugMessage("✓ Audio: Standard PCM mode (no float/params)")
+        addDebugMessage("✓ HLS: Simplified flags (better AAC timestamp handling)")
+        addDebugMessage("✓ Timestamp adjuster: 30s timeout (handle discontinuities)")
+        addDebugMessage("✓ Frame rate: OFF (disable display rate changes)")
         addDebugMessage("✓ Buffer: Time-based priority for smooth playback")
         
         player = ExoPlayer.Builder(this, renderersFactory)
@@ -770,7 +769,7 @@ class MainActivity : AppCompatActivity() {
             .setSeekBackIncrementMs(10000)
             .setSeekForwardIncrementMs(10000)
             .setVideoScalingMode(C.VIDEO_SCALING_MODE_SCALE_TO_FIT)
-            .setVideoChangeFrameRateStrategy(C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_ONLY_IF_SEAMLESS)
+            .setVideoChangeFrameRateStrategy(C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF)
             .build()
             .apply {
                 val mediaItems = playlist.map { videoItem ->
