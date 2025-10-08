@@ -26,7 +26,6 @@
         android:textColor="#FFFFFF"
         android:textSize="18sp"
         android:textStyle="bold"
-        android:gravity="center"
         android:elevation="5dp"
         android:visibility="gone"
         android:text=""
@@ -48,7 +47,7 @@
         app:show_previous_button="true"
         app:show_next_button="true"
         app:controller_layout_id="@layout/custom_player_control"
-        app:surface_type="texture_view" />
+        app:surface_type="surface_view" />
 
     <LinearLayout
         android:id="@+id/playlist_wrapper"
@@ -106,20 +105,18 @@
 
     <ScrollView
         android:id="@+id/debug_log_scroll"
-        android:layout_width="0dp"
+        android:layout_width="wrap_content"
         android:layout_height="150dp"
         android:layout_margin="16dp"
-        android:maxWidth="400dp"
         android:background="#CC000000"
         android:elevation="20dp"
         android:fillViewport="false"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintWidth_max="400dp">
+        app:layout_constraintEnd_toEndOf="parent">
         
         <TextView
             android:id="@+id/debug_log"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:padding="12dp"
             android:textColor="#00FF00"

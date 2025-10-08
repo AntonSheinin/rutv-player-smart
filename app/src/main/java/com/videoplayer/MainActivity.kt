@@ -143,6 +143,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         
         playerView = findViewById(R.id.player_view)
+        playerView.setUseTextureView(true)
         playlistRecyclerView = findViewById(R.id.playlist_container)
         playlistWrapper = findViewById(R.id.playlist_wrapper)
         playlistTitle = findViewById(R.id.playlist_title)
@@ -353,179 +354,54 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun setupOrientationButton() {
-        Log.d("OrientationSetup", "Setting up orientation button...")
-        
         btnOrientation.setOnClickListener {
-            addDebugMessage("ORIENTATION BUTTON CLICKED - rotation=$videoRotation")
-            Log.d("OrientationButton", "Button clicked! Current rotation: $videoRotation")
-            
             videoRotation = if (videoRotation == 0f) {
                 Toast.makeText(this, "Vertical", Toast.LENGTH_SHORT).show()
-                addDebugMessage("Switching to VERTICAL (270°)")
                 270f
             } else {
                 Toast.makeText(this, "Horizontal", Toast.LENGTH_SHORT).show()
-                addDebugMessage("Switching to HORIZONTAL (0°)")
                 0f
             }
             
-            Log.d("OrientationButton", "New rotation: $videoRotation")
+            val contentFrame = playerView.findViewById<android.widget.FrameLayout>(
+                androidx.media3.ui.R.id.exo_content_frame
+            )
             
-            applyVideoRotation()
-            rearrangeControlsForOrientation()
-        }
-        
-        Log.d("OrientationSetup", "Orientation button setup complete")
-    }
-    
-    private fun applyVideoRotation() {
-        val contentFrame = playerView.findViewById<android.widget.FrameLayout>(
-            androidx.media3.ui.R.id.exo_content_frame
-        )
-        
-        contentFrame?.apply {
-            for (i in 0 until childCount) {
-                val child = getChildAt(i)
-                if (child is android.view.TextureView) {
-                    child.apply {
-                        rotation = videoRotation
-                        pivotX = width / 2f
-                        pivotY = height / 2f
-                        
-                        if (videoRotation == 90f || videoRotation == 270f) {
-                            val containerWidth = this@apply.width.toFloat()
-                            val containerHeight = this@apply.height.toFloat()
-                            val viewWidth = width.toFloat()
-                            val viewHeight = height.toFloat()
+            contentFrame?.apply {
+                for (i in 0 until childCount) {
+                    val child = getChildAt(i)
+                    if (child is android.view.TextureView) {
+                        child.apply {
+                            rotation = videoRotation
+                            pivotX = width / 2f
+                            pivotY = height / 2f
                             
-                            val scaleX = containerWidth / viewHeight
-                            val scaleY = containerHeight / viewWidth
-                            val scaleFactor = minOf(scaleX, scaleY)
-                            
-                            this.scaleX = scaleFactor
-                            this.scaleY = scaleFactor
-                        } else {
-                            scaleX = 1f
-                            scaleY = 1f
+                            if (videoRotation == 90f || videoRotation == 270f) {
+                                val containerWidth = this@apply.width.toFloat()
+                                val containerHeight = this@apply.height.toFloat()
+                                val viewWidth = width.toFloat()
+                                val viewHeight = height.toFloat()
+                                
+                                val scaleX = containerWidth / viewHeight
+                                val scaleY = containerHeight / viewWidth
+                                val scaleFactor = minOf(scaleX, scaleY)
+                                
+                                this.scaleX = scaleFactor
+                                this.scaleY = scaleFactor
+                            } else {
+                                scaleX = 1f
+                                scaleY = 1f
+                            }
                         }
+                        break
                     }
-                    break
                 }
             }
         }
-        
-    }
-    
-    private fun rearrangeControlsForOrientation() {
-        val isVertical = (videoRotation == 90f || videoRotation == 270f)
-        
-        if (isVertical) {
-            logo.visibility = View.VISIBLE
-        }
-        
-        val controllerFrame = playerView.findViewById<android.view.ViewGroup>(
-            androidx.media3.ui.R.id.exo_controller
-        )
-        
-        if (controllerFrame == null) {
-            return
-        }
-        
-        val buttonsFrame = controllerFrame.findViewById<android.view.ViewGroup>(R.id.buttons_frame)
-        val leftButtons = controllerFrame.findViewById<android.view.ViewGroup>(R.id.left_buttons_container)
-        val centerButtons = controllerFrame.findViewById<android.view.ViewGroup>(R.id.center_buttons_container)
-        val rightButtons = controllerFrame.findViewById<android.view.ViewGroup>(R.id.right_buttons_container)
-        
-        if (isVertical) {
-            // Make controller fill screen height
-            val controllerParams = controllerFrame.layoutParams
-            controllerParams.height = android.view.ViewGroup.LayoutParams.MATCH_PARENT
-            controllerFrame.layoutParams = controllerParams
-            
-            // Expand buttons frame
-            buttonsFrame?.let {
-                val params = it.layoutParams as android.widget.LinearLayout.LayoutParams
-                params.height = 0
-                params.weight = 1f
-                it.layoutParams = params
-            }
-            
-            val playbackBottomMargin = (120 * resources.displayMetrics.density).toInt()
-            val buttonsBottomMargin = (16 * resources.displayMetrics.density).toInt()
-            
-            centerButtons?.let { container ->
-                val params = container.layoutParams as android.widget.FrameLayout.LayoutParams
-                params.gravity = android.view.Gravity.CENTER_HORIZONTAL or android.view.Gravity.BOTTOM
-                params.bottomMargin = playbackBottomMargin
-                container.layoutParams = params
-                addDebugMessage("Layout changed to VERTICAL")
-            }
-            
-            leftButtons?.let { container ->
-                val params = container.layoutParams as android.widget.FrameLayout.LayoutParams
-                params.gravity = android.view.Gravity.BOTTOM or android.view.Gravity.START
-                params.bottomMargin = buttonsBottomMargin
-                container.layoutParams = params
-            }
-            
-            rightButtons?.let { container ->
-                val params = container.layoutParams as android.widget.FrameLayout.LayoutParams
-                params.gravity = android.view.Gravity.BOTTOM or android.view.Gravity.END
-                params.bottomMargin = buttonsBottomMargin
-                container.layoutParams = params
-            }
-        } else {
-            // Reset controller to wrap content
-            val controllerParams = controllerFrame.layoutParams
-            controllerParams.height = android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-            controllerFrame.layoutParams = controllerParams
-            
-            // Reset buttons frame
-            buttonsFrame?.let {
-                val params = it.layoutParams as android.widget.LinearLayout.LayoutParams
-                params.height = android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-                params.weight = 0f
-                it.layoutParams = params
-            }
-            
-            centerButtons?.let { container ->
-                val params = container.layoutParams as android.widget.FrameLayout.LayoutParams
-                params.gravity = android.view.Gravity.CENTER
-                params.topMargin = 0
-                params.bottomMargin = 0
-                container.layoutParams = params
-                addDebugMessage("Layout changed to HORIZONTAL")
-            }
-            
-            leftButtons?.let { container ->
-                val params = container.layoutParams as android.widget.FrameLayout.LayoutParams
-                params.gravity = android.view.Gravity.START or android.view.Gravity.CENTER_VERTICAL
-                params.bottomMargin = 0
-                container.layoutParams = params
-            }
-            
-            rightButtons?.let { container ->
-                val params = container.layoutParams as android.widget.FrameLayout.LayoutParams
-                params.gravity = android.view.Gravity.END or android.view.Gravity.CENTER_VERTICAL
-                params.bottomMargin = 0
-                container.layoutParams = params
-            }
-        }
-        
-        controllerFrame.requestLayout()
-        logo.requestLayout()
-        channelInfo.requestLayout()
     }
     
     private fun setupPlaylistButton() {
         btnPlaylist.setOnClickListener {
-            if (videoRotation != 0f && !playlistUserVisible) {
-                videoRotation = 0f
-                applyVideoRotation()
-                rearrangeControlsForOrientation()
-                Toast.makeText(this, "Rotated to horizontal for channel list", Toast.LENGTH_SHORT).show()
-            }
-            
             playlistUserVisible = !playlistUserVisible
             showFavoritesOnly = false
             updatePlaylistView()
@@ -534,13 +410,6 @@ class MainActivity : AppCompatActivity() {
     
     private fun setupFavoritesButton() {
         btnFavorites.setOnClickListener {
-            if (videoRotation != 0f && !playlistUserVisible) {
-                videoRotation = 0f
-                applyVideoRotation()
-                rearrangeControlsForOrientation()
-                Toast.makeText(this, "Rotated to horizontal for channel list", Toast.LENGTH_SHORT).show()
-            }
-            
             playlistUserVisible = !playlistUserVisible
             showFavoritesOnly = true
             updatePlaylistView()
@@ -696,10 +565,15 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun hideUIElements() {
+        playlistUserVisible = false
+        playlistWrapper.visibility = View.GONE
     }
     
     private fun showUIElements() {
-        updateDebugLogVisibility()
+        if (playlistUserVisible) {
+            playlistWrapper.visibility = View.VISIBLE
+            updateDebugLogVisibility()
+        }
     }
     
     private fun updateChannelInfo() {
