@@ -353,14 +353,19 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun setupOrientationButton() {
+        Log.d("OrientationSetup", "Setting up orientation button...")
+        
         btnOrientation.setOnClickListener {
+            addDebugMessage("ORIENTATION BUTTON CLICKED - rotation=$videoRotation")
             Log.d("OrientationButton", "Button clicked! Current rotation: $videoRotation")
             
             videoRotation = if (videoRotation == 0f) {
                 Toast.makeText(this, "Vertical", Toast.LENGTH_SHORT).show()
+                addDebugMessage("Switching to VERTICAL (270°)")
                 270f
             } else {
                 Toast.makeText(this, "Horizontal", Toast.LENGTH_SHORT).show()
+                addDebugMessage("Switching to HORIZONTAL (0°)")
                 0f
             }
             
@@ -369,6 +374,8 @@ class MainActivity : AppCompatActivity() {
             applyVideoRotation()
             rearrangeControlsForOrientation()
         }
+        
+        Log.d("OrientationSetup", "Orientation button setup complete")
     }
     
     private fun applyVideoRotation() {
