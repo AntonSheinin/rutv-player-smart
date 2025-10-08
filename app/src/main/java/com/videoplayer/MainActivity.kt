@@ -76,7 +76,6 @@ class FfmpegRenderersFactory(context: Context, private val useFfmpeg: Boolean) :
         return DefaultAudioSink.Builder(context)
             .setEnableFloatOutput(false)
             .setEnableAudioTrackPlaybackParams(false)
-            .setOffloadMode(DefaultAudioSink.OFFLOAD_MODE_DISABLED)
             .build()
     }
     
