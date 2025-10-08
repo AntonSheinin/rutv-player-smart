@@ -354,6 +354,8 @@ class MainActivity : AppCompatActivity() {
     
     private fun setupOrientationButton() {
         btnOrientation.setOnClickListener {
+            Log.d("OrientationButton", "Button clicked! Current rotation: $videoRotation")
+            
             videoRotation = if (videoRotation == 0f) {
                 Toast.makeText(this, "Vertical", Toast.LENGTH_SHORT).show()
                 270f
@@ -362,10 +364,10 @@ class MainActivity : AppCompatActivity() {
                 0f
             }
             
+            Log.d("OrientationButton", "New rotation: $videoRotation")
+            
             applyVideoRotation()
-            playerView.post {
-                rearrangeControlsForOrientation()
-            }
+            rearrangeControlsForOrientation()
         }
     }
     
