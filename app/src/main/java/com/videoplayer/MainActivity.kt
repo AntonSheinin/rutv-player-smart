@@ -414,6 +414,64 @@ class MainActivity : AppCompatActivity() {
             logo.visibility = View.VISIBLE
         }
         
+        val controllerFrame = playerView.findViewById<android.view.ViewGroup>(
+            androidx.media3.ui.R.id.exo_controller
+        )
+        
+        val leftButtons = controllerFrame?.findViewById<android.view.ViewGroup>(R.id.left_buttons_container)
+        val centerButtons = controllerFrame?.findViewById<android.view.ViewGroup>(R.id.center_buttons_container)
+        val rightButtons = controllerFrame?.findViewById<android.view.ViewGroup>(R.id.right_buttons_container)
+        
+        if (isVertical) {
+            // Move playback controls below video
+            centerButtons?.let { container ->
+                val params = container.layoutParams as android.widget.FrameLayout.LayoutParams
+                params.gravity = android.view.Gravity.CENTER_HORIZONTAL or android.view.Gravity.TOP
+                params.topMargin = (60 * resources.displayMetrics.density).toInt()
+                params.bottomMargin = 0
+                container.layoutParams = params
+            }
+            
+            // Move all 6 buttons to bottom in one row
+            leftButtons?.let { container ->
+                val params = container.layoutParams as android.widget.FrameLayout.LayoutParams
+                params.gravity = android.view.Gravity.BOTTOM or android.view.Gravity.START
+                params.bottomMargin = (16 * resources.displayMetrics.density).toInt()
+                container.layoutParams = params
+            }
+            
+            rightButtons?.let { container ->
+                val params = container.layoutParams as android.widget.FrameLayout.LayoutParams
+                params.gravity = android.view.Gravity.BOTTOM or android.view.Gravity.END
+                params.bottomMargin = (16 * resources.displayMetrics.density).toInt()
+                container.layoutParams = params
+            }
+        } else {
+            // Restore original horizontal layout
+            centerButtons?.let { container ->
+                val params = container.layoutParams as android.widget.FrameLayout.LayoutParams
+                params.gravity = android.view.Gravity.CENTER
+                params.topMargin = 0
+                params.bottomMargin = 0
+                container.layoutParams = params
+            }
+            
+            leftButtons?.let { container ->
+                val params = container.layoutParams as android.widget.FrameLayout.LayoutParams
+                params.gravity = android.view.Gravity.START or android.view.Gravity.CENTER_VERTICAL
+                params.bottomMargin = 0
+                container.layoutParams = params
+            }
+            
+            rightButtons?.let { container ->
+                val params = container.layoutParams as android.widget.FrameLayout.LayoutParams
+                params.gravity = android.view.Gravity.END or android.view.Gravity.CENTER_VERTICAL
+                params.bottomMargin = 0
+                container.layoutParams = params
+            }
+        }
+        
+        controllerFrame?.requestLayout()
         logo.requestLayout()
         channelInfo.requestLayout()
     }
