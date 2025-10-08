@@ -66,6 +66,7 @@ class FfmpegRenderersFactory(context: Context, private val useFfmpeg: Boolean) :
         setAllowedVideoJoiningTimeMs(10000)
         experimentalSetEnableMediaCodecVideoRendererPrewarming(false)
         experimentalSetParseAv1SampleDependencies(false)
+        experimentalSetLateThresholdToDropDecoderInputUs(500000)
     }
     
     override fun buildAudioSink(
@@ -76,6 +77,7 @@ class FfmpegRenderersFactory(context: Context, private val useFfmpeg: Boolean) :
         return DefaultAudioSink.Builder(context)
             .setEnableFloatOutput(false)
             .setEnableAudioTrackPlaybackParams(false)
+            .setAudioProcessorChain(DefaultAudioSink.DefaultAudioProcessorChain(arrayOf()))
             .build()
     }
     
@@ -757,9 +759,9 @@ class MainActivity : AppCompatActivity() {
         }
         
         addDebugMessage("✓ Surface: SurfaceView (hardware accelerated)")
-        addDebugMessage("✓ Audio sink: Standard PCM (no float/offload for timing accuracy)")
-        addDebugMessage("✓ Frame rate: Seamless strategy (prevent display rate conflicts)")
-        addDebugMessage("✓ Video joining: 10s (decoder warmup)")
+        addDebugMessage("✓ Audio: Standard PCM, no processing (clean timing)")
+        addDebugMessage("✓ Late drop threshold: 500ms (prevent sync-related frame drops)")
+        addDebugMessage("✓ Frame rate: Seamless strategy (no display conflicts)")
         addDebugMessage("✓ Buffer: Time-based priority for smooth playback")
         
         player = ExoPlayer.Builder(this, renderersFactory)

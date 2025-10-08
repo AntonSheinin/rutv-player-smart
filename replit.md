@@ -5,7 +5,9 @@ The Android IPTV Player is a native Android application built with Media3 (ExoPl
 
 ## Recent Changes
 - **October 08, 2025**: Critical frame drop fix for stuttering channels:
-  - **Frame release timing fix**: Changed audio sink to standard PCM mode (disabled float output and AudioTrack playback params) to eliminate audio/video sync issues causing 50-frame drops every 2-3 seconds
+  - **Late frame drop threshold**: Increased decoder late threshold to 500ms to prevent sync-based frame drops that were causing 50-frame stutters every 2-3 seconds on channels with 24kHz AAC audio
+  - **Audio processing removal**: Disabled all audio processing chain to eliminate timing delays and sync drift with non-standard sample rates
+  - **Frame release timing**: Changed audio sink to standard PCM mode (disabled float output and AudioTrack playback params) for clean timing
   - **Display rate strategy**: Added VIDEO_CHANGE_FRAME_RATE_STRATEGY_ONLY_IF_SEAMLESS to prevent display refresh rate conflicts
   - **Enhanced diagnostics**: Added dropped frame monitoring and frame processing offset tracking to identify decoder bottlenecks
   - **Rotation fix**: Updated orientation toggle to properly find and transform SurfaceView in the content frame hierarchy
