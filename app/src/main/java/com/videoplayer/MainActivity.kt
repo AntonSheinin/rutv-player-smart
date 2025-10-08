@@ -403,77 +403,51 @@ class MainActivity : AppCompatActivity() {
             }
         }
         
-        val controllerFrame = playerView.findViewById<android.view.ViewGroup>(
-            androidx.media3.ui.R.id.exo_controller
-        )
-        
-        controllerFrame?.apply {
-            rotation = videoRotation
-            pivotX = width / 2f
-            pivotY = height / 2f
-            
-            if (videoRotation == 90f || videoRotation == 270f) {
-                val containerWidth = playerView.width.toFloat()
-                val containerHeight = playerView.height.toFloat()
-                val viewWidth = width.toFloat()
-                val viewHeight = height.toFloat()
-                
-                val scaleX = containerWidth / viewHeight
-                val scaleY = containerHeight / viewWidth
-                val scaleFactor = minOf(scaleX, scaleY)
-                
-                this.scaleX = scaleFactor
-                this.scaleY = scaleFactor
-                
-                if (videoRotation == 270f) {
-                    val offset = (containerHeight - containerWidth) / 2f
-                    translationX = -offset
-                    translationY = offset
-                }
-            } else {
-                scaleX = 1f
-                scaleY = 1f
-                translationX = 0f
-                translationY = 0f
-            }
-        }
     }
     
     private fun rearrangeControlsForOrientation() {
         val isVertical = (videoRotation == 90f || videoRotation == 270f)
         
+        val dp16 = (16 * resources.displayMetrics.density).toInt()
+        val dp70 = (70 * resources.displayMetrics.density).toInt()
+        
         if (isVertical) {
+            logo.visibility = View.VISIBLE
             logo.layoutParams = (logo.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams).apply {
                 topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
                 bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
                 startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
                 endToEnd = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
-                topMargin = 8
+                topMargin = dp16
                 bottomMargin = 0
-                marginStart = 8
+                marginStart = dp16
                 marginEnd = 0
             }
             
             channelInfo.layoutParams = (channelInfo.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams).apply {
-                topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
-                bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+                topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+                bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
                 startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
                 endToEnd = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
-                topMargin = 0
-                bottomMargin = 120
+                topMargin = dp70
+                bottomMargin = 0
                 marginStart = 0
                 marginEnd = 0
             }
+            
+            rearrangeControlButtons(true)
         } else {
+            val dp8 = (8 * resources.displayMetrics.density).toInt()
+            
             logo.layoutParams = (logo.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams).apply {
                 topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
                 bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
                 startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
                 endToEnd = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
-                topMargin = 8
+                topMargin = dp8
                 bottomMargin = 0
                 marginEnd = 0
-                marginStart = 8
+                marginStart = dp8
             }
             
             channelInfo.layoutParams = (channelInfo.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams).apply {
@@ -481,15 +455,91 @@ class MainActivity : AppCompatActivity() {
                 bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
                 startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
                 endToEnd = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
-                topMargin = 16
+                topMargin = dp16
                 bottomMargin = 0
                 marginEnd = 0
                 marginStart = 0
             }
+            
+            rearrangeControlButtons(false)
         }
         
         logo.requestLayout()
         channelInfo.requestLayout()
+    }
+    
+    private fun rearrangeControlButtons(isVertical: Boolean) {
+        val controllerFrame = playerView.findViewById<android.view.ViewGroup>(
+            androidx.media3.ui.R.id.exo_controller
+        ) ?: return
+        
+        val topFrame = controllerFrame.getChildAt(0) as? android.widget.FrameLayout ?: return
+        
+        var leftButtons: android.view.ViewGroup? = null
+        var centerButtons: android.view.ViewGroup? = null
+        var rightButtons: android.view.ViewGroup? = null
+        
+        for (i in 0 until topFrame.childCount) {
+            val child = topFrame.getChildAt(i) as? android.view.ViewGroup ?: continue
+            
+            when {
+                child.findViewById<android.widget.ImageButton>(btnPlaylist.id) != null -> leftButtons = child
+                child.findViewById<android.widget.ImageButton>(androidx.media3.ui.R.id.exo_play_pause) != null -> centerButtons = child
+                child.findViewById<android.widget.ImageButton>(btnAspectRatio.id) != null -> rightButtons = child
+            }
+        }
+        
+        if (isVertical) {
+            val dp60 = (60 * resources.displayMetrics.density).toInt()
+            
+            centerButtons?.let { container ->
+                (container.layoutParams as? android.widget.FrameLayout.LayoutParams)?.apply {
+                    gravity = android.view.Gravity.CENTER
+                    topMargin = 0
+                    bottomMargin = 0
+                }
+                container.requestLayout()
+            }
+            
+            leftButtons?.let { container ->
+                (container.layoutParams as? android.widget.FrameLayout.LayoutParams)?.apply {
+                    gravity = android.view.Gravity.BOTTOM or android.view.Gravity.START
+                    bottomMargin = dp60
+                }
+                container.requestLayout()
+            }
+            
+            rightButtons?.let { container ->
+                (container.layoutParams as? android.widget.FrameLayout.LayoutParams)?.apply {
+                    gravity = android.view.Gravity.BOTTOM or android.view.Gravity.END
+                    bottomMargin = dp60
+                }
+                container.requestLayout()
+            }
+        } else {
+            centerButtons?.let { container ->
+                (container.layoutParams as? android.widget.FrameLayout.LayoutParams)?.apply {
+                    gravity = android.view.Gravity.CENTER
+                }
+                container.requestLayout()
+            }
+            
+            leftButtons?.let { container ->
+                (container.layoutParams as? android.widget.FrameLayout.LayoutParams)?.apply {
+                    gravity = android.view.Gravity.START or android.view.Gravity.CENTER_VERTICAL
+                    bottomMargin = 0
+                }
+                container.requestLayout()
+            }
+            
+            rightButtons?.let { container ->
+                (container.layoutParams as? android.widget.FrameLayout.LayoutParams)?.apply {
+                    gravity = android.view.Gravity.END or android.view.Gravity.CENTER_VERTICAL
+                    bottomMargin = 0
+                }
+                container.requestLayout()
+            }
+        }
     }
     
     private fun setupPlaylistButton() {

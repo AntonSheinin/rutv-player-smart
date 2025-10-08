@@ -10,8 +10,15 @@ The Android IPTV Player is a native Android application built with Media3 (ExoPl
   - **Frame rate strategy**: Changed to VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF to disable display refresh rate changes that could trigger frame drops
   - **Audio sink**: Standard PCM mode (disabled float output and AudioTrack playback params) for clean timing
   - **Enhanced diagnostics**: Added dropped frame monitoring and frame processing offset tracking to identify decoder bottlenecks
-  - **Rotation fix**: Switched from SurfaceView to TextureView rendering to enable actual video rotation (SurfaceView composites in separate layer that ignores transforms). Updated orientation toggle to properly find and transform TextureView in the content frame hierarchy with correct aspect-ratio scaling. Player controls (buttons) rotate along with video content for proper vertical orientation display
-  - **Vertical orientation UI**: When rotated to vertical (270°), logo stays in top-left corner and channel info moves to bottom (above control buttons). All player controls rotate with the video. Opening channel list in vertical orientation automatically rotates back to horizontal first
+  - **Rotation fix**: Switched from SurfaceView to TextureView rendering to enable actual video rotation (SurfaceView composites in separate layer that ignores transforms). Updated orientation toggle to properly find and transform TextureView in the content frame hierarchy with correct aspect-ratio scaling
+  - **Vertical orientation UI redesign**: Complete layout reorganization for 270° vertical mode:
+    - **Logo**: Top-left corner (16dp margins) - visible and properly positioned in portrait view
+    - **Channel info**: Above video (70dp from top) - centered horizontally for clear channel identification
+    - **Playback controls** (prev/rewind/play/forward/next): Centered on screen at normal size (no rotation)
+    - **Navigation buttons** (playlist/favorites/channel number): Bottom-left corner (60dp bottom margin)
+    - **Settings buttons** (aspect ratio/orientation/settings): Bottom-right corner (60dp bottom margin)
+    - All dp values properly converted to pixels using displayMetrics.density for correct multi-density screen support
+    - Opens channel list in vertical orientation automatically rotates back to horizontal first
   - **Playlist persistence**: Channel list and favorites list remain visible without auto-hiding. They only close when switching channels or pressing the close button
   - **Debug log optimization**: Constrained debug log window to 400dp max width to prevent excessive screen usage
 - **October 07, 2025**: Major improvements and fixes:
