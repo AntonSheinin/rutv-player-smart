@@ -473,79 +473,78 @@ class MainActivity : AppCompatActivity() {
     private fun rearrangeControlButtons(isVertical: Boolean) {
         val controllerFrame = playerView.findViewById<android.view.ViewGroup>(
             androidx.media3.ui.R.id.exo_controller
-        ) ?: return
-        
-        val topFrame = controllerFrame.getChildAt(0) as? android.widget.FrameLayout ?: return
-        
-        var leftButtons: android.view.ViewGroup? = null
-        var centerButtons: android.view.ViewGroup? = null
-        var rightButtons: android.view.ViewGroup? = null
-        
-        for (i in 0 until topFrame.childCount) {
-            val child = topFrame.getChildAt(i) as? android.view.ViewGroup ?: continue
-            
-            val lp = child.layoutParams as? android.widget.FrameLayout.LayoutParams ?: continue
-            
-            when {
-                (lp.gravity and android.view.Gravity.HORIZONTAL_GRAVITY_MASK) == android.view.Gravity.START -> leftButtons = child
-                (lp.gravity and android.view.Gravity.HORIZONTAL_GRAVITY_MASK) == android.view.Gravity.CENTER_HORIZONTAL -> centerButtons = child
-                (lp.gravity and android.view.Gravity.HORIZONTAL_GRAVITY_MASK) == android.view.Gravity.END -> rightButtons = child
-            }
+        ) ?: run {
+            Log.d("VideoPlayer", "Controller frame not found")
+            return
         }
+        
+        val leftButtons = controllerFrame.findViewById<android.view.ViewGroup>(R.id.left_buttons_container)
+        val centerButtons = controllerFrame.findViewById<android.view.ViewGroup>(R.id.center_buttons_container)
+        val rightButtons = controllerFrame.findViewById<android.view.ViewGroup>(R.id.right_buttons_container)
+        
+        Log.d("VideoPlayer", "Rearranging controls, isVertical=$isVertical")
+        Log.d("VideoPlayer", "Found containers - left: ${leftButtons != null}, center: ${centerButtons != null}, right: ${rightButtons != null}")
         
         if (isVertical) {
             val dp60 = (60 * resources.displayMetrics.density).toInt()
             
+            Log.d("VideoPlayer", "Applying VERTICAL layout with dp60=$dp60")
+            
             centerButtons?.let { container ->
-                (container.layoutParams as? android.widget.FrameLayout.LayoutParams)?.apply {
-                    gravity = android.view.Gravity.CENTER
-                    topMargin = 0
-                    bottomMargin = 0
-                }
-                container.requestLayout()
+                val params = container.layoutParams as android.widget.FrameLayout.LayoutParams
+                params.gravity = android.view.Gravity.CENTER
+                params.topMargin = 0
+                params.bottomMargin = 0
+                container.layoutParams = params
+                Log.d("VideoPlayer", "Updated CENTER buttons to CENTER")
             }
             
             leftButtons?.let { container ->
-                (container.layoutParams as? android.widget.FrameLayout.LayoutParams)?.apply {
-                    gravity = android.view.Gravity.BOTTOM or android.view.Gravity.START
-                    bottomMargin = dp60
-                }
-                container.requestLayout()
+                val params = container.layoutParams as android.widget.FrameLayout.LayoutParams
+                params.gravity = android.view.Gravity.BOTTOM or android.view.Gravity.START
+                params.bottomMargin = dp60
+                container.layoutParams = params
+                Log.d("VideoPlayer", "Updated LEFT buttons to BOTTOM|START with margin $dp60")
             }
             
             rightButtons?.let { container ->
-                (container.layoutParams as? android.widget.FrameLayout.LayoutParams)?.apply {
-                    gravity = android.view.Gravity.BOTTOM or android.view.Gravity.END
-                    bottomMargin = dp60
-                }
-                container.requestLayout()
+                val params = container.layoutParams as android.widget.FrameLayout.LayoutParams
+                params.gravity = android.view.Gravity.BOTTOM or android.view.Gravity.END
+                params.bottomMargin = dp60
+                container.layoutParams = params
+                Log.d("VideoPlayer", "Updated RIGHT buttons to BOTTOM|END with margin $dp60")
             }
         } else {
+            Log.d("VideoPlayer", "Applying HORIZONTAL layout")
+            
             centerButtons?.let { container ->
-                (container.layoutParams as? android.widget.FrameLayout.LayoutParams)?.apply {
-                    gravity = android.view.Gravity.CENTER
-                    topMargin = 0
-                    bottomMargin = 0
-                }
-                container.requestLayout()
+                val params = container.layoutParams as android.widget.FrameLayout.LayoutParams
+                params.gravity = android.view.Gravity.CENTER
+                params.topMargin = 0
+                params.bottomMargin = 0
+                container.layoutParams = params
             }
             
             leftButtons?.let { container ->
-                (container.layoutParams as? android.widget.FrameLayout.LayoutParams)?.apply {
-                    gravity = android.view.Gravity.START or android.view.Gravity.CENTER_VERTICAL
-                    bottomMargin = 0
-                }
-                container.requestLayout()
+                val params = container.layoutParams as android.widget.FrameLayout.LayoutParams
+                params.gravity = android.view.Gravity.START or android.view.Gravity.CENTER_VERTICAL
+                params.bottomMargin = 0
+                container.layoutParams = params
             }
             
             rightButtons?.let { container ->
-                (container.layoutParams as? android.widget.FrameLayout.LayoutParams)?.apply {
-                    gravity = android.view.Gravity.END or android.view.Gravity.CENTER_VERTICAL
-                    bottomMargin = 0
-                }
-                container.requestLayout()
+                val params = container.layoutParams as android.widget.FrameLayout.LayoutParams
+                params.gravity = android.view.Gravity.END or android.view.Gravity.CENTER_VERTICAL
+                params.bottomMargin = 0
+                container.layoutParams = params
             }
         }
+        
+        controllerFrame.requestLayout()
+        controllerFrame.invalidate()
+        playerView.showController()
+        
+        Log.d("VideoPlayer", "Rearrangement complete")
     }
     
     private fun setupPlaylistButton() {
