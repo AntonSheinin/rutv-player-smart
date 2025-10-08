@@ -27,8 +27,8 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.decoder.ffmpeg.FfmpegAudioRenderer
-import androidx.media3.decoder.ffmpeg.FfmpegLibrary
+import dev.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory as BaseNextRenderersFactory
+import dev.anilbeesetti.nextlib.media3ext.ffdecoder.NextFFmpegInfo
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
@@ -61,14 +61,9 @@ class FfmpegRenderersFactory(
     context: Context, 
     private val useFfmpegAudio: Boolean,
     private val useFfmpegVideo: Boolean
-) : DefaultRenderersFactory(context) {
+) : BaseNextRenderersFactory(context) {
     
     init {
-        if (useFfmpegAudio || useFfmpegVideo) {
-            setExtensionRendererMode(EXTENSION_RENDERER_MODE_ON)
-        } else {
-            setExtensionRendererMode(EXTENSION_RENDERER_MODE_OFF)
-        }
         setEnableDecoderFallback(false)
         forceEnableMediaCodecAsynchronousQueueing()
         setAllowedVideoJoiningTimeMs(10000)
@@ -86,11 +81,8 @@ class FfmpegRenderersFactory(
         allowedVideoJoiningTimeMs: Long,
         out: ArrayList<Renderer>
     ) {
-        if (useFfmpegVideo) {
-            super.buildVideoRenderers(context, EXTENSION_RENDERER_MODE_PREFER, mediaCodecSelector, false, eventHandler, eventListener, allowedVideoJoiningTimeMs, out)
-        } else {
-            super.buildVideoRenderers(context, EXTENSION_RENDERER_MODE_OFF, mediaCodecSelector, false, eventHandler, eventListener, allowedVideoJoiningTimeMs, out)
-        }
+        val mode = if (useFfmpegVideo) EXTENSION_RENDERER_MODE_PREFER else EXTENSION_RENDERER_MODE_OFF
+        super.buildVideoRenderers(context, mode, mediaCodecSelector, false, eventHandler, eventListener, allowedVideoJoiningTimeMs, out)
     }
     
     override fun buildAudioRenderers(
@@ -103,11 +95,8 @@ class FfmpegRenderersFactory(
         eventListener: androidx.media3.exoplayer.audio.AudioRendererEventListener,
         out: ArrayList<Renderer>
     ) {
-        if (useFfmpegAudio) {
-            super.buildAudioRenderers(context, EXTENSION_RENDERER_MODE_PREFER, mediaCodecSelector, false, audioSink, eventHandler, eventListener, out)
-        } else {
-            super.buildAudioRenderers(context, EXTENSION_RENDERER_MODE_OFF, mediaCodecSelector, false, audioSink, eventHandler, eventListener, out)
-        }
+        val mode = if (useFfmpegAudio) EXTENSION_RENDERER_MODE_PREFER else EXTENSION_RENDERER_MODE_OFF
+        super.buildAudioRenderers(context, mode, mediaCodecSelector, false, audioSink, eventHandler, eventListener, out)
     }
     
     override fun buildAudioSink(
@@ -734,13 +723,13 @@ class MainActivity : AppCompatActivity() {
             val useFfmpegVideo = prefs.getBoolean(SettingsActivity.KEY_USE_FFMPEG_VIDEO, false)
             val bufferSeconds = prefs.getInt(SettingsActivity.KEY_BUFFER_SECONDS, 15)
             
-            if (FfmpegLibrary.isAvailable()) {
-                val version = FfmpegLibrary.getVersion()
+            if (NextFFmpegInfo.isAvailable()) {
+                val version = NextFFmpegInfo.version
                 val modes = mutableListOf<String>()
                 if (useFfmpegAudio) modes.add("audio")
                 if (useFfmpegVideo) modes.add("video")
                 if (modes.isNotEmpty()) {
-                    addDebugMessage("✓ FFmpeg v$version: ${modes.joinToString(", ")} decoder")
+                    addDebugMessage("✓ NextLib FFmpeg v$version: ${modes.joinToString(", ")} decoder")
                 } else {
                     addDebugMessage("✓ Hardware decoders only")
                 }
