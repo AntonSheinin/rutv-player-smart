@@ -441,27 +441,27 @@ class MainActivity : AppCompatActivity() {
         Log.d("OrientationChange", "Found: left=${leftButtons != null}, center=${centerButtons != null}, right=${rightButtons != null}")
         
         if (isVertical) {
-            val topMargin = (60 * resources.displayMetrics.density).toInt()
-            val bottomMargin = (16 * resources.displayMetrics.density).toInt()
+            val playbackBottomMargin = (120 * resources.displayMetrics.density).toInt()
+            val buttonsBottomMargin = (16 * resources.displayMetrics.density).toInt()
             
-            Log.d("OrientationChange", "Applying VERTICAL layout with topMargin=$topMargin, bottomMargin=$bottomMargin")
+            Log.d("OrientationChange", "Applying VERTICAL layout")
             
-            // Move playback controls below video
+            // Move playback controls below video (in the middle)
             centerButtons?.let { container ->
                 val params = container.layoutParams as android.widget.FrameLayout.LayoutParams
-                params.gravity = android.view.Gravity.CENTER_HORIZONTAL or android.view.Gravity.TOP
-                params.topMargin = topMargin
-                params.bottomMargin = 0
+                params.gravity = android.view.Gravity.CENTER_HORIZONTAL or android.view.Gravity.BOTTOM
+                params.topMargin = 0
+                params.bottomMargin = playbackBottomMargin
                 container.layoutParams = params
-                Log.d("OrientationChange", "CENTER buttons moved to TOP with margin $topMargin")
-                addDebugMessage("Playback controls → TOP (${topMargin}dp)")
+                Log.d("OrientationChange", "CENTER buttons moved below video")
+                addDebugMessage("Playback controls → Below video")
             }
             
             // Move all 6 buttons to bottom in one row
             leftButtons?.let { container ->
                 val params = container.layoutParams as android.widget.FrameLayout.LayoutParams
                 params.gravity = android.view.Gravity.BOTTOM or android.view.Gravity.START
-                params.bottomMargin = bottomMargin
+                params.bottomMargin = buttonsBottomMargin
                 container.layoutParams = params
                 Log.d("OrientationChange", "LEFT buttons moved to BOTTOM")
             }
@@ -469,7 +469,7 @@ class MainActivity : AppCompatActivity() {
             rightButtons?.let { container ->
                 val params = container.layoutParams as android.widget.FrameLayout.LayoutParams
                 params.gravity = android.view.Gravity.BOTTOM or android.view.Gravity.END
-                params.bottomMargin = bottomMargin
+                params.bottomMargin = buttonsBottomMargin
                 container.layoutParams = params
                 Log.d("OrientationChange", "RIGHT buttons moved to BOTTOM")
             }
