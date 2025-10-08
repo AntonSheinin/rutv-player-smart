@@ -376,9 +376,17 @@ class MainActivity : AppCompatActivity() {
                             pivotY = height / 2f
                             
                             if (videoRotation == 90f || videoRotation == 270f) {
-                                val scaleFactor = height.toFloat() / width.toFloat()
-                                scaleX = scaleFactor
-                                scaleY = scaleFactor
+                                val containerWidth = this@apply.width.toFloat()
+                                val containerHeight = this@apply.height.toFloat()
+                                val viewWidth = width.toFloat()
+                                val viewHeight = height.toFloat()
+                                
+                                val scaleX = containerWidth / viewHeight
+                                val scaleY = containerHeight / viewWidth
+                                val scaleFactor = minOf(scaleX, scaleY)
+                                
+                                this.scaleX = scaleFactor
+                                this.scaleY = scaleFactor
                             } else {
                                 scaleX = 1f
                                 scaleY = 1f
