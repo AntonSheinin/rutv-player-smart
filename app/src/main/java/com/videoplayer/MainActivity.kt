@@ -410,22 +410,24 @@ class MainActivity : AppCompatActivity() {
         if (isVertical) {
             logo.layoutParams = (logo.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams).apply {
                 topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
-                bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
-                startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
-                endToEnd = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
-                topMargin = 0
+                bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+                startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+                endToEnd = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+                topMargin = 8
                 bottomMargin = 0
-                marginEnd = 8
+                marginStart = 8
+                marginEnd = 0
             }
             
             channelInfo.layoutParams = (channelInfo.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams).apply {
-                topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+                topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
                 bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
-                startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
+                startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
                 endToEnd = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
                 topMargin = 0
-                bottomMargin = 0
-                marginEnd = 64
+                bottomMargin = 80
+                marginStart = 0
+                marginEnd = 0
             }
         } else {
             logo.layoutParams = (logo.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams).apply {
@@ -447,6 +449,7 @@ class MainActivity : AppCompatActivity() {
                 topMargin = 16
                 bottomMargin = 0
                 marginEnd = 0
+                marginStart = 0
             }
         }
         

@@ -11,7 +11,7 @@ The Android IPTV Player is a native Android application built with Media3 (ExoPl
   - **Audio sink**: Standard PCM mode (disabled float output and AudioTrack playback params) for clean timing
   - **Enhanced diagnostics**: Added dropped frame monitoring and frame processing offset tracking to identify decoder bottlenecks
   - **Rotation fix**: Switched from SurfaceView to TextureView rendering to enable actual video rotation (SurfaceView composites in separate layer that ignores transforms). Updated orientation toggle to properly find and transform TextureView in the content frame hierarchy with correct aspect-ratio scaling
-  - **Vertical orientation UI**: When rotated to vertical (270°), logo and channel info automatically rearrange to right side (vertically centered). Opening channel list in vertical orientation automatically rotates back to horizontal first
+  - **Vertical orientation UI**: When rotated to vertical (270°), logo stays in top-left corner and channel info moves to bottom (above control buttons). Opening channel list in vertical orientation automatically rotates back to horizontal first
   - **Debug log optimization**: Constrained debug log window to 400dp max width to prevent excessive screen usage
 - **October 07, 2025**: Major improvements and fixes:
   - **Video stuttering fix**: Increased buffer startup thresholds from 2.5s to 7.5s (bufferForPlaybackMs) and 10s (bufferForPlaybackAfterRebufferMs), with min buffer at 15s and max at 50s. Previous settings caused constant rebuffering cycles creating "shaking" effect on 1080p HLS streams.
