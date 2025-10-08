@@ -410,6 +410,8 @@ class MainActivity : AppCompatActivity() {
     private fun rearrangeControlsForOrientation() {
         val isVertical = (videoRotation == 90f || videoRotation == 270f)
         
+        Log.d("OrientationChange", "Rearranging for ${if (isVertical) "VERTICAL" else "HORIZONTAL"} mode")
+        
         if (isVertical) {
             logo.visibility = View.VISIBLE
         }
@@ -418,35 +420,52 @@ class MainActivity : AppCompatActivity() {
             androidx.media3.ui.R.id.exo_controller
         )
         
-        val leftButtons = controllerFrame?.findViewById<android.view.ViewGroup>(R.id.left_buttons_container)
-        val centerButtons = controllerFrame?.findViewById<android.view.ViewGroup>(R.id.center_buttons_container)
-        val rightButtons = controllerFrame?.findViewById<android.view.ViewGroup>(R.id.right_buttons_container)
+        if (controllerFrame == null) {
+            Log.e("OrientationChange", "Controller frame is NULL!")
+            return
+        }
+        
+        val leftButtons = controllerFrame.findViewById<android.view.ViewGroup>(R.id.left_buttons_container)
+        val centerButtons = controllerFrame.findViewById<android.view.ViewGroup>(R.id.center_buttons_container)
+        val rightButtons = controllerFrame.findViewById<android.view.ViewGroup>(R.id.right_buttons_container)
+        
+        Log.d("OrientationChange", "Found: left=${leftButtons != null}, center=${centerButtons != null}, right=${rightButtons != null}")
         
         if (isVertical) {
+            val topMargin = (60 * resources.displayMetrics.density).toInt()
+            val bottomMargin = (16 * resources.displayMetrics.density).toInt()
+            
+            Log.d("OrientationChange", "Applying VERTICAL layout with topMargin=$topMargin, bottomMargin=$bottomMargin")
+            
             // Move playback controls below video
             centerButtons?.let { container ->
                 val params = container.layoutParams as android.widget.FrameLayout.LayoutParams
                 params.gravity = android.view.Gravity.CENTER_HORIZONTAL or android.view.Gravity.TOP
-                params.topMargin = (60 * resources.displayMetrics.density).toInt()
+                params.topMargin = topMargin
                 params.bottomMargin = 0
                 container.layoutParams = params
+                Log.d("OrientationChange", "CENTER buttons moved to TOP with margin $topMargin")
             }
             
             // Move all 6 buttons to bottom in one row
             leftButtons?.let { container ->
                 val params = container.layoutParams as android.widget.FrameLayout.LayoutParams
                 params.gravity = android.view.Gravity.BOTTOM or android.view.Gravity.START
-                params.bottomMargin = (16 * resources.displayMetrics.density).toInt()
+                params.bottomMargin = bottomMargin
                 container.layoutParams = params
+                Log.d("OrientationChange", "LEFT buttons moved to BOTTOM")
             }
             
             rightButtons?.let { container ->
                 val params = container.layoutParams as android.widget.FrameLayout.LayoutParams
                 params.gravity = android.view.Gravity.BOTTOM or android.view.Gravity.END
-                params.bottomMargin = (16 * resources.displayMetrics.density).toInt()
+                params.bottomMargin = bottomMargin
                 container.layoutParams = params
+                Log.d("OrientationChange", "RIGHT buttons moved to BOTTOM")
             }
         } else {
+            Log.d("OrientationChange", "Applying HORIZONTAL layout")
+            
             // Restore original horizontal layout
             centerButtons?.let { container ->
                 val params = container.layoutParams as android.widget.FrameLayout.LayoutParams
@@ -454,6 +473,7 @@ class MainActivity : AppCompatActivity() {
                 params.topMargin = 0
                 params.bottomMargin = 0
                 container.layoutParams = params
+                Log.d("OrientationChange", "CENTER buttons restored to CENTER")
             }
             
             leftButtons?.let { container ->
@@ -461,6 +481,7 @@ class MainActivity : AppCompatActivity() {
                 params.gravity = android.view.Gravity.START or android.view.Gravity.CENTER_VERTICAL
                 params.bottomMargin = 0
                 container.layoutParams = params
+                Log.d("OrientationChange", "LEFT buttons restored to START|CENTER_VERTICAL")
             }
             
             rightButtons?.let { container ->
@@ -468,12 +489,16 @@ class MainActivity : AppCompatActivity() {
                 params.gravity = android.view.Gravity.END or android.view.Gravity.CENTER_VERTICAL
                 params.bottomMargin = 0
                 container.layoutParams = params
+                Log.d("OrientationChange", "RIGHT buttons restored to END|CENTER_VERTICAL")
             }
         }
         
-        controllerFrame?.requestLayout()
+        controllerFrame.requestLayout()
+        controllerFrame.invalidate()
         logo.requestLayout()
         channelInfo.requestLayout()
+        
+        Log.d("OrientationChange", "Layout rearrangement complete")
     }
     
     private fun setupPlaylistButton() {
