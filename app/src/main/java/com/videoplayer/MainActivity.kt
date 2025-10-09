@@ -63,6 +63,7 @@ class FfmpegRenderersFactory(
 ) : NextRenderersFactory(context) {
     
     init {
+        Log.d("FfmpegFactory", "Init: Audio=${useFfmpegAudio}, Video=${useFfmpegVideo}")
         setEnableDecoderFallback(false)
         forceEnableMediaCodecAsynchronousQueueing()
         setAllowedVideoJoiningTimeMs(10000)
@@ -81,6 +82,7 @@ class FfmpegRenderersFactory(
         out: ArrayList<Renderer>
     ) {
         val videoMode = if (useFfmpegVideo) EXTENSION_RENDERER_MODE_PREFER else EXTENSION_RENDERER_MODE_OFF
+        Log.d("FfmpegFactory", "Building video renderers: mode=${if (videoMode == EXTENSION_RENDERER_MODE_PREFER) "PREFER_FFMPEG" else "OFF_HARDWARE"}, fallback=false")
         super.buildVideoRenderers(
             context,
             videoMode,
@@ -91,6 +93,7 @@ class FfmpegRenderersFactory(
             allowedVideoJoiningTimeMs,
             out
         )
+        Log.d("FfmpegFactory", "Video renderers built: count=${out.size}")
     }
     
     override fun buildAudioRenderers(
@@ -236,17 +239,30 @@ class MainActivity : AppCompatActivity() {
             val useFfmpegAudio = prefs.getBoolean(SettingsActivity.KEY_USE_FFMPEG_AUDIO, true)
             val useFfmpegVideo = prefs.getBoolean(SettingsActivity.KEY_USE_FFMPEG_VIDEO, false)
             
+            addDebugMessage("━━━ DECODER SWITCH START ━━━")
             addDebugMessage("Settings: Buffer=${bufferSeconds}s, FFmpeg Audio=${if (useFfmpegAudio) "ON" else "OFF"}, FFmpeg Video=${if (useFfmpegVideo) "ON" else "OFF"}")
             
             autoLoadPlaylist()
             
             if (hadPlayer && playlist.isNotEmpty()) {
+                addDebugMessage("🔄 Step 1: Detaching PlayerView from old player")
                 playerView.player = null
+                
+                addDebugMessage("🔄 Step 2: Stopping playback")
                 player?.stop()
+                
+                addDebugMessage("🔄 Step 3: Releasing old player instance")
                 player?.release()
+                
+                addDebugMessage("🔄 Step 4: Clearing player reference")
                 player = null
+                
+                addDebugMessage("🔄 Step 5: Waiting 100ms for complete cleanup...")
+                kotlinx.coroutines.delay(100)
+                
+                addDebugMessage("🔄 Step 6: Creating new player with factory=${if (useFfmpegAudio || useFfmpegVideo) "FfmpegRenderersFactory" else "DefaultRenderersFactory"}")
                 initializePlayer()
-                addDebugMessage("✓ Player restarted with new settings")
+                addDebugMessage("━━━ DECODER SWITCH COMPLETE ━━━")
             }
         }
     }
@@ -762,10 +778,15 @@ class MainActivity : AppCompatActivity() {
             }
         
         val renderersFactory = if (useFfmpegAudio || useFfmpegVideo) {
+            Log.d("PlayerInit", "Using FfmpegRenderersFactory (NextLib-based)")
+            addDebugMessage("🏭 Factory: FfmpegRenderersFactory (Audio=${useFfmpegAudio}, Video=${useFfmpegVideo})")
             FfmpegRenderersFactory(this, useFfmpegAudio, useFfmpegVideo)
         } else {
+            Log.d("PlayerInit", "Using DefaultRenderersFactory (clean hardware)")
+            addDebugMessage("🏭 Factory: DefaultRenderersFactory (clean hardware decoders)")
             DefaultRenderersFactory(this).apply {
                 setEnableDecoderFallback(true)
+                Log.d("PlayerInit", "DefaultRenderersFactory configured with fallback=true")
             }
         }
         
