@@ -261,9 +261,16 @@ class MainActivity : AppCompatActivity() {
                 player = null
                 
                 if (wasUsingFfmpegVideo && !useFfmpegVideo) {
-                    addDebugMessage("🔄 Step 5: FFmpeg video→hardware detected - extended cleanup...")
-                    playerView.setShutterBackgroundColor(android.graphics.Color.BLACK)
-                    kotlinx.coroutines.delay(300)
+                    addDebugMessage("🔄 Step 5: FFmpeg video→hardware - RESTARTING ACTIVITY for clean state...")
+                    
+                    getSharedPreferences(SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE)
+                        .edit()
+                        .putBoolean("was_using_ffmpeg_video", useFfmpegVideo)
+                        .apply()
+                    
+                    finish()
+                    startActivity(intent)
+                    return@launch
                 } else {
                     addDebugMessage("🔄 Step 5: Waiting 100ms for complete cleanup...")
                     kotlinx.coroutines.delay(100)
