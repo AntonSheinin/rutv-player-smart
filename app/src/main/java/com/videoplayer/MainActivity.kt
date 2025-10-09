@@ -241,6 +241,8 @@ class MainActivity : AppCompatActivity() {
             autoLoadPlaylist()
             
             if (hadPlayer && playlist.isNotEmpty()) {
+                playerView.player = null
+                player?.stop()
                 player?.release()
                 player = null
                 initializePlayer()
@@ -668,6 +670,8 @@ class MainActivity : AppCompatActivity() {
                 
                 playlistAdapter.notifyDataSetChanged()
                 
+                playerView.player = null
+                player?.stop()
                 player?.release()
                 player = null
                 
@@ -1111,6 +1115,8 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         stopBufferingCheck()
+        playerView.player = null
+        player?.stop()
         player?.release()
         player = null
     }
