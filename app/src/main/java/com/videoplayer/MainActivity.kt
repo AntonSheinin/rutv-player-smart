@@ -245,6 +245,9 @@ class MainActivity : AppCompatActivity() {
             autoLoadPlaylist()
             
             if (hadPlayer && playlist.isNotEmpty()) {
+                val wasUsingFfmpegVideo = getSharedPreferences(SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE)
+                    .getBoolean("was_using_ffmpeg_video", false)
+                
                 addDebugMessage("🔄 Step 1: Detaching PlayerView from old player")
                 playerView.player = null
                 
@@ -257,8 +260,20 @@ class MainActivity : AppCompatActivity() {
                 addDebugMessage("🔄 Step 4: Clearing player reference")
                 player = null
                 
-                addDebugMessage("🔄 Step 5: Waiting 100ms for complete cleanup...")
-                kotlinx.coroutines.delay(100)
+                if (wasUsingFfmpegVideo && !useFfmpegVideo) {
+                    addDebugMessage("🔄 Step 5: FFmpeg video→hardware detected - recreating surface...")
+                    playerView.setShutterBackgroundColor(android.graphics.Color.BLACK)
+                    playerView.videoSurfaceView?.holder?.surface?.release()
+                    kotlinx.coroutines.delay(200)
+                } else {
+                    addDebugMessage("🔄 Step 5: Waiting 100ms for complete cleanup...")
+                    kotlinx.coroutines.delay(100)
+                }
+                
+                getSharedPreferences(SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE)
+                    .edit()
+                    .putBoolean("was_using_ffmpeg_video", useFfmpegVideo)
+                    .apply()
                 
                 addDebugMessage("🔄 Step 6: Creating new player with factory=${if (useFfmpegAudio || useFfmpegVideo) "FfmpegRenderersFactory" else "DefaultRenderersFactory"}")
                 initializePlayer()
