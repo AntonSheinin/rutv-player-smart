@@ -261,10 +261,9 @@ class MainActivity : AppCompatActivity() {
                 player = null
                 
                 if (wasUsingFfmpegVideo && !useFfmpegVideo) {
-                    addDebugMessage("🔄 Step 5: FFmpeg video→hardware detected - recreating surface...")
+                    addDebugMessage("🔄 Step 5: FFmpeg video→hardware detected - extended cleanup...")
                     playerView.setShutterBackgroundColor(android.graphics.Color.BLACK)
-                    playerView.videoSurfaceView?.holder?.surface?.release()
-                    kotlinx.coroutines.delay(200)
+                    kotlinx.coroutines.delay(300)
                 } else {
                     addDebugMessage("🔄 Step 5: Waiting 100ms for complete cleanup...")
                     kotlinx.coroutines.delay(100)
