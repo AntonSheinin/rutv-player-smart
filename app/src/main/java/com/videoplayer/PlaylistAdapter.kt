@@ -25,6 +25,7 @@ class PlaylistAdapter(
     private var showingFavoritesOnly = false
     
     class PlaylistViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val cardView: com.google.android.material.card.MaterialCardView = view.findViewById(R.id.channel_item_card)
         val favoriteButton: TextView = view.findViewById(R.id.favorite_button)
         val logoImageView: ImageView = view.findViewById(R.id.channel_logo)
         val numberTextView: TextView = view.findViewById(R.id.channel_number)
@@ -32,6 +33,8 @@ class PlaylistAdapter(
         val groupTextView: TextView = view.findViewById(R.id.video_group)
         val currentProgramTextView: TextView = view.findViewById(R.id.current_program)
         val statusTextView: TextView = view.findViewById(R.id.video_status)
+        var lastClickTime = 0L
+        var pendingRunnable: Runnable? = null
     }
     
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PlaylistViewHolder {
@@ -90,31 +93,45 @@ class PlaylistAdapter(
         }
         
         // Single tap = show programs, Double tap = play channel
-        val gestureDetector = GestureDetector(holder.itemView.context, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                android.util.Log.d("PlaylistAdapter", "Single tap on channel: ${videoItem.title}, tvgId: '${videoItem.tvgId}'")
-                if (videoItem.tvgId.isNotBlank()) {
-                    android.util.Log.d("PlaylistAdapter", "Calling onShowPrograms for index: $actualIndex")
-                    onShowPrograms(actualIndex)
-                } else {
-                    android.util.Log.d("PlaylistAdapter", "No tvg-id for channel: ${videoItem.title}")
-                }
-                return true
+        val doubleClickThreshold = 300L // 300ms for double tap
+        
+        holder.cardView.setOnClickListener {
+            android.util.Log.d("PlaylistAdapter", "Click on channel: ${videoItem.title}")
+            val currentTime = System.currentTimeMillis()
+            val timeDiff = currentTime - holder.lastClickTime
+            
+            // Cancel any pending single tap action
+            holder.pendingRunnable?.let { runnable ->
+                holder.cardView.removeCallbacks(runnable)
+                holder.pendingRunnable = null
             }
             
-            override fun onDoubleTap(e: MotionEvent): Boolean {
-                android.util.Log.d("PlaylistAdapter", "Double tap on channel: ${videoItem.title}")
+            if (timeDiff < doubleClickThreshold && holder.lastClickTime != 0L) {
+                // Double tap detected
+                android.util.Log.d("PlaylistAdapter", "Double tap detected on channel: ${videoItem.title}")
                 selectedPosition = actualIndex
                 onChannelClick(actualIndex)
-                return true
+                holder.lastClickTime = 0L // Reset to prevent triple tap
+            } else {
+                // Potential single tap - wait to confirm it's not a double tap
+                holder.lastClickTime = currentTime
+                val runnable = Runnable {
+                    if (holder.lastClickTime != 0L) {
+                        // It was indeed a single tap (no second tap came within threshold)
+                        android.util.Log.d("PlaylistAdapter", "Single tap confirmed on channel: ${videoItem.title}, tvgId: '${videoItem.tvgId}'")
+                        if (videoItem.tvgId.isNotBlank()) {
+                            android.util.Log.d("PlaylistAdapter", "Calling onShowPrograms for index: $actualIndex")
+                            onShowPrograms(actualIndex)
+                        } else {
+                            android.util.Log.d("PlaylistAdapter", "No tvg-id for channel: ${videoItem.title}")
+                        }
+                        holder.lastClickTime = 0L
+                    }
+                    holder.pendingRunnable = null
+                }
+                holder.pendingRunnable = runnable
+                holder.cardView.postDelayed(runnable, doubleClickThreshold)
             }
-        })
-        
-        // Apply gesture detector to the whole channel item
-        holder.itemView.setOnTouchListener { v, event ->
-            android.util.Log.d("PlaylistAdapter", "Touch on item: ${event.action} - ${videoItem.title}")
-            gestureDetector.onTouchEvent(event)
-            true
         }
     }
     
