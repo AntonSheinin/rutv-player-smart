@@ -1,6 +1,8 @@
 package com.videoplayer
 
+import android.view.GestureDetector
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
@@ -12,7 +14,9 @@ import com.bumptech.glide.load.engine.DiskCacheStrategy
 class PlaylistAdapter(
     private val playlist: List<VideoItem>,
     private val onChannelClick: (Int) -> Unit,
-    private val onFavoriteClick: (Int) -> Unit
+    private val onFavoriteClick: (Int) -> Unit,
+    private val onShowPrograms: (Int) -> Unit,
+    private val epgService: EpgService?
 ) : RecyclerView.Adapter<PlaylistAdapter.PlaylistViewHolder>() {
     
     private var currentlyPlayingIndex = -1
@@ -26,6 +30,7 @@ class PlaylistAdapter(
         val numberTextView: TextView = view.findViewById(R.id.channel_number)
         val titleTextView: TextView = view.findViewById(R.id.video_title)
         val groupTextView: TextView = view.findViewById(R.id.video_group)
+        val currentProgramTextView: TextView = view.findViewById(R.id.current_program)
         val statusTextView: TextView = view.findViewById(R.id.video_status)
     }
     
@@ -71,9 +76,38 @@ class PlaylistAdapter(
         holder.itemView.isSelected = (actualIndex == currentlyPlayingIndex)
         holder.statusTextView.text = if (actualIndex == currentlyPlayingIndex) "▶ Playing" else ""
         
-        holder.itemView.setOnClickListener {
-            selectedPosition = actualIndex
-            onChannelClick(actualIndex)
+        // Update current program from EPG
+        if (videoItem.tvgId.isNotBlank() && epgService != null) {
+            val currentProgram = epgService.getCurrentProgram(videoItem.tvgId)
+            if (currentProgram != null) {
+                holder.currentProgramTextView.visibility = View.VISIBLE
+                holder.currentProgramTextView.text = currentProgram.title
+            } else {
+                holder.currentProgramTextView.visibility = View.GONE
+            }
+        } else {
+            holder.currentProgramTextView.visibility = View.GONE
+        }
+        
+        // Single tap = show programs, Double tap = play channel
+        val gestureDetector = GestureDetector(holder.itemView.context, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                if (videoItem.tvgId.isNotBlank()) {
+                    onShowPrograms(actualIndex)
+                }
+                return true
+            }
+            
+            override fun onDoubleTap(e: MotionEvent): Boolean {
+                selectedPosition = actualIndex
+                onChannelClick(actualIndex)
+                return true
+            }
+        })
+        
+        holder.itemView.setOnTouchListener { v, event ->
+            gestureDetector.onTouchEvent(event)
+            true
         }
     }
     

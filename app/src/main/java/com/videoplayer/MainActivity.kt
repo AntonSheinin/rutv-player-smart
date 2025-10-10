@@ -174,6 +174,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var channelInfo: TextView
     private lateinit var logo: ImageView
     
+    private lateinit var programsWrapper: LinearLayout
+    private lateinit var programsRecyclerView: RecyclerView
+    private lateinit var programsAdapter: EpgProgramsAdapter
+    private var epgService: EpgService? = null
+    
     private val playlist = mutableListOf<VideoItem>()
     private val debugMessages = mutableListOf<String>()
     private var bufferingStartTime: Long = 0
@@ -202,6 +207,9 @@ class MainActivity : AppCompatActivity() {
         channelInfo = findViewById(R.id.channel_info)
         logo = findViewById(R.id.logo)
         
+        programsWrapper = findViewById(R.id.programs_wrapper)
+        programsRecyclerView = findViewById(R.id.programs_container)
+        
         btnAspectRatio = playerView.findViewById(R.id.btn_aspect_ratio)
         btnOrientation = playerView.findViewById(R.id.btn_orientation)
         btnSettings = playerView.findViewById(R.id.btn_settings)
@@ -214,6 +222,8 @@ class MainActivity : AppCompatActivity() {
         
         logo.visibility = View.GONE
         
+        epgService = EpgService(this)
+        
         setupSettingsButton()
         setupAspectRatioButton()
         setupOrientationButton()
@@ -222,10 +232,12 @@ class MainActivity : AppCompatActivity() {
         setupGoToChannelButton()
         setupPlayerTapGesture()
         setupRecyclerView()
+        setupProgramsRecyclerView()
         setupClosePlaylistButton()
         setupFullscreen()
         
         lifecycleScope.launch {
+            fetchEpgData()
             autoLoadPlaylist()
         }
     }
@@ -653,6 +665,7 @@ class MainActivity : AppCompatActivity() {
     private fun hideUIElements() {
         playlistUserVisible = false
         playlistWrapper.visibility = View.GONE
+        programsWrapper.visibility = View.GONE
     }
     
     private fun showUIElements() {
@@ -666,7 +679,19 @@ class MainActivity : AppCompatActivity() {
         if (::playlistAdapter.isInitialized && playlistAdapter.selectedPosition >= 0) {
             val item = playlist.getOrNull(playlistAdapter.selectedPosition)
             item?.let {
-                channelInfo.text = "#${playlistAdapter.selectedPosition + 1} • ${it.title}"
+                val channelText = "#${playlistAdapter.selectedPosition + 1} • ${it.title}"
+                
+                if (it.tvgId.isNotBlank() && epgService != null) {
+                    val currentProgram = epgService?.getCurrentProgram(it.tvgId)
+                    if (currentProgram != null) {
+                        channelInfo.text = "$channelText\n${currentProgram.title}"
+                    } else {
+                        channelInfo.text = channelText
+                    }
+                } else {
+                    channelInfo.text = channelText
+                }
+                
                 channelInfo.visibility = View.VISIBLE
             }
         } else {
@@ -699,7 +724,8 @@ class MainActivity : AppCompatActivity() {
                         logo = channel.logo,
                         group = channel.group,
                         isFavorite = ChannelStorage.isFavorite(this, channel.url),
-                        aspectRatio = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                        aspectRatio = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT,
+                        tvgId = channel.tvgId
                     )
                 })
                 
@@ -731,7 +757,8 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun setupRecyclerView() {
-        playlistAdapter = PlaylistAdapter(playlist, 
+        playlistAdapter = PlaylistAdapter(
+            playlist = playlist, 
             onChannelClick = { position ->
                 player?.let { p ->
                     if (p.currentMediaItemIndex != position) {
@@ -748,6 +775,7 @@ class MainActivity : AppCompatActivity() {
                         }
                         
                         playlistUserVisible = false
+                        programsWrapper.visibility = View.GONE
                         hideUIElements()
                         updateChannelInfo()
                     }
@@ -760,7 +788,16 @@ class MainActivity : AppCompatActivity() {
                     ChannelStorage.setFavorite(this, it.url, it.isFavorite)
                     playlistAdapter.notifyItemChanged(position)
                 }
-            }
+            },
+            onShowPrograms = { position ->
+                val channel = playlist.getOrNull(position)
+                channel?.let {
+                    if (it.tvgId.isNotBlank()) {
+                        showProgramsForChannel(it.tvgId)
+                    }
+                }
+            },
+            epgService = epgService
         )
         
         playlistRecyclerView.apply {
@@ -1161,5 +1198,88 @@ class MainActivity : AppCompatActivity() {
         player?.stop()
         player?.release()
         player = null
+    }
+    
+    private fun setupProgramsRecyclerView() {
+        programsAdapter = EpgProgramsAdapter()
+        programsRecyclerView.apply {
+            layoutManager = LinearLayoutManager(this@MainActivity, LinearLayoutManager.VERTICAL, false)
+            adapter = programsAdapter
+        }
+    }
+    
+    private fun showProgramsForChannel(tvgId: String) {
+        epgService?.let { service ->
+            val programs = service.getProgramsForChannel(tvgId)
+            if (programs.isNotEmpty()) {
+                programsAdapter.updatePrograms(programs)
+                programsWrapper.visibility = View.VISIBLE
+                addDebugMessage("📺 Showing ${programs.size} programs for channel")
+            } else {
+                programsWrapper.visibility = View.GONE
+                addDebugMessage("⚠️ No EPG data for this channel")
+            }
+        }
+    }
+    
+    private suspend fun fetchEpgData() {
+        val prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE)
+        val epgUrl = prefs.getString(SettingsActivity.KEY_EPG_URL, "")
+        
+        if (epgUrl.isNullOrBlank()) {
+            addDebugMessage("⚠️ EPG URL not configured")
+            return
+        }
+        
+        addDebugMessage("🔍 Checking EPG service health...")
+        
+        epgService?.let { service ->
+            val isHealthy = service.checkHealth(epgUrl)
+            
+            if (!isHealthy) {
+                addDebugMessage("❌ EPG service is not available")
+                return
+            }
+            
+            addDebugMessage("✅ EPG service is healthy")
+            
+            val playlistType = prefs.getString(SettingsActivity.KEY_PLAYLIST_TYPE, null)
+            if (playlistType == null) {
+                addDebugMessage("⚠️ No playlist loaded yet, skipping EPG fetch")
+                return
+            }
+            
+            val content = when (playlistType) {
+                SettingsActivity.TYPE_FILE -> {
+                    prefs.getString(SettingsActivity.KEY_PLAYLIST_CONTENT, null)
+                }
+                SettingsActivity.TYPE_URL -> {
+                    val url = prefs.getString(SettingsActivity.KEY_PLAYLIST_URL, null)
+                    url?.let {
+                        withContext(Dispatchers.IO) {
+                            try {
+                                URL(it).readText()
+                            } catch (e: Exception) {
+                                addDebugMessage("❌ Failed to fetch playlist for EPG: ${e.message}")
+                                null
+                            }
+                        }
+                    }
+                }
+                else -> null
+            }
+            
+            if (content != null) {
+                val channels = M3U8Parser.parse(content)
+                addDebugMessage("📡 Fetching EPG data...")
+                val success = service.fetchEpg(epgUrl, channels)
+                
+                if (success) {
+                    addDebugMessage("✅ EPG data fetched and saved")
+                } else {
+                    addDebugMessage("❌ EPG fetch failed")
+                }
+            }
+        }
     }
 }
