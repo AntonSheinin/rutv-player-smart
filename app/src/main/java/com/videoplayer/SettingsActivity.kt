@@ -31,6 +31,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var currentPlaylistUrl: TextView
     private lateinit var currentFileName: TextView
     private lateinit var currentUrlName: TextView
+    private lateinit var inputEpgUrl: EditText
     
     private val filePickerLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
@@ -53,18 +54,21 @@ class SettingsActivity : AppCompatActivity() {
         currentPlaylistUrl = findViewById(R.id.current_playlist_url)
         currentFileName = findViewById(R.id.current_file_name)
         currentUrlName = findViewById(R.id.current_url_name)
+        inputEpgUrl = findViewById(R.id.input_epg_url)
         
         setupButtons()
         setupDebugLogSwitch()
         setupFfmpegAudioSwitch()
         setupFfmpegVideoSwitch()
         setupBufferInput()
+        setupEpgUrlInput()
         updatePlaylistInfo()
     }
     
     override fun onPause() {
         super.onPause()
         saveBufferValue()
+        saveEpgUrl()
     }
     
     private fun saveBufferValue() {
@@ -153,6 +157,18 @@ class SettingsActivity : AppCompatActivity() {
                 prefs.edit().putInt(KEY_BUFFER_SECONDS, clampedValue).apply()
             }
         }
+    }
+    
+    private fun setupEpgUrlInput() {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val epgUrl = prefs.getString(KEY_EPG_URL, "")
+        inputEpgUrl.setText(epgUrl)
+    }
+    
+    private fun saveEpgUrl() {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val url = inputEpgUrl.text.toString().trim()
+        prefs.edit().putString(KEY_EPG_URL, url).apply()
     }
     
     private fun showUrlDialog() {
@@ -268,6 +284,7 @@ class SettingsActivity : AppCompatActivity() {
         const val KEY_USE_FFMPEG_AUDIO = "use_ffmpeg_audio"
         const val KEY_USE_FFMPEG_VIDEO = "use_ffmpeg_video"
         const val KEY_BUFFER_SECONDS = "buffer_seconds"
+        const val KEY_EPG_URL = "epg_url"
         const val TYPE_FILE = "file"
         const val TYPE_URL = "url"
     }
