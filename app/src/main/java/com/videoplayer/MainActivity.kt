@@ -648,7 +648,7 @@ class MainActivity : AppCompatActivity() {
     private fun addDebugMessage(message: String) {
         runOnUiThread {
             debugMessages.add(message)
-            if (debugMessages.size > 50) {
+            if (debugMessages.size > 100) {
                 debugMessages.removeAt(0)
             }
             debugLog.text = debugMessages.joinToString("\n")
