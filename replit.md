@@ -9,7 +9,7 @@ The Android IPTV Player is a native Android application built with Media3 (ExoPl
   - **Settings UI**: Added EPG service URL configuration field in settings
   - **Data Models**: Created EpgProgram, EpgRequest, EpgResponse models with Gson serialization
   - **Channel parsing**: Updated M3U8Parser to extract `tvg-id` and `catchup-days` parameters from playlist
-  - **Single/Double tap**: Channel list items now support single tap (show programs) and double tap (play channel) using GestureDetector
+  - **Single/Double tap**: Channel list items now support single tap anywhere on item (show programs) and double tap (play channel) using GestureDetector
   - **Programs side panel**: New right-side panel showing EPG programs with date delimiters and current program indicator (green dot)
   - **Current program display**: Shows current program title below group/category in channel list items (gold text) and below channel name in player controls
   - **EPG layouts**: Created program item layout with time/title/description and date delimiter layout matching reference design

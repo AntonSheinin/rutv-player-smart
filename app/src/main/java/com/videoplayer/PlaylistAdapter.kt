@@ -110,11 +110,10 @@ class PlaylistAdapter(
             }
         })
         
-        // Apply gesture detector to the title TextView for tap detection
-        holder.titleTextView.setOnTouchListener { v, event ->
-            android.util.Log.d("PlaylistAdapter", "Touch on title: ${event.action} - ${videoItem.title}")
+        // Apply gesture detector to the whole channel item
+        holder.itemView.setOnTouchListener { v, event ->
+            android.util.Log.d("PlaylistAdapter", "Touch on item: ${event.action} - ${videoItem.title}")
             gestureDetector.onTouchEvent(event)
-            true
         }
     }
     
