@@ -114,6 +114,7 @@ class PlaylistAdapter(
         holder.itemView.setOnTouchListener { v, event ->
             android.util.Log.d("PlaylistAdapter", "Touch on item: ${event.action} - ${videoItem.title}")
             gestureDetector.onTouchEvent(event)
+            true
         }
     }
     
