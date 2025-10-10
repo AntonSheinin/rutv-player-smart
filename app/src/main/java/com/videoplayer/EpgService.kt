@@ -61,18 +61,28 @@ class EpgService(private val context: Context) {
             return@withContext false
         }
         
+        // DEBUG: Limit to first 10 channels only
+        val limitedChannels = channelsWithEpg.take(10)
+        Log.d(TAG, "🔧 DEBUG MODE: Limiting EPG fetch to ${limitedChannels.size} channels (out of ${channelsWithEpg.size} total)")
+        
         try {
-            Log.d(TAG, "📡 Fetching EPG for ${channelsWithEpg.size} channels...")
+            Log.d(TAG, "📡 Fetching EPG for ${limitedChannels.size} channels...")
+            Log.d(TAG, "📍 EPG URL: $epgUrl/epg")
+            
+            // Log channel details
+            limitedChannels.forEachIndexed { index, channel ->
+                Log.d(TAG, "   Channel ${index + 1}: tvg-id='${channel.tvgId}', catchup-days=${channel.catchupDays}")
+            }
             
             val epgRequest = EpgRequest(
-                channels = channelsWithEpg.map {
+                channels = limitedChannels.map {
                     EpgChannelRequest(xmltvId = it.tvgId, epgDepth = it.catchupDays)
                 },
                 update = "force"
             )
             
             val requestBody = gson.toJson(epgRequest)
-            Log.d(TAG, "📤 EPG Request: channels=${channelsWithEpg.size}, update=force")
+            Log.d(TAG, "📤 EPG Request JSON: $requestBody")
             
             val url = URL("$epgUrl/epg")
             val connection = url.openConnection() as HttpURLConnection
@@ -82,37 +92,61 @@ class EpgService(private val context: Context) {
             connection.readTimeout = 30000
             connection.doOutput = true
             
+            Log.d(TAG, "🔗 Opening connection to ${url}...")
+            
             connection.outputStream.use { os ->
                 os.write(requestBody.toByteArray())
+                Log.d(TAG, "📨 Request body sent (${requestBody.toByteArray().size} bytes)")
             }
             
             val responseCode = connection.responseCode
+            Log.d(TAG, "📥 Response code: $responseCode")
+            
             if (responseCode == 200) {
                 val response = connection.inputStream.bufferedReader().use { it.readText() }
-                val epgResponse = gson.fromJson(response, EpgResponse::class.java)
+                Log.d(TAG, "📥 Response body received (${response.length} chars)")
+                Log.d(TAG, "📥 Response preview: ${response.take(200)}...")
                 
-                Log.d(TAG, "✅ EPG fetch successful:")
-                Log.d(TAG, "   • Channels requested: ${epgResponse.channelsRequested}")
-                Log.d(TAG, "   • Channels found: ${epgResponse.channelsFound}")
-                Log.d(TAG, "   • Total programs: ${epgResponse.totalPrograms}")
-                Log.d(TAG, "   • Update mode: ${epgResponse.updateMode}")
-                Log.d(TAG, "   • Timestamp: ${epgResponse.timestamp}")
-                
-                saveEpgData(epgResponse)
-                connection.disconnect()
-                return@withContext true
+                try {
+                    val epgResponse = gson.fromJson(response, EpgResponse::class.java)
+                    
+                    if (epgResponse == null) {
+                        Log.e(TAG, "❌ EPG response is null after parsing")
+                        connection.disconnect()
+                        return@withContext false
+                    }
+                    
+                    Log.d(TAG, "✅ EPG fetch successful:")
+                    Log.d(TAG, "   • Channels requested: ${epgResponse.channelsRequested}")
+                    Log.d(TAG, "   • Channels found: ${epgResponse.channelsFound}")
+                    Log.d(TAG, "   • Total programs: ${epgResponse.totalPrograms}")
+                    Log.d(TAG, "   • Update mode: ${epgResponse.updateMode}")
+                    Log.d(TAG, "   • Timestamp: ${epgResponse.timestamp}")
+                    Log.d(TAG, "   • EPG keys: ${epgResponse.epg.keys.joinToString(", ")}")
+                    
+                    saveEpgData(epgResponse)
+                    connection.disconnect()
+                    return@withContext true
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ Failed to parse EPG response: ${e.message}")
+                    Log.e(TAG, "❌ Response was: $response")
+                    connection.disconnect()
+                    return@withContext false
+                }
             } else {
                 val errorBody = try {
                     connection.errorStream?.bufferedReader()?.use { it.readText() } ?: "No error body"
                 } catch (e: Exception) {
                     "Error reading error body: ${e.message}"
                 }
-                Log.e(TAG, "❌ EPG fetch failed with code $responseCode: $errorBody")
+                Log.e(TAG, "❌ EPG fetch failed with code $responseCode")
+                Log.e(TAG, "❌ Error body: $errorBody")
                 connection.disconnect()
                 return@withContext false
             }
         } catch (e: Exception) {
-            Log.e(TAG, "❌ EPG fetch error: ${e.message}", e)
+            Log.e(TAG, "❌ EPG fetch error: ${e.javaClass.simpleName} - ${e.message}")
+            Log.e(TAG, "❌ Stack trace: ", e)
             return@withContext false
         }
     }

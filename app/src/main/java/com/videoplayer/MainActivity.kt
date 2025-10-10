@@ -676,25 +676,35 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun updateChannelInfo() {
-        if (::playlistAdapter.isInitialized && playlistAdapter.selectedPosition >= 0) {
-            val item = playlist.getOrNull(playlistAdapter.selectedPosition)
-            item?.let {
-                val channelText = "#${playlistAdapter.selectedPosition + 1} • ${it.title}"
-                
-                if (it.tvgId.isNotBlank() && epgService != null) {
-                    val currentProgram = epgService?.getCurrentProgram(it.tvgId)
-                    if (currentProgram != null) {
-                        channelInfo.text = "$channelText\n${currentProgram.title}"
+        try {
+            if (::playlistAdapter.isInitialized && playlistAdapter.selectedPosition >= 0) {
+                val item = playlist.getOrNull(playlistAdapter.selectedPosition)
+                item?.let {
+                    val channelText = "#${playlistAdapter.selectedPosition + 1} • ${it.title}"
+                    
+                    if (it.tvgId.isNotBlank() && epgService != null) {
+                        try {
+                            val currentProgram = epgService?.getCurrentProgram(it.tvgId)
+                            if (currentProgram != null) {
+                                channelInfo.text = "$channelText\n${currentProgram.title}"
+                            } else {
+                                channelInfo.text = channelText
+                            }
+                        } catch (e: Exception) {
+                            Log.e("VideoPlayer", "Error getting current program: ${e.message}")
+                            channelInfo.text = channelText
+                        }
                     } else {
                         channelInfo.text = channelText
                     }
-                } else {
-                    channelInfo.text = channelText
+                    
+                    channelInfo.visibility = View.VISIBLE
                 }
-                
-                channelInfo.visibility = View.VISIBLE
+            } else {
+                channelInfo.visibility = View.GONE
             }
-        } else {
+        } catch (e: Exception) {
+            Log.e("VideoPlayer", "Error updating channel info: ${e.message}")
             channelInfo.visibility = View.GONE
         }
     }
