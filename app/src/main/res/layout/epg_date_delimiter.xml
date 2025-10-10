@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/date_text"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="12dp"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp"
+    android:textColor="#888888"
+    android:textSize="13sp"
+    android:textStyle="bold"
+    android:background="#1a1a1a"
+    android:text="Saturday, 27/09" />

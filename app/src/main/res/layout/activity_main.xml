@@ -103,6 +103,51 @@
 
     </LinearLayout>
 
+    <LinearLayout
+        android:id="@+id/programs_wrapper"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:orientation="vertical"
+        android:background="#0d0d0d"
+        android:elevation="10dp"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toEndOf="@id/playlist_wrapper"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="8dp"
+            android:gravity="center_vertical"
+            android:background="#1a1a1a">
+
+            <TextView
+                android:id="@+id/programs_title"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="TV PROGRAM"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:letterSpacing="0.05" />
+
+        </LinearLayout>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/programs_container"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:background="#0d0d0d"
+            android:focusable="false" />
+
+    </LinearLayout>
+
     <ScrollView
         android:id="@+id/debug_log_scroll"
         android:layout_width="wrap_content"
