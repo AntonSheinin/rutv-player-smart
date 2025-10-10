@@ -7,5 +7,6 @@ data class VideoItem(
     val logo: String = "",
     val group: String = "",
     var isFavorite: Boolean = false,
-    var aspectRatio: Int = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+    var aspectRatio: Int = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT,
+    val tvgId: String = ""
 )

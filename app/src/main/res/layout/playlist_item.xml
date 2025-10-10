@@ -89,6 +89,17 @@
                 android:layout_marginTop="2dp" />
 
             <TextView
+                android:id="@+id/current_program"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="#FFD700"
+                android:textSize="10sp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:layout_marginTop="2dp"
+                android:visibility="gone" />
+
+            <TextView
                 android:id="@+id/video_status"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
