@@ -74,7 +74,7 @@ class EpgService(private val context: Context) {
             val requestBody = gson.toJson(epgRequest)
             Log.d(TAG, "📤 EPG Request: channels=${channelsWithEpg.size}, update=force")
             
-            val url = URL(epgUrl)
+            val url = URL("$epgUrl/epg")
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "application/json")
