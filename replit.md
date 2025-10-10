@@ -4,6 +4,16 @@
 The Android IPTV Player is a native Android application built with Media3 (ExoPlayer) for robust IPTV playlist playback. It offers extensive codec support via FFmpeg and is designed for seamless interaction with Flussonic Media Server using token authentication. The project aims to provide a high-performance, user-friendly video player capable of handling various IPTV stream formats and offering advanced features like channel caching, favorites management, and per-channel aspect ratio persistence.
 
 ## Recent Changes
+- **October 10, 2025**: Complete EPG (Electronic Program Guide) integration:
+  - **EPG Service**: Full service with health check endpoint, POST request for fetching program data, local JSON storage, and program lookup by channel tvg-id
+  - **Settings UI**: Added EPG service URL configuration field in settings
+  - **Data Models**: Created EpgProgram, EpgRequest, EpgResponse models with Gson serialization
+  - **Channel parsing**: Updated M3U8Parser to extract `tvg-id` and `catchup-days` parameters from playlist
+  - **Single/Double tap**: Channel list items now support single tap (show programs) and double tap (play channel) using GestureDetector
+  - **Programs side panel**: New right-side panel showing EPG programs with date delimiters and current program indicator (green dot)
+  - **Current program display**: Shows current program title below group/category in channel list items (gold text) and below channel name in player controls
+  - **EPG layouts**: Created program item layout with time/title/description and date delimiter layout matching reference design
+  - **Auto-fetch on startup**: App checks EPG service health and fetches program data automatically on launch with comprehensive logging
 - **October 08, 2025**: NextLib FFmpeg integration for audio and video decoding:
   - **Replaced Jellyfin**: Migrated to NextLib (`io.github.anilbeesetti:nextlib-media3ext:1.8.0-0.9.0`) with proper package path (`io.github.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory`)
   - **True independent control**: Overrides `buildAudioRenderers()` and `buildVideoRenderers()` to set EXTENSION_RENDERER_MODE_PREFER (FFmpeg) or EXTENSION_RENDERER_MODE_OFF (hardware) independently for audio and video. Each codec type can use different decoders simultaneously.
@@ -69,6 +79,15 @@ The Android IPTV Player is a native Android application built with Media3 (ExoPl
 - **Modern Architecture**: Leverages lifecycle-aware coroutines for async operations and proper resource cleanup.
 - **Rebranding**: App name changed to "RuTV" with corresponding logo and APK filename updates.
 
+### EPG (Electronic Program Guide) Features
+- **EPG service integration**: Configurable EPG service URL with health check and forced update mode
+- **Program data fetching**: POST request with channel tvg-id and catchup-days parameters, returns programs with start/stop times, titles, and descriptions
+- **Local storage**: EPG data saved as JSON on device for offline access
+- **Single/double tap navigation**: Single tap on channel name shows programs panel, double tap plays channel
+- **Programs display**: Right-side panel with date-delimited program list, shows start times and current program indicator
+- **Current program info**: Displayed in channel list (below group name) and player controls (below channel name) in gold text
+- **Automatic updates**: EPG data fetched on app start after health check verification
+
 ### Feature Specifications
 - M3U/M3U8 IPTV playlist loading (manual upload or URL).
 - Support for all audio formats via FFmpeg (MP2, AAC, ADTS, etc.).
@@ -81,6 +100,12 @@ The Android IPTV Player is a native Android application built with Media3 (ExoPl
 - **Channel number input**: Direct channel navigation via numeric keypad dialog with proper styling (white text, gray hint, dark background) and SOFT_INPUT_STATE_ALWAYS_VISIBLE for immediate keyboard display.
 - **Yellow toggle indicator**: All toggle switches (FFmpeg, Debug Log) show gold color (#FFD700) when enabled for consistent RuTV branding.
 
+### UI/UX Design
+- **Programs panel**: Dark background (#0d0d0d) with date delimiters (#1a1a1a), matching reference screenshot design
+- **Program indicators**: Green dot (12dp circle) for currently airing programs, time displayed in HH:mm format
+- **Touch gestures**: GestureDetector integration for single tap (programs) vs double tap (play) differentiation
+- **Auto-hide behavior**: Programs panel hidden when controls are hidden or when switching channels
+
 ## External Dependencies
 - **AndroidX Media3**:
     - `androidx.media3:media3-exoplayer`
@@ -89,4 +114,5 @@ The Android IPTV Player is a native Android application built with Media3 (ExoPl
     - `androidx.media3:media3-exoplayer-dash`
     - `androidx.media3:media3-exoplayer-hls`
 - **NextLib FFmpeg**: `io.github.anilbeesetti:nextlib-media3ext:1.8.0-0.9.0` (provides audio and video FFmpeg decoding - H.264, HEVC, VP8, VP9, MP2, AAC, AC3, etc.).
+- **Gson**: `com.google.code.gson:gson:2.10.1` (JSON serialization for EPG data storage and API communication).
 - **Flussonic Media Server**: Integrated for IPTV streaming, utilizing its built-in token authentication.
