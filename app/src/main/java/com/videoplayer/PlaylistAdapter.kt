@@ -92,13 +92,18 @@ class PlaylistAdapter(
         // Single tap = show programs, Double tap = play channel
         val gestureDetector = GestureDetector(holder.itemView.context, object : GestureDetector.SimpleOnGestureListener() {
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                android.util.Log.d("PlaylistAdapter", "Single tap on channel: ${videoItem.title}, tvgId: '${videoItem.tvgId}'")
                 if (videoItem.tvgId.isNotBlank()) {
+                    android.util.Log.d("PlaylistAdapter", "Calling onShowPrograms for index: $actualIndex")
                     onShowPrograms(actualIndex)
+                } else {
+                    android.util.Log.d("PlaylistAdapter", "No tvg-id for channel: ${videoItem.title}")
                 }
                 return true
             }
             
             override fun onDoubleTap(e: MotionEvent): Boolean {
+                android.util.Log.d("PlaylistAdapter", "Double tap on channel: ${videoItem.title}")
                 selectedPosition = actualIndex
                 onChannelClick(actualIndex)
                 return true

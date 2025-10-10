@@ -801,9 +801,13 @@ class MainActivity : AppCompatActivity() {
             },
             onShowPrograms = { position ->
                 val channel = playlist.getOrNull(position)
+                Log.d("VideoPlayer", "onShowPrograms called for position: $position, channel: ${channel?.title}")
                 channel?.let {
                     if (it.tvgId.isNotBlank()) {
+                        Log.d("VideoPlayer", "Showing programs for tvgId: ${it.tvgId}")
                         showProgramsForChannel(it.tvgId)
+                    } else {
+                        Log.d("VideoPlayer", "Channel has no tvgId: ${it.title}")
                     }
                 }
             },
@@ -1219,16 +1223,22 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun showProgramsForChannel(tvgId: String) {
+        Log.d("VideoPlayer", "showProgramsForChannel called for tvgId: $tvgId")
         epgService?.let { service ->
             val programs = service.getProgramsForChannel(tvgId)
+            Log.d("VideoPlayer", "Retrieved ${programs.size} programs for tvgId: $tvgId")
             if (programs.isNotEmpty()) {
                 programsAdapter.updatePrograms(programs)
                 programsWrapper.visibility = View.VISIBLE
+                Log.d("VideoPlayer", "Programs panel visibility set to VISIBLE")
                 addDebugMessage("📺 Showing ${programs.size} programs for channel")
             } else {
                 programsWrapper.visibility = View.GONE
-                addDebugMessage("⚠️ No EPG data for this channel")
+                Log.d("VideoPlayer", "No programs found, hiding panel")
+                addDebugMessage("⚠️ No EPG data for this channel (tvgId: $tvgId)")
             }
+        } ?: run {
+            Log.e("VideoPlayer", "EPG service is null!")
         }
     }
     

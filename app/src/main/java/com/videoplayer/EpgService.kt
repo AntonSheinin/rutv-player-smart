@@ -195,8 +195,21 @@ class EpgService(private val context: Context) {
     }
     
     fun getProgramsForChannel(tvgId: String): List<EpgProgram> {
-        val epgData = loadEpgData() ?: return emptyList()
-        return epgData.epg[tvgId] ?: emptyList()
+        Log.d(TAG, "getProgramsForChannel called for tvgId: '$tvgId'")
+        val epgData = loadEpgData()
+        if (epgData == null) {
+            Log.d(TAG, "No EPG data loaded")
+            return emptyList()
+        }
+        
+        Log.d(TAG, "EPG data has ${epgData.epg.keys.size} channels: ${epgData.epg.keys.joinToString(", ")}")
+        val programs = epgData.epg[tvgId]
+        if (programs == null) {
+            Log.d(TAG, "No programs found for tvgId: '$tvgId'")
+        } else {
+            Log.d(TAG, "Found ${programs.size} programs for tvgId: '$tvgId'")
+        }
+        return programs ?: emptyList()
     }
     
     private fun parseTimeString(timeString: String): Long {
