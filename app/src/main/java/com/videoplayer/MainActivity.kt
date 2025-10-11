@@ -248,7 +248,7 @@ class MainActivity : AppCompatActivity() {
             val hadPlayer = player != null
             val prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE)
             val bufferSeconds = prefs.getInt(SettingsActivity.KEY_BUFFER_SECONDS, 15)
-            val useFfmpegAudio = prefs.getBoolean(SettingsActivity.KEY_USE_FFMPEG_AUDIO, true)
+            val useFfmpegAudio = prefs.getBoolean(SettingsActivity.KEY_USE_FFMPEG_AUDIO, false)
             val useFfmpegVideo = prefs.getBoolean(SettingsActivity.KEY_USE_FFMPEG_VIDEO, false)
             
             addDebugMessage("━━━ DECODER SWITCH START ━━━")
@@ -828,7 +828,7 @@ class MainActivity : AppCompatActivity() {
         
         try {
             val prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE)
-            val useFfmpegAudio = prefs.getBoolean(SettingsActivity.KEY_USE_FFMPEG_AUDIO, true)
+            val useFfmpegAudio = prefs.getBoolean(SettingsActivity.KEY_USE_FFMPEG_AUDIO, false)
             val useFfmpegVideo = prefs.getBoolean(SettingsActivity.KEY_USE_FFMPEG_VIDEO, false)
             val bufferSeconds = prefs.getInt(SettingsActivity.KEY_BUFFER_SECONDS, 15)
             

@@ -108,7 +108,7 @@ class SettingsActivity : AppCompatActivity() {
     
     private fun setupFfmpegAudioSwitch() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        switchFfmpegAudio.isChecked = prefs.getBoolean(KEY_USE_FFMPEG_AUDIO, true)
+        switchFfmpegAudio.isChecked = prefs.getBoolean(KEY_USE_FFMPEG_AUDIO, false)
         
         updateSwitchColor(switchFfmpegAudio, switchFfmpegAudio.isChecked)
         
