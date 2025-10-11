@@ -34,37 +34,8 @@ class PlaylistAdapter(
         val currentProgramTextView: TextView = view.findViewById(R.id.current_program)
         val statusTextView: TextView = view.findViewById(R.id.video_status)
         
-        var onSingleTapAction: (() -> Unit)? = null
-        var onDoubleTapAction: (() -> Unit)? = null
-        
-        // GestureDetector must be created ONCE per ViewHolder, not recreated on every bind
-        val gestureDetector = GestureDetector(view.context, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onDown(e: MotionEvent): Boolean {
-                android.util.Log.e("PlaylistAdapter", "onDown event received")
-                return true  // MUST return true to continue gesture detection
-            }
-            
-            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                android.util.Log.e("PlaylistAdapter", "========== SINGLE TAP CONFIRMED ==========")
-                onSingleTapAction?.invoke()
-                return true
-            }
-            
-            override fun onDoubleTap(e: MotionEvent): Boolean {
-                android.util.Log.e("PlaylistAdapter", "========== DOUBLE TAP DETECTED ==========")
-                onDoubleTapAction?.invoke()
-                return true
-            }
-        })
-        
-        init {
-            // Set up touch listener ONCE on the cardView
-            cardView.setOnTouchListener { v, event ->
-                android.util.Log.d("PlaylistAdapter", "Touch event: action=${event.action}")
-                gestureDetector.onTouchEvent(event)
-                false  // Don't consume, allow propagation
-            }
-        }
+        var lastClickTime = 0L
+        var pendingAction: Runnable? = null
     }
     
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PlaylistViewHolder {
@@ -124,32 +95,42 @@ class PlaylistAdapter(
             holder.currentProgramTextView.visibility = View.GONE
         }
         
-        // Set up tap actions for the GestureDetector (updates on each bind)
-        holder.onSingleTapAction = {
-            android.util.Log.e("PlaylistAdapter", "Single tap action for: ${videoItem.title}")
+        // Simple click listener with double-tap detection
+        holder.cardView.setOnClickListener {
+            android.util.Log.e("PlaylistAdapter", "========== CARD CLICKED: ${videoItem.title} ==========")
+            
             val currentPosition = holder.bindingAdapterPosition
-            if (currentPosition != RecyclerView.NO_POSITION) {
-                val currentItem = displayList.getOrNull(currentPosition)
-                if (currentItem != null && currentItem.tvgId.isNotBlank()) {
-                    val currentActualIndex = playlist.indexOf(currentItem)
-                    android.util.Log.e("PlaylistAdapter", "Calling onShowPrograms for: ${currentItem.title}, tvgId='${currentItem.tvgId}'")
-                    onShowPrograms(currentActualIndex)
-                } else {
-                    android.util.Log.e("PlaylistAdapter", "No tvg-id for channel: ${currentItem?.title}")
+            if (currentPosition == RecyclerView.NO_POSITION) return@setOnClickListener
+            
+            val currentItem = displayList.getOrNull(currentPosition) ?: return@setOnClickListener
+            val currentActualIndex = playlist.indexOf(currentItem)
+            
+            val currentTime = System.currentTimeMillis()
+            val timeSinceLastClick = currentTime - holder.lastClickTime
+            
+            // Remove any pending single-tap action
+            holder.pendingAction?.let { holder.itemView.removeCallbacks(it) }
+            
+            if (timeSinceLastClick < 300) {
+                // DOUBLE TAP - play channel immediately
+                android.util.Log.e("PlaylistAdapter", "========== DOUBLE TAP: Playing ${currentItem.title} ==========")
+                holder.lastClickTime = 0
+                selectedPosition = currentActualIndex
+                onChannelClick(currentActualIndex)
+            } else {
+                // SINGLE TAP - show EPG after delay (in case of double tap)
+                android.util.Log.e("PlaylistAdapter", "========== SINGLE TAP: Scheduling EPG for ${currentItem.title} ==========")
+                holder.lastClickTime = currentTime
+                
+                holder.pendingAction = Runnable {
+                    if (currentItem.tvgId.isNotBlank()) {
+                        android.util.Log.e("PlaylistAdapter", "Showing EPG for: ${currentItem.title}, tvgId='${currentItem.tvgId}'")
+                        onShowPrograms(currentActualIndex)
+                    } else {
+                        android.util.Log.e("PlaylistAdapter", "No tvg-id for channel: ${currentItem.title}")
+                    }
                 }
-            }
-        }
-        
-        holder.onDoubleTapAction = {
-            android.util.Log.e("PlaylistAdapter", "Double tap action for: ${videoItem.title}")
-            val currentPosition = holder.bindingAdapterPosition
-            if (currentPosition != RecyclerView.NO_POSITION) {
-                val currentItem = displayList.getOrNull(currentPosition)
-                if (currentItem != null) {
-                    val currentActualIndex = playlist.indexOf(currentItem)
-                    selectedPosition = currentActualIndex
-                    onChannelClick(currentActualIndex)
-                }
+                holder.itemView.postDelayed(holder.pendingAction!!, 300)
             }
         }
     }
