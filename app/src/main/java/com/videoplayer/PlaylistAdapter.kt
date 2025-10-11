@@ -96,11 +96,11 @@ class PlaylistAdapter(
         // Update current program from EPG
         if (videoItem.tvgId.isNotBlank() && epgService != null) {
             val currentProgram = epgService.getCurrentProgram(videoItem.tvgId)
+            holder.currentProgramTextView.visibility = View.VISIBLE
             if (currentProgram != null) {
-                holder.currentProgramTextView.visibility = View.VISIBLE
                 holder.currentProgramTextView.text = currentProgram.title
             } else {
-                holder.currentProgramTextView.visibility = View.GONE
+                holder.currentProgramTextView.text = "no program"
             }
         } else {
             holder.currentProgramTextView.visibility = View.GONE
