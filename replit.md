@@ -4,6 +4,10 @@
 The Android IPTV Player is a native Android application built with Media3 (ExoPlayer) for robust IPTV playlist playback. It offers extensive codec support via FFmpeg and is designed for seamless interaction with Flussonic Media Server using token authentication. The project aims to provide a high-performance, user-friendly video player capable of handling various IPTV stream formats and offering advanced features like channel caching, favorites management, and per-channel aspect ratio persistence.
 
 ## Recent Changes
+- **October 11, 2025**: Critical EPG tap detection fixes and default codec changes:
+  - **Fixed EPG tap detection**: Resolved issue where MaterialCardView's focusable property blocked touch events. Now uses GestureDetector with proper onDown() implementation on cardView (not itemView) to allow favorite button touches
+  - **Default audio codec**: Changed from FFmpeg to built-in hardware decoder by default for better compatibility
+  - **Robust tap handling**: Single tap shows EPG programs, double tap plays channel, uses bindingAdapterPosition for safe RecyclerView position access
 - **October 10, 2025**: Complete EPG (Electronic Program Guide) integration:
   - **EPG Service**: Full service with health check endpoint, POST request for fetching program data, local JSON storage, and program lookup by channel tvg-id
   - **Settings UI**: Added EPG service URL configuration field in settings
@@ -65,7 +69,7 @@ The Android IPTV Player is a native Android application built with Media3 (ExoPl
 
 ### Technical Implementations
 - **Core Player**: Native Android application using Kotlin, Media3 (ExoPlayer), targeting Min SDK 24 (Android 7.0) and Target SDK 34 (Android 14).
-- **Codec Support**: Utilizes NextLib FFmpeg for both audio (Vorbis, Opus, FLAC, MP2, MP3, AAC, AC3, etc.) and video (H.264, HEVC, VP8, VP9) software decoding with separate toggles for each.
+- **Codec Support**: Utilizes NextLib FFmpeg for both audio (Vorbis, Opus, FLAC, MP2, MP3, AAC, AC3, etc.) and video (H.264, HEVC, VP8, VP9) software decoding with separate toggles for each. Default: hardware audio decoder for better compatibility.
 - **Playlist Management**: Supports M3U/M3U8 playlists from local files or URLs. Playlists are stored permanently (local) or reloaded automatically (URL).
 - **Channel Caching**: Implemented `ChannelStorage.kt` with JSON serialization and content-based hash detection to avoid redundant playlist parsing.
 - **Favorites Functionality**: Allows users to mark and filter favorite channels, with persistence across app restarts.
@@ -103,7 +107,7 @@ The Android IPTV Player is a native Android application built with Media3 (ExoPl
 ### UI/UX Design
 - **Programs panel**: Dark background (#0d0d0d) with date delimiters (#1a1a1a), matching reference screenshot design
 - **Program indicators**: Green dot (12dp circle) for currently airing programs, time displayed in HH:mm format
-- **Touch gestures**: GestureDetector integration for single tap (programs) vs double tap (play) differentiation
+- **Touch gestures**: GestureDetector on MaterialCardView with onDown() returning true enables gesture callbacks. Single tap (onSingleTapConfirmed) shows programs panel, double tap (onDoubleTap) plays channel. Touch listener on cardView returns false to allow event propagation for ripple feedback and favorite button clicks.
 - **Auto-hide behavior**: Programs panel hidden when controls are hidden or when switching channels
 
 ## External Dependencies
