@@ -11,6 +11,11 @@ The Android IPTV Player is a native Android application designed for robust IPTV
 - Do not make changes to the file `Y`.
 
 ## Recent Changes
+- **October 11, 2025**: EPG performance optimization:
+  - **Batched async fetching**: EPG now fetches in batches of 20 channels asynchronously in background
+  - **Progressive updates**: Channel list and EPG data update continuously as each batch completes
+  - **Non-blocking**: App remains fully responsive even with hundreds of channels
+  - **Real-time progress**: Debug messages show batch completion progress (e.g., "📦 EPG batch 5/10 complete")
 - **October 11, 2025**: EPG UI/UX enhancements:
   - **EPG sync with playlist**: EPG window now hides automatically when channel list closes or when switching channels
   - **Visual EPG indicator**: Added 📺 icon in channel list showing which channel currently has EPG panel open
