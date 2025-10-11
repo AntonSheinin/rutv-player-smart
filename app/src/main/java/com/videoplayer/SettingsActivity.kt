@@ -102,7 +102,6 @@ class SettingsActivity : AppCompatActivity() {
         switchDebugLog.setOnCheckedChangeListener { _, isChecked ->
             prefs.edit().putBoolean(KEY_SHOW_DEBUG_LOG, isChecked).apply()
             updateSwitchColor(switchDebugLog, isChecked)
-            Toast.makeText(this, if (isChecked) "Debug log enabled" else "Debug log disabled", Toast.LENGTH_SHORT).show()
         }
     }
     
@@ -115,7 +114,6 @@ class SettingsActivity : AppCompatActivity() {
         switchFfmpegAudio.setOnCheckedChangeListener { _, isChecked ->
             prefs.edit().putBoolean(KEY_USE_FFMPEG_AUDIO, isChecked).apply()
             updateSwitchColor(switchFfmpegAudio, isChecked)
-            Toast.makeText(this, if (isChecked) "FFmpeg audio decoder enabled" else "Hardware audio decoder enabled", Toast.LENGTH_SHORT).show()
         }
     }
     
@@ -128,7 +126,6 @@ class SettingsActivity : AppCompatActivity() {
         switchFfmpegVideo.setOnCheckedChangeListener { _, isChecked ->
             prefs.edit().putBoolean(KEY_USE_FFMPEG_VIDEO, isChecked).apply()
             updateSwitchColor(switchFfmpegVideo, isChecked)
-            Toast.makeText(this, if (isChecked) "FFmpeg video decoder enabled" else "Hardware video decoder enabled", Toast.LENGTH_SHORT).show()
         }
     }
     
@@ -198,11 +195,10 @@ class SettingsActivity : AppCompatActivity() {
             val content = contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
             content?.let { 
                 savePlaylistContent(it)
-                Toast.makeText(this, "Playlist saved!", Toast.LENGTH_SHORT).show()
                 finish()
             }
         } catch (e: Exception) {
-            Toast.makeText(this, "Failed to load playlist: ${e.message}", Toast.LENGTH_LONG).show()
+            Log.e("SettingsActivity", "Failed to load playlist: ${e.message}", e)
         }
     }
     
@@ -213,10 +209,9 @@ class SettingsActivity : AppCompatActivity() {
                     URL(url).readText()
                 }
                 savePlaylistUrl(url)
-                Toast.makeText(this@SettingsActivity, "Playlist URL saved!", Toast.LENGTH_SHORT).show()
                 finish()
             } catch (e: Exception) {
-                Toast.makeText(this@SettingsActivity, "Failed to load URL: ${e.message}", Toast.LENGTH_LONG).show()
+                Log.e("SettingsActivity", "Failed to load URL: ${e.message}", e)
             }
         }
     }
@@ -225,7 +220,7 @@ class SettingsActivity : AppCompatActivity() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         
         if (content.length > 500000) {
-            Toast.makeText(this, "⚠️ Playlist too large (${content.length} bytes). Use URL mode instead.", Toast.LENGTH_LONG).show()
+            Log.e("SettingsActivity", "Playlist too large: ${content.length} bytes")
             return
         }
         

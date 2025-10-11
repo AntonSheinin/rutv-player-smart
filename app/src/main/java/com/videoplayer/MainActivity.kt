@@ -253,47 +253,57 @@ class MainActivity : AppCompatActivity() {
             addDebugMessage("Settings: Buffer=${bufferSeconds}s, FFmpeg Audio=${if (useFfmpegAudio) "ON" else "OFF"}, FFmpeg Video=${if (useFfmpegVideo) "ON" else "OFF"}")
             
             autoLoadPlaylist()
+            fetchEpgData()
             
             if (hadPlayer && playlist.isNotEmpty()) {
-                val wasUsingFfmpegVideo = getSharedPreferences(SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE)
-                    .getBoolean("was_using_ffmpeg_video", false)
+                val wasUsingFfmpegAudio = prefs.getBoolean("was_using_ffmpeg_audio", false)
+                val wasUsingFfmpegVideo = prefs.getBoolean("was_using_ffmpeg_video", false)
                 
-                addDebugMessage("🔄 Step 1: Detaching PlayerView from old player")
-                playerView.player = null
+                val audioChanged = wasUsingFfmpegAudio != useFfmpegAudio
+                val videoChanged = wasUsingFfmpegVideo != useFfmpegVideo
                 
-                addDebugMessage("🔄 Step 2: Stopping playback")
-                player?.stop()
-                
-                addDebugMessage("🔄 Step 3: Releasing old player instance")
-                player?.release()
-                
-                addDebugMessage("🔄 Step 4: Clearing player reference")
-                player = null
-                
-                if (wasUsingFfmpegVideo && !useFfmpegVideo) {
-                    addDebugMessage("🔄 Step 5: FFmpeg video→hardware - RESTARTING ACTIVITY for clean state...")
+                if (audioChanged || videoChanged) {
+                    addDebugMessage("🔄 Decoder changed: Audio=${if (audioChanged) "YES" else "NO"}, Video=${if (videoChanged) "YES" else "NO"}")
                     
-                    getSharedPreferences(SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE)
-                        .edit()
+                    addDebugMessage("🔄 Step 1: Detaching PlayerView from old player")
+                    playerView.player = null
+                    
+                    addDebugMessage("🔄 Step 2: Stopping playback")
+                    player?.stop()
+                    
+                    addDebugMessage("🔄 Step 3: Releasing old player instance")
+                    player?.release()
+                    
+                    addDebugMessage("🔄 Step 4: Clearing player reference")
+                    player = null
+                    
+                    if (wasUsingFfmpegVideo && !useFfmpegVideo) {
+                        addDebugMessage("🔄 Step 5: FFmpeg video→hardware - RESTARTING ACTIVITY for clean state...")
+                        
+                        prefs.edit()
+                            .putBoolean("was_using_ffmpeg_audio", useFfmpegAudio)
+                            .putBoolean("was_using_ffmpeg_video", useFfmpegVideo)
+                            .apply()
+                        
+                        finish()
+                        startActivity(intent)
+                        return@launch
+                    } else {
+                        addDebugMessage("🔄 Step 5: Waiting 100ms for complete cleanup...")
+                        kotlinx.coroutines.delay(100)
+                    }
+                    
+                    prefs.edit()
+                        .putBoolean("was_using_ffmpeg_audio", useFfmpegAudio)
                         .putBoolean("was_using_ffmpeg_video", useFfmpegVideo)
                         .apply()
                     
-                    finish()
-                    startActivity(intent)
-                    return@launch
+                    addDebugMessage("🔄 Step 6: Creating new player with factory=${if (useFfmpegAudio || useFfmpegVideo) "FfmpegRenderersFactory" else "DefaultRenderersFactory"}")
+                    initializePlayer()
+                    addDebugMessage("━━━ DECODER SWITCH COMPLETE ━━━")
                 } else {
-                    addDebugMessage("🔄 Step 5: Waiting 100ms for complete cleanup...")
-                    kotlinx.coroutines.delay(100)
+                    addDebugMessage("✓ Decoder settings unchanged, skipping player reinit")
                 }
-                
-                getSharedPreferences(SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE)
-                    .edit()
-                    .putBoolean("was_using_ffmpeg_video", useFfmpegVideo)
-                    .apply()
-                
-                addDebugMessage("🔄 Step 6: Creating new player with factory=${if (useFfmpegAudio || useFfmpegVideo) "FfmpegRenderersFactory" else "DefaultRenderersFactory"}")
-                initializePlayer()
-                addDebugMessage("━━━ DECODER SWITCH COMPLETE ━━━")
             }
         }
     }
@@ -337,7 +347,6 @@ class MainActivity : AppCompatActivity() {
                         if (it.length > 500000) {
                             addDebugMessage("⚠️ Playlist too large, clearing...")
                             prefs.edit().remove(SettingsActivity.KEY_PLAYLIST_CONTENT).apply()
-                            Toast.makeText(this, "Saved playlist too large. Please use URL mode for large playlists.", Toast.LENGTH_LONG).show()
                             false
                         } else {
                             val contentHash = it.hashCode().toString()
@@ -401,10 +410,7 @@ class MainActivity : AppCompatActivity() {
                             addDebugMessage("Parsing NEW playlist from URL (content changed)")
                             Log.e("PLAYLIST_DEBUG", "Parsing NEW URL content (hash changed or no cache)")
                             loadPlaylistContent(playlistContent, contentHash)
-                        } ?: run {
-                            Toast.makeText(this, "Failed to load playlist from URL", Toast.LENGTH_LONG).show()
-                            false
-                        }
+                        } ?: false
                     } ?: false
                 }
                 else -> {
@@ -415,14 +421,11 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Log.e("VideoPlayer", "Error auto-loading playlist", e)
             addDebugMessage("✗ Failed to auto-load playlist: ${e.message}")
-            Toast.makeText(this, "Failed to load playlist: ${e.message}", Toast.LENGTH_LONG).show()
             return false
         }
     }
     
     private suspend fun loadPlaylistFromUrlWithResult(urlString: String, playlistHash: String = ""): Boolean {
-        Toast.makeText(this, "Loading playlist from URL...", Toast.LENGTH_SHORT).show()
-        
         return try {
             val content = withContext(Dispatchers.IO) {
                 URL(urlString).readText()
@@ -430,7 +433,6 @@ class MainActivity : AppCompatActivity() {
             loadPlaylistContent(content, playlistHash)
         } catch (e: Exception) {
             Log.e("VideoPlayer", "Error loading playlist from URL", e)
-            Toast.makeText(this@MainActivity, "Failed to load URL: ${e.message}", Toast.LENGTH_LONG).show()
             false
         }
     }
@@ -459,18 +461,14 @@ class MainActivity : AppCompatActivity() {
                 androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM -> "ZOOM"
                 else -> "FIT"
             }
-            
-            Toast.makeText(this, "Aspect ratio: $modeText", Toast.LENGTH_SHORT).show()
         }
     }
     
     private fun setupOrientationButton() {
         btnOrientation.setOnClickListener {
             videoRotation = if (videoRotation == 0f) {
-                Toast.makeText(this, "Vertical", Toast.LENGTH_SHORT).show()
                 270f
             } else {
-                Toast.makeText(this, "Horizontal", Toast.LENGTH_SHORT).show()
                 0f
             }
             
@@ -535,7 +533,6 @@ class MainActivity : AppCompatActivity() {
     
     private fun showChannelNumberDialog() {
         if (playlist.isEmpty()) {
-            Toast.makeText(this, "No playlist loaded. Load a playlist in settings first.", Toast.LENGTH_SHORT).show()
             return
         }
         
@@ -575,8 +572,6 @@ class MainActivity : AppCompatActivity() {
                         updateChannelInfo()
                     }
                 }
-            } else {
-                Toast.makeText(this, "Invalid channel number. Enter 1-${playlist.size}", Toast.LENGTH_SHORT).show()
             }
         }
         
@@ -676,8 +671,6 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun hideUIElements() {
-        playlistUserVisible = false
-        playlistWrapper.visibility = View.GONE
         programsWrapper.visibility = View.GONE
     }
     
@@ -773,18 +766,15 @@ class MainActivity : AppCompatActivity() {
                 
                 initializePlayer()
                 
-                Toast.makeText(this, "Loaded ${channels.size} channels", Toast.LENGTH_SHORT).show()
                 addDebugMessage("✓ Loaded ${channels.size} channels")
                 Log.d("VideoPlayer", "Loaded ${channels.size} channels from playlist")
                 return true
             } else {
-                Toast.makeText(this, "No valid channels found in playlist", Toast.LENGTH_LONG).show()
                 return false
             }
         } catch (e: Exception) {
             Log.e("VideoPlayer", "Error loading playlist content", e)
             addDebugMessage("✗ Error loading playlist: ${e.message}")
-            Toast.makeText(this, "Error loading playlist: ${e.message}", Toast.LENGTH_LONG).show()
             return false
         }
     }
@@ -825,14 +815,12 @@ class MainActivity : AppCompatActivity() {
             onShowPrograms = { position ->
                 val channel = playlist.getOrNull(position)
                 Log.e("TAP_DEBUG", "MainActivity.onShowPrograms called for position: $position, channel: ${channel?.title}")
-                android.widget.Toast.makeText(this, "onShowPrograms: ${channel?.title}", android.widget.Toast.LENGTH_SHORT).show()
                 channel?.let {
                     if (it.tvgId.isNotBlank()) {
                         Log.e("TAP_DEBUG", "Showing programs for tvgId: ${it.tvgId}")
                         showProgramsForChannel(it.tvgId)
                     } else {
                         Log.e("TAP_DEBUG", "Channel has no tvgId: ${it.title}")
-                        android.widget.Toast.makeText(this, "No tvg-id for ${it.title}", android.widget.Toast.LENGTH_SHORT).show()
                     }
                 }
             },
@@ -1142,17 +1130,6 @@ class MainActivity : AppCompatActivity() {
                             seekToDefaultPosition()
                             prepare()
                             playWhenReady = true
-                            Toast.makeText(
-                                this@MainActivity,
-                                "Stream fell behind - jumping to live",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        } else {
-                            Toast.makeText(
-                                this@MainActivity, 
-                                "Playback failed: ${error.errorCodeName}\nSelect another channel", 
-                                Toast.LENGTH_LONG
-                            ).show()
                         }
                     }
                 })
@@ -1171,10 +1148,14 @@ class MainActivity : AppCompatActivity() {
             val startIndex = player?.currentMediaItemIndex ?: 0
             playlistAdapter.updateCurrentlyPlaying(startIndex)
             
+            prefs.edit()
+                .putBoolean("was_using_ffmpeg_audio", useFfmpegAudio)
+                .putBoolean("was_using_ffmpeg_video", useFfmpegVideo)
+                .apply()
+            
         } catch (e: Exception) {
             Log.e("VideoPlayer", "Error initializing player", e)
             addDebugMessage("✗ Player init failed: ${e.message}")
-            Toast.makeText(this, "Failed to initialize player: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
     
@@ -1190,11 +1171,6 @@ class MainActivity : AppCompatActivity() {
                             addDebugMessage("→ Stream may be unavailable")
                             stopBufferingCheck()
                             p.playWhenReady = false
-                            Toast.makeText(
-                                this@MainActivity,
-                                "Channel not responding - please try another",
-                                Toast.LENGTH_LONG
-                            ).show()
                         } else {
                             bufferingCheckHandler.postDelayed(this, 1000)
                         }
@@ -1250,11 +1226,9 @@ class MainActivity : AppCompatActivity() {
     private fun showProgramsForChannel(tvgId: String) {
         try {
             Log.e("TAP_DEBUG", "showProgramsForChannel called for tvgId: $tvgId")
-            android.widget.Toast.makeText(this, "showProgramsForChannel: $tvgId", android.widget.Toast.LENGTH_SHORT).show()
             
             if (epgService == null) {
                 Log.e("TAP_DEBUG", "EPG service is null!")
-                android.widget.Toast.makeText(this, "EPG service is null!", android.widget.Toast.LENGTH_SHORT).show()
                 return
             }
             
@@ -1263,7 +1237,6 @@ class MainActivity : AppCompatActivity() {
             
             if (!::programsAdapter.isInitialized) {
                 Log.e("TAP_DEBUG", "ERROR: programsAdapter not initialized!")
-                android.widget.Toast.makeText(this, "ERROR: Adapter not initialized", android.widget.Toast.LENGTH_SHORT).show()
                 return
             }
             
@@ -1275,21 +1248,17 @@ class MainActivity : AppCompatActivity() {
                         programsWrapper.visibility = View.VISIBLE
                         Log.e("TAP_DEBUG", "Programs panel visibility set to VISIBLE")
                         addDebugMessage("📺 Showing ${programs.size} programs for channel")
-                        android.widget.Toast.makeText(this, "Showing ${programs.size} programs", android.widget.Toast.LENGTH_SHORT).show()
                     } else {
                         programsWrapper.visibility = View.GONE
                         Log.e("TAP_DEBUG", "No programs found, hiding panel")
                         addDebugMessage("⚠️ No EPG data for this channel (tvgId: $tvgId)")
-                        android.widget.Toast.makeText(this, "No EPG data for tvgId: $tvgId", android.widget.Toast.LENGTH_SHORT).show()
                     }
                 } catch (e: Exception) {
                     Log.e("TAP_DEBUG", "ERROR in runOnUiThread: ${e.message}", e)
-                    android.widget.Toast.makeText(this, "ERROR in UI update: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
                 }
             }
         } catch (e: Exception) {
             Log.e("TAP_DEBUG", "ERROR in showProgramsForChannel: ${e.message}", e)
-            android.widget.Toast.makeText(this, "ERROR: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
         }
     }
     

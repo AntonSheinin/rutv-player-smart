@@ -101,7 +101,6 @@ class PlaylistAdapter(
         // Simple click listener with double-tap detection
         holder.cardView.setOnClickListener {
             android.util.Log.e("TAP_DEBUG", "========== CARD CLICKED: ${videoItem.title} ==========")
-            android.widget.Toast.makeText(holder.itemView.context, "Clicked: ${videoItem.title}", android.widget.Toast.LENGTH_SHORT).show()
             
             val currentPosition = holder.bindingAdapterPosition
             if (currentPosition == RecyclerView.NO_POSITION) {
@@ -131,7 +130,6 @@ class PlaylistAdapter(
             if (timeSinceLastClick < 300) {
                 // DOUBLE TAP - play channel immediately
                 android.util.Log.e("TAP_DEBUG", "========== DOUBLE TAP: Playing ${currentItem.title} ==========")
-                android.widget.Toast.makeText(holder.itemView.context, "Double tap: ${currentItem.title}", android.widget.Toast.LENGTH_SHORT).show()
                 holder.lastClickTime = 0
                 holder.pendingAction = null  // Clear state after double tap
                 selectedPosition = currentActualIndex
@@ -140,7 +138,6 @@ class PlaylistAdapter(
                 // SINGLE TAP - show EPG after delay (in case of double tap)
                 android.util.Log.e("TAP_DEBUG", "========== SINGLE TAP: Scheduling EPG for ${currentItem.title} ==========")
                 android.util.Log.e("TAP_DEBUG", "tvgId: '${currentItem.tvgId}'")
-                android.widget.Toast.makeText(holder.itemView.context, "Single tap: ${currentItem.title}", android.widget.Toast.LENGTH_SHORT).show()
                 holder.lastClickTime = currentTime
                 
                 holder.pendingAction = Runnable {
@@ -151,7 +148,6 @@ class PlaylistAdapter(
                         android.util.Log.e("TAP_DEBUG", "onShowPrograms called!")
                     } else {
                         android.util.Log.e("TAP_DEBUG", "No tvg-id for channel: ${currentItem.title}")
-                        android.widget.Toast.makeText(holder.itemView.context, "No EPG data (no tvg-id)", android.widget.Toast.LENGTH_SHORT).show()
                     }
                 }
                 android.util.Log.e("TAP_DEBUG", "Posting delayed runnable (300ms)")
