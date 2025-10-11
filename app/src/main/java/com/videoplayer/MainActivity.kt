@@ -677,8 +677,15 @@ class MainActivity : AppCompatActivity() {
     
     private fun updateChannelInfo() {
         try {
+            Log.e("CHANNEL_INFO_DEBUG", "updateChannelInfo called")
+            Log.e("CHANNEL_INFO_DEBUG", "playlistAdapter initialized: ${::playlistAdapter.isInitialized}")
+            if (::playlistAdapter.isInitialized) {
+                Log.e("CHANNEL_INFO_DEBUG", "selectedPosition: ${playlistAdapter.selectedPosition}")
+            }
+            
             if (::playlistAdapter.isInitialized && playlistAdapter.selectedPosition >= 0) {
                 val item = playlist.getOrNull(playlistAdapter.selectedPosition)
+                Log.e("CHANNEL_INFO_DEBUG", "item: ${item?.title}")
                 item?.let {
                     val channelText = "#${playlistAdapter.selectedPosition + 1} • ${it.title}"
                     
@@ -699,9 +706,11 @@ class MainActivity : AppCompatActivity() {
                     }
                     
                     channelInfo.visibility = View.VISIBLE
+                    Log.e("CHANNEL_INFO_DEBUG", "channelInfo set to VISIBLE: ${channelInfo.text}")
                 }
             } else {
                 channelInfo.visibility = View.GONE
+                Log.e("CHANNEL_INFO_DEBUG", "channelInfo set to GONE (selectedPosition < 0 or adapter not initialized)")
             }
         } catch (e: Exception) {
             Log.e("VideoPlayer", "Error updating channel info: ${e.message}")
