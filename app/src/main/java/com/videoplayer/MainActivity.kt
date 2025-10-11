@@ -1353,7 +1353,8 @@ class MainActivity : AppCompatActivity() {
             if (content != null) {
                 val channels = M3U8Parser.parse(content)
                 val channelsWithEpg = channels.filter { it.tvgId.isNotBlank() && it.catchupDays > 0 }
-                addDebugMessage("📡 Fetching EPG for ${channelsWithEpg.size} channels (ONE request, background thread)...")
+                addDebugMessage("📡 Fetching EPG for ${channelsWithEpg.size}/${channels.size} channels with tvg-id (ONE request)...")
+                Log.d("VideoPlayer", "EPG: ${channelsWithEpg.size} channels have tvg-id, ${channels.size - channelsWithEpg.size} channels don't")
                 
                 try {
                     val success = service.fetchEpgData(

@@ -102,6 +102,7 @@ class EpgService(private val context: Context) {
                     Log.d("VideoPlayer", "📡 EPG: Parsed ${epgResponse.totalPrograms} programs for ${epgResponse.channelsFound} channels")
                     saveEpgData(epgResponse)
                     Log.d(TAG, "✅ EPG fetch complete: ${epgResponse.channelsFound} channels, ${epgResponse.totalPrograms} programs")
+                    Log.d("VideoPlayer", "✅ EPG loaded: ${epgResponse.channelsFound} channels have program data")
                     
                     withContext(Dispatchers.Main) {
                         onComplete()
