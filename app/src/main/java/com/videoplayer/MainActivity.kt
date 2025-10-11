@@ -324,9 +324,14 @@ class MainActivity : AppCompatActivity() {
         val prefs = getSharedPreferences(SettingsActivity.PREFS_NAME, Context.MODE_PRIVATE)
         val playlistType = prefs.getString(SettingsActivity.KEY_PLAYLIST_TYPE, null)
         
+        Log.e("PLAYLIST_DEBUG", "autoLoadPlaylist: playlistType=$playlistType")
+        addDebugMessage("📋 Auto-load: type=$playlistType")
+        
         try {
             when (playlistType) {
                 SettingsActivity.TYPE_FILE -> {
+                    Log.e("PLAYLIST_DEBUG", "Loading from FILE")
+                    addDebugMessage("📄 Loading from file...")
                     val content = prefs.getString(SettingsActivity.KEY_PLAYLIST_CONTENT, null)
                     return content?.let { 
                         if (it.length > 500000) {
@@ -338,10 +343,13 @@ class MainActivity : AppCompatActivity() {
                             val contentHash = it.hashCode().toString()
                             val storedHash = ChannelStorage.getStoredPlaylistHash(this)
                             
+                            Log.e("PLAYLIST_DEBUG", "FILE: contentHash=$contentHash, storedHash=$storedHash")
+                            
                             if (contentHash == storedHash) {
                                 val cachedChannels = ChannelStorage.loadChannels(this)
                                 if (cachedChannels != null && cachedChannels.isNotEmpty()) {
-                                    addDebugMessage("✓ Loading ${cachedChannels.size} channels from cache")
+                                    addDebugMessage("✓ Loading ${cachedChannels.size} channels from FILE cache")
+                                    Log.e("PLAYLIST_DEBUG", "Using FILE cache: ${cachedChannels.size} channels")
                                     playlist.clear()
                                     playlist.addAll(cachedChannels)
                                     playlistAdapter.notifyDataSetChanged()
@@ -350,15 +358,19 @@ class MainActivity : AppCompatActivity() {
                                 }
                             }
                             
-                            addDebugMessage("Parsing playlist file")
+                            addDebugMessage("Parsing NEW playlist file")
+                            Log.e("PLAYLIST_DEBUG", "Parsing NEW file content (hash changed or no cache)")
                             loadPlaylistContent(it, contentHash)
                         }
                     } ?: false
                 }
                 SettingsActivity.TYPE_URL -> {
+                    Log.e("PLAYLIST_DEBUG", "Loading from URL")
+                    addDebugMessage("🌐 Loading from URL...")
                     val url = prefs.getString(SettingsActivity.KEY_PLAYLIST_URL, null)
+                    Log.e("PLAYLIST_DEBUG", "URL: $url")
                     return url?.let {
-                        addDebugMessage("Fetching playlist from URL")
+                        addDebugMessage("Fetching playlist from: $it")
                         val content = withContext(Dispatchers.IO) {
                             try {
                                 URL(it).readText()
@@ -371,10 +383,13 @@ class MainActivity : AppCompatActivity() {
                             val contentHash = playlistContent.hashCode().toString()
                             val storedHash = ChannelStorage.getStoredPlaylistHash(this)
                             
+                            Log.e("PLAYLIST_DEBUG", "URL: contentHash=$contentHash, storedHash=$storedHash")
+                            
                             if (contentHash == storedHash) {
                                 val cachedChannels = ChannelStorage.loadChannels(this)
                                 if (cachedChannels != null && cachedChannels.isNotEmpty()) {
-                                    addDebugMessage("✓ Loading ${cachedChannels.size} channels from cache")
+                                    addDebugMessage("✓ Loading ${cachedChannels.size} channels from URL cache")
+                                    Log.e("PLAYLIST_DEBUG", "Using URL cache: ${cachedChannels.size} channels")
                                     playlist.clear()
                                     playlist.addAll(cachedChannels)
                                     playlistAdapter.notifyDataSetChanged()
@@ -383,7 +398,8 @@ class MainActivity : AppCompatActivity() {
                                 }
                             }
                             
-                            addDebugMessage("Parsing playlist (content changed)")
+                            addDebugMessage("Parsing NEW playlist from URL (content changed)")
+                            Log.e("PLAYLIST_DEBUG", "Parsing NEW URL content (hash changed or no cache)")
                             loadPlaylistContent(playlistContent, contentHash)
                         } ?: run {
                             Toast.makeText(this, "Failed to load playlist from URL", Toast.LENGTH_LONG).show()
@@ -1231,28 +1247,48 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun showProgramsForChannel(tvgId: String) {
-        Log.e("TAP_DEBUG", "showProgramsForChannel called for tvgId: $tvgId")
-        android.widget.Toast.makeText(this, "showProgramsForChannel: $tvgId", android.widget.Toast.LENGTH_SHORT).show()
-        epgService?.let { service ->
-            val programs = service.getProgramsForChannel(tvgId)
+        try {
+            Log.e("TAP_DEBUG", "showProgramsForChannel called for tvgId: $tvgId")
+            android.widget.Toast.makeText(this, "showProgramsForChannel: $tvgId", android.widget.Toast.LENGTH_SHORT).show()
+            
+            if (epgService == null) {
+                Log.e("TAP_DEBUG", "EPG service is null!")
+                android.widget.Toast.makeText(this, "EPG service is null!", android.widget.Toast.LENGTH_SHORT).show()
+                return
+            }
+            
+            val programs = epgService!!.getProgramsForChannel(tvgId)
             Log.e("TAP_DEBUG", "Retrieved ${programs.size} programs for tvgId: $tvgId")
+            
+            if (!::programsAdapter.isInitialized) {
+                Log.e("TAP_DEBUG", "ERROR: programsAdapter not initialized!")
+                android.widget.Toast.makeText(this, "ERROR: Adapter not initialized", android.widget.Toast.LENGTH_SHORT).show()
+                return
+            }
+            
             runOnUiThread {
-                if (programs.isNotEmpty()) {
-                    programsAdapter.updatePrograms(programs)
-                    programsWrapper.visibility = View.VISIBLE
-                    Log.e("TAP_DEBUG", "Programs panel visibility set to VISIBLE")
-                    addDebugMessage("📺 Showing ${programs.size} programs for channel")
-                    android.widget.Toast.makeText(this, "Showing ${programs.size} programs", android.widget.Toast.LENGTH_SHORT).show()
-                } else {
-                    programsWrapper.visibility = View.GONE
-                    Log.e("TAP_DEBUG", "No programs found, hiding panel")
-                    addDebugMessage("⚠️ No EPG data for this channel (tvgId: $tvgId)")
-                    android.widget.Toast.makeText(this, "No EPG data for tvgId: $tvgId", android.widget.Toast.LENGTH_SHORT).show()
+                try {
+                    if (programs.isNotEmpty()) {
+                        Log.e("TAP_DEBUG", "Calling programsAdapter.updatePrograms with ${programs.size} programs")
+                        programsAdapter.updatePrograms(programs)
+                        programsWrapper.visibility = View.VISIBLE
+                        Log.e("TAP_DEBUG", "Programs panel visibility set to VISIBLE")
+                        addDebugMessage("📺 Showing ${programs.size} programs for channel")
+                        android.widget.Toast.makeText(this, "Showing ${programs.size} programs", android.widget.Toast.LENGTH_SHORT).show()
+                    } else {
+                        programsWrapper.visibility = View.GONE
+                        Log.e("TAP_DEBUG", "No programs found, hiding panel")
+                        addDebugMessage("⚠️ No EPG data for this channel (tvgId: $tvgId)")
+                        android.widget.Toast.makeText(this, "No EPG data for tvgId: $tvgId", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    Log.e("TAP_DEBUG", "ERROR in runOnUiThread: ${e.message}", e)
+                    android.widget.Toast.makeText(this, "ERROR in UI update: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
                 }
             }
-        } ?: run {
-            Log.e("TAP_DEBUG", "EPG service is null!")
-            android.widget.Toast.makeText(this, "EPG service is null!", android.widget.Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Log.e("TAP_DEBUG", "ERROR in showProgramsForChannel: ${e.message}", e)
+            android.widget.Toast.makeText(this, "ERROR: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
         }
     }
     
