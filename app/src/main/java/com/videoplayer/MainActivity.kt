@@ -687,7 +687,8 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun hideUIElements() {
-        programsWrapper.visibility = View.GONE
+        // EPG should NOT auto-hide with player controls
+        // It only closes when user switches channels or closes playlist
     }
     
     private fun showUIElements() {
