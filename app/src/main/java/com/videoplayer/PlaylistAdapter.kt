@@ -47,6 +47,8 @@ class PlaylistAdapter(
         val videoItem = displayList[position]
         val actualIndex = playlist.indexOf(videoItem)
         
+        android.util.Log.d("PlaylistAdapter", "onBindViewHolder called for position: $position, channel: ${videoItem.title}")
+        
         holder.favoriteButton.text = if (videoItem.isFavorite) "★" else "☆"
         holder.favoriteButton.setTextColor(
             if (videoItem.isFavorite) 
@@ -92,38 +94,45 @@ class PlaylistAdapter(
             holder.currentProgramTextView.visibility = View.GONE
         }
         
+        // Remove any existing click listener to avoid stacking
+        holder.cardView.setOnClickListener(null)
+        
         // Single tap = show programs, Double tap = play channel
         val doubleClickThreshold = 300L // 300ms for double tap
         
         holder.cardView.setOnClickListener {
-            android.util.Log.d("PlaylistAdapter", "Click on channel: ${videoItem.title}")
+            android.util.Log.e("PlaylistAdapter", "========== CLICK DETECTED ON CHANNEL: ${videoItem.title} ==========")
             val currentTime = System.currentTimeMillis()
             val timeDiff = currentTime - holder.lastClickTime
             
+            android.util.Log.e("PlaylistAdapter", "Current time: $currentTime, Last click: ${holder.lastClickTime}, Diff: $timeDiff")
+            
             // Cancel any pending single tap action
             holder.pendingRunnable?.let { runnable ->
+                android.util.Log.d("PlaylistAdapter", "Cancelling pending runnable")
                 holder.cardView.removeCallbacks(runnable)
                 holder.pendingRunnable = null
             }
             
             if (timeDiff < doubleClickThreshold && holder.lastClickTime != 0L) {
                 // Double tap detected
-                android.util.Log.d("PlaylistAdapter", "Double tap detected on channel: ${videoItem.title}")
+                android.util.Log.e("PlaylistAdapter", "DOUBLE TAP DETECTED on channel: ${videoItem.title}")
                 selectedPosition = actualIndex
                 onChannelClick(actualIndex)
                 holder.lastClickTime = 0L // Reset to prevent triple tap
             } else {
                 // Potential single tap - wait to confirm it's not a double tap
+                android.util.Log.d("PlaylistAdapter", "Potential single tap, waiting ${doubleClickThreshold}ms to confirm...")
                 holder.lastClickTime = currentTime
                 val runnable = Runnable {
                     if (holder.lastClickTime != 0L) {
                         // It was indeed a single tap (no second tap came within threshold)
-                        android.util.Log.d("PlaylistAdapter", "Single tap confirmed on channel: ${videoItem.title}, tvgId: '${videoItem.tvgId}'")
+                        android.util.Log.e("PlaylistAdapter", "SINGLE TAP CONFIRMED on channel: ${videoItem.title}, tvgId: '${videoItem.tvgId}'")
                         if (videoItem.tvgId.isNotBlank()) {
-                            android.util.Log.d("PlaylistAdapter", "Calling onShowPrograms for index: $actualIndex")
+                            android.util.Log.e("PlaylistAdapter", "Calling onShowPrograms for index: $actualIndex")
                             onShowPrograms(actualIndex)
                         } else {
-                            android.util.Log.d("PlaylistAdapter", "No tvg-id for channel: ${videoItem.title}")
+                            android.util.Log.e("PlaylistAdapter", "No tvg-id for channel: ${videoItem.title}")
                         }
                         holder.lastClickTime = 0L
                     }
