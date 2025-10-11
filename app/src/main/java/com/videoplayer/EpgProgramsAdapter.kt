@@ -17,7 +17,7 @@ class EpgProgramsAdapter(
     
     sealed class EpgItem {
         data class DateHeader(val date: String) : EpgItem()
-        data class ProgramItem(val program: EpgProgram, val isCurrent: Boolean) : EpgItem()
+        data class ProgramItem(val program: EpgProgram, val isCurrent: Boolean, val isEnded: Boolean) : EpgItem()
     }
     
     class DateViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -70,6 +70,10 @@ class EpgProgramsAdapter(
                 } else {
                     programHolder.description.visibility = View.GONE
                 }
+                
+                // Apply fading to ended programs
+                val alpha = if (item.isEnded) 0.4f else 1.0f
+                programHolder.itemLayout.alpha = alpha
                 
                 // Highlight current program with green indicator
                 if (item.isCurrent) {
@@ -126,12 +130,13 @@ class EpgProgramsAdapter(
                 val startTime = parseTimeString(program.startTime)
                 val stopTime = parseTimeString(program.stopTime)
                 val isCurrent = now in startTime..stopTime
+                val isEnded = now > stopTime
                 
                 if (isCurrent) {
                     currentProgramPosition = newItems.size
                 }
                 
-                newItems.add(EpgItem.ProgramItem(program, isCurrent))
+                newItems.add(EpgItem.ProgramItem(program, isCurrent, isEnded))
             }
         }
         
