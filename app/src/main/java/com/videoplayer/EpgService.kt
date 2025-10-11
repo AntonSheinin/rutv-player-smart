@@ -14,6 +14,7 @@ class EpgService(private val context: Context) {
     private val gson = Gson()
     private val epgFile = File(context.filesDir, "epg_data.json")
     private val TAG = "EpgService"
+    private var cachedEpgData: EpgResponse? = null
     
     suspend fun checkHealth(epgUrl: String): Boolean = withContext(Dispatchers.IO) {
         if (epgUrl.isBlank()) {
@@ -150,6 +151,7 @@ class EpgService(private val context: Context) {
         try {
             val json = gson.toJson(epgResponse)
             epgFile.writeText(json)
+            cachedEpgData = epgResponse
             Log.d(TAG, "💾 EPG data saved to ${epgFile.absolutePath}")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Failed to save EPG data: ${e.message}", e)
@@ -157,6 +159,10 @@ class EpgService(private val context: Context) {
     }
     
     fun loadEpgData(): EpgResponse? {
+        if (cachedEpgData != null) {
+            return cachedEpgData
+        }
+        
         return try {
             if (!epgFile.exists()) {
                 Log.d(TAG, "⚠️ No EPG data file found")
@@ -165,6 +171,7 @@ class EpgService(private val context: Context) {
             
             val json = epgFile.readText()
             val epgResponse = gson.fromJson(json, EpgResponse::class.java)
+            cachedEpgData = epgResponse
             Log.d(TAG, "📂 Loaded EPG data: ${epgResponse.totalPrograms} programs for ${epgResponse.channelsFound} channels")
             epgResponse
         } catch (e: Exception) {
