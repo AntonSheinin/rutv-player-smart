@@ -48,6 +48,11 @@ class PlaylistAdapter(
         
         android.util.Log.d("PlaylistAdapter", "onBindViewHolder called for position: $position, channel: ${videoItem.title}")
         
+        // CRITICAL: Clear tap state to prevent leaks when ViewHolder is reused without recycling
+        holder.pendingAction?.let { holder.itemView.removeCallbacks(it) }
+        holder.pendingAction = null
+        holder.lastClickTime = 0L
+        
         holder.favoriteButton.text = if (videoItem.isFavorite) "★" else "☆"
         holder.favoriteButton.setTextColor(
             if (videoItem.isFavorite) 
@@ -113,6 +118,7 @@ class PlaylistAdapter(
                 // DOUBLE TAP - play channel immediately
                 android.util.Log.e("PlaylistAdapter", "========== DOUBLE TAP: Playing ${currentItem.title} ==========")
                 holder.lastClickTime = 0
+                holder.pendingAction = null  // Clear state after double tap
                 selectedPosition = currentActualIndex
                 onChannelClick(currentActualIndex)
             } else {
