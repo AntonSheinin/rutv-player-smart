@@ -24,6 +24,8 @@ object ChannelStorage {
                 put("url", channel.url)
                 put("logo", channel.logo)
                 put("group", channel.group)
+                put("tvgId", channel.tvgId)
+                put("catchupDays", channel.catchupDays)
             }
             jsonArray.put(jsonObject)
         }
@@ -48,6 +50,8 @@ object ChannelStorage {
                     url = jsonObject.getString("url"),
                     logo = jsonObject.optString("logo", ""),
                     group = jsonObject.optString("group", "General"),
+                    tvgId = jsonObject.optString("tvgId", ""),
+                    catchupDays = jsonObject.optInt("catchupDays", 0),
                     isFavorite = isFavorite(context, jsonObject.getString("url")),
                     aspectRatio = getAspectRatio(context, jsonObject.getString("url"))
                 )

@@ -1,0 +1,200 @@
+10-11 14:14:15.575 23887 23887 D VideoPlayer:     [0] audio/mp4a-latm - support=true, selected=true
+10-11 14:14:15.576 23887 23887 D VideoPlayer:        2ch @ 48000Hz, bitrate=-1
+10-11 14:14:15.578 23887 23887 D VideoPlayer:   OTHER(5): 1 track(s)
+10-11 14:14:15.579 23887 23887 D VideoPlayer:     [0] application/id3 - support=true, selected=true
+10-11 14:14:15.631 23887 23887 D VideoPlayer: 🎬 Video decoder: OMX.Exynos.avc.dec
+10-11 14:14:15.677 23887 23887 D VideoPlayer: 🔊 Audio decoder: c2.android.aac.decoder
+10-11 14:14:15.787 23887 23887 D VideoPlayer: ▶ Playing: 9 канал HD
+10-11 14:14:15.788 23887 23887 D VideoPlayer:   📺 Video: video/avc (1920x1080)
+10-11 14:14:15.791 23887 23887 D VideoPlayer:   🔊 Audio: audio/mp4a-latm (2ch @ 48000Hz)
+10-11 14:14:16.791 23887 23887 E CHANNEL_INFO_DEBUG: updateChannelInfo called
+10-11 14:14:16.791 23887 23887 E CHANNEL_INFO_DEBUG: playlistAdapter initialized: true
+10-11 14:14:16.791 23887 23887 E CHANNEL_INFO_DEBUG: selectedPosition: 1
+10-11 14:14:16.791 23887 23887 E CHANNEL_INFO_DEBUG: item: 9 канал HD
+10-11 14:14:16.792 23887 23887 E CHANNEL_INFO_DEBUG: channelInfo set to VISIBLE: #2 • 9 канал HD
+10-11 14:14:17.064 23887 23887 E CHANNEL_INFO_DEBUG: updateChannelInfo called
+10-11 14:14:17.064 23887 23887 E CHANNEL_INFO_DEBUG: playlistAdapter initialized: true
+10-11 14:14:17.065 23887 23887 E CHANNEL_INFO_DEBUG: selectedPosition: 1
+10-11 14:14:17.065 23887 23887 E CHANNEL_INFO_DEBUG: item: 9 канал HD
+10-11 14:14:17.065 23887 23887 E CHANNEL_INFO_DEBUG: channelInfo set to VISIBLE: #2 • 9 канал HD
+10-11 14:14:19.460 23887 23887 E TAP_DEBUG: ========== CARD CLICKED: Россия Культура ==========
+10-11 14:14:19.469 23887 23887 E TAP_DEBUG: Position: 4, ActualIndex: 4
+10-11 14:14:19.469 23887 23887 E TAP_DEBUG: Time since last click: 1760181259469ms
+10-11 14:14:19.469 23887 23887 E TAP_DEBUG: ========== SINGLE TAP: Scheduling EPG for Россия Культура ==========
+10-11 14:14:19.469 23887 23887 E TAP_DEBUG: tvgId: ''
+10-11 14:14:19.481 23887 23887 E TAP_DEBUG: Posting delayed runnable (300ms)
+10-11 14:14:19.788 23887 23887 E TAP_DEBUG: ========== RUNNABLE EXECUTING for Россия Культура ==========
+10-11 14:14:19.788 23887 23887 E TAP_DEBUG: No tvg-id for channel: Россия Культура
+10-11 14:14:21.802 23887 23887 E CHANNEL_INFO_DEBUG: updateChannelInfo called
+10-11 14:14:21.803 23887 23887 E CHANNEL_INFO_DEBUG: playlistAdapter initialized: true
+10-11 14:14:21.803 23887 23887 E CHANNEL_INFO_DEBUG: selectedPosition: 1
+10-11 14:14:21.803 23887 23887 E CHANNEL_INFO_DEBUG: item: 9 канал HD
+10-11 14:14:21.803 23887 23887 E CHANNEL_INFO_DEBUG: channelInfo set to VISIBLE: #2 • 9 канал HD
+10-11 14:14:22.079 23887 23887 E CHANNEL_INFO_DEBUG: updateChannelInfo called
+10-11 14:14:22.079 23887 23887 E CHANNEL_INFO_DEBUG: playlistAdapter initialized: true
+10-11 14:14:22.080 23887 23887 E CHANNEL_INFO_DEBUG: selectedPosition: 1
+10-11 14:14:22.080 23887 23887 E CHANNEL_INFO_DEBUG: item: 9 канал HD
+10-11 14:14:22.080 23887 23887 E CHANNEL_INFO_DEBUG: channelInfo set to VISIBLE: #2 • 9 канал HD
+10-11 14:14:23.810 23887 23887 E CHANNEL_INFO_DEBUG: updateChannelInfo called
+10-11 14:14:23.810 23887 23887 E CHANNEL_INFO_DEBUG: playlistAdapter initialized: true
+10-11 14:14:23.810 23887 23887 E CHANNEL_INFO_DEBUG: selectedPosition: 1
+10-11 14:14:23.810 23887 23887 E CHANNEL_INFO_DEBUG: item: 9 канал HD
+10-11 14:14:23.810 23887 23887 E CHANNEL_INFO_DEBUG: channelInfo set to VISIBLE: #2 • 9 канал HD
+10-11 14:14:25.072 23887 23887 E CHANNEL_INFO_DEBUG: updateChannelInfo called
+10-11 14:14:25.072 23887 23887 E CHANNEL_INFO_DEBUG: playlistAdapter initialized: true
+10-11 14:14:25.072 23887 23887 E CHANNEL_INFO_DEBUG: selectedPosition: 1
+10-11 14:14:25.072 23887 23887 E CHANNEL_INFO_DEBUG: item: 9 канал HD
+10-11 14:14:25.072 23887 23887 E CHANNEL_INFO_DEBUG: channelInfo set to VISIBLE: #2 • 9 канал HD
+10-11 14:14:25.352 23887 23887 E CHANNEL_INFO_DEBUG: updateChannelInfo called
+10-11 14:14:25.352 23887 23887 E CHANNEL_INFO_DEBUG: playlistAdapter initialized: true
+10-11 14:14:25.352 23887 23887 E CHANNEL_INFO_DEBUG: selectedPosition: 1
+10-11 14:14:25.352 23887 23887 E CHANNEL_INFO_DEBUG: item: 9 канал HD
+10-11 14:14:25.353 23887 23887 E CHANNEL_INFO_DEBUG: channelInfo set to VISIBLE: #2 • 9 канал HD
+10-11 14:14:30.073 23887 23887 E CHANNEL_INFO_DEBUG: updateChannelInfo called
+10-11 14:14:30.073 23887 23887 E CHANNEL_INFO_DEBUG: playlistAdapter initialized: true
+10-11 14:14:30.073 23887 23887 E CHANNEL_INFO_DEBUG: selectedPosition: 1
+10-11 14:14:30.073 23887 23887 E CHANNEL_INFO_DEBUG: item: 9 канал HD
+10-11 14:14:30.074 23887 23887 E CHANNEL_INFO_DEBUG: channelInfo set to VISIBLE: #2 • 9 канал HD
+10-11 14:14:30.352 23887 23887 E CHANNEL_INFO_DEBUG: updateChannelInfo called
+10-11 14:14:30.352 23887 23887 E CHANNEL_INFO_DEBUG: playlistAdapter initialized: true
+10-11 14:14:30.352 23887 23887 E CHANNEL_INFO_DEBUG: selectedPosition: 1
+10-11 14:14:30.352 23887 23887 E CHANNEL_INFO_DEBUG: item: 9 канал HD
+10-11 14:14:30.352 23887 23887 E CHANNEL_INFO_DEBUG: channelInfo set to VISIBLE: #2 • 9 канал HD
+10-11 14:14:32.075 23887 23887 E CHANNEL_INFO_DEBUG: updateChannelInfo called
+10-11 14:14:32.075 23887 23887 E CHANNEL_INFO_DEBUG: playlistAdapter initialized: true
+10-11 14:14:32.075 23887 23887 E CHANNEL_INFO_DEBUG: selectedPosition: 1
+10-11 14:14:32.076 23887 23887 E CHANNEL_INFO_DEBUG: item: 9 канал HD
+10-11 14:14:32.076 23887 23887 E CHANNEL_INFO_DEBUG: channelInfo set to VISIBLE: #2 • 9 канал HD
+10-11 14:14:32.350 23887 23887 E CHANNEL_INFO_DEBUG: updateChannelInfo called
+10-11 14:14:32.350 23887 23887 E CHANNEL_INFO_DEBUG: playlistAdapter initialized: true
+10-11 14:14:32.350 23887 23887 E CHANNEL_INFO_DEBUG: selectedPosition: 1
+10-11 14:14:32.350 23887 23887 E CHANNEL_INFO_DEBUG: item: 9 канал HD
+10-11 14:14:32.350 23887 23887 E CHANNEL_INFO_DEBUG: channelInfo set to VISIBLE: #2 • 9 канал HD
+10-11 14:14:32.611 23887 23887 E CHANNEL_INFO_DEBUG: updateChannelInfo called
+10-11 14:14:32.611 23887 23887 E CHANNEL_INFO_DEBUG: playlistAdapter initialized: true
+10-11 14:14:32.611 23887 23887 E CHANNEL_INFO_DEBUG: selectedPosition: 1
+10-11 14:14:32.611 23887 23887 E CHANNEL_INFO_DEBUG: item: 9 канал HD
+10-11 14:14:32.611 23887 23887 E CHANNEL_INFO_DEBUG: channelInfo set to VISIBLE: #2 • 9 канал HD
+10-11 14:14:34.186 23887 23887 D VideoPlayer: ⏱️ Frame processing slow: 44.6ms avg offset
+10-11 14:14:45.516 23887 23887 D VideoPlayer: ━━━ DECODER SWITCH START ━━━
+10-11 14:14:45.519 23887 23887 D VideoPlayer: Settings: Buffer=15s, FFmpeg Audio=OFF, FFmpeg Video=OFF
+10-11 14:14:45.519 23887 23887 E PLAYLIST_DEBUG: autoLoadPlaylist: playlistType=file
+10-11 14:14:45.521 23887 23887 D VideoPlayer: 📋 Auto-load: type=file
+10-11 14:14:45.521 23887 23887 E PLAYLIST_DEBUG: Loading from FILE
+10-11 14:14:45.523 23887 23887 D VideoPlayer: 📄 Loading from file...
+10-11 14:14:45.523 23887 23887 E PLAYLIST_DEBUG: FILE: contentHash=1275925296, storedHash=1275925296
+10-11 14:14:45.540 23887 23887 D VideoPlayer: ✓ Loading 393 channels from FILE cache
+10-11 14:14:45.540 23887 23887 E PLAYLIST_DEBUG: Using FILE cache: 393 channels
+10-11 14:14:45.543 23887 23887 D VideoPlayer: ✓ Hardware decoders only
+10-11 14:14:45.545 23887 23887 D VideoPlayer: ✓ MediaCodec: Async mode with dedicated thread
+10-11 14:14:45.547 23887 23887 D VideoPlayer: ✓ Buffer: 15s
+10-11 14:14:45.550 23887 23887 D VideoPlayer: 🏭 Factory: DefaultRenderersFactory (clean hardware decoders)
+10-11 14:14:45.553 23887 23887 D VideoPlayer: ✓ Surface: TextureView (supports rotation transforms)
+10-11 14:14:45.555 23887 23887 D VideoPlayer: ✓ Audio: Standard PCM mode (no float/params)
+10-11 14:14:45.557 23887 23887 D VideoPlayer: ✓ HLS: Simplified flags (better AAC timestamp handling)
+10-11 14:14:45.560 23887 23887 D VideoPlayer: ✓ Timestamp adjuster: 30s timeout (handle discontinuities)
+10-11 14:14:45.562 23887 23887 D VideoPlayer: ✓ Frame rate: OFF (disable display rate changes)
+10-11 14:14:45.565 23887 23887 D VideoPlayer: ✓ Buffer: Time-based priority for smooth playback
+10-11 14:14:45.586 23887 23887 D VideoPlayer: 📺 Loaded 393 channels into player
+10-11 14:14:45.588 23887 23887 D VideoPlayer: User selected: 9 канал HD
+10-11 14:14:45.590 23887 23887 D VideoPlayer: ⏩ Resuming from channel #2
+10-11 14:14:45.593 23887 23887 D VideoPlayer: ⏳ Buffering...
+10-11 14:14:45.609 23887 23887 D VideoPlayer: 🔄 Step 1: Detaching PlayerView from old player
+10-11 14:14:45.612 23887 23887 E CHANNEL_INFO_DEBUG: updateChannelInfo called
+10-11 14:14:45.612 23887 23887 E CHANNEL_INFO_DEBUG: playlistAdapter initialized: true
+10-11 14:14:45.612 23887 23887 E CHANNEL_INFO_DEBUG: selectedPosition: 1
+10-11 14:14:45.612 23887 23887 E CHANNEL_INFO_DEBUG: item: 9 канал HD
+10-11 14:14:45.612 23887 23887 E CHANNEL_INFO_DEBUG: channelInfo set to VISIBLE: #2 • 9 канал HD
+10-11 14:14:45.614 23887 23887 D VideoPlayer: 🔄 Step 2: Stopping playback
+10-11 14:14:45.617 23887 23887 D VideoPlayer: 🔄 Step 3: Releasing old player instance
+10-11 14:14:45.621 23887 23887 D VideoPlayer: 🔄 Step 4: Clearing player reference
+10-11 14:14:45.623 23887 23887 D VideoPlayer: 🔄 Step 5: Waiting 100ms for complete cleanup...
+10-11 14:14:45.730 23887 23887 D VideoPlayer: 🔄 Step 6: Creating new player with factory=DefaultRenderersFactory
+10-11 14:14:45.732 23887 23887 D VideoPlayer: ✓ Hardware decoders only
+10-11 14:14:45.737 23887 23887 D VideoPlayer: ✓ MediaCodec: Async mode with dedicated thread
+10-11 14:14:45.738 23887 23887 D VideoPlayer: ✓ Buffer: 15s
+10-11 14:14:45.740 23887 23887 D VideoPlayer: 🏭 Factory: DefaultRenderersFactory (clean hardware decoders)
+10-11 14:14:45.742 23887 23887 D VideoPlayer: ✓ Surface: TextureView (supports rotation transforms)
+10-11 14:14:45.743 23887 23887 D VideoPlayer: ✓ Audio: Standard PCM mode (no float/params)
+10-11 14:14:45.745 23887 23887 D VideoPlayer: ✓ HLS: Simplified flags (better AAC timestamp handling)
+10-11 14:14:45.746 23887 23887 D VideoPlayer: ✓ Timestamp adjuster: 30s timeout (handle discontinuities)
+10-11 14:14:45.748 23887 23887 D VideoPlayer: ✓ Frame rate: OFF (disable display rate changes)
+10-11 14:14:45.749 23887 23887 D VideoPlayer: ✓ Buffer: Time-based priority for smooth playback
+10-11 14:14:45.771 23887 23887 D VideoPlayer: 📺 Loaded 393 channels into player
+10-11 14:14:45.773 23887 23887 D VideoPlayer: User selected: 9 канал HD
+10-11 14:14:45.775 23887 23887 D VideoPlayer: ⏩ Resuming from channel #2
+10-11 14:14:45.780 23887 23887 D VideoPlayer: ⏳ Buffering...
+10-11 14:14:45.785 23887 23887 D VideoPlayer: ━━━ DECODER SWITCH COMPLETE ━━━
+10-11 14:14:45.891 23887 23887 D VideoPlayer: 📋 Tracks detected:
+10-11 14:14:45.893 23887 23887 D VideoPlayer:   VIDEO: 1 track(s)
+10-11 14:14:45.897 23887 23887 D VideoPlayer:     [0] video/avc - support=true, selected=true
+10-11 14:14:45.901 23887 23887 D VideoPlayer:        1920x1080 @ 25.0fps
+10-11 14:14:45.903 23887 23887 D VideoPlayer:   AUDIO: 1 track(s)
+10-11 14:14:45.905 23887 23887 D VideoPlayer:     [0] audio/mp4a-latm - support=true, selected=true
+10-11 14:14:45.910 23887 23887 D VideoPlayer:        2ch @ 48000Hz, bitrate=-1
+10-11 14:14:45.912 23887 23887 D VideoPlayer:   OTHER(5): 1 track(s)
+10-11 14:14:45.915 23887 23887 D VideoPlayer:     [0] application/id3 - support=true, selected=true
+10-11 14:14:45.942 23887 23887 D VideoPlayer: 🎬 Video decoder: OMX.Exynos.avc.dec
+10-11 14:14:46.040 23887 23887 D VideoPlayer: 🔊 Audio decoder: c2.android.aac.decoder
+10-11 14:14:46.163 23887 23887 D VideoPlayer: ▶ Playing: 9 канал HD
+10-11 14:14:46.169 23887 23887 D VideoPlayer:   📺 Video: video/avc (1920x1080)
+10-11 14:14:46.182 23887 23887 D VideoPlayer:   🔊 Audio: audio/mp4a-latm (2ch @ 48000Hz)
+10-11 14:14:47.259 23887 23887 E CHANNEL_INFO_DEBUG: updateChannelInfo called
+10-11 14:14:47.259 23887 23887 E CHANNEL_INFO_DEBUG: playlistAdapter initialized: true
+10-11 14:14:47.259 23887 23887 E CHANNEL_INFO_DEBUG: selectedPosition: 1
+10-11 14:14:47.259 23887 23887 E CHANNEL_INFO_DEBUG: item: 9 канал HD
+10-11 14:14:47.259 23887 23887 E CHANNEL_INFO_DEBUG: channelInfo set to VISIBLE: #2 • 9 канал HD
+10-11 14:14:47.526 23887 23887 E CHANNEL_INFO_DEBUG: updateChannelInfo called
+10-11 14:14:47.526 23887 23887 E CHANNEL_INFO_DEBUG: playlistAdapter initialized: true
+10-11 14:14:47.526 23887 23887 E CHANNEL_INFO_DEBUG: selectedPosition: 1
+10-11 14:14:47.526 23887 23887 E CHANNEL_INFO_DEBUG: item: 9 канал HD
+10-11 14:14:47.526 23887 23887 E CHANNEL_INFO_DEBUG: channelInfo set to VISIBLE: #2 • 9 канал HD
+10-11 14:14:52.151 23887 23887 E TAP_DEBUG: ========== CARD CLICKED: НТВ Мир ==========
+10-11 14:14:52.158 23887 23887 E TAP_DEBUG: Position: 3, ActualIndex: 3
+10-11 14:14:52.158 23887 23887 E TAP_DEBUG: Time since last click: 1760181292158ms
+10-11 14:14:52.158 23887 23887 E TAP_DEBUG: ========== SINGLE TAP: Scheduling EPG for НТВ Мир ==========
+10-11 14:14:52.158 23887 23887 E TAP_DEBUG: tvgId: ''
+10-11 14:14:52.165 23887 23887 E TAP_DEBUG: Posting delayed runnable (300ms)
+10-11 14:14:52.260 23887 23887 E CHANNEL_INFO_DEBUG: updateChannelInfo called
+10-11 14:14:52.260 23887 23887 E CHANNEL_INFO_DEBUG: playlistAdapter initialized: true
+10-11 14:14:52.260 23887 23887 E CHANNEL_INFO_DEBUG: selectedPosition: 1
+10-11 14:14:52.260 23887 23887 E CHANNEL_INFO_DEBUG: item: 9 канал HD
+10-11 14:14:52.260 23887 23887 E CHANNEL_INFO_DEBUG: channelInfo set to VISIBLE: #2 • 9 канал HD
+10-11 14:14:52.465 23887 23887 E TAP_DEBUG: ========== RUNNABLE EXECUTING for НТВ Мир ==========
+10-11 14:14:52.465 23887 23887 E TAP_DEBUG: No tvg-id for channel: НТВ Мир
+10-11 14:14:52.527 23887 23887 E CHANNEL_INFO_DEBUG: updateChannelInfo called
+10-11 14:14:52.528 23887 23887 E CHANNEL_INFO_DEBUG: playlistAdapter initialized: true
+10-11 14:14:52.528 23887 23887 E CHANNEL_INFO_DEBUG: selectedPosition: 1
+10-11 14:14:52.528 23887 23887 E CHANNEL_INFO_DEBUG: item: 9 канал HD
+10-11 14:14:52.528 23887 23887 E CHANNEL_INFO_DEBUG: channelInfo set to VISIBLE: #2 • 9 канал HD
+10-11 14:14:54.262 23887 23887 E CHANNEL_INFO_DEBUG: updateChannelInfo called
+10-11 14:14:54.262 23887 23887 E CHANNEL_INFO_DEBUG: playlistAdapter initialized: true
+10-11 14:14:54.262 23887 23887 E CHANNEL_INFO_DEBUG: selectedPosition: 1
+10-11 14:14:54.262 23887 23887 E CHANNEL_INFO_DEBUG: item: 9 канал HD
+10-11 14:14:54.262 23887 23887 E CHANNEL_INFO_DEBUG: channelInfo set to VISIBLE: #2 • 9 канал HD
+10-11 14:14:55.836 23887 23887 E CHANNEL_INFO_DEBUG: updateChannelInfo called
+10-11 14:14:55.836 23887 23887 E CHANNEL_INFO_DEBUG: playlistAdapter initialized: true
+10-11 14:14:55.836 23887 23887 E CHANNEL_INFO_DEBUG: selectedPosition: 1
+10-11 14:14:55.836 23887 23887 E CHANNEL_INFO_DEBUG: item: 9 канал HD
+10-11 14:14:55.836 23887 23887 E CHANNEL_INFO_DEBUG: channelInfo set to VISIBLE: #2 • 9 канал HD
+10-11 14:14:56.098 23887 23887 E CHANNEL_INFO_DEBUG: updateChannelInfo called
+10-11 14:14:56.098 23887 23887 E CHANNEL_INFO_DEBUG: playlistAdapter initialized: true
+10-11 14:14:56.098 23887 23887 E CHANNEL_INFO_DEBUG: selectedPosition: 1
+10-11 14:14:56.098 23887 23887 E CHANNEL_INFO_DEBUG: item: 9 канал HD
+10-11 14:14:56.098 23887 23887 E CHANNEL_INFO_DEBUG: channelInfo set to VISIBLE: #2 • 9 канал HD
+10-11 14:14:58.132 23887 23887 E CHANNEL_INFO_DEBUG: updateChannelInfo called
+10-11 14:14:58.133 23887 23887 E CHANNEL_INFO_DEBUG: playlistAdapter initialized: true
+10-11 14:14:58.133 23887 23887 E CHANNEL_INFO_DEBUG: selectedPosition: 1
+10-11 14:14:58.133 23887 23887 E CHANNEL_INFO_DEBUG: item: 9 канал HD
+10-11 14:14:58.133 23887 23887 E CHANNEL_INFO_DEBUG: channelInfo set to VISIBLE: #2 • 9 канал HD
+10-11 14:14:59.178 23887 23887 E CHANNEL_INFO_DEBUG: updateChannelInfo called
+10-11 14:14:59.178 23887 23887 E CHANNEL_INFO_DEBUG: playlistAdapter initialized: true
+10-11 14:14:59.178 23887 23887 E CHANNEL_INFO_DEBUG: selectedPosition: 1
+10-11 14:14:59.178 23887 23887 E CHANNEL_INFO_DEBUG: item: 9 канал HD
+10-11 14:14:59.179 23887 23887 E CHANNEL_INFO_DEBUG: channelInfo set to VISIBLE: #2 • 9 канал HD
+10-11 14:14:59.438 23887 23887 E CHANNEL_INFO_DEBUG: updateChannelInfo called
+10-11 14:14:59.438 23887 23887 E CHANNEL_INFO_DEBUG: playlistAdapter initialized: true
+10-11 14:14:59.438 23887 23887 E CHANNEL_INFO_DEBUG: selectedPosition: 1
+10-11 14:14:59.438 23887 23887 E CHANNEL_INFO_DEBUG: item: 9 канал HD
+10-11 14:14:59.438 23887 23887 E CHANNEL_INFO_DEBUG: channelInfo set to VISIBLE: #2 • 9 канал HD
+10-11 14:15:01.001 23887 23887 D VideoPlayer: ⏱️ Frame processing slow: 44.7ms avg offset
