@@ -11,9 +11,14 @@ The Android IPTV Player is a native Android application designed for robust IPTV
 - Do not make changes to the file `Y`.
 
 ## Recent Changes
+- **October 11, 2025**: Performance and UX improvements:
+  - **Toast removal**: Removed all ~30 Toast messages across the app (were causing UI slowness)
+  - **EPG fresh install fix**: Added fetchEpgData() call in settingsLauncher callback so EPG works after loading playlist from settings
+  - **Decoder optimization**: Only release/reinit player when decoder settings actually change (tracks audio/video FFmpeg state)
+  - **Playlist visibility fix**: Channel/favorite list now ONLY hides on channel switch or close button click, NOT when player controls auto-hide
 - **October 11, 2025**: Critical EPG fixes - crash, null handling, and cache preservation:
   - **EPG null crash fix**: Changed EpgProgramsAdapter to use `.isNullOrBlank()` instead of `.isNotBlank()` for description field to handle null values from EPG API
-  - **Cache preservation fix**: Added `catchupDays` field to VideoItem data class and updated ChannelStorage to save/load both `tvgId` and `catchupDays` in JSON cache, preventing EPG data loss after loading from cache (fixes issue where EPG worked initially but failed after exiting settings)
+  - **Cache preservation fix**: Added `catchupDays` field to VideoItem data class and updated ChannelStorage to save/load both `tvgId` and `catchupDays` in JSON cache, preventing EPG data loss after loading from cache
   - **Threading fix**: Added runOnUiThread wrapper for programsAdapter.updatePrograms() to ensure RecyclerView updates happen on main thread
   - **Auto-reload fix**: Removed destructive prefs.edit().clear() in error handler that was wiping all settings on errors
 - **October 11, 2025**: Dependency cleanup:
