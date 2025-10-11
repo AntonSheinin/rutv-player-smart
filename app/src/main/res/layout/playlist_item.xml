@@ -62,16 +62,6 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <TextView
-            android:id="@+id/epg_indicator"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_vertical"
-            android:layout_marginEnd="8dp"
-            android:text="📺"
-            android:textSize="18sp"
-            android:visibility="gone" />
-
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"

@@ -32,7 +32,6 @@ class PlaylistAdapter(
         val groupTextView: TextView = view.findViewById(R.id.video_group)
         val currentProgramTextView: TextView = view.findViewById(R.id.current_program)
         val statusTextView: TextView = view.findViewById(R.id.video_status)
-        val epgIndicator: TextView = view.findViewById(R.id.epg_indicator)
         
         var lastClickTime = 0L
         var pendingAction: Runnable? = null
@@ -87,8 +86,12 @@ class PlaylistAdapter(
         holder.itemView.isSelected = (actualIndex == currentlyPlayingIndex)
         holder.statusTextView.text = if (actualIndex == currentlyPlayingIndex) "▶ Playing" else ""
         
-        // Show EPG indicator if this channel has EPG open
-        holder.epgIndicator.visibility = if (actualIndex == epgOpenForIndex) View.VISIBLE else View.GONE
+        // Change card background if this channel has EPG open
+        if (actualIndex == epgOpenForIndex) {
+            holder.cardView.setCardBackgroundColor(android.graphics.Color.parseColor("#3A3A00"))
+        } else {
+            holder.cardView.setCardBackgroundColor(android.graphics.Color.parseColor("#2a2a2a"))
+        }
         
         // Update current program from EPG
         if (videoItem.tvgId.isNotBlank() && epgService != null) {
