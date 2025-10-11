@@ -1353,24 +1353,20 @@ class MainActivity : AppCompatActivity() {
             if (content != null) {
                 val channels = M3U8Parser.parse(content)
                 val channelsWithEpg = channels.filter { it.tvgId.isNotBlank() && it.catchupDays > 0 }
-                addDebugMessage("📡 Fetching EPG for ${channelsWithEpg.size} channels in background...")
+                addDebugMessage("📡 Fetching EPG for ${channelsWithEpg.size} channels (ONE request, background thread)...")
                 
-                val success = service.fetchEpgBatched(
+                val success = service.fetchEpgData(
                     epgUrl = epgUrl,
-                    channels = channels,
-                    batchSize = 20
-                ) { batchNumber, totalBatches, channelsProcessed ->
-                    // Update UI progressively as batches complete
-                    addDebugMessage("📦 EPG batch $batchNumber/$totalBatches complete ($channelsProcessed channels)")
-                    
-                    // Refresh playlist to show new EPG data
+                    channels = channels
+                ) {
+                    // UI update on completion
                     if (::playlistAdapter.isInitialized) {
                         playlistAdapter.notifyDataSetChanged()
                     }
                 }
                 
                 if (success) {
-                    addDebugMessage("✅ EPG data fetch complete")
+                    addDebugMessage("✅ EPG data loaded successfully")
                 } else {
                     addDebugMessage("❌ EPG fetch failed")
                 }

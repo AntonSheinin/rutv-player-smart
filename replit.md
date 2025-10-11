@@ -16,11 +16,11 @@ The Android IPTV Player is a native Android application designed for robust IPTV
   - **Before**: 100 channels = 100 file reads + JSON parses on every scroll/update (caused freezes and crashes)
   - **After**: Data loaded once and cached in memory for instant access
   - **Impact**: Massive performance improvement, especially with large playlists (100+ channels)
-- **October 11, 2025**: EPG performance optimization:
-  - **Batched async fetching**: EPG now fetches in batches of 20 channels asynchronously in background
-  - **Progressive updates**: Channel list and EPG data update continuously as each batch completes
-  - **Non-blocking**: App remains fully responsive even with hundreds of channels
-  - **Real-time progress**: Debug messages show batch completion progress (e.g., "📦 EPG batch 5/10 complete")
+- **October 11, 2025**: EPG fetching optimization:
+  - **Single request**: EPG fetches ALL channels in ONE request to the server (no batching)
+  - **Background thread**: Uses Dispatchers.IO coroutine to prevent UI freezing
+  - **Memory cache**: EPG data cached in memory after loading to prevent repeated disk I/O
+  - **60s timeout**: Extended timeout for large channel lists
 - **October 11, 2025**: EPG UI/UX enhancements:
   - **EPG sync with playlist**: EPG window now hides automatically when channel list closes or when switching channels
   - **Background indicator**: Channel with EPG open shows dark gold background (#3A3A00) instead of icon for cleaner look
