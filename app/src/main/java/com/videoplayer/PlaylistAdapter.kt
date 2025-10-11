@@ -33,8 +33,6 @@ class PlaylistAdapter(
         val groupTextView: TextView = view.findViewById(R.id.video_group)
         val currentProgramTextView: TextView = view.findViewById(R.id.current_program)
         val statusTextView: TextView = view.findViewById(R.id.video_status)
-        var lastClickTime = 0L
-        var pendingRunnable: Runnable? = null
     }
     
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PlaylistViewHolder {
@@ -94,53 +92,54 @@ class PlaylistAdapter(
             holder.currentProgramTextView.visibility = View.GONE
         }
         
-        // Remove any existing click listener to avoid stacking
-        holder.cardView.setOnClickListener(null)
-        
-        // Single tap = show programs, Double tap = play channel
-        val doubleClickThreshold = 300L // 300ms for double tap
-        
-        holder.cardView.setOnClickListener {
-            android.util.Log.e("PlaylistAdapter", "========== CLICK DETECTED ON CHANNEL: ${videoItem.title} ==========")
-            val currentTime = System.currentTimeMillis()
-            val timeDiff = currentTime - holder.lastClickTime
-            
-            android.util.Log.e("PlaylistAdapter", "Current time: $currentTime, Last click: ${holder.lastClickTime}, Diff: $timeDiff")
-            
-            // Cancel any pending single tap action
-            holder.pendingRunnable?.let { runnable ->
-                android.util.Log.d("PlaylistAdapter", "Cancelling pending runnable")
-                holder.cardView.removeCallbacks(runnable)
-                holder.pendingRunnable = null
+        // Use GestureDetector on cardView to detect taps (not itemView, to avoid blocking favorite button)
+        val gestureDetector = GestureDetector(holder.itemView.context, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDown(e: MotionEvent): Boolean {
+                // CRITICAL: Must return true so gesture detection continues
+                android.util.Log.d("PlaylistAdapter", "onDown: ${videoItem.title}")
+                return true
             }
             
-            if (timeDiff < doubleClickThreshold && holder.lastClickTime != 0L) {
-                // Double tap detected
-                android.util.Log.e("PlaylistAdapter", "DOUBLE TAP DETECTED on channel: ${videoItem.title}")
-                selectedPosition = actualIndex
-                onChannelClick(actualIndex)
-                holder.lastClickTime = 0L // Reset to prevent triple tap
-            } else {
-                // Potential single tap - wait to confirm it's not a double tap
-                android.util.Log.d("PlaylistAdapter", "Potential single tap, waiting ${doubleClickThreshold}ms to confirm...")
-                holder.lastClickTime = currentTime
-                val runnable = Runnable {
-                    if (holder.lastClickTime != 0L) {
-                        // It was indeed a single tap (no second tap came within threshold)
-                        android.util.Log.e("PlaylistAdapter", "SINGLE TAP CONFIRMED on channel: ${videoItem.title}, tvgId: '${videoItem.tvgId}'")
-                        if (videoItem.tvgId.isNotBlank()) {
-                            android.util.Log.e("PlaylistAdapter", "Calling onShowPrograms for index: $actualIndex")
-                            onShowPrograms(actualIndex)
-                        } else {
-                            android.util.Log.e("PlaylistAdapter", "No tvg-id for channel: ${videoItem.title}")
-                        }
-                        holder.lastClickTime = 0L
+            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                android.util.Log.e("PlaylistAdapter", "========== SINGLE TAP CONFIRMED: ${videoItem.title} ==========")
+                // Get the current position safely (could have changed due to recycling)
+                val currentPosition = holder.bindingAdapterPosition
+                if (currentPosition != RecyclerView.NO_POSITION) {
+                    val currentItem = displayList.getOrNull(currentPosition)
+                    if (currentItem != null && currentItem.tvgId.isNotBlank()) {
+                        val currentActualIndex = playlist.indexOf(currentItem)
+                        android.util.Log.e("PlaylistAdapter", "Calling onShowPrograms for: ${currentItem.title}, tvgId='${currentItem.tvgId}'")
+                        onShowPrograms(currentActualIndex)
+                    } else {
+                        android.util.Log.e("PlaylistAdapter", "No tvg-id for channel: ${currentItem?.title}")
                     }
-                    holder.pendingRunnable = null
                 }
-                holder.pendingRunnable = runnable
-                holder.cardView.postDelayed(runnable, doubleClickThreshold)
+                return true
             }
+            
+            override fun onDoubleTap(e: MotionEvent): Boolean {
+                android.util.Log.e("PlaylistAdapter", "========== DOUBLE TAP DETECTED: ${videoItem.title} ==========")
+                // Get the current position safely
+                val currentPosition = holder.bindingAdapterPosition
+                if (currentPosition != RecyclerView.NO_POSITION) {
+                    val currentItem = displayList.getOrNull(currentPosition)
+                    if (currentItem != null) {
+                        val currentActualIndex = playlist.indexOf(currentItem)
+                        selectedPosition = currentActualIndex
+                        onChannelClick(currentActualIndex)
+                    }
+                }
+                return true
+            }
+        })
+        
+        // Apply touch listener to the cardView (not itemView) so favorite button can still receive touches
+        holder.cardView.setOnTouchListener { v, event ->
+            android.util.Log.d("PlaylistAdapter", "Touch event on card: ${videoItem.title}, action=${event.action}")
+            // Let gesture detector handle the event, but don't consume it completely
+            gestureDetector.onTouchEvent(event)
+            // Return false to allow the event to propagate for click feedback
+            false
         }
     }
     
