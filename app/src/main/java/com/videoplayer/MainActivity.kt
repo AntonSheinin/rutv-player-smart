@@ -235,8 +235,12 @@ class MainActivity : AppCompatActivity() {
         setupFullscreen()
         
         lifecycleScope.launch {
-            fetchEpgData()
             autoLoadPlaylist()
+        }
+        
+        // Fetch EPG in background without blocking
+        lifecycleScope.launch {
+            fetchEpgData()
         }
     }
     
@@ -253,7 +257,11 @@ class MainActivity : AppCompatActivity() {
             addDebugMessage("Settings: Buffer=${bufferSeconds}s, FFmpeg Audio=${if (useFfmpegAudio) "ON" else "OFF"}, FFmpeg Video=${if (useFfmpegVideo) "ON" else "OFF"}")
             
             autoLoadPlaylist()
-            fetchEpgData()
+            
+            // Fetch EPG in background without blocking
+            lifecycleScope.launch {
+                fetchEpgData()
+            }
             
             if (hadPlayer && playlist.isNotEmpty()) {
                 val wasUsingFfmpegAudio = prefs.getBoolean("was_using_ffmpeg_audio", false)
@@ -1332,11 +1340,25 @@ class MainActivity : AppCompatActivity() {
             
             if (content != null) {
                 val channels = M3U8Parser.parse(content)
-                addDebugMessage("📡 Fetching EPG data...")
-                val success = service.fetchEpg(epgUrl, channels)
+                val channelsWithEpg = channels.filter { it.tvgId.isNotBlank() && it.catchupDays > 0 }
+                addDebugMessage("📡 Fetching EPG for ${channelsWithEpg.size} channels in background...")
+                
+                val success = service.fetchEpgBatched(
+                    epgUrl = epgUrl,
+                    channels = channels,
+                    batchSize = 20
+                ) { batchNumber, totalBatches, channelsProcessed ->
+                    // Update UI progressively as batches complete
+                    addDebugMessage("📦 EPG batch $batchNumber/$totalBatches complete ($channelsProcessed channels)")
+                    
+                    // Refresh playlist to show new EPG data
+                    if (::playlistAdapter.isInitialized) {
+                        playlistAdapter.notifyDataSetChanged()
+                    }
+                }
                 
                 if (success) {
-                    addDebugMessage("✅ EPG data fetched and saved")
+                    addDebugMessage("✅ EPG data fetch complete")
                 } else {
                     addDebugMessage("❌ EPG fetch failed")
                 }
