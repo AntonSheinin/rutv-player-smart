@@ -568,6 +568,7 @@ class MainActivity : AppCompatActivity() {
                         
                         playlistUserVisible = false
                         playlistWrapper.visibility = View.GONE
+                        programsWrapper.visibility = View.GONE
                         hideUIElements()
                         updateChannelInfo()
                     }
@@ -628,6 +629,7 @@ class MainActivity : AppCompatActivity() {
     private fun setupClosePlaylistButton() {
         btnClosePlaylist.setOnClickListener {
             playlistUserVisible = false
+            programsWrapper.visibility = View.GONE
             updatePlaylistView()
         }
     }
