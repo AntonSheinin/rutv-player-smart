@@ -569,6 +569,9 @@ class MainActivity : AppCompatActivity() {
                         playlistUserVisible = false
                         playlistWrapper.visibility = View.GONE
                         programsWrapper.visibility = View.GONE
+                        if (::playlistAdapter.isInitialized) {
+                            playlistAdapter.updateEpgOpen(-1)
+                        }
                         hideUIElements()
                         updateChannelInfo()
                     }
@@ -630,6 +633,9 @@ class MainActivity : AppCompatActivity() {
         btnClosePlaylist.setOnClickListener {
             playlistUserVisible = false
             programsWrapper.visibility = View.GONE
+            if (::playlistAdapter.isInitialized) {
+                playlistAdapter.updateEpgOpen(-1)
+            }
             updatePlaylistView()
         }
     }
@@ -820,7 +826,7 @@ class MainActivity : AppCompatActivity() {
                 channel?.let {
                     if (it.tvgId.isNotBlank()) {
                         Log.e("TAP_DEBUG", "Showing programs for tvgId: ${it.tvgId}")
-                        showProgramsForChannel(it.tvgId)
+                        showProgramsForChannel(it.tvgId, position)
                     } else {
                         Log.e("TAP_DEBUG", "Channel has no tvgId: ${it.title}")
                     }
@@ -1225,7 +1231,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
-    private fun showProgramsForChannel(tvgId: String) {
+    private fun showProgramsForChannel(tvgId: String, channelIndex: Int) {
         try {
             Log.e("TAP_DEBUG", "showProgramsForChannel called for tvgId: $tvgId")
             
@@ -1248,10 +1254,12 @@ class MainActivity : AppCompatActivity() {
                         Log.e("TAP_DEBUG", "Calling programsAdapter.updatePrograms with ${programs.size} programs")
                         programsAdapter.updatePrograms(programs)
                         programsWrapper.visibility = View.VISIBLE
+                        playlistAdapter.updateEpgOpen(channelIndex)
                         Log.e("TAP_DEBUG", "Programs panel visibility set to VISIBLE")
                         addDebugMessage("📺 Showing ${programs.size} programs for channel")
                     } else {
                         programsWrapper.visibility = View.GONE
+                        playlistAdapter.updateEpgOpen(-1)
                         Log.e("TAP_DEBUG", "No programs found, hiding panel")
                         addDebugMessage("⚠️ No EPG data for this channel (tvgId: $tvgId)")
                     }

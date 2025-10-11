@@ -21,6 +21,7 @@ class PlaylistAdapter(
     var selectedPosition = -1
     private var displayList: List<VideoItem> = playlist
     private var showingFavoritesOnly = false
+    private var epgOpenForIndex = -1
     
     class PlaylistViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val cardView: com.google.android.material.card.MaterialCardView = view.findViewById(R.id.channel_item_card)
@@ -31,6 +32,7 @@ class PlaylistAdapter(
         val groupTextView: TextView = view.findViewById(R.id.video_group)
         val currentProgramTextView: TextView = view.findViewById(R.id.current_program)
         val statusTextView: TextView = view.findViewById(R.id.video_status)
+        val epgIndicator: TextView = view.findViewById(R.id.epg_indicator)
         
         var lastClickTime = 0L
         var pendingAction: Runnable? = null
@@ -84,6 +86,9 @@ class PlaylistAdapter(
         
         holder.itemView.isSelected = (actualIndex == currentlyPlayingIndex)
         holder.statusTextView.text = if (actualIndex == currentlyPlayingIndex) "▶ Playing" else ""
+        
+        // Show EPG indicator if this channel has EPG open
+        holder.epgIndicator.visibility = if (actualIndex == epgOpenForIndex) View.VISIBLE else View.GONE
         
         // Update current program from EPG
         if (videoItem.tvgId.isNotBlank() && epgService != null) {
@@ -177,6 +182,18 @@ class PlaylistAdapter(
     
     fun updateError(index: Int, error: String) {
         if (index == currentlyPlayingIndex) {
+            notifyItemChanged(index)
+        }
+    }
+    
+    fun updateEpgOpen(index: Int) {
+        val previousIndex = epgOpenForIndex
+        epgOpenForIndex = index
+        
+        if (previousIndex >= 0) {
+            notifyItemChanged(previousIndex)
+        }
+        if (index >= 0) {
             notifyItemChanged(index)
         }
     }
