@@ -94,15 +94,20 @@ class PlaylistAdapter(
         }
         
         // Update current program from EPG
-        if (videoItem.tvgId.isNotBlank() && epgService != null) {
-            val currentProgram = epgService.getCurrentProgram(videoItem.tvgId)
-            holder.currentProgramTextView.visibility = View.VISIBLE
-            if (currentProgram != null) {
-                holder.currentProgramTextView.text = currentProgram.title
+        try {
+            if (videoItem.tvgId.isNotBlank() && epgService != null) {
+                val currentProgram = epgService.getCurrentProgram(videoItem.tvgId)
+                holder.currentProgramTextView.visibility = View.VISIBLE
+                if (currentProgram != null) {
+                    holder.currentProgramTextView.text = currentProgram.title
+                } else {
+                    holder.currentProgramTextView.text = "no program"
+                }
             } else {
-                holder.currentProgramTextView.text = "no program"
+                holder.currentProgramTextView.visibility = View.GONE
             }
-        } else {
+        } catch (e: Exception) {
+            android.util.Log.e("PlaylistAdapter", "Error getting EPG for ${videoItem.title}: ${e.message}", e)
             holder.currentProgramTextView.visibility = View.GONE
         }
         

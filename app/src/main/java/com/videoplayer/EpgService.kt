@@ -116,7 +116,8 @@ class EpgService(private val context: Context) {
             }
             
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Error fetching EPG: ${e.message}")
+            Log.e(TAG, "❌ Error fetching EPG: ${e.message}", e)
+            e.printStackTrace()
             return@withContext false
         }
     }
@@ -160,37 +161,47 @@ class EpgService(private val context: Context) {
     }
     
     fun getCurrentProgram(tvgId: String): EpgProgram? {
-        val epgData = loadEpgData() ?: return null
-        val programs = epgData.epg[tvgId] ?: return null
-        val now = System.currentTimeMillis()
-        
-        return programs.firstOrNull { program ->
-            try {
-                val startTime = parseTimeString(program.startTime)
-                val stopTime = parseTimeString(program.stopTime)
-                now in startTime..stopTime
-            } catch (e: Exception) {
-                false
+        return try {
+            val epgData = loadEpgData() ?: return null
+            val programs = epgData.epg[tvgId] ?: return null
+            val now = System.currentTimeMillis()
+            
+            programs.firstOrNull { program ->
+                try {
+                    val startTime = parseTimeString(program.startTime)
+                    val stopTime = parseTimeString(program.stopTime)
+                    now in startTime..stopTime
+                } catch (e: Exception) {
+                    false
+                }
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in getCurrentProgram for $tvgId: ${e.message}", e)
+            null
         }
     }
     
     fun getProgramsForChannel(tvgId: String): List<EpgProgram> {
-        Log.d(TAG, "getProgramsForChannel called for tvgId: '$tvgId'")
-        val epgData = loadEpgData()
-        if (epgData == null) {
-            Log.d(TAG, "No EPG data loaded")
-            return emptyList()
+        return try {
+            Log.d(TAG, "getProgramsForChannel called for tvgId: '$tvgId'")
+            val epgData = loadEpgData()
+            if (epgData == null) {
+                Log.d(TAG, "No EPG data loaded")
+                return emptyList()
+            }
+            
+            Log.d(TAG, "EPG data has ${epgData.epg.keys.size} channels")
+            val programs = epgData.epg[tvgId]
+            if (programs == null) {
+                Log.d(TAG, "No programs found for tvgId: '$tvgId'")
+            } else {
+                Log.d(TAG, "Found ${programs.size} programs for tvgId: '$tvgId'")
+            }
+            programs ?: emptyList()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in getProgramsForChannel for $tvgId: ${e.message}", e)
+            emptyList()
         }
-        
-        Log.d(TAG, "EPG data has ${epgData.epg.keys.size} channels: ${epgData.epg.keys.joinToString(", ")}")
-        val programs = epgData.epg[tvgId]
-        if (programs == null) {
-            Log.d(TAG, "No programs found for tvgId: '$tvgId'")
-        } else {
-            Log.d(TAG, "Found ${programs.size} programs for tvgId: '$tvgId'")
-        }
-        return programs ?: emptyList()
     }
     
     private fun parseTimeString(timeString: String): Long {

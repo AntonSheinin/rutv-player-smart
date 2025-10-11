@@ -1359,9 +1359,15 @@ class MainActivity : AppCompatActivity() {
                     epgUrl = epgUrl,
                     channels = channels
                 ) {
-                    // UI update on completion
-                    if (::playlistAdapter.isInitialized) {
-                        playlistAdapter.notifyDataSetChanged()
+                    // UI update on completion (on Main thread)
+                    try {
+                        if (::playlistAdapter.isInitialized) {
+                            addDebugMessage("🔄 Updating channel list with EPG data...")
+                            playlistAdapter.notifyDataSetChanged()
+                        }
+                    } catch (e: Exception) {
+                        Log.e("VideoPlayer", "Error updating adapter after EPG fetch: ${e.message}", e)
+                        addDebugMessage("⚠️ UI update error: ${e.message}")
                     }
                 }
                 
