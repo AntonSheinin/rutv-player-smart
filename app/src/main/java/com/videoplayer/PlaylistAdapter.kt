@@ -33,6 +33,38 @@ class PlaylistAdapter(
         val groupTextView: TextView = view.findViewById(R.id.video_group)
         val currentProgramTextView: TextView = view.findViewById(R.id.current_program)
         val statusTextView: TextView = view.findViewById(R.id.video_status)
+        
+        var onSingleTapAction: (() -> Unit)? = null
+        var onDoubleTapAction: (() -> Unit)? = null
+        
+        // GestureDetector must be created ONCE per ViewHolder, not recreated on every bind
+        val gestureDetector = GestureDetector(view.context, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDown(e: MotionEvent): Boolean {
+                android.util.Log.e("PlaylistAdapter", "onDown event received")
+                return true  // MUST return true to continue gesture detection
+            }
+            
+            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                android.util.Log.e("PlaylistAdapter", "========== SINGLE TAP CONFIRMED ==========")
+                onSingleTapAction?.invoke()
+                return true
+            }
+            
+            override fun onDoubleTap(e: MotionEvent): Boolean {
+                android.util.Log.e("PlaylistAdapter", "========== DOUBLE TAP DETECTED ==========")
+                onDoubleTapAction?.invoke()
+                return true
+            }
+        })
+        
+        init {
+            // Set up touch listener ONCE on the cardView
+            cardView.setOnTouchListener { v, event ->
+                android.util.Log.d("PlaylistAdapter", "Touch event: action=${event.action}")
+                gestureDetector.onTouchEvent(event)
+                false  // Don't consume, allow propagation
+            }
+        }
     }
     
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PlaylistViewHolder {
@@ -92,54 +124,33 @@ class PlaylistAdapter(
             holder.currentProgramTextView.visibility = View.GONE
         }
         
-        // Use GestureDetector on cardView to detect taps (not itemView, to avoid blocking favorite button)
-        val gestureDetector = GestureDetector(holder.itemView.context, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onDown(e: MotionEvent): Boolean {
-                // CRITICAL: Must return true so gesture detection continues
-                android.util.Log.d("PlaylistAdapter", "onDown: ${videoItem.title}")
-                return true
-            }
-            
-            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                android.util.Log.e("PlaylistAdapter", "========== SINGLE TAP CONFIRMED: ${videoItem.title} ==========")
-                // Get the current position safely (could have changed due to recycling)
-                val currentPosition = holder.bindingAdapterPosition
-                if (currentPosition != RecyclerView.NO_POSITION) {
-                    val currentItem = displayList.getOrNull(currentPosition)
-                    if (currentItem != null && currentItem.tvgId.isNotBlank()) {
-                        val currentActualIndex = playlist.indexOf(currentItem)
-                        android.util.Log.e("PlaylistAdapter", "Calling onShowPrograms for: ${currentItem.title}, tvgId='${currentItem.tvgId}'")
-                        onShowPrograms(currentActualIndex)
-                    } else {
-                        android.util.Log.e("PlaylistAdapter", "No tvg-id for channel: ${currentItem?.title}")
-                    }
+        // Set up tap actions for the GestureDetector (updates on each bind)
+        holder.onSingleTapAction = {
+            android.util.Log.e("PlaylistAdapter", "Single tap action for: ${videoItem.title}")
+            val currentPosition = holder.bindingAdapterPosition
+            if (currentPosition != RecyclerView.NO_POSITION) {
+                val currentItem = displayList.getOrNull(currentPosition)
+                if (currentItem != null && currentItem.tvgId.isNotBlank()) {
+                    val currentActualIndex = playlist.indexOf(currentItem)
+                    android.util.Log.e("PlaylistAdapter", "Calling onShowPrograms for: ${currentItem.title}, tvgId='${currentItem.tvgId}'")
+                    onShowPrograms(currentActualIndex)
+                } else {
+                    android.util.Log.e("PlaylistAdapter", "No tvg-id for channel: ${currentItem?.title}")
                 }
-                return true
             }
-            
-            override fun onDoubleTap(e: MotionEvent): Boolean {
-                android.util.Log.e("PlaylistAdapter", "========== DOUBLE TAP DETECTED: ${videoItem.title} ==========")
-                // Get the current position safely
-                val currentPosition = holder.bindingAdapterPosition
-                if (currentPosition != RecyclerView.NO_POSITION) {
-                    val currentItem = displayList.getOrNull(currentPosition)
-                    if (currentItem != null) {
-                        val currentActualIndex = playlist.indexOf(currentItem)
-                        selectedPosition = currentActualIndex
-                        onChannelClick(currentActualIndex)
-                    }
-                }
-                return true
-            }
-        })
+        }
         
-        // Apply touch listener to the cardView (not itemView) so favorite button can still receive touches
-        holder.cardView.setOnTouchListener { v, event ->
-            android.util.Log.d("PlaylistAdapter", "Touch event on card: ${videoItem.title}, action=${event.action}")
-            // Let gesture detector handle the event, but don't consume it completely
-            gestureDetector.onTouchEvent(event)
-            // Return false to allow the event to propagate for click feedback
-            false
+        holder.onDoubleTapAction = {
+            android.util.Log.e("PlaylistAdapter", "Double tap action for: ${videoItem.title}")
+            val currentPosition = holder.bindingAdapterPosition
+            if (currentPosition != RecyclerView.NO_POSITION) {
+                val currentItem = displayList.getOrNull(currentPosition)
+                if (currentItem != null) {
+                    val currentActualIndex = playlist.indexOf(currentItem)
+                    selectedPosition = currentActualIndex
+                    onChannelClick(currentActualIndex)
+                }
+            }
         }
     }
     
