@@ -91,8 +91,10 @@ class EpgService(private val context: Context) {
             val responseCode = connection.responseCode
             
             if (responseCode == 200) {
-                val response = connection.inputStream.bufferedReader().use { it.readText() }
-                val epgResponse = gson.fromJson(response, EpgResponse::class.java)
+                // Stream parse JSON to avoid loading 180MB+ response into memory
+                val epgResponse = connection.inputStream.bufferedReader().use { reader ->
+                    gson.fromJson(reader, EpgResponse::class.java)
+                }
                 
                 if (epgResponse != null) {
                     saveEpgData(epgResponse)
@@ -115,6 +117,10 @@ class EpgService(private val context: Context) {
                 return@withContext false
             }
             
+        } catch (e: OutOfMemoryError) {
+            Log.e(TAG, "❌ Out of memory fetching EPG - response too large (${channelsWithEpg.size} channels)", e)
+            Log.e(TAG, "💡 Try reducing catchup-days in your playlist to reduce EPG data size")
+            return@withContext false
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error fetching EPG: ${e.message}", e)
             e.printStackTrace()
@@ -124,10 +130,19 @@ class EpgService(private val context: Context) {
     
     private fun saveEpgData(epgResponse: EpgResponse) {
         try {
-            val json = gson.toJson(epgResponse)
-            epgFile.writeText(json)
+            // Cache in memory first (this is the main benefit)
             cachedEpgData = epgResponse
-            Log.d(TAG, "💾 EPG data saved to ${epgFile.absolutePath}")
+            Log.d(TAG, "✅ EPG data cached in memory: ${epgResponse.totalPrograms} programs")
+            
+            // Try to save to disk, but don't fail if OOM
+            try {
+                val json = gson.toJson(epgResponse)
+                epgFile.writeText(json)
+                Log.d(TAG, "💾 EPG data saved to disk: ${epgFile.absolutePath}")
+            } catch (e: OutOfMemoryError) {
+                Log.e(TAG, "⚠️ Out of memory saving EPG to disk - keeping memory cache only", e)
+                // Still have memory cache, so not critical
+            }
         } catch (e: Exception) {
             Log.e(TAG, "❌ Failed to save EPG data: ${e.message}", e)
         }
