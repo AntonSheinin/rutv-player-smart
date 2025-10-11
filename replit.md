@@ -5,13 +5,12 @@ The Android IPTV Player is a native Android application built with Media3 (ExoPl
 
 ## Recent Changes
 - **October 11, 2025**: Critical EPG tap detection fixes and default codec changes:
-  - **Fixed EPG tap detection**: Resolved two blocking issues:
-    1. Favorite button had `focusable="true"` which consumed all touch events
-    2. MaterialCardView had `clickable="true"` which prevented GestureDetector from receiving events
-    - Solution: Set both to `focusable="false"`, MaterialCardView to `clickable="false"`, added ripple to LinearLayout for visual feedback
-  - **GestureDetector architecture**: Created once per ViewHolder (not recreated on bind) with onDown() returning true to enable gesture tracking. Touch listener in ViewHolder init block, tap action callbacks updated on each bind
+  - **Fixed EPG tap detection**: Resolved blocking issues with favorite button (`focusable="false"`) and implemented reliable click-based tap detection with timing logic:
+    - Single tap → 300ms delay then shows EPG programs panel (cancellable if double tap follows)
+    - Double tap (< 300ms) → immediately plays channel
+    - ViewHolder cleanup in onViewRecycled prevents stray callbacks
   - **Default audio codec**: Changed from FFmpeg to built-in hardware decoder by default for better compatibility
-  - **Robust tap handling**: Single tap shows EPG programs, double tap plays channel, uses bindingAdapterPosition for safe RecyclerView position access
+  - **Robust tap handling**: Click listener on MaterialCardView with bindingAdapterPosition for safe RecyclerView position access, comprehensive logging
 - **October 10, 2025**: Complete EPG (Electronic Program Guide) integration:
   - **EPG Service**: Full service with health check endpoint, POST request for fetching program data, local JSON storage, and program lookup by channel tvg-id
   - **Settings UI**: Added EPG service URL configuration field in settings
@@ -111,7 +110,7 @@ The Android IPTV Player is a native Android application built with Media3 (ExoPl
 ### UI/UX Design
 - **Programs panel**: Dark background (#0d0d0d) with date delimiters (#1a1a1a), matching reference screenshot design
 - **Program indicators**: Green dot (12dp circle) for currently airing programs, time displayed in HH:mm format
-- **Touch gestures**: GestureDetector on MaterialCardView with onDown() returning true enables gesture callbacks. Single tap (onSingleTapConfirmed) shows programs panel, double tap (onDoubleTap) plays channel. Touch listener on cardView returns false to allow event propagation for ripple feedback and favorite button clicks.
+- **Touch gestures**: Click listener with timing-based tap detection. Single tap (300ms delay) shows programs panel, double tap (< 300ms) plays channel. MaterialCardView provides ripple feedback, favorite button has independent click handling.
 - **Auto-hide behavior**: Programs panel hidden when controls are hidden or when switching channels
 
 ## External Dependencies
