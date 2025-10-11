@@ -8,9 +8,12 @@ import androidx.recyclerview.widget.RecyclerView
 import java.text.SimpleDateFormat
 import java.util.*
 
-class EpgProgramsAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+class EpgProgramsAdapter(
+    private val onProgramClick: ((EpgProgram) -> Unit)? = null
+) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
     
     private var items = listOf<EpgItem>()
+    private var selectedPosition = -1
     
     sealed class EpgItem {
         data class DateHeader(val date: String) : EpgItem()
@@ -22,6 +25,7 @@ class EpgProgramsAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
     }
     
     class ProgramViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val itemLayout: View = view.findViewById(R.id.program_item_layout)
         val timeIndicator: View = view.findViewById(R.id.program_time_indicator)
         val time: TextView = view.findViewById(R.id.program_time)
         val title: TextView = view.findViewById(R.id.program_title)
@@ -67,12 +71,31 @@ class EpgProgramsAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
                     programHolder.description.visibility = View.GONE
                 }
                 
+                // Highlight current program with green indicator
                 if (item.isCurrent) {
                     programHolder.timeIndicator.visibility = View.VISIBLE
                     programHolder.time.setTextColor(android.graphics.Color.parseColor("#4CAF50"))
                 } else {
                     programHolder.timeIndicator.visibility = View.GONE
-                    programHolder.time.setTextColor(android.graphics.Color.parseColor("#FFFFFF"))
+                    programHolder.time.setTextColor(android.graphics.Color.parseColor("#E0E0E0"))
+                }
+                
+                // Highlight selected program with gold background
+                if (position == selectedPosition) {
+                    programHolder.itemLayout.setBackgroundColor(android.graphics.Color.parseColor("#2A2500"))
+                    programHolder.title.setTextColor(android.graphics.Color.parseColor("#FFD700"))
+                } else {
+                    programHolder.itemLayout.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                    programHolder.title.setTextColor(android.graphics.Color.parseColor("#F5F5F5"))
+                }
+                
+                // Click handler
+                programHolder.itemLayout.setOnClickListener {
+                    val previousPosition = selectedPosition
+                    selectedPosition = position
+                    notifyItemChanged(previousPosition)
+                    notifyItemChanged(position)
+                    onProgramClick?.invoke(item.program)
                 }
             }
         }
@@ -80,9 +103,10 @@ class EpgProgramsAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
     
     override fun getItemCount(): Int = items.size
     
-    fun updatePrograms(programs: List<EpgProgram>) {
+    fun updatePrograms(programs: List<EpgProgram>): Int {
         val now = System.currentTimeMillis()
         val newItems = mutableListOf<EpgItem>()
+        var currentProgramPosition = -1
         
         val groupedByDate = programs.groupBy { program ->
             val date = parseTimeString(program.startTime)
@@ -102,12 +126,20 @@ class EpgProgramsAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
                 val startTime = parseTimeString(program.startTime)
                 val stopTime = parseTimeString(program.stopTime)
                 val isCurrent = now in startTime..stopTime
+                
+                if (isCurrent) {
+                    currentProgramPosition = newItems.size
+                }
+                
                 newItems.add(EpgItem.ProgramItem(program, isCurrent))
             }
         }
         
         items = newItems
+        selectedPosition = currentProgramPosition
         notifyDataSetChanged()
+        
+        return currentProgramPosition
     }
     
     private fun parseTimeString(timeString: String): Long {

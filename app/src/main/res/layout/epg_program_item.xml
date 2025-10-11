@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/program_item_layout"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:padding="12dp"
-    android:background="?attr/selectableItemBackground">
+    android:background="?attr/selectableItemBackground"
+    android:clickable="true"
+    android:focusable="true">
 
     <TextView
         android:id="@+id/program_time_indicator"
@@ -20,8 +23,8 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center_vertical"
-        android:textColor="#FFFFFF"
-        android:textSize="14sp"
+        android:textColor="#E0E0E0"
+        android:textSize="13sp"
         android:textStyle="bold"
         android:minWidth="50dp"
         android:text="23:25" />
@@ -37,8 +40,9 @@
             android:id="@+id/program_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="#FFFFFF"
+            android:textColor="#F5F5F5"
             android:textSize="14sp"
+            android:textStyle="normal"
             android:maxLines="2"
             android:ellipsize="end"
             android:text="Program Title" />
@@ -47,8 +51,8 @@
             android:id="@+id/program_description"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="#888888"
-            android:textSize="11sp"
+            android:textColor="#999999"
+            android:textSize="12sp"
             android:maxLines="2"
             android:ellipsize="end"
             android:layout_marginTop="4dp"

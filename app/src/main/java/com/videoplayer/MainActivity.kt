@@ -1224,7 +1224,11 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun setupProgramsRecyclerView() {
-        programsAdapter = EpgProgramsAdapter()
+        programsAdapter = EpgProgramsAdapter { program ->
+            // Program clicked - ready for future functionality
+            Log.d("VideoPlayer", "EPG program clicked: ${program.title}")
+            addDebugMessage("📋 Selected: ${program.title}")
+        }
         programsRecyclerView.apply {
             layoutManager = LinearLayoutManager(this@MainActivity, LinearLayoutManager.VERTICAL, false)
             adapter = programsAdapter
@@ -1252,9 +1256,16 @@ class MainActivity : AppCompatActivity() {
                 try {
                     if (programs.isNotEmpty()) {
                         Log.e("TAP_DEBUG", "Calling programsAdapter.updatePrograms with ${programs.size} programs")
-                        programsAdapter.updatePrograms(programs)
+                        val currentProgramPosition = programsAdapter.updatePrograms(programs)
                         programsWrapper.visibility = View.VISIBLE
                         playlistAdapter.updateEpgOpen(channelIndex)
+                        
+                        // Scroll to current program if found
+                        if (currentProgramPosition >= 0) {
+                            programsRecyclerView.scrollToPosition(currentProgramPosition)
+                            Log.e("TAP_DEBUG", "Auto-scrolled to current program at position $currentProgramPosition")
+                        }
+                        
                         Log.e("TAP_DEBUG", "Programs panel visibility set to VISIBLE")
                         addDebugMessage("📺 Showing ${programs.size} programs for channel")
                     } else {
