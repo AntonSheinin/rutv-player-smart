@@ -11,6 +11,13 @@ The Android IPTV Player is a native Android application designed for robust IPTV
 - Do not make changes to the file `Y`.
 
 ## Recent Changes
+- **October 11, 2025**: EPG UI/UX enhancements:
+  - **EPG sync with playlist**: EPG window now hides automatically when channel list closes or when switching channels
+  - **Visual EPG indicator**: Added 📺 icon in channel list showing which channel currently has EPG panel open
+  - **Improved colors**: Updated EPG with modern dark theme - gold (#FFD700) date headers, better text contrast, cleaner styling
+  - **Selectable programs**: EPG items now clickable with gold highlight (#2A2500 background) when selected, ready for future functionality
+  - **Auto-select current**: When opening EPG, current/live program is automatically selected and scrolled into view with green indicator
+  - **Distinguished dates**: Date delimiters now use gold uppercase text with letter spacing on darker background for better visibility
 - **October 11, 2025**: Performance and UX improvements:
   - **Toast removal**: Removed all ~30 Toast messages across the app (were causing UI slowness)
   - **EPG fresh install fix**: Added fetchEpgData() call in settingsLauncher callback so EPG works after loading playlist from settings
