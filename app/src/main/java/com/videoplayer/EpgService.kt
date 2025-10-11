@@ -77,8 +77,8 @@ class EpgService(private val context: Context) {
         var totalProgramsReceived = 0
         
         batches.forEachIndexed { batchIndex, batch ->
+            val batchNumber = batchIndex + 1
             try {
-                val batchNumber = batchIndex + 1
                 Log.d(TAG, "📦 Processing batch $batchNumber/$totalBatches (${batch.size} channels)...")
                 
                 val epgRequest = EpgRequest(
