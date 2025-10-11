@@ -1,8 +1,6 @@
 package com.videoplayer
 
-import android.view.GestureDetector
 import android.view.LayoutInflater
-import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
@@ -158,5 +156,13 @@ class PlaylistAdapter(
         if (index == currentlyPlayingIndex) {
             notifyItemChanged(index)
         }
+    }
+    
+    override fun onViewRecycled(holder: PlaylistViewHolder) {
+        super.onViewRecycled(holder)
+        // Clean up pending actions to prevent stray callbacks on recycled views
+        holder.pendingAction?.let { holder.itemView.removeCallbacks(it) }
+        holder.pendingAction = null
+        holder.lastClickTime = 0L
     }
 }
