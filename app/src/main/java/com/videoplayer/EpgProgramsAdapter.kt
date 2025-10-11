@@ -60,7 +60,7 @@ class EpgProgramsAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
                 programHolder.time.text = formatTime(item.program.startTime)
                 programHolder.title.text = item.program.title
                 
-                if (item.program.description.isNotBlank()) {
+                if (!item.program.description.isNullOrBlank()) {
                     programHolder.description.visibility = View.VISIBLE
                     programHolder.description.text = item.program.description
                 } else {
