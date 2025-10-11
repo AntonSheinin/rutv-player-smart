@@ -398,9 +398,8 @@ class MainActivity : AppCompatActivity() {
             }
         } catch (e: Exception) {
             Log.e("VideoPlayer", "Error auto-loading playlist", e)
-            addDebugMessage("✗ Failed to auto-load playlist")
-            prefs.edit().clear().apply()
-            Toast.makeText(this, "Cleared corrupted playlist. Please reload.", Toast.LENGTH_LONG).show()
+            addDebugMessage("✗ Failed to auto-load playlist: ${e.message}")
+            Toast.makeText(this, "Failed to load playlist: ${e.message}", Toast.LENGTH_LONG).show()
             return false
         }
     }
@@ -1237,17 +1236,19 @@ class MainActivity : AppCompatActivity() {
         epgService?.let { service ->
             val programs = service.getProgramsForChannel(tvgId)
             Log.e("TAP_DEBUG", "Retrieved ${programs.size} programs for tvgId: $tvgId")
-            if (programs.isNotEmpty()) {
-                programsAdapter.updatePrograms(programs)
-                programsWrapper.visibility = View.VISIBLE
-                Log.e("TAP_DEBUG", "Programs panel visibility set to VISIBLE")
-                addDebugMessage("📺 Showing ${programs.size} programs for channel")
-                android.widget.Toast.makeText(this, "Showing ${programs.size} programs", android.widget.Toast.LENGTH_SHORT).show()
-            } else {
-                programsWrapper.visibility = View.GONE
-                Log.e("TAP_DEBUG", "No programs found, hiding panel")
-                addDebugMessage("⚠️ No EPG data for this channel (tvgId: $tvgId)")
-                android.widget.Toast.makeText(this, "No EPG data for tvgId: $tvgId", android.widget.Toast.LENGTH_SHORT).show()
+            runOnUiThread {
+                if (programs.isNotEmpty()) {
+                    programsAdapter.updatePrograms(programs)
+                    programsWrapper.visibility = View.VISIBLE
+                    Log.e("TAP_DEBUG", "Programs panel visibility set to VISIBLE")
+                    addDebugMessage("📺 Showing ${programs.size} programs for channel")
+                    android.widget.Toast.makeText(this, "Showing ${programs.size} programs", android.widget.Toast.LENGTH_SHORT).show()
+                } else {
+                    programsWrapper.visibility = View.GONE
+                    Log.e("TAP_DEBUG", "No programs found, hiding panel")
+                    addDebugMessage("⚠️ No EPG data for this channel (tvgId: $tvgId)")
+                    android.widget.Toast.makeText(this, "No EPG data for tvgId: $tvgId", android.widget.Toast.LENGTH_SHORT).show()
+                }
             }
         } ?: run {
             Log.e("TAP_DEBUG", "EPG service is null!")
