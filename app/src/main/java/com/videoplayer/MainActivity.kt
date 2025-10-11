@@ -801,13 +801,15 @@ class MainActivity : AppCompatActivity() {
             },
             onShowPrograms = { position ->
                 val channel = playlist.getOrNull(position)
-                Log.d("VideoPlayer", "onShowPrograms called for position: $position, channel: ${channel?.title}")
+                Log.e("TAP_DEBUG", "MainActivity.onShowPrograms called for position: $position, channel: ${channel?.title}")
+                android.widget.Toast.makeText(this, "onShowPrograms: ${channel?.title}", android.widget.Toast.LENGTH_SHORT).show()
                 channel?.let {
                     if (it.tvgId.isNotBlank()) {
-                        Log.d("VideoPlayer", "Showing programs for tvgId: ${it.tvgId}")
+                        Log.e("TAP_DEBUG", "Showing programs for tvgId: ${it.tvgId}")
                         showProgramsForChannel(it.tvgId)
                     } else {
-                        Log.d("VideoPlayer", "Channel has no tvgId: ${it.title}")
+                        Log.e("TAP_DEBUG", "Channel has no tvgId: ${it.title}")
+                        android.widget.Toast.makeText(this, "No tvg-id for ${it.title}", android.widget.Toast.LENGTH_SHORT).show()
                     }
                 }
             },
@@ -1223,22 +1225,26 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun showProgramsForChannel(tvgId: String) {
-        Log.d("VideoPlayer", "showProgramsForChannel called for tvgId: $tvgId")
+        Log.e("TAP_DEBUG", "showProgramsForChannel called for tvgId: $tvgId")
+        android.widget.Toast.makeText(this, "showProgramsForChannel: $tvgId", android.widget.Toast.LENGTH_SHORT).show()
         epgService?.let { service ->
             val programs = service.getProgramsForChannel(tvgId)
-            Log.d("VideoPlayer", "Retrieved ${programs.size} programs for tvgId: $tvgId")
+            Log.e("TAP_DEBUG", "Retrieved ${programs.size} programs for tvgId: $tvgId")
             if (programs.isNotEmpty()) {
                 programsAdapter.updatePrograms(programs)
                 programsWrapper.visibility = View.VISIBLE
-                Log.d("VideoPlayer", "Programs panel visibility set to VISIBLE")
+                Log.e("TAP_DEBUG", "Programs panel visibility set to VISIBLE")
                 addDebugMessage("📺 Showing ${programs.size} programs for channel")
+                android.widget.Toast.makeText(this, "Showing ${programs.size} programs", android.widget.Toast.LENGTH_SHORT).show()
             } else {
                 programsWrapper.visibility = View.GONE
-                Log.d("VideoPlayer", "No programs found, hiding panel")
+                Log.e("TAP_DEBUG", "No programs found, hiding panel")
                 addDebugMessage("⚠️ No EPG data for this channel (tvgId: $tvgId)")
+                android.widget.Toast.makeText(this, "No EPG data for tvgId: $tvgId", android.widget.Toast.LENGTH_SHORT).show()
             }
         } ?: run {
-            Log.e("VideoPlayer", "EPG service is null!")
+            Log.e("TAP_DEBUG", "EPG service is null!")
+            android.widget.Toast.makeText(this, "EPG service is null!", android.widget.Toast.LENGTH_SHORT).show()
         }
     }
     

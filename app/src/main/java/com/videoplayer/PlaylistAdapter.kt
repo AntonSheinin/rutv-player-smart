@@ -100,40 +100,61 @@ class PlaylistAdapter(
         
         // Simple click listener with double-tap detection
         holder.cardView.setOnClickListener {
-            android.util.Log.e("PlaylistAdapter", "========== CARD CLICKED: ${videoItem.title} ==========")
+            android.util.Log.e("TAP_DEBUG", "========== CARD CLICKED: ${videoItem.title} ==========")
+            android.widget.Toast.makeText(holder.itemView.context, "Clicked: ${videoItem.title}", android.widget.Toast.LENGTH_SHORT).show()
             
             val currentPosition = holder.bindingAdapterPosition
-            if (currentPosition == RecyclerView.NO_POSITION) return@setOnClickListener
+            if (currentPosition == RecyclerView.NO_POSITION) {
+                android.util.Log.e("TAP_DEBUG", "NO_POSITION - returning")
+                return@setOnClickListener
+            }
             
-            val currentItem = displayList.getOrNull(currentPosition) ?: return@setOnClickListener
+            val currentItem = displayList.getOrNull(currentPosition)
+            if (currentItem == null) {
+                android.util.Log.e("TAP_DEBUG", "currentItem is null - returning")
+                return@setOnClickListener
+            }
+            
             val currentActualIndex = playlist.indexOf(currentItem)
+            android.util.Log.e("TAP_DEBUG", "Position: $currentPosition, ActualIndex: $currentActualIndex")
             
             val currentTime = System.currentTimeMillis()
             val timeSinceLastClick = currentTime - holder.lastClickTime
+            android.util.Log.e("TAP_DEBUG", "Time since last click: ${timeSinceLastClick}ms")
             
             // Remove any pending single-tap action
-            holder.pendingAction?.let { holder.itemView.removeCallbacks(it) }
+            holder.pendingAction?.let { 
+                android.util.Log.e("TAP_DEBUG", "Removing pending action")
+                holder.itemView.removeCallbacks(it) 
+            }
             
             if (timeSinceLastClick < 300) {
                 // DOUBLE TAP - play channel immediately
-                android.util.Log.e("PlaylistAdapter", "========== DOUBLE TAP: Playing ${currentItem.title} ==========")
+                android.util.Log.e("TAP_DEBUG", "========== DOUBLE TAP: Playing ${currentItem.title} ==========")
+                android.widget.Toast.makeText(holder.itemView.context, "Double tap: ${currentItem.title}", android.widget.Toast.LENGTH_SHORT).show()
                 holder.lastClickTime = 0
                 holder.pendingAction = null  // Clear state after double tap
                 selectedPosition = currentActualIndex
                 onChannelClick(currentActualIndex)
             } else {
                 // SINGLE TAP - show EPG after delay (in case of double tap)
-                android.util.Log.e("PlaylistAdapter", "========== SINGLE TAP: Scheduling EPG for ${currentItem.title} ==========")
+                android.util.Log.e("TAP_DEBUG", "========== SINGLE TAP: Scheduling EPG for ${currentItem.title} ==========")
+                android.util.Log.e("TAP_DEBUG", "tvgId: '${currentItem.tvgId}'")
+                android.widget.Toast.makeText(holder.itemView.context, "Single tap: ${currentItem.title}", android.widget.Toast.LENGTH_SHORT).show()
                 holder.lastClickTime = currentTime
                 
                 holder.pendingAction = Runnable {
+                    android.util.Log.e("TAP_DEBUG", "========== RUNNABLE EXECUTING for ${currentItem.title} ==========")
                     if (currentItem.tvgId.isNotBlank()) {
-                        android.util.Log.e("PlaylistAdapter", "Showing EPG for: ${currentItem.title}, tvgId='${currentItem.tvgId}'")
+                        android.util.Log.e("TAP_DEBUG", "Calling onShowPrograms for: ${currentItem.title}, tvgId='${currentItem.tvgId}'")
                         onShowPrograms(currentActualIndex)
+                        android.util.Log.e("TAP_DEBUG", "onShowPrograms called!")
                     } else {
-                        android.util.Log.e("PlaylistAdapter", "No tvg-id for channel: ${currentItem.title}")
+                        android.util.Log.e("TAP_DEBUG", "No tvg-id for channel: ${currentItem.title}")
+                        android.widget.Toast.makeText(holder.itemView.context, "No EPG data (no tvg-id)", android.widget.Toast.LENGTH_SHORT).show()
                     }
                 }
+                android.util.Log.e("TAP_DEBUG", "Posting delayed runnable (300ms)")
                 holder.itemView.postDelayed(holder.pendingAction!!, 300)
             }
         }
