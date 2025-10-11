@@ -1268,10 +1268,21 @@ class MainActivity : AppCompatActivity() {
                         programsWrapper.visibility = View.VISIBLE
                         playlistAdapter.updateEpgOpen(channelIndex)
                         
-                        // Scroll to current program if found
+                        // Scroll to current program and center it on screen
                         if (currentProgramPosition >= 0) {
-                            programsRecyclerView.scrollToPosition(currentProgramPosition)
-                            Log.e("TAP_DEBUG", "Auto-scrolled to current program at position $currentProgramPosition")
+                            programsRecyclerView.post {
+                                val layoutManager = programsRecyclerView.layoutManager as? LinearLayoutManager
+                                if (layoutManager != null) {
+                                    // Calculate offset to center the item
+                                    val screenHeight = programsRecyclerView.height
+                                    val itemHeight = programsRecyclerView.getChildAt(0)?.height ?: 100
+                                    val offset = (screenHeight / 2) - (itemHeight / 2)
+                                    layoutManager.scrollToPositionWithOffset(currentProgramPosition, offset)
+                                    Log.e("TAP_DEBUG", "Auto-scrolled current program to center of screen at position $currentProgramPosition")
+                                } else {
+                                    programsRecyclerView.scrollToPosition(currentProgramPosition)
+                                }
+                            }
                         }
                         
                         Log.e("TAP_DEBUG", "Programs panel visibility set to VISIBLE")
