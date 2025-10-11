@@ -118,6 +118,14 @@ object ChannelStorage {
         prefs.edit().putString(KEY_ASPECT_RATIOS, jsonObject.toString()).apply()
     }
     
+    fun clearCache(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit()
+            .remove(KEY_CHANNELS)
+            .remove(KEY_PLAYLIST_HASH)
+            .apply()
+    }
+    
     fun clearAllData(context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().clear().apply()
