@@ -8,6 +8,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.TimeZone
 
 class EpgService(private val context: Context) {
     
@@ -68,12 +69,17 @@ class EpgService(private val context: Context) {
         Log.d(TAG, "📡 Fetching EPG for ${channelsWithEpg.size} channels in ONE request (background thread)...")
         Log.d("VideoPlayer", "📡 EPG: Preparing request for ${channelsWithEpg.size} channels to $epgUrl/epg")
         
+        // Get device timezone
+        val deviceTimezone = TimeZone.getDefault().id
+        Log.d(TAG, "🌍 Device timezone: $deviceTimezone")
+        
         try {
             val epgRequest = EpgRequest(
                 channels = channelsWithEpg.map {
                     EpgChannelRequest(xmltvId = it.tvgId, epgDepth = it.catchupDays)
                 },
-                update = "force"
+                update = "force",
+                timezone = deviceTimezone
             )
             
             val requestBody = gson.toJson(epgRequest)

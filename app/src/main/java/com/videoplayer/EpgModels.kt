@@ -17,7 +17,8 @@ data class EpgChannelRequest(
 
 data class EpgRequest(
     @SerializedName("channels") val channels: List<EpgChannelRequest>,
-    @SerializedName("update") val update: String = "force"
+    @SerializedName("update") val update: String = "force",
+    @SerializedName("timezone") val timezone: String
 )
 
 data class EpgResponse(

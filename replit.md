@@ -11,6 +11,10 @@ The Android IPTV Player is a native Android application designed for robust IPTV
 - Do not make changes to the file `Y`.
 
 ## Recent Changes
+- **October 11, 2025**: Added timezone parameter to EPG request:
+  - EPG requests now include "timezone" parameter with device's actual timezone (e.g., "Europe/Moscow", "America/New_York")
+  - Server can use this to properly format program times for user's timezone
+  - Automatically detected from device settings using TimeZone.getDefault().id
 - **October 11, 2025**: Added "🔄 Reload Current Playlist" button in Settings:
   - Gold button that clears cache and reloads playlist from original source (file or URL)
   - Fixes issue where old cached playlists don't have tvg-id/catchup-days saved
