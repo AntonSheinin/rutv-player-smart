@@ -5,7 +5,11 @@ The Android IPTV Player is a native Android application built with Media3 (ExoPl
 
 ## Recent Changes
 - **October 11, 2025**: Critical EPG tap detection fixes and default codec changes:
-  - **Fixed EPG tap detection**: Resolved issue where MaterialCardView's focusable property blocked touch events. Now uses GestureDetector with proper onDown() implementation on cardView (not itemView) to allow favorite button touches
+  - **Fixed EPG tap detection**: Resolved two blocking issues:
+    1. Favorite button had `focusable="true"` which consumed all touch events
+    2. MaterialCardView had `clickable="true"` which prevented GestureDetector from receiving events
+    - Solution: Set both to `focusable="false"`, MaterialCardView to `clickable="false"`, added ripple to LinearLayout for visual feedback
+  - **GestureDetector architecture**: Created once per ViewHolder (not recreated on bind) with onDown() returning true to enable gesture tracking. Touch listener in ViewHolder init block, tap action callbacks updated on each bind
   - **Default audio codec**: Changed from FFmpeg to built-in hardware decoder by default for better compatibility
   - **Robust tap handling**: Single tap shows EPG programs, double tap plays channel, uses bindingAdapterPosition for safe RecyclerView position access
 - **October 10, 2025**: Complete EPG (Electronic Program Guide) integration:
