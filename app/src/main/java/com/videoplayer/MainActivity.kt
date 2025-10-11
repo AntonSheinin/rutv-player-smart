@@ -757,7 +757,8 @@ class MainActivity : AppCompatActivity() {
                         group = channel.group,
                         isFavorite = ChannelStorage.isFavorite(this, channel.url),
                         aspectRatio = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT,
-                        tvgId = channel.tvgId
+                        tvgId = channel.tvgId,
+                        catchupDays = channel.catchupDays
                     )
                 })
                 
