@@ -66,6 +66,7 @@ class EpgService(private val context: Context) {
         }
         
         Log.d(TAG, "📡 Fetching EPG for ${channelsWithEpg.size} channels in ONE request (background thread)...")
+        Log.d("VideoPlayer", "📡 EPG: Preparing request for ${channelsWithEpg.size} channels to $epgUrl/epg")
         
         try {
             val epgRequest = EpgRequest(
@@ -91,12 +92,14 @@ class EpgService(private val context: Context) {
             val responseCode = connection.responseCode
             
             if (responseCode == 200) {
+                Log.d("VideoPlayer", "📡 EPG: Received 200 OK, parsing response...")
                 // Stream parse JSON to avoid loading 180MB+ response into memory
                 val epgResponse = connection.inputStream.bufferedReader().use { reader ->
                     gson.fromJson(reader, EpgResponse::class.java)
                 }
                 
                 if (epgResponse != null) {
+                    Log.d("VideoPlayer", "📡 EPG: Parsed ${epgResponse.totalPrograms} programs for ${epgResponse.channelsFound} channels")
                     saveEpgData(epgResponse)
                     Log.d(TAG, "✅ EPG fetch complete: ${epgResponse.channelsFound} channels, ${epgResponse.totalPrograms} programs")
                     
@@ -108,21 +111,25 @@ class EpgService(private val context: Context) {
                     return@withContext true
                 } else {
                     Log.e(TAG, "❌ EPG response is null")
+                    Log.e("VideoPlayer", "❌ EPG: Response parsed as null")
                     connection.disconnect()
                     return@withContext false
                 }
             } else {
                 Log.e(TAG, "❌ EPG fetch failed with code $responseCode")
+                Log.e("VideoPlayer", "❌ EPG: HTTP error $responseCode")
                 connection.disconnect()
                 return@withContext false
             }
             
         } catch (e: OutOfMemoryError) {
             Log.e(TAG, "❌ Out of memory fetching EPG - response too large (${channelsWithEpg.size} channels)", e)
+            Log.e("VideoPlayer", "❌ EPG: Out of memory - ${e.message}")
             Log.e(TAG, "💡 Try reducing catchup-days in your playlist to reduce EPG data size")
             return@withContext false
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error fetching EPG: ${e.message}", e)
+            Log.e("VideoPlayer", "❌ EPG: Exception - ${e.javaClass.simpleName}: ${e.message}")
             e.printStackTrace()
             return@withContext false
         }
@@ -177,11 +184,20 @@ class EpgService(private val context: Context) {
     
     fun getCurrentProgram(tvgId: String): EpgProgram? {
         return try {
-            val epgData = loadEpgData() ?: return null
-            val programs = epgData.epg[tvgId] ?: return null
-            val now = System.currentTimeMillis()
+            val epgData = loadEpgData()
+            if (epgData == null) {
+                Log.d(TAG, "getCurrentProgram: No EPG data loaded for $tvgId")
+                return null
+            }
             
-            programs.firstOrNull { program ->
+            val programs = epgData.epg[tvgId]
+            if (programs == null) {
+                Log.d(TAG, "getCurrentProgram: No programs found for tvgId '$tvgId' (EPG has ${epgData.epg.size} channels)")
+                return null
+            }
+            
+            val now = System.currentTimeMillis()
+            val currentProgram = programs.firstOrNull { program ->
                 try {
                     val startTime = parseTimeString(program.startTime)
                     val stopTime = parseTimeString(program.stopTime)
@@ -190,6 +206,13 @@ class EpgService(private val context: Context) {
                     false
                 }
             }
+            
+            if (currentProgram != null) {
+                Log.d(TAG, "getCurrentProgram: Found current program '${currentProgram.title}' for $tvgId")
+            } else {
+                Log.d(TAG, "getCurrentProgram: No current program for $tvgId (has ${programs.size} total programs)")
+            }
+            currentProgram
         } catch (e: Exception) {
             Log.e(TAG, "Error in getCurrentProgram for $tvgId: ${e.message}", e)
             null

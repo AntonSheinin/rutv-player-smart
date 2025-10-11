@@ -1355,26 +1355,31 @@ class MainActivity : AppCompatActivity() {
                 val channelsWithEpg = channels.filter { it.tvgId.isNotBlank() && it.catchupDays > 0 }
                 addDebugMessage("📡 Fetching EPG for ${channelsWithEpg.size} channels (ONE request, background thread)...")
                 
-                val success = service.fetchEpgData(
-                    epgUrl = epgUrl,
-                    channels = channels
-                ) {
-                    // UI update on completion (on Main thread)
-                    try {
-                        if (::playlistAdapter.isInitialized) {
-                            addDebugMessage("🔄 Updating channel list with EPG data...")
-                            playlistAdapter.notifyDataSetChanged()
+                try {
+                    val success = service.fetchEpgData(
+                        epgUrl = epgUrl,
+                        channels = channels
+                    ) {
+                        // UI update on completion (on Main thread)
+                        try {
+                            if (::playlistAdapter.isInitialized) {
+                                addDebugMessage("🔄 Updating channel list with EPG data...")
+                                playlistAdapter.notifyDataSetChanged()
+                            }
+                        } catch (e: Exception) {
+                            Log.e("VideoPlayer", "Error updating adapter after EPG fetch: ${e.message}", e)
+                            addDebugMessage("⚠️ UI update error: ${e.message}")
                         }
-                    } catch (e: Exception) {
-                        Log.e("VideoPlayer", "Error updating adapter after EPG fetch: ${e.message}", e)
-                        addDebugMessage("⚠️ UI update error: ${e.message}")
                     }
-                }
-                
-                if (success) {
-                    addDebugMessage("✅ EPG data loaded successfully")
-                } else {
-                    addDebugMessage("❌ EPG fetch failed")
+                    
+                    if (success) {
+                        addDebugMessage("✅ EPG data loaded successfully")
+                    } else {
+                        addDebugMessage("❌ EPG fetch failed - check network or server")
+                    }
+                } catch (e: Exception) {
+                    addDebugMessage("❌ EPG error: ${e.message}")
+                    Log.e("VideoPlayer", "EPG fetch exception: ${e.message}", e)
                 }
             }
         }
