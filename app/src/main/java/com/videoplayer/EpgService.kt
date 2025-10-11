@@ -48,7 +48,12 @@ class EpgService(private val context: Context) {
         }
     }
     
-    suspend fun fetchEpg(epgUrl: String, channels: List<M3U8Parser.Channel>): Boolean = withContext(Dispatchers.IO) {
+    suspend fun fetchEpgBatched(
+        epgUrl: String,
+        channels: List<M3U8Parser.Channel>,
+        batchSize: Int = 20,
+        onBatchComplete: (batchNumber: Int, totalBatches: Int, channelsProcessed: Int) -> Unit = { _, _, _ -> }
+    ): Boolean = withContext(Dispatchers.IO) {
         if (epgUrl.isBlank()) {
             Log.d(TAG, "❌ EPG URL not configured, skipping fetch")
             return@withContext false
@@ -60,94 +65,85 @@ class EpgService(private val context: Context) {
             return@withContext false
         }
         
-        // DEBUG: Limit to first 10 channels only
-        val limitedChannels = channelsWithEpg.take(10)
-        Log.d(TAG, "🔧 DEBUG MODE: Limiting EPG fetch to ${limitedChannels.size} channels (out of ${channelsWithEpg.size} total)")
+        // Process in batches
+        val batches = channelsWithEpg.chunked(batchSize)
+        val totalBatches = batches.size
+        Log.d(TAG, "📡 Starting batched EPG fetch: ${channelsWithEpg.size} channels in $totalBatches batches of $batchSize")
         
-        try {
-            Log.d(TAG, "📡 Fetching EPG for ${limitedChannels.size} channels...")
-            Log.d(TAG, "📍 EPG URL: $epgUrl/epg")
-            
-            // Log channel details
-            limitedChannels.forEachIndexed { index, channel ->
-                Log.d(TAG, "   Channel ${index + 1}: tvg-id='${channel.tvgId}', catchup-days=${channel.catchupDays}")
-            }
-            
-            val epgRequest = EpgRequest(
-                channels = limitedChannels.map {
-                    EpgChannelRequest(xmltvId = it.tvgId, epgDepth = it.catchupDays)
-                },
-                update = "force"
-            )
-            
-            val requestBody = gson.toJson(epgRequest)
-            Log.d(TAG, "📤 EPG Request JSON: $requestBody")
-            
-            val url = URL("$epgUrl/epg")
-            val connection = url.openConnection() as HttpURLConnection
-            connection.requestMethod = "POST"
-            connection.setRequestProperty("Content-Type", "application/json")
-            connection.connectTimeout = 30000
-            connection.readTimeout = 30000
-            connection.doOutput = true
-            
-            Log.d(TAG, "🔗 Opening connection to ${url}...")
-            
-            connection.outputStream.use { os ->
-                os.write(requestBody.toByteArray())
-                Log.d(TAG, "📨 Request body sent (${requestBody.toByteArray().size} bytes)")
-            }
-            
-            val responseCode = connection.responseCode
-            Log.d(TAG, "📥 Response code: $responseCode")
-            
-            if (responseCode == 200) {
-                val response = connection.inputStream.bufferedReader().use { it.readText() }
-                Log.d(TAG, "📥 Response body received (${response.length} chars)")
-                Log.d(TAG, "📥 Response preview: ${response.take(200)}...")
+        // Load existing EPG data or create new
+        val existingEpgData = loadEpgData()
+        val mergedEpgMap = existingEpgData?.epg?.toMutableMap() ?: mutableMapOf()
+        var totalChannelsProcessed = 0
+        var totalProgramsReceived = 0
+        
+        batches.forEachIndexed { batchIndex, batch ->
+            try {
+                val batchNumber = batchIndex + 1
+                Log.d(TAG, "📦 Processing batch $batchNumber/$totalBatches (${batch.size} channels)...")
                 
-                try {
-                    val epgResponse = gson.fromJson(response, EpgResponse::class.java)
+                val epgRequest = EpgRequest(
+                    channels = batch.map {
+                        EpgChannelRequest(xmltvId = it.tvgId, epgDepth = it.catchupDays)
+                    },
+                    update = "force"
+                )
+                
+                val requestBody = gson.toJson(epgRequest)
+                val url = URL("$epgUrl/epg")
+                val connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "POST"
+                connection.setRequestProperty("Content-Type", "application/json")
+                connection.connectTimeout = 30000
+                connection.readTimeout = 30000
+                connection.doOutput = true
+                
+                connection.outputStream.use { os ->
+                    os.write(requestBody.toByteArray())
+                }
+                
+                val responseCode = connection.responseCode
+                
+                if (responseCode == 200) {
+                    val response = connection.inputStream.bufferedReader().use { it.readText() }
+                    val batchResponse = gson.fromJson(response, EpgResponse::class.java)
                     
-                    if (epgResponse == null) {
-                        Log.e(TAG, "❌ EPG response is null after parsing")
-                        connection.disconnect()
-                        return@withContext false
+                    if (batchResponse != null) {
+                        // Merge batch data into existing EPG
+                        mergedEpgMap.putAll(batchResponse.epg)
+                        totalChannelsProcessed += batchResponse.channelsFound
+                        totalProgramsReceived += batchResponse.totalPrograms
+                        
+                        // Save progressively after each batch
+                        val mergedResponse = EpgResponse(
+                            channelsRequested = totalChannelsProcessed,
+                            channelsFound = totalChannelsProcessed,
+                            totalPrograms = totalProgramsReceived,
+                            updateMode = "force",
+                            timestamp = batchResponse.timestamp,
+                            epg = mergedEpgMap
+                        )
+                        saveEpgData(mergedResponse)
+                        
+                        Log.d(TAG, "✅ Batch $batchNumber complete: +${batchResponse.channelsFound} channels, +${batchResponse.totalPrograms} programs")
+                        
+                        // Notify progress
+                        withContext(Dispatchers.Main) {
+                            onBatchComplete(batchNumber, totalBatches, totalChannelsProcessed)
+                        }
                     }
-                    
-                    Log.d(TAG, "✅ EPG fetch successful:")
-                    Log.d(TAG, "   • Channels requested: ${epgResponse.channelsRequested}")
-                    Log.d(TAG, "   • Channels found: ${epgResponse.channelsFound}")
-                    Log.d(TAG, "   • Total programs: ${epgResponse.totalPrograms}")
-                    Log.d(TAG, "   • Update mode: ${epgResponse.updateMode}")
-                    Log.d(TAG, "   • Timestamp: ${epgResponse.timestamp}")
-                    Log.d(TAG, "   • EPG keys: ${epgResponse.epg.keys.joinToString(", ")}")
-                    
-                    saveEpgData(epgResponse)
                     connection.disconnect()
-                    return@withContext true
-                } catch (e: Exception) {
-                    Log.e(TAG, "❌ Failed to parse EPG response: ${e.message}")
-                    Log.e(TAG, "❌ Response was: $response")
+                } else {
+                    Log.e(TAG, "❌ Batch $batchNumber failed with code $responseCode")
                     connection.disconnect()
-                    return@withContext false
                 }
-            } else {
-                val errorBody = try {
-                    connection.errorStream?.bufferedReader()?.use { it.readText() } ?: "No error body"
-                } catch (e: Exception) {
-                    "Error reading error body: ${e.message}"
-                }
-                Log.e(TAG, "❌ EPG fetch failed with code $responseCode")
-                Log.e(TAG, "❌ Error body: $errorBody")
-                connection.disconnect()
-                return@withContext false
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Error in batch $batchNumber: ${e.message}")
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ EPG fetch error: ${e.javaClass.simpleName} - ${e.message}")
-            Log.e(TAG, "❌ Stack trace: ", e)
-            return@withContext false
         }
+        
+        Log.d(TAG, "🎉 EPG fetch complete: $totalChannelsProcessed channels, $totalProgramsReceived programs")
+        return@withContext totalChannelsProcessed > 0
     }
     
     private fun saveEpgData(epgResponse: EpgResponse) {
