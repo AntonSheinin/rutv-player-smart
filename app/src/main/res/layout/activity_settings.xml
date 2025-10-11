@@ -89,6 +89,16 @@
         android:text="• File: Playlist is stored locally\n• URL: Playlist reloads from URL on app start"
         android:textSize="12sp"
         android:textColor="#888888"
+        android:layout_marginBottom="12dp" />
+
+    <Button
+        android:id="@+id/btn_reload_playlist"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:text="🔄 Reload Current Playlist"
+        android:textSize="14sp"
+        android:backgroundTint="#FFD700"
+        android:textColor="#000000"
         android:layout_marginBottom="24dp" />
 
     <TextView

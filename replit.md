@@ -11,6 +11,16 @@ The Android IPTV Player is a native Android application designed for robust IPTV
 - Do not make changes to the file `Y`.
 
 ## Recent Changes
+- **October 11, 2025**: Added "🔄 Reload Current Playlist" button in Settings:
+  - Gold button that clears cache and reloads playlist from original source (file or URL)
+  - Fixes issue where old cached playlists don't have tvg-id/catchup-days saved
+  - Shows confirmation dialog explaining the reload will refresh all EPG data
+  - Essential for users upgrading from versions before the cache preservation fix
+- **October 11, 2025**: Comprehensive EPG debugging logs:
+  - Added detailed logging throughout EPG fetch, parse, and display pipeline
+  - Shows which channels have tvg-id vs which don't
+  - Logs EPG service status, program lookups, and display updates
+  - Helps diagnose EPG issues with specific error messages
 - **October 11, 2025**: EPG Out of Memory crash fix:
   - **Stream JSON parsing**: Changed from loading entire 180MB+ response into memory to streaming JSON parsing
   - **Memory-first caching**: EPG data cached in memory first, disk save is optional with graceful OOM handling

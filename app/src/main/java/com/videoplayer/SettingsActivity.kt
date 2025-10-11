@@ -22,6 +22,7 @@ class SettingsActivity : AppCompatActivity() {
     
     private lateinit var btnLoadFile: Button
     private lateinit var btnLoadUrl: Button
+    private lateinit var btnReloadPlaylist: Button
     private lateinit var btnBack: Button
     private lateinit var switchDebugLog: Switch
     private lateinit var switchFfmpegAudio: Switch
@@ -45,6 +46,7 @@ class SettingsActivity : AppCompatActivity() {
         
         btnLoadFile = findViewById(R.id.btn_load_file)
         btnLoadUrl = findViewById(R.id.btn_load_url)
+        btnReloadPlaylist = findViewById(R.id.btn_reload_playlist)
         btnBack = findViewById(R.id.btn_back)
         switchDebugLog = findViewById(R.id.switch_debug_log)
         switchFfmpegAudio = findViewById(R.id.switch_ffmpeg_audio)
@@ -88,9 +90,51 @@ class SettingsActivity : AppCompatActivity() {
             showUrlDialog()
         }
         
+        btnReloadPlaylist.setOnClickListener {
+            reloadCurrentPlaylist()
+        }
+        
         btnBack.setOnClickListener {
             finish()
         }
+    }
+    
+    private fun reloadCurrentPlaylist() {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val playlistType = prefs.getString(KEY_PLAYLIST_TYPE, null)
+        
+        if (playlistType == null) {
+            AlertDialog.Builder(this)
+                .setTitle("No Playlist")
+                .setMessage("No playlist is currently loaded. Please load a playlist first.")
+                .setPositiveButton("OK", null)
+                .show()
+            return
+        }
+        
+        AlertDialog.Builder(this)
+            .setTitle("Reload Playlist?")
+            .setMessage("This will reload the playlist from the original source and refresh all EPG data (tvg-id, catchup-days, etc.).")
+            .setPositiveButton("Reload") { _, _ ->
+                // Clear the cache to force reload
+                ChannelStorage.clearCache(this)
+                
+                when (playlistType) {
+                    TYPE_URL -> {
+                        val url = prefs.getString(KEY_PLAYLIST_URL, null)
+                        if (url != null) {
+                            loadPlaylistFromUrl(url)
+                        }
+                    }
+                    TYPE_FILE -> {
+                        // For file type, just finish - MainActivity will reload from cache
+                        // But we already cleared cache, so it will reload from stored content
+                        finish()
+                    }
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
     
     private fun setupDebugLogSwitch() {
