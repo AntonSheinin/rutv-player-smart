@@ -10,6 +10,15 @@ The Android IPTV Player is a native Android application designed for robust IPTV
 - Do not make changes to the folder `Z`.
 - Do not make changes to the file `Y`.
 
+## Recent Changes
+- **October 11, 2025**: Critical EPG fixes - crash, null handling, and cache preservation:
+  - **EPG null crash fix**: Changed EpgProgramsAdapter to use `.isNullOrBlank()` instead of `.isNotBlank()` for description field to handle null values from EPG API
+  - **Cache preservation fix**: Added `catchupDays` field to VideoItem data class and updated ChannelStorage to save/load both `tvgId` and `catchupDays` in JSON cache, preventing EPG data loss after loading from cache (fixes issue where EPG worked initially but failed after exiting settings)
+  - **Threading fix**: Added runOnUiThread wrapper for programsAdapter.updatePrograms() to ensure RecyclerView updates happen on main thread
+  - **Auto-reload fix**: Removed destructive prefs.edit().clear() in error handler that was wiping all settings on errors
+- **October 11, 2025**: Dependency cleanup:
+  - Removed unused Media3 modules (DASH, RTSP, SmoothStreaming) and unused imports to reduce APK size
+
 ## System Architecture
 
 ### UI/UX Decisions
