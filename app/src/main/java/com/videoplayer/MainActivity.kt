@@ -65,6 +65,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var channelAdapter: ChannelListAdapter
     private lateinit var epgAdapter: EpgListAdapter
 
+    // Track if we've shown the no-playlist prompt
+    private var hasShownNoPlaylistPrompt = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -74,6 +77,9 @@ class MainActivity : AppCompatActivity() {
         setupButtons()
         setupFullscreen()
         observeViewModel()
+
+        // Show controls initially so user can access settings
+        playerView.showController()
 
         Timber.d("MainActivity created")
     }
@@ -183,6 +189,7 @@ class MainActivity : AppCompatActivity() {
         ActivityResultContracts.StartActivityForResult()
     ) { _ ->
         // Settings changed, reload playlist
+        hasShownNoPlaylistPrompt = false // Reset flag to show prompt again if still no playlist
         viewModel.loadPlaylist(forceReload = false)
     }
 
@@ -203,6 +210,12 @@ class MainActivity : AppCompatActivity() {
      * Update UI based on state
      */
     private fun updateUI(state: com.videoplayer.presentation.main.MainViewState) {
+        // Check if no playlist is configured and show prompt
+        if (!state.isLoading && !state.hasChannels && !hasShownNoPlaylistPrompt) {
+            hasShownNoPlaylistPrompt = true
+            showNoPlaylistDialog()
+        }
+
         // Update channel list
         if (state.hasChannels) {
             channelAdapter.submitList(state.filteredChannels)
@@ -402,6 +415,28 @@ class MainActivity : AppCompatActivity() {
         currentDialog?.show()
 
         input.requestFocus()
+    }
+
+    /**
+     * Show dialog when no playlist is configured
+     */
+    private fun showNoPlaylistDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("No Playlist Configured")
+            .setMessage("Please go to Settings to configure your playlist source (URL or file) to start watching channels.")
+            .setPositiveButton("Open Settings") { dialog, _ ->
+                dialog.dismiss()
+                settingsLauncher.launch(android.content.Intent(this, SettingsActivity::class.java))
+            }
+            .setNegativeButton("Later") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .setCancelable(true)
+            .create()
+            .apply {
+                window?.setBackgroundDrawableResource(android.R.color.black)
+                show()
+            }
     }
 
     /**
