@@ -1,0 +1,47 @@
+{
+    // ---- Python environment ----
+    // Automatically use your project's venv
+    //"python.defaultInterpreterPath": "${workspaceFolder}/venv/bin/python", // Linux/Mac
+    "python.defaultInterpreterPath": "${workspaceFolder}\\venv\\Scripts\\python.exe", // Windows
+
+    // Auto-activate venv in integrated terminal
+    "terminal.integrated.defaultProfile.linux": "bash", // Linux/Mac
+    "terminal.integrated.defaultProfile.windows": "Git Bash", // Windows with Git Bash installed
+    "python.terminal.activateEnvironment": true,
+
+    // Enable linting and formatting
+    "python.linting.enabled": true,
+    "python.linting.pylintEnabled": true, // or use flake8
+    "editor.formatOnSave": false,
+
+    // Default formatter (can switch to black, yapf, etc.)
+    "python.formatting.provider": "black",
+
+    // ---- Editor experience ----
+    // Show spaces/tabs
+    "editor.renderWhitespace": "boundary",
+
+    // Save files automatically after delay
+    "files.autoSave": "onFocusChange", // or "afterDelay"
+    //"files.autoSaveDelay": 1000, // in ms (1 second)
+
+    // Use 4 spaces for Python
+    "[python]": {
+        "editor.tabSize": 4,
+        "editor.insertSpaces": true
+    },
+
+    // ---- Terminal ----
+    // Open terminal at workspace root
+    "terminal.integrated.cwd": "${workspaceFolder}",
+
+    // ---- IntelliSense ----
+    "python.analysis.typeCheckingMode": "basic", // or "strict"
+    "python.analysis.autoImportCompletions": true,
+
+    // ---- Misc ----
+    // Trim trailing whitespace on save
+    "files.trimTrailingWhitespace": true,
+    // Ensure newline at end of file
+    "files.insertFinalNewline": true
+}
