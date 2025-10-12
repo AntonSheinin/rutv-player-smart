@@ -156,6 +156,12 @@ class MainViewModel @Inject constructor(
             when (fetchEpgUseCase()) {
                 is Result.Success -> {
                     Timber.d("EPG fetched successfully")
+
+                    // Update state with timestamp to trigger adapter refresh
+                    _viewState.update {
+                        it.copy(epgLoadedTimestamp = System.currentTimeMillis())
+                    }
+
                     // Update current program for current channel
                     _viewState.value.currentChannel?.let { channel ->
                         updateCurrentProgram(channel)
@@ -331,6 +337,13 @@ class MainViewModel @Inject constructor(
      * Get player instance
      */
     fun getPlayer() = playerManager.getPlayer()
+
+    /**
+     * Get current program for a channel by tvgId
+     */
+    fun getCurrentProgramForChannel(tvgId: String): EpgProgram? {
+        return epgRepository.getCurrentProgram(tvgId)
+    }
 
     /**
      * On activity paused

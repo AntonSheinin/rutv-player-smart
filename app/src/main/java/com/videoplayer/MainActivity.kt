@@ -68,6 +68,9 @@ class MainActivity : AppCompatActivity() {
     // Track if we've shown the no-playlist prompt
     private var hasShownNoPlaylistPrompt = false
 
+    // Track last EPG loaded timestamp to trigger adapter refresh
+    private var lastEpgLoadedTimestamp = 0L
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -128,8 +131,7 @@ class MainActivity : AppCompatActivity() {
                 viewModel.showEpgForChannel(channel.tvgId)
             },
             getCurrentProgram = { tvgId ->
-                // This will be provided by ViewModel in real-time
-                null
+                viewModel.getCurrentProgramForChannel(tvgId)
             }
         )
 
@@ -219,6 +221,13 @@ class MainActivity : AppCompatActivity() {
         // Update channel list
         if (state.hasChannels) {
             channelAdapter.submitList(state.filteredChannels)
+        }
+
+        // Refresh adapter if EPG was just loaded
+        if (state.epgLoadedTimestamp > lastEpgLoadedTimestamp && state.epgLoadedTimestamp > 0) {
+            lastEpgLoadedTimestamp = state.epgLoadedTimestamp
+            Timber.d("EPG loaded, refreshing channel adapter to show EPG data")
+            channelAdapter.notifyDataSetChanged() // Force refresh to show EPG info
         }
 
         // Update playlist visibility

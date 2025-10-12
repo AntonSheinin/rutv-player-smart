@@ -23,7 +23,8 @@ data class MainViewState(
     val currentResizeMode: Int = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT,
     val videoRotation: Float = 0f,
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val epgLoadedTimestamp: Long = 0L // Timestamp when EPG was last loaded, used to trigger adapter refresh
 ) {
     val filteredChannels: List<Channel>
         get() = if (showFavoritesOnly) {

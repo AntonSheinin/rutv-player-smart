@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nRefactor: Complete MVVM architecture with Clean Architecture pattern\n\nMajor refactoring implementing modern Android best practices:\n\n## Architecture Changes\n- Implemented MVVM pattern with ViewModels and StateFlow\n- Applied Clean Architecture (data/domain/presentation layers)\n- Added Repository pattern for data abstraction\n- Created Use Cases for business logic\n- Integrated Hilt for Dependency Injection\n\n## Data Layer\n- Replaced JSON SharedPreferences with Room Database\n- Added DataStore for app preferences\n- Created 3 Repositories: Channel, Preferences, EPG\n- Implemented reactive data flow with Kotlin Flow\n\n## Domain Layer\n- Created 4 Use Cases: LoadPlaylist, FetchEpg, ToggleFavorite, UpdateAspectRatio\n- Added Result sealed class for type-safe error handling\n\n## Presentation Layer\n- Extracted PlayerManager (400+ lines) from MainActivity\n- Created MainViewModel and SettingsViewModel\n- Refactored MainActivity (1,389 → 447 lines, 68% reduction)\n- Refactored SettingsActivity with ViewModel\n- Implemented DiffUtil in adapters for efficient updates\n\n## Build Configuration\n- Upgraded to Kotlin 2.0.0\n- Migrated from Kapt to KSP for better performance\n- Added Hilt 2.50, Room 2.6.1, DataStore 1.0.0\n- Added Timber for structured logging\n- Configured packaging options for native libraries\n\n## Code Quality\n- Centralized all constants\n- Added extension functions\n- Removed 9 obsolete files\n- Clean package structure by feature\n- Comprehensive documentation\n\nAll functionality preserved while dramatically improving maintainability and performance.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
     ],
     "deny": [],
     "ask": []

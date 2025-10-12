@@ -181,20 +181,41 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
 
-        // Update player config
+        // Update player config - Disable listeners to prevent infinite loop
         val config = state.playerConfig
+
+        switchDebugLog.setOnCheckedChangeListener(null)
         switchDebugLog.isChecked = config.showDebugLog
-        switchFfmpegAudio.isChecked = config.useFfmpegAudio
-        switchFfmpegVideo.isChecked = config.useFfmpegVideo
-        inputBufferSeconds.setText(config.bufferSeconds.toString())
-
-        // Update switch colors
         updateSwitchColor(switchDebugLog, config.showDebugLog)
-        updateSwitchColor(switchFfmpegAudio, config.useFfmpegAudio)
-        updateSwitchColor(switchFfmpegVideo, config.useFfmpegVideo)
+        switchDebugLog.setOnCheckedChangeListener { _, isChecked ->
+            viewModel.setDebugLogEnabled(isChecked)
+            updateSwitchColor(switchDebugLog, isChecked)
+        }
 
-        // Update EPG URL
-        inputEpgUrl.setText(state.epgUrl)
+        switchFfmpegAudio.setOnCheckedChangeListener(null)
+        switchFfmpegAudio.isChecked = config.useFfmpegAudio
+        updateSwitchColor(switchFfmpegAudio, config.useFfmpegAudio)
+        switchFfmpegAudio.setOnCheckedChangeListener { _, isChecked ->
+            viewModel.setFfmpegAudioEnabled(isChecked)
+            updateSwitchColor(switchFfmpegAudio, isChecked)
+        }
+
+        switchFfmpegVideo.setOnCheckedChangeListener(null)
+        switchFfmpegVideo.isChecked = config.useFfmpegVideo
+        updateSwitchColor(switchFfmpegVideo, config.useFfmpegVideo)
+        switchFfmpegVideo.setOnCheckedChangeListener { _, isChecked ->
+            viewModel.setFfmpegVideoEnabled(isChecked)
+            updateSwitchColor(switchFfmpegVideo, isChecked)
+        }
+
+        if (inputBufferSeconds.text.toString() != config.bufferSeconds.toString()) {
+            inputBufferSeconds.setText(config.bufferSeconds.toString())
+        }
+
+        // Update EPG URL - Only if different to prevent cursor jump
+        if (inputEpgUrl.text.toString() != state.epgUrl) {
+            inputEpgUrl.setText(state.epgUrl)
+        }
 
         // Show error or success messages
         state.error?.let { error ->
