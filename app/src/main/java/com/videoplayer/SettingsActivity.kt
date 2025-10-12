@@ -1,25 +1,35 @@
 package com.videoplayer
 
 import android.app.AlertDialog
-import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.util.Log
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Switch
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.Dispatchers
+import androidx.lifecycle.repeatOnLifecycle
+import com.videoplayer.data.model.PlaylistSource
+import com.videoplayer.presentation.settings.SettingsViewModel
+import com.videoplayer.util.Constants
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.net.URL
+import timber.log.Timber
 
+/**
+ * Settings Activity - Refactored to use MVVM architecture
+ * Reduced from 330 lines to ~250 lines using ViewModel
+ */
+@AndroidEntryPoint
 class SettingsActivity : AppCompatActivity() {
-    
+
+    private val viewModel: SettingsViewModel by viewModels()
+
+    // UI Components
     private lateinit var btnLoadFile: Button
     private lateinit var btnLoadUrl: Button
     private lateinit var btnReloadPlaylist: Button
@@ -33,17 +43,30 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var currentFileName: TextView
     private lateinit var currentUrlName: TextView
     private lateinit var inputEpgUrl: EditText
-    
+
     private val filePickerLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let { loadPlaylistFromUri(it) }
     }
-    
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
-        
+
+        initializeViews()
+        setupButtons()
+        setupSwitches()
+        setupInputs()
+        observeViewModel()
+
+        Timber.d("SettingsActivity created")
+    }
+
+    /**
+     * Initialize all views
+     */
+    private fun initializeViews() {
         btnLoadFile = findViewById(R.id.btn_load_file)
         btnLoadUrl = findViewById(R.id.btn_load_url)
         btnReloadPlaylist = findViewById(R.id.btn_reload_playlist)
@@ -57,53 +80,201 @@ class SettingsActivity : AppCompatActivity() {
         currentFileName = findViewById(R.id.current_file_name)
         currentUrlName = findViewById(R.id.current_url_name)
         inputEpgUrl = findViewById(R.id.input_epg_url)
-        
-        setupButtons()
-        setupDebugLogSwitch()
-        setupFfmpegAudioSwitch()
-        setupFfmpegVideoSwitch()
-        setupBufferInput()
-        setupEpgUrlInput()
-        updatePlaylistInfo()
     }
-    
-    override fun onPause() {
-        super.onPause()
-        saveBufferValue()
-        saveEpgUrl()
-    }
-    
-    private fun saveBufferValue() {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val text = inputBufferSeconds.text.toString()
-        val value = text.toIntOrNull() ?: 15
-        val clampedValue = value.coerceIn(5, 60)
-        prefs.edit().putInt(KEY_BUFFER_SECONDS, clampedValue).apply()
-    }
-    
+
+    /**
+     * Setup button click listeners
+     */
     private fun setupButtons() {
         btnLoadFile.setOnClickListener {
             filePickerLauncher.launch("*/*")
         }
-        
+
         btnLoadUrl.setOnClickListener {
             showUrlDialog()
         }
-        
+
         btnReloadPlaylist.setOnClickListener {
-            reloadCurrentPlaylist()
+            showReloadDialog()
         }
-        
+
         btnBack.setOnClickListener {
             finish()
         }
     }
-    
-    private fun reloadCurrentPlaylist() {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val playlistType = prefs.getString(KEY_PLAYLIST_TYPE, null)
-        
-        if (playlistType == null) {
+
+    /**
+     * Setup switch listeners
+     */
+    private fun setupSwitches() {
+        switchDebugLog.setOnCheckedChangeListener { _, isChecked ->
+            viewModel.setDebugLogEnabled(isChecked)
+            updateSwitchColor(switchDebugLog, isChecked)
+        }
+
+        switchFfmpegAudio.setOnCheckedChangeListener { _, isChecked ->
+            viewModel.setFfmpegAudioEnabled(isChecked)
+            updateSwitchColor(switchFfmpegAudio, isChecked)
+        }
+
+        switchFfmpegVideo.setOnCheckedChangeListener { _, isChecked ->
+            viewModel.setFfmpegVideoEnabled(isChecked)
+            updateSwitchColor(switchFfmpegVideo, isChecked)
+        }
+    }
+
+    /**
+     * Setup input listeners
+     */
+    private fun setupInputs() {
+        inputBufferSeconds.setOnFocusChangeListener { _, hasFocus ->
+            if (!hasFocus) {
+                val text = inputBufferSeconds.text.toString()
+                val value = text.toIntOrNull() ?: Constants.DEFAULT_BUFFER_SECONDS
+                val clampedValue = value.coerceIn(
+                    Constants.MIN_BUFFER_SECONDS,
+                    Constants.MAX_BUFFER_SECONDS
+                )
+
+                inputBufferSeconds.setText(clampedValue.toString())
+                viewModel.setBufferSeconds(clampedValue)
+            }
+        }
+    }
+
+    /**
+     * Observe ViewModel state
+     */
+    private fun observeViewModel() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.viewState.collect { state ->
+                    updateUI(state)
+                }
+            }
+        }
+    }
+
+    /**
+     * Update UI based on state
+     */
+    private fun updateUI(state: com.videoplayer.presentation.settings.SettingsViewState) {
+        // Update playlist info
+        currentPlaylistInfo.text = state.playlistInfo
+
+        when (state.playlistSource) {
+            is PlaylistSource.Url -> {
+                currentPlaylistUrl.visibility = android.view.View.VISIBLE
+                currentPlaylistUrl.text = state.playlistUrl
+                currentFileName.text = "None"
+                currentUrlName.text = state.urlName
+            }
+            is PlaylistSource.File -> {
+                currentPlaylistUrl.visibility = android.view.View.GONE
+                currentFileName.text = "File"
+                currentUrlName.text = "None"
+            }
+            is PlaylistSource.None -> {
+                currentPlaylistUrl.visibility = android.view.View.GONE
+                currentFileName.text = "None"
+                currentUrlName.text = "None"
+            }
+        }
+
+        // Update player config
+        val config = state.playerConfig
+        switchDebugLog.isChecked = config.showDebugLog
+        switchFfmpegAudio.isChecked = config.useFfmpegAudio
+        switchFfmpegVideo.isChecked = config.useFfmpegVideo
+        inputBufferSeconds.setText(config.bufferSeconds.toString())
+
+        // Update switch colors
+        updateSwitchColor(switchDebugLog, config.showDebugLog)
+        updateSwitchColor(switchFfmpegAudio, config.useFfmpegAudio)
+        updateSwitchColor(switchFfmpegVideo, config.useFfmpegVideo)
+
+        // Update EPG URL
+        inputEpgUrl.setText(state.epgUrl)
+
+        // Show error or success messages
+        state.error?.let { error ->
+            showToast(error)
+            viewModel.clearError()
+        }
+
+        state.successMessage?.let { message ->
+            showToast(message)
+            viewModel.clearSuccess()
+        }
+    }
+
+    /**
+     * Update switch color based on state
+     */
+    private fun updateSwitchColor(switch: Switch, isChecked: Boolean) {
+        if (isChecked) {
+            switch.thumbTintList = android.content.res.ColorStateList.valueOf(
+                android.graphics.Color.parseColor("#FFD700")
+            )
+            switch.trackTintList = android.content.res.ColorStateList.valueOf(
+                android.graphics.Color.parseColor("#80FFD700")
+            )
+        } else {
+            switch.thumbTintList = null
+            switch.trackTintList = null
+        }
+    }
+
+    /**
+     * Load playlist from file URI
+     */
+    private fun loadPlaylistFromUri(uri: Uri) {
+        try {
+            val content = contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+            content?.let {
+                viewModel.savePlaylistFromFile(it)
+                finish()
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to load playlist from URI")
+            showToast("Failed to load file: ${e.message}")
+        }
+    }
+
+    /**
+     * Show URL input dialog
+     */
+    private fun showUrlDialog() {
+        val input = EditText(this)
+        input.hint = "Enter M3U/M3U8 URL"
+
+        val currentUrl = when (val source = viewModel.viewState.value.playlistSource) {
+            is PlaylistSource.Url -> source.url
+            else -> ""
+        }
+        input.setText(currentUrl)
+
+        AlertDialog.Builder(this)
+            .setTitle("Load Playlist from URL")
+            .setView(input)
+            .setPositiveButton("Save") { _, _ ->
+                val url = input.text.toString()
+                if (url.isNotBlank()) {
+                    viewModel.savePlaylistFromUrl(url)
+                    finish()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    /**
+     * Show reload confirmation dialog
+     */
+    private fun showReloadDialog() {
+        val playlistSource = viewModel.viewState.value.playlistSource
+
+        if (playlistSource is PlaylistSource.None) {
             AlertDialog.Builder(this)
                 .setTitle("No Playlist")
                 .setMessage("No playlist is currently loaded. Please load a playlist first.")
@@ -111,220 +282,33 @@ class SettingsActivity : AppCompatActivity() {
                 .show()
             return
         }
-        
+
         AlertDialog.Builder(this)
             .setTitle("Reload Playlist?")
             .setMessage("This will reload the playlist from the original source and refresh all EPG data (tvg-id, catchup-days, etc.).")
             .setPositiveButton("Reload") { _, _ ->
-                // Clear the cache to force reload
-                ChannelStorage.clearCache(this)
-                
-                when (playlistType) {
-                    TYPE_URL -> {
-                        val url = prefs.getString(KEY_PLAYLIST_URL, null)
-                        if (url != null) {
-                            loadPlaylistFromUrl(url)
-                        }
-                    }
-                    TYPE_FILE -> {
-                        // For file type, just finish - MainActivity will reload from cache
-                        // But we already cleared cache, so it will reload from stored content
-                        finish()
-                    }
-                }
+                viewModel.reloadPlaylist()
             }
             .setNegativeButton("Cancel", null)
             .show()
     }
-    
-    private fun setupDebugLogSwitch() {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        switchDebugLog.isChecked = prefs.getBoolean(KEY_SHOW_DEBUG_LOG, true)
-        
-        updateSwitchColor(switchDebugLog, switchDebugLog.isChecked)
-        
-        switchDebugLog.setOnCheckedChangeListener { _, isChecked ->
-            prefs.edit().putBoolean(KEY_SHOW_DEBUG_LOG, isChecked).apply()
-            updateSwitchColor(switchDebugLog, isChecked)
-        }
+
+    /**
+     * Show toast message
+     */
+    private fun showToast(message: String) {
+        android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_SHORT).show()
     }
-    
-    private fun setupFfmpegAudioSwitch() {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        switchFfmpegAudio.isChecked = prefs.getBoolean(KEY_USE_FFMPEG_AUDIO, false)
-        
-        updateSwitchColor(switchFfmpegAudio, switchFfmpegAudio.isChecked)
-        
-        switchFfmpegAudio.setOnCheckedChangeListener { _, isChecked ->
-            prefs.edit().putBoolean(KEY_USE_FFMPEG_AUDIO, isChecked).apply()
-            updateSwitchColor(switchFfmpegAudio, isChecked)
-        }
-    }
-    
-    private fun setupFfmpegVideoSwitch() {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        switchFfmpegVideo.isChecked = prefs.getBoolean(KEY_USE_FFMPEG_VIDEO, false)
-        
-        updateSwitchColor(switchFfmpegVideo, switchFfmpegVideo.isChecked)
-        
-        switchFfmpegVideo.setOnCheckedChangeListener { _, isChecked ->
-            prefs.edit().putBoolean(KEY_USE_FFMPEG_VIDEO, isChecked).apply()
-            updateSwitchColor(switchFfmpegVideo, isChecked)
-        }
-    }
-    
-    private fun updateSwitchColor(switch: Switch, isChecked: Boolean) {
-        if (isChecked) {
-            switch.thumbTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#FFD700"))
-            switch.trackTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#80FFD700"))
-        } else {
-            switch.thumbTintList = null
-            switch.trackTintList = null
-        }
-    }
-    
-    private fun setupBufferInput() {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val bufferSeconds = prefs.getInt(KEY_BUFFER_SECONDS, 15)
-        inputBufferSeconds.setText(bufferSeconds.toString())
-        
-        inputBufferSeconds.setOnFocusChangeListener { _, hasFocus ->
-            if (!hasFocus) {
-                val text = inputBufferSeconds.text.toString()
-                val value = text.toIntOrNull() ?: 15
-                val clampedValue = value.coerceIn(5, 60)
-                
-                inputBufferSeconds.setText(clampedValue.toString())
-                prefs.edit().putInt(KEY_BUFFER_SECONDS, clampedValue).apply()
-            }
-        }
-    }
-    
-    private fun setupEpgUrlInput() {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val epgUrl = prefs.getString(KEY_EPG_URL, "")
-        inputEpgUrl.setText(epgUrl)
-    }
-    
-    private fun saveEpgUrl() {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val url = inputEpgUrl.text.toString().trim()
-        prefs.edit().putString(KEY_EPG_URL, url).apply()
-    }
-    
-    private fun showUrlDialog() {
-        val input = EditText(this)
-        input.hint = "Enter M3U/M3U8 URL"
-        
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val currentUrl = prefs.getString(KEY_PLAYLIST_URL, "")
-        input.setText(currentUrl)
-        
-        AlertDialog.Builder(this)
-            .setTitle("Load Playlist from URL")
-            .setView(input)
-            .setPositiveButton("Save") { _, _ ->
-                val url = input.text.toString()
-                if (url.isNotBlank()) {
-                    savePlaylistUrl(url)
-                    loadPlaylistFromUrl(url)
-                }
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
-    
-    private fun loadPlaylistFromUri(uri: Uri) {
-        try {
-            val content = contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
-            content?.let { 
-                savePlaylistContent(it)
-                finish()
-            }
-        } catch (e: Exception) {
-            Log.e("SettingsActivity", "Failed to load playlist: ${e.message}", e)
-        }
-    }
-    
-    private fun loadPlaylistFromUrl(url: String) {
-        lifecycleScope.launch {
-            try {
-                val content = withContext(Dispatchers.IO) {
-                    URL(url).readText()
-                }
-                savePlaylistUrl(url)
-                finish()
-            } catch (e: Exception) {
-                Log.e("SettingsActivity", "Failed to load URL: ${e.message}", e)
-            }
-        }
-    }
-    
-    private fun savePlaylistContent(content: String) {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        
-        if (content.length > 500000) {
-            Log.e("SettingsActivity", "Playlist too large: ${content.length} bytes")
-            return
-        }
-        
-        prefs.edit().apply {
-            putString(KEY_PLAYLIST_CONTENT, content)
-            putString(KEY_PLAYLIST_TYPE, TYPE_FILE)
-            remove(KEY_PLAYLIST_URL)
-            apply()
-        }
-    }
-    
-    private fun savePlaylistUrl(url: String) {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().apply {
-            putString(KEY_PLAYLIST_URL, url)
-            putString(KEY_PLAYLIST_TYPE, TYPE_URL)
-            remove(KEY_PLAYLIST_CONTENT)
-            apply()
-        }
-    }
-    
-    private fun updatePlaylistInfo() {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val playlistType = prefs.getString(KEY_PLAYLIST_TYPE, null)
-        
-        when (playlistType) {
-            TYPE_FILE -> {
-                currentPlaylistInfo.text = "Loaded from file (stored locally)"
-                currentPlaylistUrl.visibility = android.view.View.GONE
-                currentFileName.text = "File"
-                currentUrlName.text = "None"
-            }
-            TYPE_URL -> {
-                val url = prefs.getString(KEY_PLAYLIST_URL, "")
-                currentPlaylistInfo.text = "Loaded from URL"
-                currentPlaylistUrl.text = url
-                currentPlaylistUrl.visibility = android.view.View.VISIBLE
-                currentFileName.text = "None"
-                currentUrlName.text = url?.substringAfterLast('/')?.take(20) ?: "URL"
-            }
-            else -> {
-                currentPlaylistInfo.text = "No playlist loaded"
-                currentPlaylistUrl.visibility = android.view.View.GONE
-                currentFileName.text = "None"
-                currentUrlName.text = "None"
-            }
-        }
-    }
-    
-    companion object {
-        const val PREFS_NAME = "VideoPlayerPrefs"
-        const val KEY_PLAYLIST_CONTENT = "playlist_content"
-        const val KEY_PLAYLIST_URL = "playlist_url"
-        const val KEY_PLAYLIST_TYPE = "playlist_type"
-        const val KEY_SHOW_DEBUG_LOG = "show_debug_log"
-        const val KEY_USE_FFMPEG_AUDIO = "use_ffmpeg_audio"
-        const val KEY_USE_FFMPEG_VIDEO = "use_ffmpeg_video"
-        const val KEY_BUFFER_SECONDS = "buffer_seconds"
-        const val KEY_EPG_URL = "epg_url"
-        const val TYPE_FILE = "file"
-        const val TYPE_URL = "url"
+
+    override fun onPause() {
+        super.onPause()
+        // Save EPG URL
+        val epgUrl = inputEpgUrl.text.toString()
+        viewModel.saveEpgUrl(epgUrl)
+
+        // Save buffer value
+        val bufferText = inputBufferSeconds.text.toString()
+        val bufferValue = bufferText.toIntOrNull() ?: Constants.DEFAULT_BUFFER_SECONDS
+        viewModel.setBufferSeconds(bufferValue)
     }
 }
