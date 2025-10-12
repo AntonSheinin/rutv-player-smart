@@ -77,7 +77,7 @@ class LoadPlaylistUseCase @Inject constructor(
             }
 
             // Save to repository
-            when (val saveResult = channelRepository.saveChannels(channels)) {
+            return when (val saveResult = channelRepository.saveChannels(channels)) {
                 is Result.Success -> {
                     // Save hash
                     preferencesRepository.savePlaylistHash(currentHash)
@@ -90,7 +90,7 @@ class LoadPlaylistUseCase @Inject constructor(
 
         } catch (e: Exception) {
             Timber.e(e, "Error in LoadPlaylistUseCase")
-            Result.Error(e)
+            return Result.Error(e)
         }
     }
 

@@ -260,20 +260,6 @@ class PlayerManager @Inject constructor(
                     _playerEvents.tryEmit(PlayerEvent.DroppedFrames(droppedFrames, elapsedMs))
                 }
             }
-
-            override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
-                var hasAudio = false
-                var hasVideo = false
-
-                for (trackGroup in tracks.groups) {
-                    when (trackGroup.type) {
-                        C.TRACK_TYPE_VIDEO -> hasVideo = true
-                        C.TRACK_TYPE_AUDIO -> hasAudio = true
-                    }
-                }
-
-                _playerEvents.tryEmit(PlayerEvent.TracksChanged(hasAudio, hasVideo))
-            }
         }
     }
 
