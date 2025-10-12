@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.ui.AspectRatioFrameLayout
 import com.videoplayer.data.model.Channel
+import com.videoplayer.data.model.EpgProgram
 import com.videoplayer.data.repository.ChannelRepository
 import com.videoplayer.data.repository.EpgRepository
 import com.videoplayer.data.repository.PreferencesRepository
