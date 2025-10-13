@@ -241,11 +241,14 @@ class MainActivity : AppCompatActivity() {
             if (currentProgramPosition >= 0) {
                 programsRecyclerView.post {
                     val layoutManager = programsRecyclerView.layoutManager as? LinearLayoutManager
-                    if (layoutManager != null) {
+                    if (layoutManager != null && programsRecyclerView.childCount > 0) {
                         val screenHeight = programsRecyclerView.height
-                        val itemHeight = programsRecyclerView.getChildAt(0)?.height ?: 100
+                        val itemHeight = programsRecyclerView.getChildAt(0)?.height ?: 200
                         val offset = (screenHeight / 2) - (itemHeight / 2)
                         layoutManager.scrollToPositionWithOffset(currentProgramPosition, offset)
+                    } else {
+                        // If RecyclerView not laid out yet, just scroll to position
+                        layoutManager?.scrollToPosition(currentProgramPosition)
                     }
                 }
             }
