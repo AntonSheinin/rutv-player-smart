@@ -33,15 +33,23 @@ data class EpgProgram(
 
     private fun parseTime(timeString: String): Long {
         return try {
-            val format = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US)
-            format.timeZone = java.util.TimeZone.getTimeZone("UTC")
-            format.parse(timeString)?.time ?: 0L
+            // Try ISO 8601 format first (with timezone)
+            val format1 = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", java.util.Locale.US)
+            format1.parse(timeString)?.time ?: 0L
         } catch (e: Exception) {
             try {
-                val format = java.text.SimpleDateFormat("yyyyMMddHHmmss Z", java.util.Locale.US)
-                format.parse(timeString)?.time ?: 0L
+                // Try ISO 8601 format without timezone (assume local timezone)
+                val format2 = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US)
+                format2.timeZone = java.util.TimeZone.getDefault()
+                format2.parse(timeString)?.time ?: 0L
             } catch (e2: Exception) {
-                0L
+                try {
+                    // Try XMLTV format (yyyyMMddHHmmss Z)
+                    val format3 = java.text.SimpleDateFormat("yyyyMMddHHmmss Z", java.util.Locale.US)
+                    format3.parse(timeString)?.time ?: 0L
+                } catch (e3: Exception) {
+                    0L
+                }
             }
         }
     }

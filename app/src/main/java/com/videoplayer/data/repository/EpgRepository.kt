@@ -194,10 +194,26 @@ class EpgRepository @Inject constructor(
      * Get current program for a channel
      */
     fun getCurrentProgram(tvgId: String): EpgProgram? {
-        val epgData = loadEpgData() ?: return null
-        val programs = epgData.epg[tvgId] ?: return null
+        val epgData = loadEpgData()
+        if (epgData == null) {
+            Timber.d("EPG: No EPG data loaded for tvgId=$tvgId")
+            return null
+        }
 
-        return programs.firstOrNull { it.isCurrent() }
+        val programs = epgData.epg[tvgId]
+        if (programs == null || programs.isEmpty()) {
+            Timber.d("EPG: No programs found for tvgId=$tvgId")
+            return null
+        }
+
+        val currentProgram = programs.firstOrNull { it.isCurrent() }
+        if (currentProgram != null) {
+            Timber.d("EPG: Current program for tvgId=$tvgId: ${currentProgram.title}")
+        } else {
+            Timber.d("EPG: No current program found for tvgId=$tvgId (${programs.size} programs available)")
+        }
+
+        return currentProgram
     }
 
     /**

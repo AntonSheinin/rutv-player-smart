@@ -105,9 +105,16 @@ class ChannelListAdapter(
         if (channel.hasEpg) {
             val currentProgram = getCurrentProgram(channel.tvgId)
             holder.currentProgramTextView.visibility = View.VISIBLE
-            holder.currentProgramTextView.text = currentProgram?.title ?: "no program"
+            if (currentProgram != null) {
+                holder.currentProgramTextView.text = currentProgram.title
+                Timber.v("EPG: Channel '${channel.title}' showing program: ${currentProgram.title}")
+            } else {
+                holder.currentProgramTextView.text = "no program"
+                Timber.v("EPG: Channel '${channel.title}' has no current program (tvgId=${channel.tvgId})")
+            }
         } else {
             holder.currentProgramTextView.visibility = View.GONE
+            Timber.v("EPG: Channel '${channel.title}' has no EPG (tvgId='${channel.tvgId}', catchupDays=${channel.catchupDays})")
         }
 
         // Click listener with double-tap detection
