@@ -49,10 +49,10 @@ class PlayerManager @Inject constructor(
     private val _playerState = MutableStateFlow<PlayerState>(PlayerState.Idle)
     val playerState: StateFlow<PlayerState> = _playerState.asStateFlow()
 
-    private val _playerEvents = MutableSharedFlow<PlayerEvent>()
+    private val _playerEvents = MutableSharedFlow<PlayerEvent>(replay = 0, extraBufferCapacity = 64)
     val playerEvents: SharedFlow<PlayerEvent> = _playerEvents.asSharedFlow()
 
-    private val _debugMessages = MutableSharedFlow<DebugMessage>()
+    private val _debugMessages = MutableSharedFlow<DebugMessage>(replay = 100, extraBufferCapacity = 100)
     val debugMessages: SharedFlow<DebugMessage> = _debugMessages.asSharedFlow()
 
     private var bufferingStartTime: Long = 0
