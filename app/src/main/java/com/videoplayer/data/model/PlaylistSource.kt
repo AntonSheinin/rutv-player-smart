@@ -30,6 +30,7 @@ data class PlayerConfig(
 data class AppSettings(
     val playlistSource: PlaylistSource = PlaylistSource.None,
     val epgUrl: String = "",
+    val epgDaysAhead: Int = 7, // Maximum days ahead for future EPG programs (default: 7 days)
     val playerConfig: PlayerConfig = PlayerConfig(),
     val lastPlayedIndex: Int = 0
 )

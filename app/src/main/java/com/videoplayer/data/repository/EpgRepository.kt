@@ -172,7 +172,12 @@ class EpgRepository @Inject constructor(
     }
 
     /**
-     * Save EPG data to cache
+     * Save EPG data to cache using streaming + GZIP compression
+     *
+     * Best practices implemented:
+     * 1. Streaming JSON write - avoids loading full JSON string in memory
+     * 2. GZIP compression - reduces 144MB to ~10-20MB
+     * 3. Buffered IO - efficient disk writes
      */
     private fun saveEpgData(epgResponse: EpgResponse) {
         try {
@@ -182,29 +187,30 @@ class EpgRepository @Inject constructor(
             val channelCount = epgResponse.epg.size
             Timber.d("EPG data cached in memory: $programCount programs across $channelCount channels")
 
-            // Try to save to disk (skip if data is too large)
-            if (programCount > 5000) {
-                Timber.w("EPG data too large ($programCount programs) - skipping disk save, keeping memory cache only")
-                return
-            }
-
             try {
-                Timber.d("Serializing EPG data to JSON...")
-                val json = gson.toJson(epgResponse)
-                val sizeKB = json.length / 1024
-                val sizeMB = sizeKB / 1024
+                Timber.d("Saving EPG to disk with streaming + GZIP...")
+                val startTime = System.currentTimeMillis()
 
-                if (sizeMB > 50) {
-                    Timber.w("EPG JSON too large (${sizeMB}MB) - skipping disk save, keeping memory cache only")
-                    return
+                // Stream JSON directly to GZIP compressed file
+                epgFile.outputStream().buffered().use { fileOut ->
+                    java.util.zip.GZIPOutputStream(fileOut).buffered().use { gzipOut ->
+                        gzipOut.writer().use { writer ->
+                            gson.toJson(epgResponse, writer)
+                        }
+                    }
                 }
 
-                Timber.d("Writing EPG to disk (${sizeMB}MB / ${sizeKB}KB)...")
-                epgFile.writeText(json)
-                Timber.d("✓ EPG data saved to disk successfully")
+                val duration = System.currentTimeMillis() - startTime
+                val fileSizeKB = epgFile.length() / 1024
+                val fileSizeMB = fileSizeKB / 1024
+
+                Timber.d("✓ EPG saved to disk: ${fileSizeMB}MB (${fileSizeKB}KB) in ${duration}ms")
+                Timber.d("  Compression ratio: ~${programCount * 500 / (fileSizeKB * 1024)}:1")
             } catch (e: OutOfMemoryError) {
                 Timber.w("⚠ Out of memory saving EPG to disk (${e.message}) - keeping memory cache only")
                 // Don't rethrow - memory cache is still valid
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to write EPG to disk - keeping memory cache only")
             }
         } catch (e: Exception) {
             Timber.e(e, "Failed to save EPG data")
@@ -212,7 +218,7 @@ class EpgRepository @Inject constructor(
     }
 
     /**
-     * Load EPG data from cache
+     * Load EPG data from cache (with GZIP decompression support)
      */
     fun loadEpgData(): EpgResponse? {
         // Return memory cache if available
@@ -225,11 +231,35 @@ class EpgRepository @Inject constructor(
                 return null
             }
 
-            val json = epgFile.readText()
-            val epgResponse = gson.fromJson(json, EpgResponse::class.java)
+            Timber.d("Loading EPG from disk...")
+            val startTime = System.currentTimeMillis()
+
+            // Stream JSON from GZIP compressed file
+            val epgResponse = epgFile.inputStream().buffered().use { fileIn ->
+                java.util.zip.GZIPInputStream(fileIn).buffered().use { gzipIn ->
+                    gzipIn.reader().use { reader ->
+                        gson.fromJson(reader, EpgResponse::class.java)
+                    }
+                }
+            }
+
+            val duration = System.currentTimeMillis() - startTime
             cachedEpgData = epgResponse
-            Timber.d("Loaded EPG data: ${epgResponse.totalPrograms} programs")
+            Timber.d("✓ Loaded EPG data: ${epgResponse.totalPrograms} programs in ${duration}ms")
             epgResponse
+        } catch (e: java.util.zip.ZipException) {
+            // Handle legacy uncompressed files
+            Timber.w("EPG file is not GZIP compressed, attempting plain JSON load...")
+            try {
+                val json = epgFile.readText()
+                val epgResponse = gson.fromJson(json, EpgResponse::class.java)
+                cachedEpgData = epgResponse
+                Timber.d("Loaded EPG data (legacy format): ${epgResponse.totalPrograms} programs")
+                epgResponse
+            } catch (e2: Exception) {
+                Timber.e(e2, "Failed to load legacy EPG data")
+                null
+            }
         } catch (e: Exception) {
             Timber.e(e, "Failed to load EPG data")
             null
