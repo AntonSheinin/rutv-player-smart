@@ -296,10 +296,14 @@ class MainActivity : AppCompatActivity() {
     private fun updateDebugLog(state: com.videoplayer.presentation.main.MainViewState) {
         debugLogScroll.visibility = if (state.showDebugLog) View.VISIBLE else View.GONE
 
-        if (state.debugMessages.isNotEmpty()) {
-            debugLog.text = state.debugMessages.takeLast(100).joinToString("\n") { it.message }
-            debugLogScroll.post {
-                debugLogScroll.fullScroll(View.FOCUS_DOWN)
+        if (state.showDebugLog) {
+            if (state.debugMessages.isNotEmpty()) {
+                debugLog.text = state.debugMessages.takeLast(100).joinToString("\n") { it.message }
+                debugLogScroll.post {
+                    debugLogScroll.fullScroll(View.FOCUS_DOWN)
+                }
+            } else {
+                debugLog.text = "Debug Log\n(No messages yet)"
             }
         }
     }
