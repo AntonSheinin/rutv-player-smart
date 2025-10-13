@@ -35,19 +35,32 @@ data class EpgProgram(
         return try {
             // Try ISO 8601 format first (with timezone)
             val format1 = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", java.util.Locale.US)
-            format1.parse(timeString)?.time ?: 0L
+            val result = format1.parse(timeString)?.time ?: 0L
+            if (result > 0) {
+                timber.log.Timber.v("EPG Parse: '$timeString' → ${result} (ISO 8601 with timezone)")
+            }
+            result
         } catch (e: Exception) {
             try {
                 // Try ISO 8601 format without timezone (assume local timezone)
                 val format2 = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US)
                 format2.timeZone = java.util.TimeZone.getDefault()
-                format2.parse(timeString)?.time ?: 0L
+                val result = format2.parse(timeString)?.time ?: 0L
+                if (result > 0) {
+                    timber.log.Timber.v("EPG Parse: '$timeString' → ${result} (ISO 8601 local timezone)")
+                }
+                result
             } catch (e2: Exception) {
                 try {
                     // Try XMLTV format (yyyyMMddHHmmss Z)
                     val format3 = java.text.SimpleDateFormat("yyyyMMddHHmmss Z", java.util.Locale.US)
-                    format3.parse(timeString)?.time ?: 0L
+                    val result = format3.parse(timeString)?.time ?: 0L
+                    if (result > 0) {
+                        timber.log.Timber.v("EPG Parse: '$timeString' → ${result} (XMLTV format)")
+                    }
+                    result
                 } catch (e3: Exception) {
+                    timber.log.Timber.w("EPG Parse: Failed to parse '$timeString'")
                     0L
                 }
             }

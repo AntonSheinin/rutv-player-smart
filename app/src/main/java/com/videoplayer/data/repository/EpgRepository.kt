@@ -86,7 +86,10 @@ class EpgRepository @Inject constructor(
 
         try {
             val deviceTimezone = TimeZone.getDefault().id
-            Timber.d("Device timezone: $deviceTimezone")
+            val timezoneOffset = TimeZone.getDefault().getOffset(System.currentTimeMillis()) / (1000 * 60 * 60)
+            Timber.d("━━━ EPG REQUEST ━━━")
+            Timber.d("Device timezone: $deviceTimezone (UTC${if (timezoneOffset >= 0) "+" else ""}$timezoneOffset)")
+            Timber.d("Channels to fetch: ${channelsWithEpg.size}")
 
             val epgRequest = EpgRequest(
                 channels = channelsWithEpg.map {
@@ -97,7 +100,13 @@ class EpgRepository @Inject constructor(
             )
 
             val requestBody = gson.toJson(epgRequest)
+            Timber.d("Request body size: ${requestBody.length} bytes")
+            Timber.d("First 3 channels: ${channelsWithEpg.take(3).joinToString { "${it.title}(${it.tvgId})" }}")
+
             val url = URL("$epgUrl/epg")
+            Timber.d("POST $url")
+
+            val startTime = System.currentTimeMillis()
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "application/json")
@@ -108,18 +117,37 @@ class EpgRepository @Inject constructor(
             connection.outputStream.use { os ->
                 os.write(requestBody.toByteArray())
             }
+            Timber.d("Request sent, waiting for response...")
 
             val responseCode = connection.responseCode
+            val fetchDuration = System.currentTimeMillis() - startTime
+            Timber.d("Response code: $responseCode (took ${fetchDuration}ms)")
 
             if (responseCode == 200) {
-                Timber.d("EPG: Received 200 OK, parsing response")
+                Timber.d("━━━ EPG PARSING ━━━")
                 // Stream parse JSON to avoid loading large response into memory
+                val parseStartTime = System.currentTimeMillis()
                 val epgResponse = connection.inputStream.bufferedReader().use { reader ->
                     gson.fromJson(reader, EpgResponse::class.java)
                 }
+                val parseDuration = System.currentTimeMillis() - parseStartTime
 
                 if (epgResponse != null) {
-                    Timber.d("EPG: Parsed ${epgResponse.totalPrograms} programs for ${epgResponse.channelsFound} channels")
+                    Timber.d("Parse time: ${parseDuration}ms")
+                    Timber.d("Channels requested: ${epgResponse.channelsRequested}")
+                    Timber.d("Channels found: ${epgResponse.channelsFound}")
+                    Timber.d("Total programs: ${epgResponse.totalPrograms}")
+                    Timber.d("Update mode: ${epgResponse.updateMode}")
+                    Timber.d("Timestamp: ${epgResponse.timestamp}")
+
+                    // Log sample program times to verify timezone
+                    val firstChannelWithPrograms = epgResponse.epg.entries.firstOrNull()
+                    if (firstChannelWithPrograms != null && firstChannelWithPrograms.value.isNotEmpty()) {
+                        val program = firstChannelWithPrograms.value.first()
+                        Timber.d("Sample program: '${program.title}' (${program.startTime} - ${program.stopTime})")
+                    }
+
+                    Timber.d("━━━ EPG SAVED ━━━")
                     saveEpgData(epgResponse)
                     connection.disconnect()
                     Result.Success(epgResponse)
@@ -150,15 +178,33 @@ class EpgRepository @Inject constructor(
         try {
             // Cache in memory first
             cachedEpgData = epgResponse
-            Timber.d("EPG data cached in memory: ${epgResponse.totalPrograms} programs")
+            val programCount = epgResponse.totalPrograms
+            val channelCount = epgResponse.epg.size
+            Timber.d("EPG data cached in memory: $programCount programs across $channelCount channels")
 
-            // Try to save to disk
+            // Try to save to disk (skip if data is too large)
+            if (programCount > 5000) {
+                Timber.w("EPG data too large ($programCount programs) - skipping disk save, keeping memory cache only")
+                return
+            }
+
             try {
+                Timber.d("Serializing EPG data to JSON...")
                 val json = gson.toJson(epgResponse)
+                val sizeKB = json.length / 1024
+                val sizeMB = sizeKB / 1024
+
+                if (sizeMB > 50) {
+                    Timber.w("EPG JSON too large (${sizeMB}MB) - skipping disk save, keeping memory cache only")
+                    return
+                }
+
+                Timber.d("Writing EPG to disk (${sizeMB}MB / ${sizeKB}KB)...")
                 epgFile.writeText(json)
-                Timber.d("EPG data saved to disk")
+                Timber.d("✓ EPG data saved to disk successfully")
             } catch (e: OutOfMemoryError) {
-                Timber.w(e, "Out of memory saving EPG to disk - keeping memory cache only")
+                Timber.w("⚠ Out of memory saving EPG to disk (${e.message}) - keeping memory cache only")
+                // Don't rethrow - memory cache is still valid
             }
         } catch (e: Exception) {
             Timber.e(e, "Failed to save EPG data")

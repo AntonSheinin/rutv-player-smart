@@ -64,7 +64,7 @@ class EpgListAdapter(
                 programHolder.time.text = formatTime(item.startTime)
                 programHolder.title.text = item.title
 
-                if (item.description.isNotBlank()) {
+                if (!item.description.isNullOrBlank()) {
                     programHolder.description.visibility = View.VISIBLE
                     programHolder.description.text = item.description
                 } else {
