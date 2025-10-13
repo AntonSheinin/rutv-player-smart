@@ -106,7 +106,7 @@ class EpgListAdapter(
                         startTime = item.startTime,
                         stopTime = item.stopTime,
                         title = item.title,
-                        description = item.description
+                        description = item.description ?: ""
                     )
                     onProgramClick?.invoke(program)
                 }
