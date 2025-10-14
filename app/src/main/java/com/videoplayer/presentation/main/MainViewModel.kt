@@ -22,6 +22,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -41,6 +43,7 @@ class MainViewModel @Inject constructor(
     val viewState: StateFlow<MainViewState> = _viewState.asStateFlow()
 
     private val debugMessageList = mutableListOf<DebugMessage>()
+    private val debugMessageMutex = Mutex()
 
     init {
         // Collect player state
@@ -64,11 +67,7 @@ class MainViewModel @Inject constructor(
         // Collect debug messages
         viewModelScope.launch {
             playerManager.debugMessages.collect { message ->
-                debugMessageList.add(message)
-                if (debugMessageList.size > 100) {
-                    debugMessageList.removeAt(0)
-                }
-                _viewState.update { it.copy(debugMessages = debugMessageList.toList()) }
+                appendDebugMessage(message)
             }
         }
 
@@ -91,17 +90,21 @@ class MainViewModel @Inject constructor(
      */
     private fun loadCachedEpg() {
         viewModelScope.launch(Dispatchers.IO) {
-            Timber.d("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-            Timber.d("   LOADING CACHED EPG ON STARTUP")
-            Timber.d("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+            Timber.d("Loading cached EPG on startup")
             val cachedEpg = epgRepository.loadEpgData()
             if (cachedEpg != null) {
-                Timber.d("✓ Cached EPG loaded successfully")
+                Timber.d("Cached EPG loaded successfully")
+                appendDebugMessage(
+                    DebugMessage(
+                        "EPG: Loaded cached data (${cachedEpg.totalPrograms} programs for ${cachedEpg.channelsFound} channels)"
+                    )
+                )
                 _viewState.update {
                     it.copy(epgLoadedTimestamp = System.currentTimeMillis())
                 }
             } else {
-                Timber.d("⚠ No cached EPG found - will fetch when playlist is loaded")
+                Timber.d("No cached EPG found - will fetch when playlist is loaded")
+                appendDebugMessage(DebugMessage("EPG: No cached data found"))
             }
         }
     }
@@ -133,13 +136,20 @@ class MainViewModel @Inject constructor(
                         initializePlayer()
 
                         // Fetch EPG (will check if URL is configured)
+                        appendDebugMessage(
+                            DebugMessage("EPG: Preparing to fetch data for ${channels.count { it.hasEpg }} channels")
+                        )
                         fetchEpg()
                     } else {
                         Timber.d("No channels loaded, skipping EPG fetch")
+                        appendDebugMessage(DebugMessage("EPG: Playlist empty, skipping fetch"))
                     }
                 }
                 is Result.Error -> {
                     Timber.e(result.exception, "Error loading playlist")
+                    appendDebugMessage(
+                        DebugMessage("EPG: Playlist load failed (${result.message ?: "unknown error"})")
+                    )
                     _viewState.update {
                         it.copy(
                             isLoading = false,
@@ -180,9 +190,16 @@ class MainViewModel @Inject constructor(
      */
     fun fetchEpg() {
         viewModelScope.launch {
-            when (fetchEpgUseCase()) {
+            appendDebugMessage(DebugMessage("EPG: Fetch started"))
+            when (val fetchResult = fetchEpgUseCase()) {
                 is Result.Success -> {
                     Timber.d("EPG fetched successfully")
+                    val response = fetchResult.data
+                    appendDebugMessage(
+                        DebugMessage(
+                            "EPG: Fetch complete (${response.totalPrograms} programs, ${response.channelsFound}/${response.channelsRequested} channels)"
+                        )
+                    )
 
                     // Update state with timestamp to trigger adapter refresh
                     _viewState.update {
@@ -196,6 +213,8 @@ class MainViewModel @Inject constructor(
                 }
                 is Result.Error -> {
                     Timber.w("EPG fetch failed")
+                    val message = fetchResult.message ?: "unknown error"
+                    appendDebugMessage(DebugMessage("EPG: Fetch failed ($message)"))
                 }
                 is Result.Loading -> {
                     // Should not happen
@@ -293,6 +312,12 @@ class MainViewModel @Inject constructor(
             val programs = epgRepository.getProgramsForChannel(tvgId)
             val currentProgram = epgRepository.getCurrentProgram(tvgId)
 
+            appendDebugMessage(
+                DebugMessage(
+                    "EPG: Showing ${programs.size} programs for $tvgId${currentProgram?.let { " (current: ${it.title})" } ?: ""}"
+                )
+            )
+
             _viewState.update {
                 it.copy(
                     showEpgPanel = programs.isNotEmpty(),
@@ -319,6 +344,16 @@ class MainViewModel @Inject constructor(
         if (channel.hasEpg) {
             val program = epgRepository.getCurrentProgram(channel.tvgId)
             _viewState.update { it.copy(currentProgram = program) }
+        }
+    }
+
+    private suspend fun appendDebugMessage(message: DebugMessage) {
+        debugMessageMutex.withLock {
+            debugMessageList.add(message)
+            while (debugMessageList.size > 200) {
+                debugMessageList.removeAt(0)
+            }
+            _viewState.update { it.copy(debugMessages = debugMessageList.toList()) }
         }
     }
 

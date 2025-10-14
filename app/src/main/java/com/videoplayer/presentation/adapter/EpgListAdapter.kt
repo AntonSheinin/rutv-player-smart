@@ -10,6 +10,7 @@ import com.videoplayer.R
 import com.videoplayer.data.model.EpgProgram
 import java.text.SimpleDateFormat
 import java.util.*
+import timber.log.Timber
 
 /**
  * Refactored EPG adapter using ListAdapter with DiffUtil
@@ -165,18 +166,29 @@ class EpgListAdapter(
     }
 
     private fun parseTimeString(timeString: String): Long {
-        return try {
-            val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
-            format.timeZone = TimeZone.getTimeZone("UTC")
-            format.parse(timeString)?.time ?: 0L
-        } catch (e: Exception) {
+        if (timeString.isBlank()) return 0L
+
+        val parsers = listOf(
+            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US),
+            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply {
+                timeZone = TimeZone.getDefault()
+            },
+            SimpleDateFormat("yyyyMMddHHmmss Z", Locale.US),
+            SimpleDateFormat("yyyyMMddHHmmss", Locale.US).apply {
+                timeZone = TimeZone.getDefault()
+            }
+        )
+
+        for (format in parsers) {
             try {
-                val format = SimpleDateFormat("yyyyMMddHHmmss Z", Locale.US)
-                format.parse(timeString)?.time ?: 0L
-            } catch (e2: Exception) {
-                0L
+                return format.parse(timeString)?.time ?: continue
+            } catch (_: Exception) {
+                // Try next format
             }
         }
+
+        Timber.w("EPG Adapter: Failed to parse time string '%s'", timeString)
+        return 0L
     }
 
     private fun formatTime(timeString: String): String {
