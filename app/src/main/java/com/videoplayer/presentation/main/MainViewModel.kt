@@ -19,6 +19,7 @@ import com.videoplayer.presentation.player.PlayerState
 import com.videoplayer.util.Constants
 import com.videoplayer.util.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -78,8 +79,31 @@ class MainViewModel @Inject constructor(
             }
         }
 
+        // Load cached EPG data on startup
+        loadCachedEpg()
+
         // Load playlist automatically
         loadPlaylist()
+    }
+
+    /**
+     * Load cached EPG data from disk on app startup
+     */
+    private fun loadCachedEpg() {
+        viewModelScope.launch(Dispatchers.IO) {
+            Timber.d("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+            Timber.d("   LOADING CACHED EPG ON STARTUP")
+            Timber.d("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+            val cachedEpg = epgRepository.loadEpgData()
+            if (cachedEpg != null) {
+                Timber.d("✓ Cached EPG loaded successfully")
+                _viewState.update {
+                    it.copy(epgLoadedTimestamp = System.currentTimeMillis())
+                }
+            } else {
+                Timber.d("⚠ No cached EPG found - will fetch when playlist is loaded")
+            }
+        }
     }
 
     /**
@@ -108,8 +132,10 @@ class MainViewModel @Inject constructor(
                         // Initialize player
                         initializePlayer()
 
-                        // Fetch EPG
+                        // Fetch EPG (will check if URL is configured)
                         fetchEpg()
+                    } else {
+                        Timber.d("No channels loaded, skipping EPG fetch")
                     }
                 }
                 is Result.Error -> {
