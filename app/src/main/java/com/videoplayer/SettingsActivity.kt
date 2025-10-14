@@ -43,6 +43,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var currentFileName: TextView
     private lateinit var currentUrlName: TextView
     private lateinit var inputEpgUrl: EditText
+    private lateinit var inputEpgDaysAhead: EditText
 
     private val filePickerLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
@@ -80,6 +81,7 @@ class SettingsActivity : AppCompatActivity() {
         currentFileName = findViewById(R.id.current_file_name)
         currentUrlName = findViewById(R.id.current_url_name)
         inputEpgUrl = findViewById(R.id.input_epg_url)
+        inputEpgDaysAhead = findViewById(R.id.input_epg_days_ahead)
     }
 
     /**
@@ -138,6 +140,17 @@ class SettingsActivity : AppCompatActivity() {
 
                 inputBufferSeconds.setText(clampedValue.toString())
                 viewModel.setBufferSeconds(clampedValue)
+            }
+        }
+
+        inputEpgDaysAhead.setOnFocusChangeListener { _, hasFocus ->
+            if (!hasFocus) {
+                val text = inputEpgDaysAhead.text.toString()
+                val value = text.toIntOrNull() ?: 7
+                val clampedValue = value.coerceIn(1, 30)
+
+                inputEpgDaysAhead.setText(clampedValue.toString())
+                viewModel.setEpgDaysAhead(clampedValue)
             }
         }
     }
@@ -215,6 +228,11 @@ class SettingsActivity : AppCompatActivity() {
         // Update EPG URL - Only if different to prevent cursor jump
         if (inputEpgUrl.text.toString() != state.epgUrl) {
             inputEpgUrl.setText(state.epgUrl)
+        }
+
+        // Update EPG days ahead - Only if different to prevent cursor jump
+        if (inputEpgDaysAhead.text.toString() != state.epgDaysAhead.toString()) {
+            inputEpgDaysAhead.setText(state.epgDaysAhead.toString())
         }
 
         // Show error or success messages
@@ -326,6 +344,12 @@ class SettingsActivity : AppCompatActivity() {
         // Save EPG URL
         val epgUrl = inputEpgUrl.text.toString()
         viewModel.saveEpgUrl(epgUrl)
+
+        // Save EPG days ahead
+        val epgDaysText = inputEpgDaysAhead.text.toString()
+        val epgDaysValue = epgDaysText.toIntOrNull() ?: 7
+        val clampedEpgDays = epgDaysValue.coerceIn(1, 30)
+        viewModel.setEpgDaysAhead(clampedEpgDays)
 
         // Save buffer value
         val bufferText = inputBufferSeconds.text.toString()
