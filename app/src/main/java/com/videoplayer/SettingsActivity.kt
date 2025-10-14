@@ -33,6 +33,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var btnLoadFile: Button
     private lateinit var btnLoadUrl: Button
     private lateinit var btnReloadPlaylist: Button
+    private lateinit var btnForceEpgFetch: Button
     private lateinit var btnBack: Button
     private lateinit var switchDebugLog: Switch
     private lateinit var switchFfmpegAudio: Switch
@@ -71,6 +72,7 @@ class SettingsActivity : AppCompatActivity() {
         btnLoadFile = findViewById(R.id.btn_load_file)
         btnLoadUrl = findViewById(R.id.btn_load_url)
         btnReloadPlaylist = findViewById(R.id.btn_reload_playlist)
+        btnForceEpgFetch = findViewById(R.id.btn_force_epg_fetch)
         btnBack = findViewById(R.id.btn_back)
         switchDebugLog = findViewById(R.id.switch_debug_log)
         switchFfmpegAudio = findViewById(R.id.switch_ffmpeg_audio)
@@ -98,6 +100,10 @@ class SettingsActivity : AppCompatActivity() {
 
         btnReloadPlaylist.setOnClickListener {
             showReloadDialog()
+        }
+
+        btnForceEpgFetch.setOnClickListener {
+            showForceEpgFetchDialog()
         }
 
         btnBack.setOnClickListener {
@@ -327,6 +333,20 @@ class SettingsActivity : AppCompatActivity() {
             .setMessage("This will reload the playlist from the original source and refresh all EPG data (tvg-id, catchup-days, etc.).")
             .setPositiveButton("Reload") { _, _ ->
                 viewModel.reloadPlaylist()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    /**
+     * Show force EPG fetch confirmation dialog
+     */
+    private fun showForceEpgFetchDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Force EPG Fetch?")
+            .setMessage("This will delete all cached EPG data and fetch fresh data from the EPG service. This may take a few moments.")
+            .setPositiveButton("Force Fetch") { _, _ ->
+                viewModel.forceEpgFetch()
             }
             .setNegativeButton("Cancel", null)
             .show()

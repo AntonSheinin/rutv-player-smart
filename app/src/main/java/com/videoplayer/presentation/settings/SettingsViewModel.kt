@@ -22,7 +22,8 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     private val preferencesRepository: PreferencesRepository,
     private val channelRepository: ChannelRepository,
-    private val loadPlaylistUseCase: LoadPlaylistUseCase
+    private val loadPlaylistUseCase: LoadPlaylistUseCase,
+    private val epgRepository: com.videoplayer.data.repository.EpgRepository
 ) : ViewModel() {
 
     private val _viewState = MutableStateFlow(SettingsViewState())
@@ -261,5 +262,30 @@ class SettingsViewModel @Inject constructor(
      */
     fun clearSuccess() {
         _viewState.update { it.copy(successMessage = null) }
+    }
+
+    /**
+     * Force EPG fetch - delete cached data and refetch
+     */
+    fun forceEpgFetch() {
+        viewModelScope.launch {
+            try {
+                Timber.d("Force EPG fetch requested")
+                epgRepository.clearCache()
+
+                _viewState.update {
+                    it.copy(
+                        successMessage = "EPG cache cleared. Reload playlist to fetch new EPG data.",
+                        error = null
+                    )
+                }
+                Timber.d("EPG cache cleared successfully")
+            } catch (e: Exception) {
+                _viewState.update {
+                    it.copy(error = "Failed to clear EPG cache: ${e.message}")
+                }
+                Timber.e(e, "Failed to clear EPG cache")
+            }
+        }
     }
 }

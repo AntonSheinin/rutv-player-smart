@@ -236,6 +236,16 @@
         android:text="Maximum days of future programs to fetch (1-30 days). Default: 7 days."
         android:textSize="12sp"
         android:textColor="#888888"
+        android:layout_marginBottom="16dp" />
+
+    <Button
+        android:id="@+id/btn_force_epg_fetch"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:text="🔄 Force EPG Fetch"
+        android:textSize="14sp"
+        android:backgroundTint="#FF6B6B"
+        android:textColor="#FFFFFF"
         android:layout_marginBottom="32dp" />
 
     <TextView
