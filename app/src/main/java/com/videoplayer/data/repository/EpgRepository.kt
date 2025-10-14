@@ -2,6 +2,8 @@ package com.videoplayer.data.repository
 
 import android.content.Context
 import com.google.gson.Gson
+import com.google.gson.stream.JsonReader
+import com.google.gson.stream.JsonToken
 import com.videoplayer.data.model.*
 import com.videoplayer.util.Constants
 import com.videoplayer.util.Result
@@ -10,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.io.File
+import java.io.Reader
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.TimeZone
@@ -124,11 +127,11 @@ class EpgRepository @Inject constructor(
             Timber.d("Response code: $responseCode (took ${fetchDuration}ms)")
 
             if (responseCode == 200) {
-                Timber.d("━━━ EPG PARSING ━━━")
-                // Stream parse JSON to avoid loading large response into memory
+                Timber.d("━━━ EPG PARSING (STREAMING) ━━━")
+                // Stream parse JSON token-by-token to avoid loading large response into memory
                 val parseStartTime = System.currentTimeMillis()
                 val epgResponse = connection.inputStream.bufferedReader().use { reader ->
-                    gson.fromJson(reader, EpgResponse::class.java)
+                    parseEpgResponseStreaming(reader)
                 }
                 val parseDuration = System.currentTimeMillis() - parseStartTime
 
@@ -169,6 +172,105 @@ class EpgRepository @Inject constructor(
             Timber.e(e, "Error fetching EPG")
             Result.Error(e)
         }
+    }
+
+    /**
+     * Parse EPG response using streaming JSON parser
+     * This avoids loading the entire 255MB response into memory at once
+     */
+    private fun parseEpgResponseStreaming(reader: Reader): EpgResponse? {
+        val jsonReader = JsonReader(reader)
+        var updateMode = ""
+        var timestamp = ""
+        var channelsRequested = 0
+        var channelsFound = 0
+        var totalPrograms = 0
+        val epgMap = mutableMapOf<String, List<EpgProgram>>()
+
+        try {
+            jsonReader.beginObject()
+            while (jsonReader.hasNext()) {
+                when (jsonReader.nextName()) {
+                    "update_mode" -> updateMode = jsonReader.nextString()
+                    "timestamp" -> timestamp = jsonReader.nextString()
+                    "channels_requested" -> channelsRequested = jsonReader.nextInt()
+                    "channels_found" -> channelsFound = jsonReader.nextInt()
+                    "total_programs" -> totalPrograms = jsonReader.nextInt()
+                    "epg" -> {
+                        // Parse epg object incrementally - one channel at a time
+                        Timber.d("Parsing EPG map with streaming parser...")
+                        var channelCount = 0
+                        jsonReader.beginObject()
+                        while (jsonReader.hasNext()) {
+                            val channelId = jsonReader.nextName()
+                            val programs = parsePrograms(jsonReader)
+                            epgMap[channelId] = programs
+                            channelCount++
+
+                            // Log progress every 50 channels to track memory usage
+                            if (channelCount % 50 == 0) {
+                                Timber.d("Parsed $channelCount channels so far...")
+                            }
+                        }
+                        jsonReader.endObject()
+                        Timber.d("Finished parsing $channelCount channels")
+                    }
+                    else -> jsonReader.skipValue()
+                }
+            }
+            jsonReader.endObject()
+
+            return EpgResponse(updateMode, timestamp, channelsRequested, channelsFound, totalPrograms, epgMap)
+        } catch (e: Exception) {
+            Timber.e(e, "Error in streaming JSON parser")
+            return null
+        } finally {
+            jsonReader.close()
+        }
+    }
+
+    /**
+     * Parse programs array for a single channel
+     */
+    private fun parsePrograms(jsonReader: JsonReader): List<EpgProgram> {
+        val programs = mutableListOf<EpgProgram>()
+        jsonReader.beginArray()
+        while (jsonReader.hasNext()) {
+            programs.add(parseProgram(jsonReader))
+        }
+        jsonReader.endArray()
+        return programs
+    }
+
+    /**
+     * Parse a single EPG program
+     */
+    private fun parseProgram(jsonReader: JsonReader): EpgProgram {
+        var id = ""
+        var startTime = ""
+        var stopTime = ""
+        var title = ""
+        var description = ""
+
+        jsonReader.beginObject()
+        while (jsonReader.hasNext()) {
+            when (jsonReader.nextName()) {
+                "id" -> id = jsonReader.nextString()
+                "start_time" -> startTime = jsonReader.nextString()
+                "stop_time" -> stopTime = jsonReader.nextString()
+                "title" -> title = jsonReader.nextString()
+                "description" -> description = if (jsonReader.peek() == JsonToken.NULL) {
+                    jsonReader.nextNull()
+                    ""
+                } else {
+                    jsonReader.nextString()
+                }
+                else -> jsonReader.skipValue()
+            }
+        }
+        jsonReader.endObject()
+
+        return EpgProgram(id, startTime, stopTime, title, description)
     }
 
     /**
@@ -219,6 +321,7 @@ class EpgRepository @Inject constructor(
 
     /**
      * Load EPG data from cache (with GZIP decompression support)
+     * Uses streaming parser to avoid OutOfMemoryError
      */
     fun loadEpgData(): EpgResponse? {
         // Return memory cache if available
@@ -231,30 +334,39 @@ class EpgRepository @Inject constructor(
                 return null
             }
 
-            Timber.d("Loading EPG from disk...")
+            Timber.d("Loading EPG from disk with streaming parser...")
             val startTime = System.currentTimeMillis()
 
-            // Stream JSON from GZIP compressed file
+            // Stream JSON from GZIP compressed file using streaming parser
             val epgResponse = epgFile.inputStream().buffered().use { fileIn ->
                 java.util.zip.GZIPInputStream(fileIn).buffered().use { gzipIn ->
                     gzipIn.reader().use { reader ->
-                        gson.fromJson(reader, EpgResponse::class.java)
+                        parseEpgResponseStreaming(reader)
                     }
                 }
             }
 
             val duration = System.currentTimeMillis() - startTime
             cachedEpgData = epgResponse
-            Timber.d("✓ Loaded EPG data: ${epgResponse.totalPrograms} programs in ${duration}ms")
+            if (epgResponse != null) {
+                Timber.d("✓ Loaded EPG data: ${epgResponse.totalPrograms} programs in ${duration}ms")
+            } else {
+                Timber.e("Failed to parse EPG data from disk")
+            }
             epgResponse
         } catch (e: java.util.zip.ZipException) {
             // Handle legacy uncompressed files
-            Timber.w("EPG file is not GZIP compressed, attempting plain JSON load...")
+            Timber.w("EPG file is not GZIP compressed, attempting plain JSON load with streaming...")
             try {
-                val json = epgFile.readText()
-                val epgResponse = gson.fromJson(json, EpgResponse::class.java)
+                val epgResponse = epgFile.inputStream().bufferedReader().use { reader ->
+                    parseEpgResponseStreaming(reader)
+                }
                 cachedEpgData = epgResponse
-                Timber.d("Loaded EPG data (legacy format): ${epgResponse.totalPrograms} programs")
+                if (epgResponse != null) {
+                    Timber.d("Loaded EPG data (legacy format): ${epgResponse.totalPrograms} programs")
+                } else {
+                    Timber.e("Failed to parse legacy EPG data")
+                }
                 epgResponse
             } catch (e2: Exception) {
                 Timber.e(e2, "Failed to load legacy EPG data")
