@@ -51,10 +51,11 @@ fun PlayerScreen(
     onToggleRotation: () -> Unit,
     onOpenSettings: () -> Unit,
     onGoToChannel: () -> Unit,
-    getCurrentProgramForChannel: (String) -> EpgProgram?
+    getCurrentProgramForChannel: (String) -> EpgProgram?,
+    modifier: Modifier = Modifier
 ) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.ruTvColors.darkBackground)
     ) {
@@ -258,7 +259,9 @@ private fun EpgPanel(
 
     // Find current program index
     val currentProgramIndex = programs.indexOfFirst { program ->
-        currentTime in program.startTime..program.endTime
+        val start = program.startTimeMillis
+        val end = program.stopTimeMillis
+        start > 0L && end > 0L && currentTime in start..end
     }
 
     // Auto-scroll to current program
@@ -285,7 +288,7 @@ private fun EpgPanel(
             var lastDate = ""
 
             programs.forEachIndexed { index, program ->
-                val programDate = dateFormat.format(Date(program.startTime))
+                val programDate = dateFormat.format(Date(program.startTimeMillis))
 
                 // Add date delimiter if date changed
                 if (programDate != lastDate) {

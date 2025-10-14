@@ -26,8 +26,8 @@ fun EpgProgramItem(
     modifier: Modifier = Modifier
 ) {
     val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-    val startTime = timeFormat.format(Date(program.startTime))
-    val endTime = timeFormat.format(Date(program.endTime))
+    val startTime = program.startTimeMillis.takeIf { it > 0L }?.let { timeFormat.format(Date(it)) } ?: "--:--"
+    val endTime = program.stopTimeMillis.takeIf { it > 0L }?.let { timeFormat.format(Date(it)) } ?: "--:--"
 
     val backgroundColor = if (isCurrent)
         MaterialTheme.ruTvColors.selectedBackground
@@ -79,7 +79,7 @@ fun EpgProgramItem(
                 overflow = TextOverflow.Ellipsis
             )
 
-            program.description?.takeIf { it.isNotEmpty() }?.let { description ->
+            program.description.takeIf { it.isNotEmpty() }?.let { description ->
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = description,

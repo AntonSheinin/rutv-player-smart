@@ -12,6 +12,12 @@ data class EpgProgram(
     @SerializedName("title") val title: String,
     @SerializedName("description") val description: String = ""
 ) {
+    val startTimeMillis: Long
+        get() = parseTime(startTime)
+
+    val stopTimeMillis: Long
+        get() = parseTime(stopTime)
+
     fun isCurrent(currentTimeMillis: Long = System.currentTimeMillis()): Boolean {
         return try {
             val start = parseTime(startTime)

@@ -23,6 +23,7 @@ import com.videoplayer.data.model.Channel
 import com.videoplayer.data.model.EpgProgram
 import com.videoplayer.ui.theme.ruTvColors
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * Channel list item composable with double-tap support

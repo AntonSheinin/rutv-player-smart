@@ -99,12 +99,12 @@ fun SettingsScreen(
             }
 
             item {
-                PlaylistInfoCard(
-                    playlistSource = viewState.playlistSource,
-                    playlistInfo = viewState.playlistInfo,
-                    playlistUrl = viewState.playlistUrl,
-                    urlName = viewState.urlName
-                )
+                    PlaylistInfoCard(
+                        playlistSource = viewState.playlistSource,
+                        playlistInfo = viewState.playlistInfo,
+                        playlistUrl = viewState.playlistUrl.orEmpty(),
+                        urlName = viewState.urlName
+                    )
             }
 
             item { Spacer(modifier = Modifier.height(8.dp)) }
