@@ -179,6 +179,7 @@ class EpgRepository @Inject constructor(
      * This avoids loading the entire 255MB response into memory at once
      */
     private fun parseEpgResponseStreaming(reader: Reader): EpgResponse? {
+        truncationWarningLogged = false
         val jsonReader = JsonReader(reader)
         var updateMode = ""
         var timestamp = ""
@@ -191,8 +192,8 @@ class EpgRepository @Inject constructor(
             jsonReader.beginObject()
             while (jsonReader.hasNext()) {
                 when (jsonReader.nextName()) {
-                    "update_mode" -> updateMode = jsonReader.nextString()
-                    "timestamp" -> timestamp = jsonReader.nextString()
+                    "update_mode" -> updateMode = jsonReader.safeNextString(MAX_FIELD_LENGTH_TITLE)
+                    "timestamp" -> timestamp = jsonReader.safeNextString(MAX_FIELD_LENGTH_TIME)
                     "channels_requested" -> channelsRequested = jsonReader.nextInt()
                     "channels_found" -> channelsFound = jsonReader.nextInt()
                     "total_programs" -> totalPrograms = jsonReader.nextInt()
@@ -255,15 +256,20 @@ class EpgRepository @Inject constructor(
         jsonReader.beginObject()
         while (jsonReader.hasNext()) {
             when (jsonReader.nextName()) {
-                "id" -> id = jsonReader.nextString()
-                "start_time" -> startTime = jsonReader.nextString()
-                "stop_time" -> stopTime = jsonReader.nextString()
-                "title" -> title = jsonReader.nextString()
-                "description" -> description = if (jsonReader.peek() == JsonToken.NULL) {
-                    jsonReader.nextNull()
-                    ""
-                } else {
-                    jsonReader.nextString()
+                "id" -> id = jsonReader.safeNextString(MAX_FIELD_LENGTH_ID)
+                "start_time" -> startTime = jsonReader.safeNextString(MAX_FIELD_LENGTH_TIME)
+                "stop_time" -> stopTime = jsonReader.safeNextString(MAX_FIELD_LENGTH_TIME)
+                "title" -> title = jsonReader.safeNextString(MAX_FIELD_LENGTH_TITLE)
+                "description" -> description = when (jsonReader.peek()) {
+                    JsonToken.NULL -> {
+                        jsonReader.nextNull()
+                        ""
+                    }
+                    JsonToken.STRING -> jsonReader.safeNextString(MAX_FIELD_LENGTH_DESCRIPTION)
+                    else -> {
+                        jsonReader.skipValue()
+                        ""
+                    }
                 }
                 else -> jsonReader.skipValue()
             }
@@ -372,6 +378,13 @@ class EpgRepository @Inject constructor(
                 Timber.e(e2, "Failed to load legacy EPG data")
                 null
             }
+        } catch (e: OutOfMemoryError) {
+            Timber.e(e, "Out of memory while loading cached EPG data (file size=${epgFile.length()} bytes). Clearing cache.")
+            cachedEpgData = null
+            if (epgFile.exists() && !epgFile.delete()) {
+                Timber.w("Failed to delete EPG cache file after OOM")
+            }
+            null
         } catch (e: Exception) {
             Timber.e(e, "Failed to load EPG data")
             null
@@ -412,6 +425,18 @@ class EpgRepository @Inject constructor(
         return epgData.epg[tvgId] ?: emptyList()
     }
 
+    private fun JsonReader.safeNextString(maxLength: Int): String {
+        val value = nextString()
+        if (value.length > maxLength) {
+            if (!truncationWarningLogged) {
+                Timber.w("EPG field at ${path} truncated to $maxLength characters (further truncation messages suppressed)")
+                truncationWarningLogged = true
+            }
+            return value.take(maxLength)
+        }
+        return value
+    }
+
     /**
      * Clear EPG cache
      */
@@ -421,5 +446,13 @@ class EpgRepository @Inject constructor(
             epgFile.delete()
         }
         Timber.d("EPG cache cleared")
+    }
+
+    companion object {
+        private const val MAX_FIELD_LENGTH_ID = 128
+        private const val MAX_FIELD_LENGTH_TIME = 64
+        private const val MAX_FIELD_LENGTH_TITLE = 256
+        private const val MAX_FIELD_LENGTH_DESCRIPTION = 512
+        private var truncationWarningLogged = false
     }
 }
