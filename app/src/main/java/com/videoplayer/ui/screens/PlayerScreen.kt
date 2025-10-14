@@ -70,12 +70,9 @@ fun PlayerScreen(
                             ViewGroup.LayoutParams.MATCH_PARENT
                         )
                         useController = true
+                        controllerShowTimeoutMs = 5000
+                        controllerHideOnTouch = true
                         resizeMode = viewState.currentResizeMode
-
-                        // Setup fullscreen button listener if needed
-                        setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { visibility ->
-                            // Handle controller visibility changes
-                        })
                     }
                 },
                 update = { playerView ->
@@ -85,6 +82,20 @@ fun PlayerScreen(
                 modifier = Modifier.fillMaxSize()
             )
         }
+
+        // Custom Control Buttons Overlay (bottom)
+        CustomControlButtons(
+            onPlaylistClick = onTogglePlaylist,
+            onFavoritesClick = onToggleFavorites,
+            onGoToChannelClick = onGoToChannel,
+            onAspectRatioClick = onCycleAspectRatio,
+            onRotationClick = onToggleRotation,
+            onSettingsClick = onOpenSettings,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(bottom = 48.dp) // Above ExoPlayer default controls
+        )
 
         // Channel Info Overlay (top)
         viewState.currentChannel?.let { channel ->
@@ -352,6 +363,91 @@ private fun DebugLogPanel(
                         text = messages[index],
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.ruTvColors.textSecondary
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Custom control buttons overlay
+ */
+@Composable
+private fun CustomControlButtons(
+    onPlaylistClick: () -> Unit,
+    onFavoritesClick: () -> Unit,
+    onGoToChannelClick: () -> Unit,
+    onAspectRatioClick: () -> Unit,
+    onRotationClick: () -> Unit,
+    onSettingsClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        color = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.7f)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Left side buttons
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                IconButton(onClick = onPlaylistClick) {
+                    Icon(
+                        imageVector = Icons.Default.List,
+                        contentDescription = stringResource(R.string.cd_playlist_button),
+                        tint = MaterialTheme.ruTvColors.gold
+                    )
+                }
+
+                IconButton(onClick = onFavoritesClick) {
+                    Icon(
+                        imageVector = Icons.Default.Star,
+                        contentDescription = stringResource(R.string.cd_favorites_button),
+                        tint = MaterialTheme.ruTvColors.gold
+                    )
+                }
+
+                IconButton(onClick = onGoToChannelClick) {
+                    Icon(
+                        imageVector = Icons.Default.Numbers,
+                        contentDescription = stringResource(R.string.cd_go_to_channel_button),
+                        tint = MaterialTheme.ruTvColors.gold
+                    )
+                }
+            }
+
+            // Right side buttons
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                IconButton(onClick = onAspectRatioClick) {
+                    Icon(
+                        imageVector = Icons.Default.AspectRatio,
+                        contentDescription = stringResource(R.string.cd_aspect_ratio_button),
+                        tint = MaterialTheme.ruTvColors.gold
+                    )
+                }
+
+                IconButton(onClick = onRotationClick) {
+                    Icon(
+                        imageVector = Icons.Default.ScreenRotation,
+                        contentDescription = stringResource(R.string.cd_orientation_button),
+                        tint = MaterialTheme.ruTvColors.gold
+                    )
+                }
+
+                IconButton(onClick = onSettingsClick) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = stringResource(R.string.cd_settings_button),
+                        tint = MaterialTheme.ruTvColors.gold
                     )
                 }
             }
