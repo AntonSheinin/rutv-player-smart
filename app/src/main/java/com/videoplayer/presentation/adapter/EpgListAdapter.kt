@@ -8,9 +8,15 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.videoplayer.R
 import com.videoplayer.data.model.EpgProgram
-import java.text.SimpleDateFormat
-import java.util.*
 import timber.log.Timber
+import java.text.SimpleDateFormat
+import java.time.LocalDateTime
+import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
+import java.util.*
 
 /**
  * Refactored EPG adapter using ListAdapter with DiffUtil
@@ -168,22 +174,54 @@ class EpgListAdapter(
     private fun parseTimeString(timeString: String): Long {
         if (timeString.isBlank()) return 0L
 
-        val parsers = listOf(
-            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US),
-            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply {
-                timeZone = TimeZone.getDefault()
+        val zone = ZoneId.systemDefault()
+        val attempts = listOf<(String) -> Long>(
+            { OffsetDateTime.parse(it).toInstant().toEpochMilli() },
+            {
+                OffsetDateTime.parse(
+                    it,
+                    DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXX")
+                ).toInstant().toEpochMilli()
             },
-            SimpleDateFormat("yyyyMMddHHmmss Z", Locale.US),
-            SimpleDateFormat("yyyyMMddHHmmss", Locale.US).apply {
-                timeZone = TimeZone.getDefault()
+            {
+                OffsetDateTime.parse(
+                    it,
+                    DateTimeFormatter.ofPattern("yyyyMMddHHmmss XX")
+                ).toInstant().toEpochMilli()
+            },
+            {
+                ZonedDateTime.parse(
+                    it,
+                    DateTimeFormatter.ofPattern("yyyyMMddHHmmss Z")
+                ).toInstant().toEpochMilli()
+            },
+            {
+                LocalDateTime.parse(
+                    it,
+                    DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")
+                ).atZone(zone).toInstant().toEpochMilli()
+            },
+            {
+                LocalDateTime.parse(
+                    it,
+                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                ).atZone(zone).toInstant().toEpochMilli()
+            },
+            {
+                LocalDateTime.parse(
+                    it,
+                    DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
+                ).atZone(zone).toInstant().toEpochMilli()
             }
         )
 
-        for (format in parsers) {
+        attempts.forEach { parser ->
             try {
-                return format.parse(timeString)?.time ?: continue
+                return parser(timeString)
+            } catch (_: DateTimeParseException) {
+                // Try next
             } catch (_: Exception) {
-                // Try next format
+                // Ignore and try next
             }
         }
 
