@@ -31,6 +31,11 @@ class EpgRepository @Inject constructor(
     private val epgFile = File(context.filesDir, "epg_data.json")
     private var cachedEpgData: EpgResponse? = null
 
+    // Cache for current programs only (lightweight)
+    private var currentProgramsCache: Map<String, EpgProgram?>? = null
+    private var currentProgramsCacheTime: Long = 0
+    private val CURRENT_PROGRAMS_CACHE_TTL = 60_000L // 1 minute
+
     /**
      * Check if EPG service is healthy
      */
@@ -392,37 +397,91 @@ class EpgRepository @Inject constructor(
     }
 
     /**
-     * Get current program for a channel
+     * Get current program for a channel (optimized with caching)
+     * This is called frequently from channel list, so we cache results
      */
     fun getCurrentProgram(tvgId: String): EpgProgram? {
-        val epgData = loadEpgData()
+        // Check cache first (avoids loading full EPG repeatedly)
+        val now = System.currentTimeMillis()
+        if (currentProgramsCache != null && now - currentProgramsCacheTime < CURRENT_PROGRAMS_CACHE_TTL) {
+            return currentProgramsCache?.get(tvgId)
+        }
+
+        // Cache miss - need to load from EPG data
+        val epgData = cachedEpgData ?: loadEpgData()
         if (epgData == null) {
-            Timber.d("EPG: No EPG data loaded for tvgId=$tvgId")
             return null
         }
 
         val programs = epgData.epg[tvgId]
         if (programs == null || programs.isEmpty()) {
-            Timber.d("EPG: No programs found for tvgId=$tvgId")
             return null
         }
 
-        val currentProgram = programs.firstOrNull { it.isCurrent() }
-        if (currentProgram != null) {
-            Timber.d("EPG: Current program for tvgId=$tvgId: ${currentProgram.title}")
-        } else {
-            Timber.d("EPG: No current program found for tvgId=$tvgId (${programs.size} programs available)")
+        return programs.firstOrNull { it.isCurrent() }
+    }
+
+    /**
+     * Build current programs cache for all channels
+     * Call this after loading EPG to speed up channel list display
+     */
+    fun buildCurrentProgramsCache() {
+        val epgData = cachedEpgData ?: loadEpgData() ?: return
+
+        val cache = mutableMapOf<String, EpgProgram?>()
+        epgData.epg.forEach { (tvgId, programs) ->
+            cache[tvgId] = programs.firstOrNull { it.isCurrent() }
         }
 
-        return currentProgram
+        currentProgramsCache = cache
+        currentProgramsCacheTime = System.currentTimeMillis()
+        Timber.d("EPG: Built current programs cache for ${cache.size} channels")
+    }
+
+    /**
+     * Invalidate current programs cache
+     * Call this when EPG data changes or periodically
+     */
+    fun invalidateCurrentProgramsCache() {
+        currentProgramsCache = null
+        currentProgramsCacheTime = 0
     }
 
     /**
      * Get all programs for a channel
      */
     fun getProgramsForChannel(tvgId: String): List<EpgProgram> {
-        val epgData = loadEpgData() ?: return emptyList()
+        val epgData = cachedEpgData ?: loadEpgData() ?: return emptyList()
         return epgData.epg[tvgId] ?: emptyList()
+    }
+
+    /**
+     * Get programs for a channel with pagination (for lazy loading in UI)
+     * @param tvgId Channel ID
+     * @param offset Starting index (0-based)
+     * @param limit Maximum number of programs to return
+     * @return Paginated list of programs
+     */
+    fun getProgramsForChannelPaginated(
+        tvgId: String,
+        offset: Int = 0,
+        limit: Int = 50
+    ): List<EpgProgram> {
+        val allPrograms = getProgramsForChannel(tvgId)
+        if (allPrograms.isEmpty()) return emptyList()
+
+        val endIndex = minOf(offset + limit, allPrograms.size)
+        if (offset >= allPrograms.size) return emptyList()
+
+        return allPrograms.subList(offset, endIndex)
+    }
+
+    /**
+     * Get total program count for a channel
+     */
+    fun getProgramCountForChannel(tvgId: String): Int {
+        val epgData = cachedEpgData ?: loadEpgData() ?: return 0
+        return epgData.epg[tvgId]?.size ?: 0
     }
 
     private fun JsonReader.safeNextString(maxLength: Int): String {
@@ -442,10 +501,12 @@ class EpgRepository @Inject constructor(
      */
     fun clearCache() {
         cachedEpgData = null
+        currentProgramsCache = null
+        currentProgramsCacheTime = 0
         if (epgFile.exists()) {
             epgFile.delete()
         }
-        Timber.d("EPG cache cleared")
+        Timber.d("EPG cache cleared (including current programs cache)")
     }
 
     companion object {

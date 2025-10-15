@@ -78,6 +78,15 @@ class MainViewModel @Inject constructor(
             }
         }
 
+        // Periodic refresh of current programs cache (every minute)
+        viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(60_000) // 1 minute
+                epgRepository.buildCurrentProgramsCache()
+                Timber.d("EPG: Refreshed current programs cache")
+            }
+        }
+
         // Load cached EPG data on startup
         loadCachedEpg()
 
@@ -99,6 +108,8 @@ class MainViewModel @Inject constructor(
                         "EPG: Loaded cached data (${cachedEpg.totalPrograms} programs for ${cachedEpg.channelsFound} channels)"
                     )
                 )
+                // Build current programs cache for fast channel list display
+                epgRepository.buildCurrentProgramsCache()
                 _viewState.update {
                     it.copy(epgLoadedTimestamp = System.currentTimeMillis())
                 }
@@ -200,6 +211,9 @@ class MainViewModel @Inject constructor(
                             "EPG: Fetch complete (${response.totalPrograms} programs, ${response.channelsFound}/${response.channelsRequested} channels)"
                         )
                     )
+
+                    // Build current programs cache for fast channel list display
+                    epgRepository.buildCurrentProgramsCache()
 
                     // Update state with timestamp to trigger adapter refresh
                     _viewState.update {
