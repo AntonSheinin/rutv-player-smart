@@ -93,10 +93,12 @@ fun PlayerScreen(
                         }
 
                         // Listen for controller visibility changes
-                        setControllerVisibilityListener { visibility ->
-                            // Show custom controls when ExoPlayer controls are visible
-                            showControls = (visibility == android.view.View.VISIBLE)
-                        }
+                        setControllerVisibilityListener(
+                            PlayerView.ControllerVisibilityListener { visibility ->
+                                // Show custom controls when ExoPlayer controls are visible
+                                showControls = (visibility == android.view.View.VISIBLE)
+                            }
+                        )
                     }
                 },
                 update = { playerView ->
