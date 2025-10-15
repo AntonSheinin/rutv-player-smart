@@ -18,6 +18,7 @@ data class MainViewState(
     val showEpgPanel: Boolean = false,
     val epgPrograms: List<EpgProgram> = emptyList(),
     val currentProgram: EpgProgram? = null,
+    val currentProgramsMap: Map<String, EpgProgram?> = emptyMap(), // Pre-computed current programs for channel list
     val debugMessages: List<DebugMessage> = emptyList(),
     val showDebugLog: Boolean = true,
     val currentResizeMode: Int = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT,

@@ -57,7 +57,6 @@ fun PlayerScreen(
     onToggleRotation: () -> Unit,
     onOpenSettings: () -> Unit,
     onGoToChannel: () -> Unit,
-    getCurrentProgramForChannel: (String) -> EpgProgram?,
     modifier: Modifier = Modifier
 ) {
     var showControls by remember { mutableStateOf(false) }
@@ -167,11 +166,11 @@ fun PlayerScreen(
                 playlistTitle = viewState.playlistTitle,
                 currentChannelIndex = viewState.currentChannelIndex,
                 epgOpenIndex = if (viewState.showEpgPanel) viewState.currentChannelIndex else -1,
+                currentProgramsMap = viewState.currentProgramsMap,
                 onChannelClick = onPlayChannel,
                 onFavoriteClick = onToggleFavorite,
                 onShowPrograms = onShowEpgForChannel,
                 onClose = onClosePlaylist,
-                getCurrentProgram = getCurrentProgramForChannel,
                 modifier = Modifier.align(Alignment.CenterStart)
             )
         }
@@ -235,11 +234,11 @@ private fun PlaylistPanel(
     playlistTitle: String,
     currentChannelIndex: Int,
     epgOpenIndex: Int,
+    currentProgramsMap: Map<String, EpgProgram?>,
     onChannelClick: (Int) -> Unit,
     onFavoriteClick: (String) -> Unit,
     onShowPrograms: (String) -> Unit,
     onClose: () -> Unit,
-    getCurrentProgram: (String) -> EpgProgram?,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
@@ -302,7 +301,7 @@ private fun PlaylistPanel(
                         channelNumber = index + 1,
                         isPlaying = index == currentChannelIndex,
                         isEpgOpen = index == epgOpenIndex,
-                        currentProgram = getCurrentProgram(channel.tvgId),
+                        currentProgram = currentProgramsMap[channel.tvgId],
                         onChannelClick = { onChannelClick(index) },
                         onFavoriteClick = { onFavoriteClick(channel.url) },
                         onShowPrograms = { onShowPrograms(channel.tvgId) },

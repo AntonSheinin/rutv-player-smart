@@ -102,8 +102,15 @@ class MainViewModel @Inject constructor(
                 )
                 // Build current programs cache for fast channel list display
                 epgRepository.buildCurrentProgramsCache()
+
+                // Build current programs map for UI
+                val currentProgramsMap = buildCurrentProgramsMap()
+
                 _viewState.update {
-                    it.copy(epgLoadedTimestamp = System.currentTimeMillis())
+                    it.copy(
+                        epgLoadedTimestamp = System.currentTimeMillis(),
+                        currentProgramsMap = currentProgramsMap
+                    )
                 }
             } else {
                 Timber.d("No cached EPG found - will fetch when playlist is loaded")
@@ -209,9 +216,15 @@ class MainViewModel @Inject constructor(
                         epgRepository.buildCurrentProgramsCache()
                     }
 
+                    // Build current programs map for UI
+                    val currentProgramsMap = buildCurrentProgramsMap()
+
                     // Update state with timestamp to trigger adapter refresh
                     _viewState.update {
-                        it.copy(epgLoadedTimestamp = System.currentTimeMillis())
+                        it.copy(
+                            epgLoadedTimestamp = System.currentTimeMillis(),
+                            currentProgramsMap = currentProgramsMap
+                        )
                     }
 
                     // Update current program for current channel
@@ -409,10 +422,16 @@ class MainViewModel @Inject constructor(
     fun getPlayer() = playerManager.getPlayer()
 
     /**
-     * Get current program for a channel by tvgId
+     * Build a map of current programs for all channels with EPG
+     * This is called once when EPG is loaded, not for every channel in the list
      */
-    fun getCurrentProgramForChannel(tvgId: String): EpgProgram? {
-        return epgRepository.getCurrentProgram(tvgId)
+    private fun buildCurrentProgramsMap(): Map<String, EpgProgram?> {
+        val channels = _viewState.value.channels
+        return channels
+            .filter { it.hasEpg }
+            .associate { channel ->
+                channel.tvgId to epgRepository.getCurrentProgram(channel.tvgId)
+            }
     }
 
     /**
