@@ -43,6 +43,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Switch from splash screen theme to regular theme
+        setTheme(R.style.Theme_VideoPlayer)
+
         setupFullscreen()
 
         setContent {

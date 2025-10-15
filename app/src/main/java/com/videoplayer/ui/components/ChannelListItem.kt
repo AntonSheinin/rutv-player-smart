@@ -177,7 +177,7 @@ fun ChannelListItem(
                     stringResource(R.string.favorite_filled)
                 else
                     stringResource(R.string.favorite_empty),
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.headlineLarge, // Changed from headlineSmall to headlineLarge
                 color = if (channel.isFavorite)
                     MaterialTheme.ruTvColors.gold
                 else

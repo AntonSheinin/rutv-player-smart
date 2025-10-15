@@ -73,7 +73,14 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(text = stringResource(R.string.settings_back)) },
+                title = {
+                    TextButton(onClick = onBack) {
+                        Text(
+                            text = stringResource(R.string.settings_back),
+                            color = MaterialTheme.ruTvColors.gold
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(

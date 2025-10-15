@@ -27,7 +27,6 @@ fun EpgProgramItem(
 ) {
     val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
     val startTime = program.startTimeMillis.takeIf { it > 0L }?.let { timeFormat.format(Date(it)) } ?: "--:--"
-    val endTime = program.stopTimeMillis.takeIf { it > 0L }?.let { timeFormat.format(Date(it)) } ?: "--:--"
 
     val backgroundColor = if (isCurrent)
         MaterialTheme.ruTvColors.selectedBackground
@@ -41,27 +40,19 @@ fun EpgProgramItem(
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
-        // Time
-        Column(
-            modifier = Modifier.width(100.dp)
-        ) {
-            Text(
-                text = startTime,
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (isCurrent)
-                    MaterialTheme.ruTvColors.gold
-                else
-                    MaterialTheme.ruTvColors.textSecondary,
-                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal
-            )
-            Text(
-                text = endTime,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.ruTvColors.textHint
-            )
-        }
+        // Start Time only
+        Text(
+            text = startTime,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (isCurrent)
+                MaterialTheme.ruTvColors.gold
+            else
+                MaterialTheme.ruTvColors.textSecondary,
+            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+            modifier = Modifier.width(60.dp) // Reduced width since we only show start time
+        )
 
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(12.dp)) // Reduced spacing to bring content closer
 
         // Program Info
         Column(

@@ -87,6 +87,15 @@ fun PlayerScreen(
                         controllerShowTimeoutMs = 2000 // 2 seconds timeout
                         controllerHideOnTouch = false // We'll handle tap manually
                         resizeMode = viewState.currentResizeMode
+                        // Use TextureView for rotation support
+                        setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
+                        // Force TextureView usage for rotation
+                        try {
+                            val method = this::class.java.getMethod("setUseArtwork", Boolean::class.javaPrimitiveType)
+                            method.invoke(this, false)
+                        } catch (e: Exception) {
+                            // Ignore if method doesn't exist
+                        }
                         // Hide shuffle, subtitle, and settings buttons (keep prev/next)
                         setShowShuffleButton(false)
                         setShowSubtitleButton(false)
@@ -96,6 +105,28 @@ fun PlayerScreen(
                                 .invoke(this, false)
                         } catch (e: Exception) {
                             // Method doesn't exist in this version, ignore
+                        }
+
+                        // Wire prev/next buttons to channel switching
+                        setShowPreviousButton(true)
+                        setShowNextButton(true)
+
+                        // Set custom forward/rewind listener to switch channels
+                        findViewById<android.view.View>(androidx.media3.ui.R.id.exo_prev)?.setOnClickListener {
+                            // Switch to previous channel
+                            val currentIndex = viewState.currentChannelIndex
+                            if (currentIndex > 0) {
+                                onPlayChannel(currentIndex - 1)
+                            }
+                        }
+
+                        findViewById<android.view.View>(androidx.media3.ui.R.id.exo_next)?.setOnClickListener {
+                            // Switch to next channel
+                            val currentIndex = viewState.currentChannelIndex
+                            val maxIndex = viewState.channels.size - 1
+                            if (currentIndex < maxIndex) {
+                                onPlayChannel(currentIndex + 1)
+                            }
                         }
 
                         // Listen for controller visibility changes
@@ -110,8 +141,14 @@ fun PlayerScreen(
                 update = { playerView ->
                     playerView.player = it
                     playerView.resizeMode = viewState.currentResizeMode
-                    // Apply rotation
-                    playerView.rotation = viewState.videoRotation.toFloat()
+                    // Apply rotation to video surface (not the view itself)
+                    val surfaceView = playerView.videoSurfaceView
+                    if (surfaceView is android.view.TextureView) {
+                        surfaceView.rotation = viewState.videoRotation.toFloat()
+                    } else if (surfaceView is android.view.SurfaceView) {
+                        // SurfaceView doesn't support rotation directly, apply to parent
+                        playerView.rotation = viewState.videoRotation.toFloat()
+                    }
                 },
                 modifier = Modifier.fillMaxSize()
             )
@@ -150,7 +187,7 @@ fun PlayerScreen(
                 onAspectRatioClick = onCycleAspectRatio,
                 onRotationClick = onToggleRotation,
                 onSettingsClick = onOpenSettings,
-                modifier = Modifier.padding(bottom = 48.dp) // Above ExoPlayer default controls
+                modifier = Modifier.padding(bottom = 56.dp) // Above ExoPlayer default controls (increased for bigger buttons)
             )
         }
 
@@ -392,24 +429,44 @@ private fun EpgPanel(
             containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f)
         )
     ) {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(vertical = 4.dp, horizontal = 8.dp)
-        ) {
-            items(items.size, key = { items[it].first }) { index ->
-                val item = items[index]
-                when (val data = item.second) {
-                    is String -> {
-                        EpgDateDelimiter(date = data)
-                    }
-                    is EpgProgram -> {
-                        val programIndex = programs.indexOf(data)
-                        EpgProgramItem(
-                            program = data,
-                            isCurrent = programIndex == currentProgramIndex,
-                            onClick = { onProgramClick(data) }
-                        )
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.Start,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.epg_panel_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.ruTvColors.gold
+                )
+            }
+
+            Divider(color = MaterialTheme.ruTvColors.textDisabled)
+
+            // Programs List
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(vertical = 4.dp, horizontal = 8.dp)
+            ) {
+                items(items.size, key = { items[it].first }) { index ->
+                    val item = items[index]
+                    when (val data = item.second) {
+                        is String -> {
+                            EpgDateDelimiter(date = data)
+                        }
+                        is EpgProgram -> {
+                            val programIndex = programs.indexOf(data)
+                            EpgProgramItem(
+                                program = data,
+                                isCurrent = programIndex == currentProgramIndex,
+                                onClick = { onProgramClick(data) }
+                            )
+                        }
                     }
                 }
             }
@@ -486,64 +543,88 @@ private fun CustomControlButtons(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp), // Increased vertical padding
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Left side buttons
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp) // Increased spacing
             ) {
-                IconButton(onClick = onPlaylistClick) {
+                IconButton(
+                    onClick = onPlaylistClick,
+                    modifier = Modifier.size(56.dp) // Bigger button size
+                ) {
                     Icon(
                         imageVector = Icons.Default.List,
                         contentDescription = stringResource(R.string.cd_playlist_button),
-                        tint = MaterialTheme.ruTvColors.gold
+                        tint = MaterialTheme.ruTvColors.gold,
+                        modifier = Modifier.size(32.dp) // Bigger icon size
                     )
                 }
 
-                IconButton(onClick = onFavoritesClick) {
+                IconButton(
+                    onClick = onFavoritesClick,
+                    modifier = Modifier.size(56.dp)
+                ) {
                     Icon(
                         imageVector = Icons.Default.Star,
                         contentDescription = stringResource(R.string.cd_favorites_button),
-                        tint = MaterialTheme.ruTvColors.gold
+                        tint = MaterialTheme.ruTvColors.gold,
+                        modifier = Modifier.size(32.dp)
                     )
                 }
 
-                IconButton(onClick = onGoToChannelClick) {
+                IconButton(
+                    onClick = onGoToChannelClick,
+                    modifier = Modifier.size(56.dp)
+                ) {
                     Icon(
                         imageVector = Icons.Default.Numbers,
                         contentDescription = stringResource(R.string.cd_go_to_channel_button),
-                        tint = MaterialTheme.ruTvColors.gold
+                        tint = MaterialTheme.ruTvColors.gold,
+                        modifier = Modifier.size(32.dp)
                     )
                 }
             }
 
             // Right side buttons
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                IconButton(onClick = onAspectRatioClick) {
+                IconButton(
+                    onClick = onAspectRatioClick,
+                    modifier = Modifier.size(56.dp)
+                ) {
                     Icon(
                         imageVector = Icons.Default.AspectRatio,
                         contentDescription = stringResource(R.string.cd_aspect_ratio_button),
-                        tint = MaterialTheme.ruTvColors.gold
+                        tint = MaterialTheme.ruTvColors.gold,
+                        modifier = Modifier.size(32.dp)
                     )
                 }
 
-                IconButton(onClick = onRotationClick) {
+                IconButton(
+                    onClick = onRotationClick,
+                    modifier = Modifier.size(56.dp)
+                ) {
                     Icon(
                         imageVector = Icons.Default.ScreenRotation,
                         contentDescription = stringResource(R.string.cd_orientation_button),
-                        tint = MaterialTheme.ruTvColors.gold
+                        tint = MaterialTheme.ruTvColors.gold,
+                        modifier = Modifier.size(32.dp)
                     )
                 }
 
-                IconButton(onClick = onSettingsClick) {
+                IconButton(
+                    onClick = onSettingsClick,
+                    modifier = Modifier.size(56.dp)
+                ) {
                     Icon(
                         imageVector = Icons.Default.Settings,
                         contentDescription = stringResource(R.string.cd_settings_button),
-                        tint = MaterialTheme.ruTvColors.gold
+                        tint = MaterialTheme.ruTvColors.gold,
+                        modifier = Modifier.size(32.dp)
                     )
                 }
             }
