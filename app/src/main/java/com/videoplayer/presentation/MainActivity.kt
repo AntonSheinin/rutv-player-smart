@@ -18,6 +18,8 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.util.UnstableApi
+import coil.Coil
+import coil.compose.LocalImageLoader
 import com.videoplayer.R
 import com.videoplayer.presentation.main.MainViewModel
 import com.videoplayer.ui.screens.PlayerScreen
@@ -56,6 +58,7 @@ class MainActivity : ComponentActivity() {
     private fun MainScreen() {
         val viewState by viewModel.viewState.collectAsStateWithLifecycle()
         val context = LocalContext.current
+        val imageLoader = remember(context) { Coil.imageLoader(context) }
 
         // Show no-playlist dialog if needed
         LaunchedEffect(viewState.hasChannels, viewState.isLoading) {
@@ -65,22 +68,24 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        PlayerScreen(
-            viewState = viewState,
-            player = viewModel.getPlayer(),
-            onPlayChannel = { index -> viewModel.playChannel(index) },
-            onToggleFavorite = { url -> viewModel.toggleFavorite(url) },
-            onShowEpgForChannel = { tvgId -> viewModel.showEpgForChannel(tvgId) },
-            onTogglePlaylist = { viewModel.togglePlaylist() },
-            onToggleFavorites = { viewModel.toggleFavorites() },
-            onClosePlaylist = { viewModel.closePlaylist() },
-            onCycleAspectRatio = { viewModel.cycleAspectRatio() },
-            onToggleRotation = { viewModel.toggleRotation() },
-            onOpenSettings = { settingsLauncher.launch(Intent(context, SettingsActivity::class.java)) },
-            onGoToChannel = { showChannelNumberDialog() },
-            getCurrentProgramForChannel = { tvgId -> viewModel.getCurrentProgramForChannel(tvgId) },
-            modifier = Modifier.fillMaxSize()
-        )
+        CompositionLocalProvider(LocalImageLoader provides imageLoader) {
+            PlayerScreen(
+                viewState = viewState,
+                player = viewModel.getPlayer(),
+                onPlayChannel = { index -> viewModel.playChannel(index) },
+                onToggleFavorite = { url -> viewModel.toggleFavorite(url) },
+                onShowEpgForChannel = { tvgId -> viewModel.showEpgForChannel(tvgId) },
+                onTogglePlaylist = { viewModel.togglePlaylist() },
+                onToggleFavorites = { viewModel.toggleFavorites() },
+                onClosePlaylist = { viewModel.closePlaylist() },
+                onCycleAspectRatio = { viewModel.cycleAspectRatio() },
+                onToggleRotation = { viewModel.toggleRotation() },
+                onOpenSettings = { settingsLauncher.launch(Intent(context, SettingsActivity::class.java)) },
+                onGoToChannel = { showChannelNumberDialog() },
+                getCurrentProgramForChannel = { tvgId -> viewModel.getCurrentProgramForChannel(tvgId) },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
     }
 
     /**

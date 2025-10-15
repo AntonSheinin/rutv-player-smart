@@ -1,6 +1,5 @@
 package com.videoplayer.ui.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Card
@@ -12,18 +11,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import coil.compose.LocalImageLoader
 import coil.request.ImageRequest
+import coil.size.Precision
+import coil.size.Scale
 import com.videoplayer.R
 import com.videoplayer.data.model.Channel
 import com.videoplayer.data.model.EpgProgram
 import com.videoplayer.ui.theme.ruTvColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+private val ChannelLogoSize = 48.dp
 
 /**
  * Channel list item composable with double-tap support
@@ -84,17 +89,28 @@ fun ChannelListItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Channel Logo
+            val context = LocalContext.current
+            val sizePx = with(LocalDensity.current) { ChannelLogoSize.roundToPx() }
+            val logoRequest = remember(channel.logo, sizePx) {
+                ImageRequest.Builder(context)
+                    .data(channel.logo.takeIf { it.isNotBlank() })
+                    .size(sizePx, sizePx)
+                    .scale(Scale.FIT)
+                    .precision(Precision.EXACT)
+                    .allowHardware(true)
+                    .crossfade(false)
+                    .build()
+            }
+
             AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(channel.logo.ifEmpty { null })
-                    .crossfade(true)
-                    .build(),
+                model = logoRequest,
+                imageLoader = LocalImageLoader.current,
                 contentDescription = stringResource(R.string.cd_channel_logo),
                 placeholder = painterResource(R.drawable.ic_channel_placeholder),
                 error = painterResource(R.drawable.ic_channel_placeholder),
-                contentScale = ContentScale.Crop,
+                contentScale = ContentScale.Fit,
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(ChannelLogoSize)
                     .padding(end = 12.dp)
             )
 
