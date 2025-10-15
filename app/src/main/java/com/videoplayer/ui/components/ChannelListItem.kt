@@ -150,10 +150,10 @@ fun ChannelListItem(
                     )
                 }
 
-                // Current Program
-                if (channel.hasEpg) {
+                // Current Program (only show if we have program data, not just "No program")
+                if (channel.hasEpg && currentProgram != null) {
                     Text(
-                        text = currentProgram?.title ?: stringResource(R.string.status_no_program),
+                        text = currentProgram.title,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.ruTvColors.textHint,
                         maxLines = 1,

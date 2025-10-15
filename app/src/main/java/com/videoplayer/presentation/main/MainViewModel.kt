@@ -75,7 +75,12 @@ class MainViewModel @Inject constructor(
         // Collect player config
         viewModelScope.launch {
             preferencesRepository.playerConfig.collect { config ->
-                _viewState.update { it.copy(showDebugLog = config.showDebugLog) }
+                _viewState.update {
+                    it.copy(
+                        showDebugLog = config.showDebugLog,
+                        showCurrentProgram = config.showCurrentProgram
+                    )
+                }
             }
         }
 
@@ -424,8 +429,15 @@ class MainViewModel @Inject constructor(
     /**
      * Build a map of current programs for all channels with EPG
      * This is called once when EPG is loaded, not for every channel in the list
+     * Returns empty map if showCurrentProgram is disabled
      */
     private fun buildCurrentProgramsMap(): Map<String, EpgProgram?> {
+        // Only build map if the feature is enabled
+        if (!_viewState.value.showCurrentProgram) {
+            Timber.d("Show current program is disabled - skipping map build")
+            return emptyMap()
+        }
+
         val channels = _viewState.value.channels
         return channels
             .filter { it.hasEpg }

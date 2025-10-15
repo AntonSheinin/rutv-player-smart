@@ -21,6 +21,7 @@ data class MainViewState(
     val currentProgramsMap: Map<String, EpgProgram?> = emptyMap(), // Pre-computed current programs for channel list
     val debugMessages: List<DebugMessage> = emptyList(),
     val showDebugLog: Boolean = true,
+    val showCurrentProgram: Boolean = true, // Whether to show current program in channel list
     val currentResizeMode: Int = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT,
     val videoRotation: Float = 0f,
     val isLoading: Boolean = false,

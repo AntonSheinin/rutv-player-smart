@@ -13,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -40,6 +41,7 @@ fun SettingsScreen(
     onFfmpegAudioChanged: (Boolean) -> Unit,
     onFfmpegVideoChanged: (Boolean) -> Unit,
     onBufferSecondsChanged: (Int) -> Unit,
+    onShowCurrentProgramChanged: (Boolean) -> Unit,
     onEpgUrlChanged: (String) -> Unit,
     onEpgDaysAheadChanged: (Int) -> Unit,
     onBack: () -> Unit,
@@ -197,6 +199,14 @@ fun SettingsScreen(
                     onValueChange = onBufferSecondsChanged,
                     minValue = Constants.MIN_BUFFER_SECONDS,
                     maxValue = Constants.MAX_BUFFER_SECONDS
+                )
+            }
+
+            item {
+                SwitchSetting(
+                    label = "Show Current Program",
+                    checked = viewState.playerConfig.showCurrentProgram,
+                    onCheckedChange = onShowCurrentProgramChanged
                 )
             }
 
@@ -415,7 +425,11 @@ private fun TextInputSetting(
             value = localValue,
             onValueChange = { localValue = it },
             placeholder = { Text(placeholder) },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .onFocusChanged { focusState ->
+                    isFocused = focusState.isFocused
+                },
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = MaterialTheme.ruTvColors.gold,
                 unfocusedBorderColor = MaterialTheme.ruTvColors.textDisabled,

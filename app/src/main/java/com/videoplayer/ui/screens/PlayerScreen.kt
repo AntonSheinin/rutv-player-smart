@@ -61,6 +61,13 @@ fun PlayerScreen(
 ) {
     var showControls by remember { mutableStateOf(false) }
 
+    // Show controls initially if player is loaded (for first-time users)
+    LaunchedEffect(player) {
+        if (player != null && !showControls) {
+            showControls = true
+        }
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -147,16 +154,21 @@ fun PlayerScreen(
             )
         }
 
-        // Channel Info Overlay (top center)
-        viewState.currentChannel?.let { channel ->
-            ChannelInfoOverlay(
-                channelNumber = viewState.currentChannelIndex + 1,
-                channel = channel,
-                currentProgram = viewState.currentProgram,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(16.dp)
-            )
+        // Channel Info Overlay (top center) - hide with controls
+        AnimatedVisibility(
+            visible = showControls,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.align(Alignment.TopCenter)
+        ) {
+            viewState.currentChannel?.let { channel ->
+                ChannelInfoOverlay(
+                    channelNumber = viewState.currentChannelIndex + 1,
+                    channel = channel,
+                    currentProgram = viewState.currentProgram,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
         }
 
         // Playlist Panel

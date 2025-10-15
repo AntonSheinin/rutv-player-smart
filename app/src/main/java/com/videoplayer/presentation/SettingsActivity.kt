@@ -83,6 +83,9 @@ class SettingsActivity : ComponentActivity() {
             onBufferSecondsChanged = { seconds ->
                 viewModel.setBufferSeconds(seconds)
             },
+            onShowCurrentProgramChanged = { enabled ->
+                viewModel.setShowCurrentProgramEnabled(enabled)
+            },
             onEpgUrlChanged = { url ->
                 viewModel.saveEpgUrl(url)
             },
