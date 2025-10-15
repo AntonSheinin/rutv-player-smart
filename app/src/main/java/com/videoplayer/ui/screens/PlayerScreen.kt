@@ -6,8 +6,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -23,7 +21,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import kotlinx.coroutines.delay
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
@@ -35,7 +32,6 @@ import com.videoplayer.ui.components.ChannelListItem
 import com.videoplayer.ui.components.EpgDateDelimiter
 import com.videoplayer.ui.components.EpgProgramItem
 import com.videoplayer.ui.theme.ruTvColors
-import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -60,27 +56,12 @@ fun PlayerScreen(
     getCurrentProgramForChannel: (String) -> EpgProgram?,
     modifier: Modifier = Modifier
 ) {
-    var showControls by remember { mutableStateOf(true) }
-    val coroutineScope = rememberCoroutineScope()
-
-    // Auto-hide controls after 3 seconds
-    LaunchedEffect(showControls) {
-        if (showControls) {
-            delay(3000)
-            showControls = false
-        }
-    }
+    var showControls by remember { mutableStateOf(false) }
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.ruTvColors.darkBackground)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) {
-                showControls = !showControls
-            }
     ) {
         // ExoPlayer View
         player?.let {
@@ -96,12 +77,23 @@ fun PlayerScreen(
                         controllerShowTimeoutMs = 5000
                         controllerHideOnTouch = true
                         resizeMode = viewState.currentResizeMode
-                        // Hide native buttons we don't need
-                        setShowNextButton(false)
-                        setShowPreviousButton(false)
+                        // Hide shuffle, subtitle, and settings buttons (keep prev/next)
                         setShowShuffleButton(false)
                         setShowSubtitleButton(false)
+                        // Try to hide settings button if method exists
+                        try {
+                            this::class.java.getMethod("setShowSettingsButton", Boolean::class.javaPrimitiveType)
+                                .invoke(this, false)
+                        } catch (e: Exception) {
+                            // Method doesn't exist in this version, ignore
+                        }
                         setControllerHideOnTouch(true)
+
+                        // Listen for controller visibility changes
+                        setControllerVisibilityListener { visibility ->
+                            // Show custom controls when ExoPlayer controls are visible
+                            showControls = (visibility == android.view.View.VISIBLE)
+                        }
                     }
                 },
                 update = { playerView ->
@@ -114,7 +106,7 @@ fun PlayerScreen(
             )
         }
 
-        // Custom Control Buttons Overlay (bottom) - with auto-hide
+        // Custom Control Buttons Overlay (bottom) - synced with ExoPlayer controls
         AnimatedVisibility(
             visible = showControls,
             enter = fadeIn(),
@@ -124,30 +116,12 @@ fun PlayerScreen(
                 .fillMaxWidth()
         ) {
             CustomControlButtons(
-                onPlaylistClick = {
-                    onTogglePlaylist()
-                    showControls = true
-                },
-                onFavoritesClick = {
-                    onToggleFavorites()
-                    showControls = true
-                },
-                onGoToChannelClick = {
-                    onGoToChannel()
-                    showControls = true
-                },
-                onAspectRatioClick = {
-                    onCycleAspectRatio()
-                    showControls = true
-                },
-                onRotationClick = {
-                    onToggleRotation()
-                    showControls = true
-                },
-                onSettingsClick = {
-                    onOpenSettings()
-                    showControls = true
-                },
+                onPlaylistClick = onTogglePlaylist,
+                onFavoritesClick = onToggleFavorites,
+                onGoToChannelClick = onGoToChannel,
+                onAspectRatioClick = onCycleAspectRatio,
+                onRotationClick = onToggleRotation,
+                onSettingsClick = onOpenSettings,
                 modifier = Modifier.padding(bottom = 48.dp) // Above ExoPlayer default controls
             )
         }
