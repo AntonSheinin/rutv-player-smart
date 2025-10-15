@@ -148,14 +148,14 @@ fun PlayerScreen(
             )
         }
 
-        // Channel Info Overlay (top center)
+        // Channel Info Overlay (top left)
         viewState.currentChannel?.let { channel ->
             ChannelInfoOverlay(
                 channelNumber = viewState.currentChannelIndex + 1,
                 channel = channel,
                 currentProgram = viewState.currentProgram,
                 modifier = Modifier
-                    .align(Alignment.TopCenter)
+                    .align(Alignment.TopStart)
                     .padding(16.dp)
             )
         }
