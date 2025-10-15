@@ -2,7 +2,12 @@ package com.videoplayer.ui.screens
 
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -18,6 +23,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import kotlinx.coroutines.delay
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
@@ -54,10 +60,27 @@ fun PlayerScreen(
     getCurrentProgramForChannel: (String) -> EpgProgram?,
     modifier: Modifier = Modifier
 ) {
+    var showControls by remember { mutableStateOf(true) }
+    val coroutineScope = rememberCoroutineScope()
+
+    // Auto-hide controls after 3 seconds
+    LaunchedEffect(showControls) {
+        if (showControls) {
+            delay(3000)
+            showControls = false
+        }
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.ruTvColors.darkBackground)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) {
+                showControls = !showControls
+            }
     ) {
         // ExoPlayer View
         player?.let {
@@ -73,29 +96,61 @@ fun PlayerScreen(
                         controllerShowTimeoutMs = 5000
                         controllerHideOnTouch = true
                         resizeMode = viewState.currentResizeMode
+                        // Hide native buttons we don't need
+                        setShowNextButton(false)
+                        setShowPreviousButton(false)
+                        setShowShuffleButton(false)
+                        setShowSubtitleButton(false)
+                        setControllerHideOnTouch(true)
                     }
                 },
                 update = { playerView ->
                     playerView.player = it
                     playerView.resizeMode = viewState.currentResizeMode
+                    // Apply rotation
+                    playerView.rotation = viewState.videoRotation.toFloat()
                 },
                 modifier = Modifier.fillMaxSize()
             )
         }
 
-        // Custom Control Buttons Overlay (bottom)
-        CustomControlButtons(
-            onPlaylistClick = onTogglePlaylist,
-            onFavoritesClick = onToggleFavorites,
-            onGoToChannelClick = onGoToChannel,
-            onAspectRatioClick = onCycleAspectRatio,
-            onRotationClick = onToggleRotation,
-            onSettingsClick = onOpenSettings,
+        // Custom Control Buttons Overlay (bottom) - with auto-hide
+        AnimatedVisibility(
+            visible = showControls,
+            enter = fadeIn(),
+            exit = fadeOut(),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(bottom = 48.dp) // Above ExoPlayer default controls
-        )
+        ) {
+            CustomControlButtons(
+                onPlaylistClick = {
+                    onTogglePlaylist()
+                    showControls = true
+                },
+                onFavoritesClick = {
+                    onToggleFavorites()
+                    showControls = true
+                },
+                onGoToChannelClick = {
+                    onGoToChannel()
+                    showControls = true
+                },
+                onAspectRatioClick = {
+                    onCycleAspectRatio()
+                    showControls = true
+                },
+                onRotationClick = {
+                    onToggleRotation()
+                    showControls = true
+                },
+                onSettingsClick = {
+                    onOpenSettings()
+                    showControls = true
+                },
+                modifier = Modifier.padding(bottom = 48.dp) // Above ExoPlayer default controls
+            )
+        }
 
         // Channel Info Overlay (top)
         viewState.currentChannel?.let { channel ->
@@ -139,7 +194,7 @@ fun PlayerScreen(
             DebugLogPanel(
                 messages = viewState.debugMessages.takeLast(100).map { it.message },
                 modifier = Modifier
-                    .align(Alignment.BottomStart)
+                    .align(Alignment.TopEnd)
                     .padding(16.dp)
             )
         }
@@ -238,9 +293,13 @@ private fun PlaylistPanel(
             // Channel List
             LazyColumn(
                 state = listState,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(vertical = 4.dp)
             ) {
-                itemsIndexed(channels) { index, channel ->
+                itemsIndexed(
+                    items = channels,
+                    key = { _, channel -> channel.url }
+                ) { index, channel ->
                     ChannelListItem(
                         channel = channel,
                         channelNumber = index + 1,
@@ -268,18 +327,50 @@ private fun EpgPanel(
     val dateFormat = SimpleDateFormat("EEEE, MMMM d", Locale.getDefault())
     val currentTime = System.currentTimeMillis()
 
-    // Find current program index
+    // Find current program index in original list
     val currentProgramIndex = programs.indexOfFirst { program ->
         val start = program.startTimeMillis
         val end = program.stopTimeMillis
         start > 0L && end > 0L && currentTime in start..end
     }
 
-    // Auto-scroll to current program
-    LaunchedEffect(currentProgramIndex) {
+    // Build items list with date delimiters to calculate correct scroll position
+    val items = remember(programs) {
+        val itemsList = mutableListOf<Pair<String, Any>>() // Pair of key to item (delimiter or program)
+        var lastDate = ""
+        programs.forEach { program ->
+            val programDate = dateFormat.format(Date(program.startTimeMillis))
+            if (programDate != lastDate) {
+                itemsList.add("date_$programDate" to programDate)
+                lastDate = programDate
+            }
+            itemsList.add("program_${program.startTime}_${program.title}" to program)
+        }
+        itemsList
+    }
+
+    // Calculate actual item index including delimiters
+    val scrollToIndex = remember(currentProgramIndex, items) {
         if (currentProgramIndex >= 0) {
-            val offset = listState.layoutInfo.viewportSize.height / 2
-            listState.animateScrollToItem(currentProgramIndex, -offset / 2)
+            var delimitersBefore = 0
+            var lastDate = ""
+            for (i in 0 until currentProgramIndex) {
+                val programDate = dateFormat.format(Date(programs[i].startTimeMillis))
+                if (programDate != lastDate) {
+                    delimitersBefore++
+                    lastDate = programDate
+                }
+            }
+            currentProgramIndex + delimitersBefore
+        } else {
+            -1
+        }
+    }
+
+    // Auto-scroll to current program
+    LaunchedEffect(scrollToIndex) {
+        if (scrollToIndex >= 0 && scrollToIndex < items.size) {
+            listState.animateScrollToItem(scrollToIndex, -100)
         }
     }
 
@@ -294,27 +385,23 @@ private fun EpgPanel(
     ) {
         LazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(vertical = 4.dp, horizontal = 8.dp)
         ) {
-            var lastDate = ""
-
-            programs.forEachIndexed { index, program ->
-                val programDate = dateFormat.format(Date(program.startTimeMillis))
-
-                // Add date delimiter if date changed
-                if (programDate != lastDate) {
-                    item(key = "date_$programDate") {
-                        EpgDateDelimiter(date = programDate)
+            items(items.size, key = { items[it].first }) { index ->
+                val item = items[index]
+                when (val data = item.second) {
+                    is String -> {
+                        EpgDateDelimiter(date = data)
                     }
-                    lastDate = programDate
-                }
-
-                item(key = "program_${program.startTime}_${program.title}") {
-                    EpgProgramItem(
-                        program = program,
-                        isCurrent = index == currentProgramIndex,
-                        onClick = { onProgramClick(program) }
-                    )
+                    is EpgProgram -> {
+                        val programIndex = programs.indexOf(data)
+                        EpgProgramItem(
+                            program = data,
+                            isCurrent = programIndex == currentProgramIndex,
+                            onClick = { onProgramClick(data) }
+                        )
+                    }
                 }
             }
         }

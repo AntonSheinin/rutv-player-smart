@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -14,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.videoplayer.R
@@ -391,6 +393,17 @@ private fun TextInputSetting(
     placeholder: String = "",
     modifier: Modifier = Modifier
 ) {
+    // Use local state to avoid immediate updates while typing
+    var localValue by remember(value) { mutableStateOf(value) }
+    var isFocused by remember { mutableStateOf(false) }
+
+    // Save when focus is lost
+    LaunchedEffect(isFocused) {
+        if (!isFocused && localValue != value) {
+            onValueChange(localValue)
+        }
+    }
+
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
             text = label,
@@ -399,8 +412,8 @@ private fun TextInputSetting(
             modifier = Modifier.padding(bottom = 4.dp)
         )
         OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
+            value = localValue,
+            onValueChange = { localValue = it },
             placeholder = { Text(placeholder) },
             modifier = Modifier.fillMaxWidth(),
             colors = OutlinedTextFieldDefaults.colors(
@@ -408,6 +421,17 @@ private fun TextInputSetting(
                 unfocusedBorderColor = MaterialTheme.ruTvColors.textDisabled,
                 focusedTextColor = MaterialTheme.ruTvColors.textPrimary,
                 unfocusedTextColor = MaterialTheme.ruTvColors.textPrimary
+            ),
+            keyboardOptions = KeyboardOptions.Default.copy(
+                imeAction = ImeAction.Done
+            ),
+            keyboardActions = KeyboardActions(
+                onDone = {
+                    if (localValue != value) {
+                        onValueChange(localValue)
+                    }
+                    isFocused = false
+                }
             )
         )
     }
