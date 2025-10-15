@@ -50,8 +50,7 @@ fun ChannelListItem(
     val coroutineScope = rememberCoroutineScope()
 
     val backgroundColor = when {
-        isEpgOpen -> MaterialTheme.ruTvColors.epgOpenBackground
-        isPlaying -> MaterialTheme.ruTvColors.selectedBackground
+        isEpgOpen -> MaterialTheme.ruTvColors.selectedBackground // Use same color as currently playing for EPG open
         else -> MaterialTheme.ruTvColors.cardBackground
     }
 
@@ -85,7 +84,7 @@ fun ChannelListItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(horizontal = 12.dp, vertical = 6.dp), // Reduced vertical padding to make items narrower
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Channel Logo

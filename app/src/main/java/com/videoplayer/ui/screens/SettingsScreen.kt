@@ -74,19 +74,31 @@ fun SettingsScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    TextButton(onClick = onBack) {
-                        Text(
-                            text = stringResource(R.string.settings_back),
-                            color = MaterialTheme.ruTvColors.gold
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = stringResource(R.string.settings_back)
-                        )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(
+                            onClick = onBack,
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ArrowBack,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.ruTvColors.gold,
+                                    modifier = Modifier.size(32.dp) // Bigger icon
+                                )
+                                Text(
+                                    text = stringResource(R.string.settings_back),
+                                    color = MaterialTheme.ruTvColors.gold,
+                                    style = MaterialTheme.typography.titleLarge // Bigger text
+                                )
+                            }
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

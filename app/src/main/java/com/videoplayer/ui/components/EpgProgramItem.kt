@@ -49,10 +49,10 @@ fun EpgProgramItem(
             else
                 MaterialTheme.ruTvColors.textSecondary,
             fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-            modifier = Modifier.width(60.dp) // Reduced width since we only show start time
+            modifier = Modifier.width(50.dp) // Further reduced width
         )
 
-        Spacer(modifier = Modifier.width(12.dp)) // Reduced spacing to bring content closer
+        Spacer(modifier = Modifier.width(8.dp)) // Further reduced spacing to bring content even closer
 
         // Program Info
         Column(

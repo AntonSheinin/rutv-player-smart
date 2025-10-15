@@ -87,15 +87,7 @@ fun PlayerScreen(
                         controllerShowTimeoutMs = 2000 // 2 seconds timeout
                         controllerHideOnTouch = false // We'll handle tap manually
                         resizeMode = viewState.currentResizeMode
-                        // Use TextureView for rotation support
                         setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
-                        // Force TextureView usage for rotation
-                        try {
-                            val method = this::class.java.getMethod("setUseArtwork", Boolean::class.javaPrimitiveType)
-                            method.invoke(this, false)
-                        } catch (e: Exception) {
-                            // Ignore if method doesn't exist
-                        }
                         // Hide shuffle, subtitle, and settings buttons (keep prev/next)
                         setShowShuffleButton(false)
                         setShowSubtitleButton(false)
@@ -141,14 +133,8 @@ fun PlayerScreen(
                 update = { playerView ->
                     playerView.player = it
                     playerView.resizeMode = viewState.currentResizeMode
-                    // Apply rotation to video surface (not the view itself)
-                    val surfaceView = playerView.videoSurfaceView
-                    if (surfaceView is android.view.TextureView) {
-                        surfaceView.rotation = viewState.videoRotation.toFloat()
-                    } else if (surfaceView is android.view.SurfaceView) {
-                        // SurfaceView doesn't support rotation directly, apply to parent
-                        playerView.rotation = viewState.videoRotation.toFloat()
-                    }
+                    // Apply rotation to entire PlayerView (this rotates the video content)
+                    playerView.rotation = viewState.videoRotation
                 },
                 modifier = Modifier.fillMaxSize()
             )
@@ -315,7 +301,7 @@ private fun PlaylistPanel(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(horizontal = 16.dp, vertical = 12.dp), // Reduced vertical padding to match EPG
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -335,26 +321,54 @@ private fun PlaylistPanel(
 
             Divider(color = MaterialTheme.ruTvColors.textDisabled)
 
-            // Channel List
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(vertical = 4.dp)
-            ) {
-                itemsIndexed(
-                    items = channels,
-                    key = { _, channel -> channel.url }
-                ) { index, channel ->
-                    ChannelListItem(
-                        channel = channel,
-                        channelNumber = index + 1,
-                        isPlaying = index == currentChannelIndex,
-                        isEpgOpen = index == epgOpenIndex,
-                        currentProgram = currentProgramsMap[channel.tvgId],
-                        onChannelClick = { onChannelClick(index) },
-                        onFavoriteClick = { onFavoriteClick(channel.url) },
-                        onShowPrograms = { onShowPrograms(channel.tvgId) },
-                        modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp)
+            // Channel List with scrollbar
+            Box(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(vertical = 4.dp, end = 12.dp) // Add end padding for scrollbar
+                ) {
+                    itemsIndexed(
+                        items = channels,
+                        key = { _, channel -> channel.url }
+                    ) { index, channel ->
+                        ChannelListItem(
+                            channel = channel,
+                            channelNumber = index + 1,
+                            isPlaying = index == currentChannelIndex,
+                            isEpgOpen = index == epgOpenIndex,
+                            currentProgram = currentProgramsMap[channel.tvgId],
+                            onChannelClick = { onChannelClick(index) },
+                            onFavoriteClick = { onFavoriteClick(channel.url) },
+                            onShowPrograms = { onShowPrograms(channel.tvgId) },
+                            modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp)
+                        )
+                    }
+                }
+
+                // Scroll indicator
+                val scrollProgress = remember {
+                    derivedStateOf {
+                        if (channels.isEmpty()) 0f
+                        else listState.firstVisibleItemIndex.toFloat() / channels.size.toFloat()
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .fillMaxHeight()
+                        .width(4.dp)
+                        .padding(vertical = 8.dp)
+                        .background(MaterialTheme.ruTvColors.textDisabled.copy(alpha = 0.3f))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .fillMaxWidth()
+                            .fillMaxHeight(0.1f)
+                            .offset(y = (scrollProgress.value * 0.9f * 100).dp)
+                            .background(MaterialTheme.ruTvColors.gold)
                     )
                 }
             }
@@ -434,7 +448,7 @@ private fun EpgPanel(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(horizontal = 16.dp, vertical = 12.dp), // Consistent padding with channel list
                 horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -447,27 +461,55 @@ private fun EpgPanel(
 
             Divider(color = MaterialTheme.ruTvColors.textDisabled)
 
-            // Programs List
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(vertical = 4.dp, horizontal = 8.dp)
-            ) {
-                items(items.size, key = { items[it].first }) { index ->
-                    val item = items[index]
-                    when (val data = item.second) {
-                        is String -> {
-                            EpgDateDelimiter(date = data)
-                        }
-                        is EpgProgram -> {
-                            val programIndex = programs.indexOf(data)
-                            EpgProgramItem(
-                                program = data,
-                                isCurrent = programIndex == currentProgramIndex,
-                                onClick = { onProgramClick(data) }
-                            )
+            // Programs List with scrollbar
+            Box(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(vertical = 4.dp, horizontal = 8.dp, end = 16.dp) // Add end padding for scrollbar
+                ) {
+                    items(items.size, key = { items[it].first }) { index ->
+                        val item = items[index]
+                        when (val data = item.second) {
+                            is String -> {
+                                EpgDateDelimiter(date = data)
+                            }
+                            is EpgProgram -> {
+                                val programIndex = programs.indexOf(data)
+                                EpgProgramItem(
+                                    program = data,
+                                    isCurrent = programIndex == currentProgramIndex,
+                                    onClick = { onProgramClick(data) }
+                                )
+                            }
                         }
                     }
+                }
+
+                // Scroll indicator
+                val scrollProgress = remember {
+                    derivedStateOf {
+                        if (items.isEmpty()) 0f
+                        else listState.firstVisibleItemIndex.toFloat() / items.size.toFloat()
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .fillMaxHeight()
+                        .width(4.dp)
+                        .padding(vertical = 8.dp)
+                        .background(MaterialTheme.ruTvColors.textDisabled.copy(alpha = 0.3f))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .fillMaxWidth()
+                            .fillMaxHeight(0.1f)
+                            .offset(y = (scrollProgress.value * 0.9f * 100).dp)
+                            .background(MaterialTheme.ruTvColors.gold)
+                    )
                 }
             }
         }
