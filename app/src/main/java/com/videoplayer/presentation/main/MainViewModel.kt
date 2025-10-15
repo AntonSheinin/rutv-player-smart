@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -79,7 +80,7 @@ class MainViewModel @Inject constructor(
         }
 
         // Periodic refresh of current programs cache (every minute)
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             while (true) {
                 kotlinx.coroutines.delay(60_000) // 1 minute
                 epgRepository.buildCurrentProgramsCache()
@@ -212,8 +213,10 @@ class MainViewModel @Inject constructor(
                         )
                     )
 
-                    // Build current programs cache for fast channel list display
-                    epgRepository.buildCurrentProgramsCache()
+                    // Build current programs cache for fast channel list display (on IO thread)
+                    withContext(Dispatchers.IO) {
+                        epgRepository.buildCurrentProgramsCache()
+                    }
 
                     // Update state with timestamp to trigger adapter refresh
                     _viewState.update {
