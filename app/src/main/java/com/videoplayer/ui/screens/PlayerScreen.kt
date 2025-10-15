@@ -249,7 +249,7 @@ private fun PlaylistPanel(
     LaunchedEffect(currentChannelIndex, channels.size) {
         if (currentChannelIndex >= 0 && currentChannelIndex < channels.size) {
             // Scroll with offset to center the item in viewport
-            listState.animateScrollToItem(currentChannelIndex, scrollOffset = -200)
+            listState.animateScrollToItem(currentChannelIndex, scrollOffset = -50)
         }
     }
 
