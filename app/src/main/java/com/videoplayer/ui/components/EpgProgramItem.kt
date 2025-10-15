@@ -85,7 +85,7 @@ fun EpgProgramItem(
                     text = description,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.ruTvColors.textSecondary,
-                    maxLines = 3,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }

@@ -148,14 +148,14 @@ fun PlayerScreen(
             )
         }
 
-        // Channel Info Overlay (top)
+        // Channel Info Overlay (top center)
         viewState.currentChannel?.let { channel ->
             ChannelInfoOverlay(
                 channelNumber = viewState.currentChannelIndex + 1,
                 channel = channel,
                 currentProgram = viewState.currentProgram,
                 modifier = Modifier
-                    .align(Alignment.TopStart)
+                    .align(Alignment.TopCenter)
                     .padding(16.dp)
             )
         }
@@ -245,10 +245,11 @@ private fun PlaylistPanel(
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
-    // Auto-scroll to current channel
-    LaunchedEffect(currentChannelIndex) {
+    // Auto-scroll to current channel when panel opens (center it in viewport)
+    LaunchedEffect(currentChannelIndex, channels.size) {
         if (currentChannelIndex >= 0 && currentChannelIndex < channels.size) {
-            listState.animateScrollToItem(currentChannelIndex)
+            // Scroll with offset to center the item in viewport
+            listState.animateScrollToItem(currentChannelIndex, scrollOffset = -200)
         }
     }
 
@@ -363,10 +364,11 @@ private fun EpgPanel(
         }
     }
 
-    // Auto-scroll to current program
-    LaunchedEffect(scrollToIndex) {
+    // Auto-scroll to current program when panel opens (center it in viewport)
+    LaunchedEffect(scrollToIndex, items.size) {
         if (scrollToIndex >= 0 && scrollToIndex < items.size) {
-            listState.animateScrollToItem(scrollToIndex, -100)
+            // Scroll with offset to center the item in viewport
+            listState.animateScrollToItem(scrollToIndex, scrollOffset = -200)
         }
     }
 
