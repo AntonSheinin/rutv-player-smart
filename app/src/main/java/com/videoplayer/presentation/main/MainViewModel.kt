@@ -79,15 +79,6 @@ class MainViewModel @Inject constructor(
             }
         }
 
-        // Periodic refresh of current programs cache (every minute)
-        viewModelScope.launch(Dispatchers.IO) {
-            while (true) {
-                kotlinx.coroutines.delay(60_000) // 1 minute
-                epgRepository.buildCurrentProgramsCache()
-                Timber.d("EPG: Refreshed current programs cache")
-            }
-        }
-
         // Load cached EPG data on startup
         loadCachedEpg()
 
