@@ -6,6 +6,9 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -16,6 +19,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -74,8 +78,8 @@ fun PlayerScreen(
                             ViewGroup.LayoutParams.MATCH_PARENT
                         )
                         useController = true
-                        controllerShowTimeoutMs = 5000
-                        controllerHideOnTouch = true
+                        controllerShowTimeoutMs = 2000 // 2 seconds timeout
+                        controllerHideOnTouch = false // We'll handle tap manually
                         resizeMode = viewState.currentResizeMode
                         // Hide shuffle, subtitle, and settings buttons (keep prev/next)
                         setShowShuffleButton(false)
@@ -87,7 +91,6 @@ fun PlayerScreen(
                         } catch (e: Exception) {
                             // Method doesn't exist in this version, ignore
                         }
-                        setControllerHideOnTouch(true)
 
                         // Listen for controller visibility changes
                         setControllerVisibilityListener { visibility ->
@@ -103,6 +106,23 @@ fun PlayerScreen(
                     playerView.rotation = viewState.videoRotation.toFloat()
                 },
                 modifier = Modifier.fillMaxSize()
+            )
+        }
+
+        // Tap detector overlay for hiding controls
+        // Only active when controls are visible and no panels are open
+        if (showControls && !viewState.showPlaylist && !viewState.showEpgPanel) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onTap = {
+                                // Hide controls on tap anywhere on screen
+                                showControls = false
+                            }
+                        )
+                    }
             )
         }
 
