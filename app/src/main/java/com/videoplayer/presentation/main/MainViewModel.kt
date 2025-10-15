@@ -75,12 +75,7 @@ class MainViewModel @Inject constructor(
         // Collect player config
         viewModelScope.launch {
             preferencesRepository.playerConfig.collect { config ->
-                _viewState.update {
-                    it.copy(
-                        showDebugLog = config.showDebugLog,
-                        showCurrentProgram = config.showCurrentProgram
-                    )
-                }
+                _viewState.update { it.copy(showDebugLog = config.showDebugLog) }
             }
         }
 
@@ -108,14 +103,8 @@ class MainViewModel @Inject constructor(
                 // Build current programs cache for fast channel list display
                 epgRepository.buildCurrentProgramsCache()
 
-                // Build current programs map for UI
-                val currentProgramsMap = buildCurrentProgramsMap()
-
                 _viewState.update {
-                    it.copy(
-                        epgLoadedTimestamp = System.currentTimeMillis(),
-                        currentProgramsMap = currentProgramsMap
-                    )
+                    it.copy(epgLoadedTimestamp = System.currentTimeMillis())
                 }
             } else {
                 Timber.d("No cached EPG found - will fetch when playlist is loaded")
@@ -221,15 +210,9 @@ class MainViewModel @Inject constructor(
                         epgRepository.buildCurrentProgramsCache()
                     }
 
-                    // Build current programs map for UI
-                    val currentProgramsMap = buildCurrentProgramsMap()
-
                     // Update state with timestamp to trigger adapter refresh
                     _viewState.update {
-                        it.copy(
-                            epgLoadedTimestamp = System.currentTimeMillis(),
-                            currentProgramsMap = currentProgramsMap
-                        )
+                        it.copy(epgLoadedTimestamp = System.currentTimeMillis())
                     }
 
                     // Update current program for current channel
@@ -425,26 +408,6 @@ class MainViewModel @Inject constructor(
      * Get player instance
      */
     fun getPlayer() = playerManager.getPlayer()
-
-    /**
-     * Build a map of current programs for all channels with EPG
-     * This is called once when EPG is loaded, not for every channel in the list
-     * Returns empty map if showCurrentProgram is disabled
-     */
-    private fun buildCurrentProgramsMap(): Map<String, EpgProgram?> {
-        // Only build map if the feature is enabled
-        if (!_viewState.value.showCurrentProgram) {
-            Timber.d("Show current program is disabled - skipping map build")
-            return emptyMap()
-        }
-
-        val channels = _viewState.value.channels
-        return channels
-            .filter { it.hasEpg }
-            .associate { channel ->
-                channel.tvgId to epgRepository.getCurrentProgram(channel.tvgId)
-            }
-    }
 
     /**
      * On activity paused

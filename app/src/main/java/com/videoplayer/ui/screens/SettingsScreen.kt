@@ -41,7 +41,6 @@ fun SettingsScreen(
     onFfmpegAudioChanged: (Boolean) -> Unit,
     onFfmpegVideoChanged: (Boolean) -> Unit,
     onBufferSecondsChanged: (Int) -> Unit,
-    onShowCurrentProgramChanged: (Boolean) -> Unit,
     onEpgUrlChanged: (String) -> Unit,
     onEpgDaysAheadChanged: (Int) -> Unit,
     onBack: () -> Unit,
@@ -199,14 +198,6 @@ fun SettingsScreen(
                     onValueChange = onBufferSecondsChanged,
                     minValue = Constants.MIN_BUFFER_SECONDS,
                     maxValue = Constants.MAX_BUFFER_SECONDS
-                )
-            }
-
-            item {
-                SwitchSetting(
-                    label = "Show Current Program",
-                    checked = viewState.playerConfig.showCurrentProgram,
-                    onCheckedChange = onShowCurrentProgramChanged
                 )
             }
 

@@ -236,17 +236,6 @@ class SettingsViewModel @Inject constructor(
     }
 
     /**
-     * Update show current program setting
-     */
-    fun setShowCurrentProgramEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            val currentConfig = _viewState.value.playerConfig
-            val newConfig = currentConfig.copy(showCurrentProgram = enabled)
-            updatePlayerConfig(newConfig)
-        }
-    }
-
-    /**
      * Update EPG days ahead
      */
     fun setEpgDaysAhead(days: Int) {
