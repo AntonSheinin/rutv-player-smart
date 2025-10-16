@@ -1,13 +1,13 @@
 package com.videoplayer
 
 import android.app.Application
+import android.content.pm.ApplicationInfo
 import android.os.Build
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.decode.ImageDecoderDecoder
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
-import com.videoplayer.BuildConfig
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 
@@ -21,7 +21,7 @@ class RuTvApplication : Application(), ImageLoaderFactory {
         super.onCreate()
 
         // Initialize Timber for logging
-        if (BuildConfig.DEBUG) {
+        if (isDebuggable()) {
             Timber.plant(Timber.DebugTree())
         }
 
@@ -51,5 +51,9 @@ class RuTvApplication : Application(), ImageLoaderFactory {
                     .build()
             }
             .build()
+    }
+
+    private fun isDebuggable(): Boolean {
+        return (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
     }
 }

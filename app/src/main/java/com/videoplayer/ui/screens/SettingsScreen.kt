@@ -8,7 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -87,7 +87,7 @@ fun SettingsScreen(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.ArrowBack,
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                     contentDescription = null,
                                     tint = MaterialTheme.ruTvColors.gold,
                                     modifier = Modifier.size(32.dp) // Bigger icon
@@ -410,8 +410,8 @@ private fun TextInputSetting(
     label: String,
     value: String,
     onValueChange: (String) -> Unit,
-    placeholder: String = "",
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    placeholder: String = ""
 ) {
     // Use local state to avoid immediate updates while typing
     var localValue by remember(value) { mutableStateOf(value) }
