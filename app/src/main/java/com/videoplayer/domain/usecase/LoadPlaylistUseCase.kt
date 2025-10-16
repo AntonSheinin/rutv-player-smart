@@ -1,5 +1,6 @@
 package com.videoplayer.domain.usecase
 
+import androidx.media3.common.util.UnstableApi
 import com.videoplayer.data.model.Channel
 import com.videoplayer.data.model.PlaylistSource
 import com.videoplayer.data.remote.PlaylistLoader
@@ -14,6 +15,7 @@ import javax.inject.Inject
 /**
  * Use case for loading playlist from file or URL
  */
+@UnstableApi
 class LoadPlaylistUseCase @Inject constructor(
     private val channelRepository: ChannelRepository,
     private val preferencesRepository: PreferencesRepository,
