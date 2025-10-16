@@ -17,7 +17,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import coil.compose.LocalImageLoader
 import coil.request.ImageRequest
 import coil.size.Precision
 import coil.size.Scale
@@ -104,7 +103,7 @@ fun ChannelListItem(
 
             AsyncImage(
                 model = logoRequest,
-                imageLoader = LocalImageLoader.current,
+                imageLoader = remember { coil.Coil.imageLoader(context) },
                 contentDescription = stringResource(R.string.cd_channel_logo),
                 placeholder = painterResource(R.drawable.ic_channel_placeholder),
                 error = painterResource(R.drawable.ic_channel_placeholder),
