@@ -6,7 +6,9 @@
       "Bash(git commit:*)",
       "Bash(adb logcat:*)",
       "Bash(adb shell:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(find:*)",
+      "Bash(awk:*)"
     ],
     "deny": [],
     "ask": []

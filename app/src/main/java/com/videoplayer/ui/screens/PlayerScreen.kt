@@ -6,24 +6,20 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.util.UnstableApi
@@ -299,7 +295,6 @@ private fun PlaylistPanel(
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
-    val coroutineScope = rememberCoroutineScope()
 
     // Auto-scroll to current channel when panel opens (center it in viewport)
     LaunchedEffect(currentChannelIndex, channels.size) {
@@ -341,7 +336,7 @@ private fun PlaylistPanel(
                 }
             }
 
-            Divider(color = MaterialTheme.ruTvColors.textDisabled)
+            HorizontalDivider(color = MaterialTheme.ruTvColors.textDisabled)
 
             // Channel List with scrollbar
             Box(modifier = Modifier.fillMaxSize()) {
@@ -481,7 +476,7 @@ private fun EpgPanel(
                 )
             }
 
-            Divider(color = MaterialTheme.ruTvColors.textDisabled)
+            HorizontalDivider(color = MaterialTheme.ruTvColors.textDisabled)
 
             // Programs List with scrollbar
             Box(modifier = Modifier.fillMaxSize()) {
@@ -581,7 +576,7 @@ private fun ProgramDetailsPanel(
                 }
             }
 
-            Divider(color = MaterialTheme.ruTvColors.textDisabled)
+            HorizontalDivider(color = MaterialTheme.ruTvColors.textDisabled)
 
             // Scrollable content with scrollbar
             Box(modifier = Modifier.fillMaxSize()) {
@@ -736,7 +731,7 @@ private fun DebugLogPanel(
                 color = MaterialTheme.ruTvColors.gold,
                 modifier = Modifier.padding(8.dp)
             )
-            Divider(color = MaterialTheme.ruTvColors.textDisabled)
+            HorizontalDivider(color = MaterialTheme.ruTvColors.textDisabled)
 
             LazyColumn(
                 state = listState,
@@ -789,7 +784,7 @@ private fun CustomControlButtons(
                     modifier = Modifier.size(56.dp) // Bigger button size
                 ) {
                     Icon(
-                        imageVector = Icons.Default.List,
+                        imageVector = Icons.AutoMirrored.Filled.List,
                         contentDescription = stringResource(R.string.cd_playlist_button),
                         tint = MaterialTheme.ruTvColors.gold,
                         modifier = Modifier.size(32.dp) // Bigger icon size
