@@ -673,7 +673,7 @@ private fun ProgramDetailsPanel(
                             .align(Alignment.TopEnd)
                             .fillMaxWidth()
                             .fillMaxHeight(0.15f)
-                            .offset(y = (scrollProgress.value * (1f - 0.15f)).let { if (it > 0f) it * 100.dp else 0.dp })
+                            .offset(y = (scrollProgress.value * (1f - 0.15f) * 100).dp)
                             .background(MaterialTheme.ruTvColors.gold)
                     )
                 }
