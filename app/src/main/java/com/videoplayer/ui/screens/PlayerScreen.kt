@@ -464,7 +464,7 @@ private fun EpgPanel(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp), // Reduced vertical padding for narrower title
+                    .padding(horizontal = 16.dp, vertical = 12.dp), // Increased vertical padding for taller title
                 horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -585,15 +585,14 @@ private fun ProgramDetailsPanel(
                     state = listState,
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    contentPadding = PaddingValues(end = 8.dp)
+                        .padding(start = 16.dp, end = 24.dp, top = 16.dp, bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     item {
                         // Program Title
                         Text(
                             text = program.title,
-                            style = MaterialTheme.typography.titleLarge,
+                            style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.ruTvColors.gold
                         )
                     }
@@ -643,12 +642,20 @@ private fun ProgramDetailsPanel(
                 val scrollProgress = remember {
                     derivedStateOf {
                         val layoutInfo = listState.layoutInfo
-                        if (layoutInfo.totalItemsCount == 0 || layoutInfo.visibleItemsInfo.isEmpty()) 0f
-                        else {
-                            val firstVisibleItem = listState.firstVisibleItemIndex.toFloat()
-                            val visibleItems = layoutInfo.visibleItemsInfo.size.toFloat()
-                            val totalItems = layoutInfo.totalItemsCount.toFloat()
-                            minOf(1f, firstVisibleItem / (totalItems - visibleItems).coerceAtLeast(1f))
+                        if (layoutInfo.totalItemsCount == 0 || layoutInfo.visibleItemsInfo.isEmpty()) {
+                            0f
+                        } else {
+                            val visibleItemsCount = layoutInfo.visibleItemsInfo.size
+                            val totalItemsCount = layoutInfo.totalItemsCount
+
+                            // If all items fit on screen, show at top
+                            if (visibleItemsCount >= totalItemsCount) {
+                                0f
+                            } else {
+                                val firstVisibleItem = listState.firstVisibleItemIndex.toFloat()
+                                val scrollableItems = (totalItemsCount - visibleItemsCount).toFloat()
+                                minOf(1f, firstVisibleItem / scrollableItems)
+                            }
                         }
                     }
                 }
@@ -666,7 +673,7 @@ private fun ProgramDetailsPanel(
                             .align(Alignment.TopEnd)
                             .fillMaxWidth()
                             .fillMaxHeight(0.15f)
-                            .offset(y = (scrollProgress.value * (1f - 0.15f) * 100).dp)
+                            .offset(y = (scrollProgress.value * (1f - 0.15f)).let { if (it > 0f) it * 100.dp else 0.dp })
                             .background(MaterialTheme.ruTvColors.gold)
                     )
                 }
