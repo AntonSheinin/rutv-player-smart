@@ -50,7 +50,8 @@ fun ChannelListItem(
     val coroutineScope = rememberCoroutineScope()
 
     val backgroundColor = when {
-        isEpgOpen -> MaterialTheme.ruTvColors.selectedBackground // Use same color as currently playing for EPG open
+        isPlaying -> MaterialTheme.ruTvColors.selectedBackground // Currently playing channel
+        isEpgOpen -> MaterialTheme.ruTvColors.epgOpenBackground // EPG panel is open for this channel
         else -> MaterialTheme.ruTvColors.cardBackground
     }
 
