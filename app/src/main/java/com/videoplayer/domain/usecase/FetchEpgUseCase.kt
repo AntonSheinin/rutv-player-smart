@@ -1,6 +1,6 @@
 package com.videoplayer.domain.usecase
 
-import com.videoplayer.data.model.Channel
+import androidx.media3.common.util.UnstableApi
 import com.videoplayer.data.model.EpgResponse
 import com.videoplayer.data.repository.ChannelRepository
 import com.videoplayer.data.repository.EpgRepository
@@ -13,6 +13,7 @@ import javax.inject.Inject
 /**
  * Use case for fetching EPG data
  */
+@UnstableApi
 class FetchEpgUseCase @Inject constructor(
     private val epgRepository: EpgRepository,
     private val channelRepository: ChannelRepository,
