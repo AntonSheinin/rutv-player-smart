@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.graphics.toColorInt
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.util.UnstableApi
 import com.videoplayer.R
@@ -114,8 +115,7 @@ class MainActivity : ComponentActivity() {
             setPadding(32, 32, 32, 32)
             setTextColor(android.graphics.Color.WHITE)
             setHintTextColor(android.graphics.Color.GRAY)
-            @Suppress("DEPRECATION")
-            setBackgroundColor(android.graphics.Color.parseColor("#1A1A1A"))
+            setBackgroundColor("#1A1A1A".toColorInt())
             imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE
         }
 
