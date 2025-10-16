@@ -50,7 +50,6 @@ class PlayerManager @Inject constructor(
     val playerState: StateFlow<PlayerState> = _playerState.asStateFlow()
 
     private val _playerEvents = MutableSharedFlow<PlayerEvent>(replay = 0, extraBufferCapacity = 64)
-    val playerEvents: SharedFlow<PlayerEvent> = _playerEvents.asSharedFlow()
 
     private val _debugMessages = MutableSharedFlow<DebugMessage>(replay = 100, extraBufferCapacity = 100)
     val debugMessages: SharedFlow<DebugMessage> = _debugMessages.asSharedFlow()
@@ -62,6 +61,7 @@ class PlayerManager @Inject constructor(
     private var currentConfig: PlayerConfig? = null
 
     companion object {
+        @Suppress("StaticFieldLeak")
         private var sharedBandwidthMeter: DefaultBandwidthMeter? = null
 
         fun getBandwidthMeter(context: Context): DefaultBandwidthMeter {
@@ -116,8 +116,8 @@ class PlayerManager @Inject constructor(
 
             // Build renderers factory
             val renderersFactory = if (config.useFfmpegAudio || config.useFfmpegVideo) {
-                addDebugMessage("🏭 Factory: FfmpegRenderersFactory")
-                FfmpegRenderersFactory(context, config.useFfmpegAudio, config.useFfmpegVideo)
+                addDebugMessage("🏭 Factory: FFmpegRenderersFactory")
+                FFmpegRenderersFactory(context, config.useFfmpegAudio, config.useFfmpegVideo)
             } else {
                 addDebugMessage("🏭 Factory: DefaultRenderersFactory")
                 DefaultRenderersFactory(context).apply {
@@ -173,6 +173,7 @@ class PlayerManager @Inject constructor(
                     .setAllowAudioMixedSampleRateAdaptiveness(false)
                     .setMaxVideoBitrate(10000000)
                     .setIgnoredTextSelectionFlags(C.SELECTION_FLAG_DEFAULT or C.SELECTION_FLAG_FORCED)
+                    @Suppress("DEPRECATION")
                     .setDisabledTextTrackSelectionFlags(C.SELECTION_FLAG_DEFAULT or C.SELECTION_FLAG_FORCED)
                     .setSelectUndeterminedTextLanguage(false)
                     .build()
@@ -256,7 +257,7 @@ class PlayerManager @Inject constructor(
             ) {
                 if (droppedFrames > 0) {
                     val fps = if (elapsedMs > 0) (droppedFrames * 1000f / elapsedMs) else 0f
-                    addDebugMessage("⚠️ Dropped $droppedFrames frames in ${elapsedMs}ms (${String.format("%.1f", fps)} fps)")
+                    addDebugMessage("⚠️ Dropped $droppedFrames frames in ${elapsedMs}ms (${String.format(java.util.Locale.US, "%.1f", fps)} fps)")
                     _playerEvents.tryEmit(PlayerEvent.DroppedFrames(droppedFrames, elapsedMs))
                 }
             }
@@ -364,32 +365,10 @@ class PlayerManager @Inject constructor(
     fun getCurrentChannelIndex(): Int = player?.currentMediaItemIndex ?: -1
 
     /**
-     * Get current channel
-     */
-    fun getCurrentChannel(): Channel? {
-        val index = getCurrentChannelIndex()
-        return channels.getOrNull(index)
-    }
-
-    /**
      * Pause playback
      */
     fun pause() {
         player?.playWhenReady = false
-    }
-
-    /**
-     * Resume playback
-     */
-    fun resume() {
-        player?.playWhenReady = true
-    }
-
-    /**
-     * Stop playback
-     */
-    fun stop() {
-        player?.stop()
     }
 
     /**
@@ -454,14 +433,14 @@ class PlayerManager @Inject constructor(
  * FFmpeg Renderers Factory
  */
 @UnstableApi
-class FfmpegRenderersFactory(
+class FFmpegRenderersFactory(
     context: Context,
     private val useFfmpegAudio: Boolean,
     private val useFfmpegVideo: Boolean
 ) : NextRenderersFactory(context) {
 
     init {
-        Timber.d("FfmpegFactory Init: Audio=$useFfmpegAudio, Video=$useFfmpegVideo")
+        Timber.d("FFmpegFactory Init: Audio=$useFfmpegAudio, Video=$useFfmpegVideo")
         setEnableDecoderFallback(false)
         forceEnableMediaCodecAsynchronousQueueing()
         setAllowedVideoJoiningTimeMs(10000)
@@ -474,7 +453,7 @@ class FfmpegRenderersFactory(
         extensionRendererMode: Int,
         mediaCodecSelector: MediaCodecSelector,
         enableDecoderFallback: Boolean,
-        eventHandler: android.os.Handler,
+        eventHandler: Handler,
         eventListener: androidx.media3.exoplayer.video.VideoRendererEventListener,
         allowedVideoJoiningTimeMs: Long,
         out: ArrayList<Renderer>
@@ -492,7 +471,7 @@ class FfmpegRenderersFactory(
         mediaCodecSelector: MediaCodecSelector,
         enableDecoderFallback: Boolean,
         audioSink: AudioSink,
-        eventHandler: android.os.Handler,
+        eventHandler: Handler,
         eventListener: AudioRendererEventListener,
         out: ArrayList<Renderer>
     ) {
@@ -517,7 +496,7 @@ class FfmpegRenderersFactory(
     override fun buildTextRenderers(
         context: Context,
         output: androidx.media3.exoplayer.text.TextOutput,
-        outputLooper: android.os.Looper,
+        outputLooper: Looper,
         extensionRendererMode: Int,
         out: ArrayList<Renderer>
     ) {
