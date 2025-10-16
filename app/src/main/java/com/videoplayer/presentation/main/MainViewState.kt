@@ -1,5 +1,6 @@
 package com.videoplayer.presentation.main
 
+import androidx.media3.common.util.UnstableApi
 import com.videoplayer.data.model.Channel
 import com.videoplayer.data.model.EpgProgram
 import com.videoplayer.presentation.player.DebugMessage
@@ -8,6 +9,7 @@ import com.videoplayer.presentation.player.PlayerState
 /**
  * UI State for MainActivity
  */
+@UnstableApi
 data class MainViewState(
     val channels: List<Channel> = emptyList(),
     val currentChannel: Channel? = null,
@@ -41,7 +43,4 @@ data class MainViewState(
 
     val hasChannels: Boolean
         get() = channels.isNotEmpty()
-
-    val hasError: Boolean
-        get() = error != null
 }
