@@ -2,7 +2,6 @@ package com.videoplayer.presentation.main
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.AspectRatioFrameLayout
 import com.videoplayer.data.model.Channel
 import com.videoplayer.data.model.EpgProgram
@@ -14,7 +13,6 @@ import com.videoplayer.domain.usecase.LoadPlaylistUseCase
 import com.videoplayer.domain.usecase.ToggleFavoriteUseCase
 import com.videoplayer.domain.usecase.UpdateAspectRatioUseCase
 import com.videoplayer.presentation.player.DebugMessage
-import com.videoplayer.presentation.player.PlayerEvent
 import com.videoplayer.presentation.player.PlayerManager
 import com.videoplayer.presentation.player.PlayerState
 import com.videoplayer.util.Constants
@@ -29,7 +27,6 @@ import kotlinx.coroutines.withContext
 import timber.log.Timber
 import javax.inject.Inject
 
-@UnstableApi
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val playerManager: PlayerManager,
@@ -337,15 +334,6 @@ class MainViewModel @Inject constructor(
                     currentProgram = currentProgram
                 )
             }
-        }
-    }
-
-    /**
-     * Close EPG panel
-     */
-    fun closeEpg() {
-        _viewState.update {
-            it.copy(showEpgPanel = false)
         }
     }
 
