@@ -102,7 +102,7 @@
     <string name="debug_player_init_failed">✗ Player init failed: %s</string>
     <string name="debug_audio_decoder">🔊 Audio decoder: %s</string>
     <string name="debug_video_decoder">🎬 Video decoder: %s</string>
-    <string name="debug_dropped_frames">⚠️ Dropped %d frames in %dms (%.1f fps)</string>
+    <string name="debug_dropped_frames" formatted="false">⚠️ Dropped %d frames in %dms (%.1f fps)</string>
     <string name="debug_playing">▶ Playing: %s</string>
     <string name="debug_buffering">⏳ Buffering...</string>
     <string name="debug_playback_ended">⏹ Playback ended</string>
@@ -112,15 +112,15 @@
     <string name="debug_buffering_timeout">⚠ Buffering timeout (%ds)</string>
 
     <!-- EPG Debug Messages -->
-    <string name="debug_epg_loaded_cache">EPG: Loaded cached data (%d programs for %d channels)</string>
+    <string name="debug_epg_loaded_cache" formatted="false">EPG: Loaded cached data (%d programs for %d channels)</string>
     <string name="debug_epg_no_cache">EPG: No cached data found</string>
     <string name="debug_epg_prepare_fetch">EPG: Preparing to fetch data for %d channels</string>
     <string name="debug_epg_playlist_empty">EPG: Playlist empty, skipping fetch</string>
     <string name="debug_epg_playlist_failed">EPG: Playlist load failed (%s)</string>
     <string name="debug_epg_fetch_started">EPG: Fetch started</string>
-    <string name="debug_epg_fetch_complete">EPG: Fetch complete (%d programs, %d/%d channels)</string>
+    <string name="debug_epg_fetch_complete" formatted="false">EPG: Fetch complete (%d programs, %d/%d channels)</string>
     <string name="debug_epg_fetch_failed">EPG: Fetch failed (%s)</string>
-    <string name="debug_epg_showing_programs">EPG: Showing %d programs for %s%s</string>
+    <string name="debug_epg_showing_programs" formatted="false">EPG: Showing %d programs for %s%s</string>
     <string name="debug_epg_current_program"> (current: %s)</string>
 
     <!-- Content Descriptions (Accessibility) -->
