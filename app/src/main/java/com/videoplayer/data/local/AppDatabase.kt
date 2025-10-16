@@ -15,8 +15,4 @@ import com.videoplayer.data.local.entity.ChannelEntity
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun channelDao(): ChannelDao
-
-    companion object {
-        const val DATABASE_NAME = "rutv_database"
-    }
 }

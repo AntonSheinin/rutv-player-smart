@@ -172,16 +172,6 @@ class PreferencesRepository @Inject constructor(
     }
 
     /**
-     * Clear all preferences
-     */
-    suspend fun clearAll() {
-        dataStore.edit { preferences ->
-            preferences.clear()
-        }
-        Timber.d("Cleared all preferences")
-    }
-
-    /**
      * Clear playlist cache
      */
     suspend fun clearPlaylistCache() {

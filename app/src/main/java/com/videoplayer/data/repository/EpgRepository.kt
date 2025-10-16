@@ -1,6 +1,7 @@
 package com.videoplayer.data.repository
 
 import android.content.Context
+import androidx.media3.common.util.UnstableApi
 import com.google.gson.Gson
 import com.google.gson.stream.JsonReader
 import com.google.gson.stream.JsonToken
@@ -22,6 +23,7 @@ import javax.inject.Singleton
 /**
  * Repository for EPG data
  */
+@UnstableApi
 @Singleton
 class EpgRepository @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -34,7 +36,7 @@ class EpgRepository @Inject constructor(
     // Cache for current programs only (lightweight)
     private var currentProgramsCache: Map<String, EpgProgram?>? = null
     private var currentProgramsCacheTime: Long = 0
-    private val CURRENT_PROGRAMS_CACHE_TTL = 60_000L // 1 minute
+    private val currentProgramsCacheTtl = 60_000L // 1 minute
 
     /**
      * Check if EPG service is healthy
@@ -97,7 +99,7 @@ class EpgRepository @Inject constructor(
             val timezoneOffset = TimeZone.getDefault().getOffset(System.currentTimeMillis()) / (1000 * 60 * 60)
             Timber.d("━━━ EPG REQUEST ━━━")
             Timber.d("Device timezone: $deviceTimezone (UTC${if (timezoneOffset >= 0) "+" else ""}$timezoneOffset)")
-            Timber.d("Channels to fetch: ${channelsWithEpg.size}")
+            Timber.d("Channels to fetch: $channelsWithEpg.size")
 
             val epgRequest = EpgRequest(
                 channels = channelsWithEpg.map {
@@ -379,8 +381,8 @@ class EpgRepository @Inject constructor(
                     Timber.e("Failed to parse legacy EPG data")
                 }
                 epgResponse
-            } catch (e2: Exception) {
-                Timber.e(e2, "Failed to load legacy EPG data")
+            } catch (_: Exception) {
+                Timber.e("Failed to load legacy EPG data")
                 null
             }
         } catch (e: OutOfMemoryError) {
@@ -403,7 +405,7 @@ class EpgRepository @Inject constructor(
     fun getCurrentProgram(tvgId: String): EpgProgram? {
         // Check cache first (avoids loading full EPG repeatedly)
         val now = System.currentTimeMillis()
-        if (currentProgramsCache != null && now - currentProgramsCacheTime < CURRENT_PROGRAMS_CACHE_TTL) {
+        if (currentProgramsCache != null && now - currentProgramsCacheTime < currentProgramsCacheTtl) {
             return currentProgramsCache?.get(tvgId)
         }
 
@@ -439,49 +441,11 @@ class EpgRepository @Inject constructor(
     }
 
     /**
-     * Invalidate current programs cache
-     * Call this when EPG data changes or periodically
-     */
-    fun invalidateCurrentProgramsCache() {
-        currentProgramsCache = null
-        currentProgramsCacheTime = 0
-    }
-
-    /**
      * Get all programs for a channel
      */
     fun getProgramsForChannel(tvgId: String): List<EpgProgram> {
         val epgData = cachedEpgData ?: loadEpgData() ?: return emptyList()
         return epgData.epg[tvgId] ?: emptyList()
-    }
-
-    /**
-     * Get programs for a channel with pagination (for lazy loading in UI)
-     * @param tvgId Channel ID
-     * @param offset Starting index (0-based)
-     * @param limit Maximum number of programs to return
-     * @return Paginated list of programs
-     */
-    fun getProgramsForChannelPaginated(
-        tvgId: String,
-        offset: Int = 0,
-        limit: Int = 50
-    ): List<EpgProgram> {
-        val allPrograms = getProgramsForChannel(tvgId)
-        if (allPrograms.isEmpty()) return emptyList()
-
-        val endIndex = minOf(offset + limit, allPrograms.size)
-        if (offset >= allPrograms.size) return emptyList()
-
-        return allPrograms.subList(offset, endIndex)
-    }
-
-    /**
-     * Get total program count for a channel
-     */
-    fun getProgramCountForChannel(tvgId: String): Int {
-        val epgData = cachedEpgData ?: loadEpgData() ?: return 0
-        return epgData.epg[tvgId]?.size ?: 0
     }
 
     private fun JsonReader.safeNextString(maxLength: Int): String {

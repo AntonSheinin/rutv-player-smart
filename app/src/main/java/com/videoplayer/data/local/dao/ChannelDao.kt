@@ -25,20 +25,11 @@ interface ChannelDao {
     @Query("SELECT * FROM channels WHERE url = :url LIMIT 1")
     suspend fun getChannelByUrl(url: String): ChannelEntity?
 
-    @Query("SELECT * FROM channels WHERE url = :url LIMIT 1")
-    fun observeChannelByUrl(url: String): Flow<ChannelEntity?>
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertChannel(channel: ChannelEntity)
-
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertChannels(channels: List<ChannelEntity>)
 
     @Update
     suspend fun updateChannel(channel: ChannelEntity)
-
-    @Delete
-    suspend fun deleteChannel(channel: ChannelEntity)
 
     @Query("DELETE FROM channels")
     suspend fun deleteAllChannels()

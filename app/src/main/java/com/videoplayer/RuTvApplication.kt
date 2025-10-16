@@ -7,6 +7,7 @@ import coil.ImageLoaderFactory
 import coil.decode.ImageDecoderDecoder
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
+import com.videoplayer.BuildConfig
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 

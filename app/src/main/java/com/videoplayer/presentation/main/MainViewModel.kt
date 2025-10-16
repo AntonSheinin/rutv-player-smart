@@ -2,6 +2,7 @@ package com.videoplayer.presentation.main
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.AspectRatioFrameLayout
 import com.videoplayer.data.model.Channel
 import com.videoplayer.data.model.EpgProgram
@@ -27,6 +28,7 @@ import kotlinx.coroutines.withContext
 import timber.log.Timber
 import javax.inject.Inject
 
+@UnstableApi
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val playerManager: PlayerManager,

@@ -1,11 +1,13 @@
 package com.videoplayer.data.model
 
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.AspectRatioFrameLayout
 
 /**
  * Domain model for a channel.
  * This is the model used throughout the app.
  */
+@UnstableApi
 data class Channel(
     val url: String,
     val title: String,
@@ -19,15 +21,4 @@ data class Channel(
 ) {
     val hasEpg: Boolean
         get() = tvgId.isNotBlank() && catchupDays > 0
-
-    val isValid: Boolean
-        get() = url.isNotBlank() && title.isNotBlank()
-
-    companion object {
-        fun empty() = Channel(
-            url = "",
-            title = "",
-            position = 0
-        )
-    }
 }

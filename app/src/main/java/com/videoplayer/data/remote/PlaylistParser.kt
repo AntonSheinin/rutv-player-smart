@@ -1,5 +1,6 @@
 package com.videoplayer.data.remote
 
+import androidx.media3.common.util.UnstableApi
 import com.videoplayer.data.model.Channel
 import timber.log.Timber
 import javax.inject.Inject
@@ -9,6 +10,7 @@ import javax.inject.Singleton
  * Parser for M3U/M3U8 playlists
  * Refactored from M3U8Parser object to injectable class
  */
+@UnstableApi
 @Singleton
 class PlaylistParser @Inject constructor() {
 

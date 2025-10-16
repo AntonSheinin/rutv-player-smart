@@ -1,5 +1,6 @@
 package com.videoplayer.data.repository
 
+import androidx.media3.common.util.UnstableApi
 import com.videoplayer.data.local.dao.ChannelDao
 import com.videoplayer.data.local.entity.ChannelEntity
 import com.videoplayer.data.model.Channel
@@ -14,18 +15,11 @@ import javax.inject.Singleton
  * Repository for channel data
  * Provides a clean API for channel operations
  */
+@UnstableApi
 @Singleton
 class ChannelRepository @Inject constructor(
     private val channelDao: ChannelDao
 ) {
-
-    /**
-     * Observe all channels as a Flow
-     */
-    fun observeAllChannels(): Flow<List<Channel>> {
-        return channelDao.observeAllChannels()
-            .map { entities -> entities.map { it.toChannel() } }
-    }
 
     /**
      * Get all channels (one-time)
@@ -41,40 +35,6 @@ class ChannelRepository @Inject constructor(
         }
     }
 
-    /**
-     * Observe favorite channels
-     */
-    fun observeFavorites(): Flow<List<Channel>> {
-        return channelDao.observeFavorites()
-            .map { entities -> entities.map { it.toChannel() } }
-    }
-
-    /**
-     * Get favorite channels (one-time)
-     */
-    suspend fun getFavorites(): Result<List<Channel>> {
-        return try {
-            val entities = channelDao.getFavorites()
-            val channels = entities.map { it.toChannel() }
-            Result.Success(channels)
-        } catch (e: Exception) {
-            Timber.e(e, "Error getting favorites")
-            Result.Error(e)
-        }
-    }
-
-    /**
-     * Get a specific channel by URL
-     */
-    suspend fun getChannelByUrl(url: String): Result<Channel?> {
-        return try {
-            val entity = channelDao.getChannelByUrl(url)
-            Result.Success(entity?.toChannel())
-        } catch (e: Exception) {
-            Timber.e(e, "Error getting channel by URL: $url")
-            Result.Error(e)
-        }
-    }
 
     /**
      * Save channels to database
@@ -93,20 +53,6 @@ class ChannelRepository @Inject constructor(
         }
     }
 
-    /**
-     * Update a single channel
-     */
-    suspend fun updateChannel(channel: Channel): Result<Unit> {
-        return try {
-            val entity = ChannelEntity.fromChannel(channel)
-            channelDao.updateChannel(entity)
-            Timber.d("Updated channel: ${channel.title}")
-            Result.Success(Unit)
-        } catch (e: Exception) {
-            Timber.e(e, "Error updating channel: ${channel.title}")
-            Result.Error(e)
-        }
-    }
 
     /**
      * Toggle favorite status for a channel
@@ -157,29 +103,4 @@ class ChannelRepository @Inject constructor(
         }
     }
 
-    /**
-     * Get channel count
-     */
-    suspend fun getChannelCount(): Result<Int> {
-        return try {
-            val count = channelDao.getChannelCount()
-            Result.Success(count)
-        } catch (e: Exception) {
-            Timber.e(e, "Error getting channel count")
-            Result.Error(e)
-        }
-    }
-
-    /**
-     * Get favorite count
-     */
-    suspend fun getFavoriteCount(): Result<Int> {
-        return try {
-            val count = channelDao.getFavoriteCount()
-            Result.Success(count)
-        } catch (e: Exception) {
-            Timber.e(e, "Error getting favorite count")
-            Result.Error(e)
-        }
-    }
 }

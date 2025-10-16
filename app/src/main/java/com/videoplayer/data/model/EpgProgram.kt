@@ -23,16 +23,7 @@ data class EpgProgram(
             val start = parseTime(startTime)
             val stop = parseTime(stopTime)
             currentTimeMillis in start..stop
-        } catch (e: Exception) {
-            false
-        }
-    }
-
-    fun isEnded(currentTimeMillis: Long = System.currentTimeMillis()): Boolean {
-        return try {
-            val stop = parseTime(stopTime)
-            currentTimeMillis > stop
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             false
         }
     }
@@ -43,29 +34,29 @@ data class EpgProgram(
             val format1 = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", java.util.Locale.US)
             val result = format1.parse(timeString)?.time ?: 0L
             if (result > 0) {
-                timber.log.Timber.v("EPG Parse: '$timeString' → ${result} (ISO 8601 with timezone)")
+                timber.log.Timber.v("EPG Parse: '$timeString' → $result (ISO 8601 with timezone)")
             }
             result
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             try {
                 // Try ISO 8601 format without timezone (assume local timezone)
                 val format2 = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US)
                 format2.timeZone = java.util.TimeZone.getDefault()
                 val result = format2.parse(timeString)?.time ?: 0L
                 if (result > 0) {
-                    timber.log.Timber.v("EPG Parse: '$timeString' → ${result} (ISO 8601 local timezone)")
+                    timber.log.Timber.v("EPG Parse: '$timeString' → $result (ISO 8601 local timezone)")
                 }
                 result
-            } catch (e2: Exception) {
+            } catch (_: Exception) {
                 try {
                     // Try XMLTV format (yyyyMMddHHmmss Z)
                     val format3 = java.text.SimpleDateFormat("yyyyMMddHHmmss Z", java.util.Locale.US)
                     val result = format3.parse(timeString)?.time ?: 0L
                     if (result > 0) {
-                        timber.log.Timber.v("EPG Parse: '$timeString' → ${result} (XMLTV format)")
+                        timber.log.Timber.v("EPG Parse: '$timeString' → $result (XMLTV format)")
                     }
                     result
-                } catch (e3: Exception) {
+                } catch (_: Exception) {
                     timber.log.Timber.w("EPG Parse: Failed to parse '$timeString'")
                     0L
                 }
