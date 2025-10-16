@@ -26,6 +26,7 @@ import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
 import com.videoplayer.data.model.Channel
 import com.videoplayer.data.model.PlayerConfig
 import com.videoplayer.util.Constants
+import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,7 +41,7 @@ import javax.inject.Singleton
 @UnstableApi
 @Singleton
 class PlayerManager @Inject constructor(
-    private val context: Context
+    @ApplicationContext private val context: Context
 ) {
 
     private var player: ExoPlayer? = null
