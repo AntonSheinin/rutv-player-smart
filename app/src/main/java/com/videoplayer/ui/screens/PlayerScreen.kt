@@ -74,6 +74,7 @@ fun PlayerScreen(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.ruTvColors.darkBackground)
+            .rotate(viewState.videoRotation)
     ) {
         // ExoPlayer View
         player?.let {
@@ -135,8 +136,7 @@ fun PlayerScreen(
                 update = { playerView ->
                     playerView.player = it
                     playerView.resizeMode = viewState.currentResizeMode
-                    // Apply rotation to entire PlayerView (this rotates the video content)
-                    playerView.rotation = viewState.videoRotation
+                    // Rotation is now applied to the entire Box, not just the PlayerView
                 },
                 modifier = Modifier.fillMaxSize()
             )
@@ -318,7 +318,7 @@ private fun PlaylistPanel(
             ) {
                 Text(
                     text = playlistTitle,
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.ruTvColors.gold
                 )
                 IconButton(onClick = onClose) {
@@ -465,7 +465,7 @@ private fun EpgPanel(
             ) {
                 Text(
                     text = stringResource(R.string.epg_panel_title),
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.ruTvColors.gold
                 )
             }
@@ -558,7 +558,7 @@ private fun ProgramDetailsPanel(
             ) {
                 Text(
                     text = stringResource(R.string.program_details_title),
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.ruTvColors.gold
                 )
                 IconButton(onClick = onClose) {
@@ -572,59 +572,92 @@ private fun ProgramDetailsPanel(
 
             Divider(color = MaterialTheme.ruTvColors.textDisabled)
 
-            // Scrollable content
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                item {
-                    // Program Title
-                    Text(
-                        text = program.title,
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = MaterialTheme.ruTvColors.gold
-                    )
-                }
+            // Scrollable content with scrollbar
+            Box(modifier = Modifier.fillMaxSize()) {
+                val listState = rememberLazyListState()
 
-                item {
-                    // Start Time
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Schedule,
-                            contentDescription = null,
-                            tint = MaterialTheme.ruTvColors.textSecondary,
-                            modifier = Modifier.size(20.dp)
-                        )
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(end = 8.dp)
+                ) {
+                    item {
+                        // Program Title
                         Text(
-                            text = startTimeFormatted,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.ruTvColors.textSecondary
+                            text = program.title,
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.ruTvColors.gold
                         )
                     }
-                }
 
-                if (program.description.isNotEmpty()) {
                     item {
-                        // Description
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(
-                                text = "Description",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.ruTvColors.textPrimary
+                        // Start Time
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Schedule,
+                                contentDescription = null,
+                                tint = MaterialTheme.ruTvColors.textSecondary,
+                                modifier = Modifier.size(20.dp)
                             )
                             Text(
-                                text = program.description,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.ruTvColors.textSecondary,
-                                lineHeight = MaterialTheme.typography.bodyMedium.lineHeight
+                                text = startTimeFormatted,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.ruTvColors.textSecondary
                             )
                         }
                     }
+
+                    if (program.description.isNotEmpty()) {
+                        item {
+                            // Description
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    text = "Description",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.ruTvColors.textPrimary
+                                )
+                                Text(
+                                    text = program.description,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.ruTvColors.textSecondary,
+                                    lineHeight = MaterialTheme.typography.bodyMedium.lineHeight,
+                                    maxLines = Int.MAX_VALUE
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Scroll indicator
+                val scrollProgress = remember {
+                    derivedStateOf {
+                        if (listState.layoutInfo.totalItemsCount == 0) 0f
+                        else (listState.firstVisibleItemIndex.toFloat() + listState.firstVisibleItemScrollOffset.toFloat() / maxOf(1, listState.layoutInfo.visibleItemsInfo.firstOrNull()?.size ?: 1)) / listState.layoutInfo.totalItemsCount.toFloat()
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .fillMaxHeight()
+                        .width(4.dp)
+                        .padding(vertical = 8.dp)
+                        .background(MaterialTheme.ruTvColors.textDisabled.copy(alpha = 0.3f))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .fillMaxWidth()
+                            .fillMaxHeight(0.1f)
+                            .offset(y = (scrollProgress.value * 0.9f * 100).dp)
+                            .background(MaterialTheme.ruTvColors.gold)
+                    )
                 }
             }
         }
