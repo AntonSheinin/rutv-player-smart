@@ -330,6 +330,7 @@ class MainViewModel @Inject constructor(
             _viewState.update {
                 it.copy(
                     showEpgPanel = programs.isNotEmpty(),
+                    epgChannelTvgId = tvgId,
                     epgPrograms = programs,
                     currentProgram = currentProgram
                 )

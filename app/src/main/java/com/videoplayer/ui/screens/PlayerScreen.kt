@@ -75,7 +75,6 @@ fun PlayerScreen(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.ruTvColors.darkBackground)
-            .rotate(viewState.videoRotation)
     ) {
         // ExoPlayer View
         player?.let {
@@ -137,7 +136,7 @@ fun PlayerScreen(
                 update = { playerView ->
                     playerView.player = it
                     playerView.resizeMode = viewState.currentResizeMode
-                    // Rotation is now applied to the entire Box, not just the PlayerView
+                    playerView.rotation = viewState.videoRotation
                 },
                 modifier = Modifier.fillMaxSize()
             )
@@ -203,7 +202,12 @@ fun PlayerScreen(
                 channels = viewState.filteredChannels,
                 playlistTitle = viewState.playlistTitle,
                 currentChannelIndex = viewState.currentChannelIndex,
-                epgOpenIndex = if (viewState.showEpgPanel) viewState.currentChannelIndex else -1,
+                epgOpenIndex = if (viewState.showEpgPanel) {
+                    // Find the index of the channel whose EPG is open
+                    viewState.filteredChannels.indexOfFirst { it.tvgId == viewState.epgChannelTvgId }
+                } else {
+                    -1
+                },
                 currentProgramsMap = viewState.currentProgramsMap,
                 onChannelClick = onPlayChannel,
                 onFavoriteClick = onToggleFavorite,
@@ -313,13 +317,13 @@ private fun PlaylistPanel(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp), // Reduced vertical padding to match EPG
+                    .padding(horizontal = 16.dp, vertical = 8.dp), // Reduced vertical padding for narrower title
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = playlistTitle,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.ruTvColors.gold
                 )
                 IconButton(onClick = onClose) {
@@ -460,13 +464,13 @@ private fun EpgPanel(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp), // Consistent padding with channel list
+                    .padding(horizontal = 16.dp, vertical = 8.dp), // Reduced vertical padding for narrower title
                 horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = stringResource(R.string.epg_panel_title),
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.ruTvColors.gold
                 )
             }
@@ -553,13 +557,13 @@ private fun ProgramDetailsPanel(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp), // Reduced vertical padding for narrower title
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = stringResource(R.string.program_details_title),
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.ruTvColors.gold
                 )
                 IconButton(onClick = onClose) {
@@ -638,8 +642,14 @@ private fun ProgramDetailsPanel(
                 // Scroll indicator
                 val scrollProgress = remember {
                     derivedStateOf {
-                        if (listState.layoutInfo.totalItemsCount == 0) 0f
-                        else (listState.firstVisibleItemIndex.toFloat() + listState.firstVisibleItemScrollOffset.toFloat() / maxOf(1, listState.layoutInfo.visibleItemsInfo.firstOrNull()?.size ?: 1)) / listState.layoutInfo.totalItemsCount.toFloat()
+                        val layoutInfo = listState.layoutInfo
+                        if (layoutInfo.totalItemsCount == 0 || layoutInfo.visibleItemsInfo.isEmpty()) 0f
+                        else {
+                            val firstVisibleItem = listState.firstVisibleItemIndex.toFloat()
+                            val visibleItems = layoutInfo.visibleItemsInfo.size.toFloat()
+                            val totalItems = layoutInfo.totalItemsCount.toFloat()
+                            minOf(1f, firstVisibleItem / (totalItems - visibleItems).coerceAtLeast(1f))
+                        }
                     }
                 }
 
@@ -655,8 +665,8 @@ private fun ProgramDetailsPanel(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .fillMaxWidth()
-                            .fillMaxHeight(0.1f)
-                            .offset(y = (scrollProgress.value * 0.9f * 100).dp)
+                            .fillMaxHeight(0.15f)
+                            .offset(y = (scrollProgress.value * (1f - 0.15f) * 100).dp)
                             .background(MaterialTheme.ruTvColors.gold)
                     )
                 }

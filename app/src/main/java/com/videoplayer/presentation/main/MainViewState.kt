@@ -16,6 +16,7 @@ data class MainViewState(
     val showPlaylist: Boolean = false,
     val showFavoritesOnly: Boolean = false,
     val showEpgPanel: Boolean = false,
+    val epgChannelTvgId: String = "", // TVG ID of channel whose EPG is open
     val epgPrograms: List<EpgProgram> = emptyList(),
     val currentProgram: EpgProgram? = null,
     val selectedProgramDetails: EpgProgram? = null, // Program selected for details view
