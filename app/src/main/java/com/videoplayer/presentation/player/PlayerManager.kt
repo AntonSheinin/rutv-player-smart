@@ -165,6 +165,7 @@ class PlayerManager @Inject constructor(
                 .setTimestampAdjusterInitializationTimeoutMs(30000)
 
             val trackSelector = DefaultTrackSelector(context).apply {
+                @Suppress("DEPRECATION")
                 parameters = buildUponParameters()
                     .setForceHighestSupportedBitrate(false)
                     .setAllowVideoMixedMimeTypeAdaptiveness(false)
@@ -173,7 +174,6 @@ class PlayerManager @Inject constructor(
                     .setAllowAudioMixedSampleRateAdaptiveness(false)
                     .setMaxVideoBitrate(10000000)
                     .setIgnoredTextSelectionFlags(C.SELECTION_FLAG_DEFAULT or C.SELECTION_FLAG_FORCED)
-                    @Suppress("DEPRECATION")
                     .setDisabledTextTrackSelectionFlags(C.SELECTION_FLAG_DEFAULT or C.SELECTION_FLAG_FORCED)
                     .setSelectUndeterminedTextLanguage(false)
                     .build()
@@ -358,11 +358,6 @@ class PlayerManager @Inject constructor(
      * Get current player instance
      */
     fun getPlayer(): ExoPlayer? = player
-
-    /**
-     * Get current channel index
-     */
-    fun getCurrentChannelIndex(): Int = player?.currentMediaItemIndex ?: -1
 
     /**
      * Pause playback
