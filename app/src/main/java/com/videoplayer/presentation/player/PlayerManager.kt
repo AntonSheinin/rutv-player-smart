@@ -130,8 +130,8 @@ class PlayerManager @Inject constructor(
 
             // Calculate buffer durations
             val bufferMs = config.bufferSeconds * 1000
-            val minBufferMs = maxOf(15000, bufferMs)
-            val maxBufferMs = maxOf(50000, bufferMs)
+            val minBufferMs = maxOf(Constants.MIN_BUFFER_MS, bufferMs)
+            val maxBufferMs = maxOf(Constants.MAX_BUFFER_MS, bufferMs)
 
             val loadControl = DefaultLoadControl.Builder()
                 .setBufferDurationsMs(
@@ -365,6 +365,19 @@ class PlayerManager @Inject constructor(
      */
     fun pause() {
         player?.playWhenReady = false
+    }
+
+    /**
+     * Resume playback if a player exists
+     */
+    fun resume() {
+        player?.let { exoPlayer ->
+            if (exoPlayer.playbackState == Player.STATE_IDLE) {
+                exoPlayer.prepare()
+            }
+            exoPlayer.playWhenReady = true
+            exoPlayer.play()
+        }
     }
 
     /**

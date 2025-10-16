@@ -1,8 +1,12 @@
+@file:OptIn(UnstableApi::class)
+
+@file:Suppress("unused")
+
 package com.videoplayer.data.local.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.common.util.UnstableApi
 import com.videoplayer.data.model.Channel
 
 /**

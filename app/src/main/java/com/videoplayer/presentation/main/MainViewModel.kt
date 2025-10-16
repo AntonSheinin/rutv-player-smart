@@ -431,7 +431,7 @@ class MainViewModel @Inject constructor(
      * On activity resumed
      */
     fun onResume() {
-        // Player will auto-resume if it was playing
+        playerManager.resume()
     }
 
     /**

@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package com.videoplayer.data.repository
 
 import android.content.Context
@@ -473,11 +475,10 @@ class EpgRepository @Inject constructor(
         Timber.d("EPG cache cleared (including current programs cache)")
     }
 
-    companion object {
-        private const val MAX_FIELD_LENGTH_ID = 128
-        private const val MAX_FIELD_LENGTH_TIME = 64
-        private const val MAX_FIELD_LENGTH_TITLE = 256
-        private const val MAX_FIELD_LENGTH_DESCRIPTION = 512
-        private var truncationWarningLogged = false
-    }
 }
+
+private const val MAX_FIELD_LENGTH_ID = 128
+private const val MAX_FIELD_LENGTH_TIME = 64
+private const val MAX_FIELD_LENGTH_TITLE = 256
+private const val MAX_FIELD_LENGTH_DESCRIPTION = 512
+private var truncationWarningLogged = false

@@ -1,3 +1,5 @@
+@file:OptIn(UnstableApi::class)
+
 package com.videoplayer.presentation.settings
 
 import android.net.Uri
@@ -9,6 +11,7 @@ import com.videoplayer.data.repository.PreferencesRepository
 import com.videoplayer.domain.usecase.LoadPlaylistUseCase
 import com.videoplayer.util.Constants
 import com.videoplayer.util.Result
+import androidx.media3.common.util.UnstableApi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

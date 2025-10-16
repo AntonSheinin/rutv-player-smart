@@ -94,8 +94,4 @@ class SettingsActivity : ComponentActivity() {
         )
     }
 
-    override fun onPause() {
-        super.onPause()
-        // Settings are auto-saved via ViewModel when changed
-    }
 }

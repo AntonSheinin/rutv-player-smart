@@ -5,8 +5,6 @@ import com.videoplayer.data.local.dao.ChannelDao
 import com.videoplayer.data.local.entity.ChannelEntity
 import com.videoplayer.data.model.Channel
 import com.videoplayer.util.Result
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -15,6 +13,7 @@ import javax.inject.Singleton
  * Repository for channel data
  * Provides a clean API for channel operations
  */
+@Suppress("unused")
 @UnstableApi
 @Singleton
 class ChannelRepository @Inject constructor(

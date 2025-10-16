@@ -8,6 +8,7 @@ import com.videoplayer.data.local.entity.ChannelEntity
 /**
  * Main Room database for the application
  */
+@Suppress("unused")
 @Database(
     entities = [ChannelEntity::class],
     version = 1,

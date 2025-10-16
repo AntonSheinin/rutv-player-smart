@@ -14,62 +14,24 @@
     <string name="dialog_message_no_playlist_loaded">No playlist is currently loaded. Please load a playlist first.</string>
     <string name="dialog_message_reload_playlist">This will reload the playlist from the original source and refresh all EPG data (tvg-id, catchup-days, etc.).</string>
     <string name="dialog_message_force_epg_fetch">This will delete all cached EPG data and fetch fresh data from the EPG service. This may take a few moments.</string>
-    <string name="dialog_message_epg_cache_cleared">EPG cache cleared. Reload playlist to fetch new EPG data.</string>
 
-    <!-- Button Labels -->
+    <!-- Buttons -->
     <string name="button_ok">OK</string>
     <string name="button_cancel">Cancel</string>
     <string name="button_open_settings">Open Settings</string>
     <string name="button_later">Later</string>
     <string name="button_save">Save</string>
-    <string name="button_reload">Reload</string>
-    <string name="button_force_fetch">Force Fetch</string>
 
     <!-- Input Hints -->
     <string name="hint_channel_number">Enter channel number (1-%1$d)</string>
     <string name="hint_m3u_url">Enter M3U/M3U8 URL</string>
 
-    <!-- Status Messages -->
+    <!-- Status -->
     <string name="status_playing">▶ Playing</string>
-    <string name="status_no_program">no program</string>
-    <string name="status_none">None</string>
     <string name="status_file">File</string>
 
-    <!-- Debug Log -->
-    <string name="debug_log_header">Debug Log\n(No messages yet)</string>
-
-    <!-- Playlist Info -->
-    <string name="playlist_info_from_file">Loaded from file (stored locally)</string>
-    <string name="playlist_info_from_url">Loaded from URL</string>
-    <string name="playlist_info_no_playlist">No playlist loaded</string>
-    <string name="playlist_title_favorites">Favorites</string>
-    <string name="playlist_title_channels">Channels</string>
-    <string name="epg_panel_title">Programs guide</string>
-    <string name="program_details_title">Program Details</string>
-
-    <!-- Error Messages -->
-    <string name="error_failed_to_load_file">Failed to load file: %s</string>
-    <string name="error_playlist_too_large">Playlist too large: %d bytes</string>
-    <string name="error_failed_to_save_playlist">Failed to save playlist: %s</string>
-    <string name="error_url_empty">URL cannot be empty</string>
-    <string name="error_failed_to_save_url">Failed to save URL: %s</string>
-    <string name="error_failed_to_reload">Failed to reload: %s</string>
-    <string name="error_failed_to_clear_epg">Failed to clear EPG cache: %s</string>
-
-    <!-- Success Messages -->
-    <string name="success_playlist_saved_from_file">Playlist saved from file</string>
-    <string name="success_playlist_url_saved">Playlist URL saved</string>
-    <string name="success_playlist_reloaded">Playlist reloaded: %d channels</string>
-
-    <!-- Channel Info Format -->
-    <string name="channel_info_format">#%1$d • %2$s</string>
-    <string name="channel_info_with_program">#%1$d • %2$s\n%3$s</string>
-
-    <!-- Settings Labels -->
+    <!-- Playlist / Settings -->
     <string name="settings_playlist_source">Playlist Source</string>
-    <string name="settings_current_playlist">Current Playlist</string>
-    <string name="settings_current_file">File</string>
-    <string name="settings_current_url">URL</string>
     <string name="settings_load_from_file">Load from File</string>
     <string name="settings_load_from_url">Load from URL</string>
     <string name="settings_reload_playlist">Reload Playlist</string>
@@ -83,54 +45,25 @@
     <string name="settings_epg_days_ahead">EPG Days Ahead</string>
     <string name="settings_force_epg_fetch">Force EPG Fetch</string>
     <string name="settings_back">Back</string>
+    <string name="settings_current_file">File</string>
+    <string name="settings_current_url">URL</string>
 
-    <!-- Favorite Button -->
+    <!-- Channel Info -->
+    <string name="epg_panel_title">Programs guide</string>
+    <string name="program_details_title">Program Details</string>
+    <string name="channel_info_format">#%1$d • %2$s</string>
+
+    <!-- Favorites -->
     <string name="favorite_filled">★</string>
     <string name="favorite_empty">☆</string>
 
-    <!-- Debug Messages (User-Visible) -->
-    <string name="debug_app_started">App Started</string>
-    <string name="debug_player_init_header">━━━ PLAYER INITIALIZATION ━━━</string>
-    <string name="debug_nextlib_ffmpeg">✓ NextLib FFmpeg: %s decoder</string>
-    <string name="debug_hardware_decoders">✓ Hardware decoders only</string>
-    <string name="debug_buffer">✓ Buffer: %ds</string>
-    <string name="debug_factory_ffmpeg">🏭 Factory: FfmpegRenderersFactory</string>
-    <string name="debug_factory_default">🏭 Factory: DefaultRenderersFactory</string>
-    <string name="debug_channels_loaded">📺 Loaded %d channels into player</string>
-    <string name="debug_starting_from_channel">⏩ Starting from channel #%d</string>
-    <string name="debug_player_ready">━━━ PLAYER READY ━━━</string>
-    <string name="debug_player_init_failed">✗ Player init failed: %s</string>
-    <string name="debug_audio_decoder">🔊 Audio decoder: %s</string>
-    <string name="debug_video_decoder">🎬 Video decoder: %s</string>
-    <string name="debug_dropped_frames" formatted="false">⚠️ Dropped %d frames in %dms (%.1f fps)</string>
-    <string name="debug_playing">▶ Playing: %s</string>
-    <string name="debug_buffering">⏳ Buffering...</string>
-    <string name="debug_playback_ended">⏹ Playback ended</string>
-    <string name="debug_error_channel">✗ Error: %s</string>
-    <string name="debug_error_message">  → %s</string>
-    <string name="debug_recovering_live">  → Recovering: Seeking to live edge...</string>
-    <string name="debug_buffering_timeout">⚠ Buffering timeout (%ds)</string>
-
-    <!-- EPG Debug Messages -->
-    <string name="debug_epg_loaded_cache" formatted="false">EPG: Loaded cached data (%d programs for %d channels)</string>
-    <string name="debug_epg_no_cache">EPG: No cached data found</string>
-    <string name="debug_epg_prepare_fetch">EPG: Preparing to fetch data for %d channels</string>
-    <string name="debug_epg_playlist_empty">EPG: Playlist empty, skipping fetch</string>
-    <string name="debug_epg_playlist_failed">EPG: Playlist load failed (%s)</string>
-    <string name="debug_epg_fetch_started">EPG: Fetch started</string>
-    <string name="debug_epg_fetch_complete" formatted="false">EPG: Fetch complete (%d programs, %d/%d channels)</string>
-    <string name="debug_epg_fetch_failed">EPG: Fetch failed (%s)</string>
-    <string name="debug_epg_showing_programs" formatted="false">EPG: Showing %d programs for %s%s</string>
-    <string name="debug_epg_current_program"> (current: %s)</string>
-
-    <!-- Content Descriptions (Accessibility) -->
+    <!-- Accessibility -->
     <string name="cd_channel_logo">Channel logo</string>
-    <string name="cd_favorite_button">Toggle favorite</string>
-    <string name="cd_aspect_ratio_button">Change aspect ratio</string>
-    <string name="cd_orientation_button">Rotate video</string>
-    <string name="cd_settings_button">Open settings</string>
-    <string name="cd_playlist_button">Show playlist</string>
     <string name="cd_favorites_button">Show favorites</string>
+    <string name="cd_playlist_button">Show playlist</string>
+    <string name="cd_settings_button">Open settings</string>
     <string name="cd_go_to_channel_button">Go to channel number</string>
     <string name="cd_close_playlist">Close playlist</string>
+    <string name="cd_aspect_ratio_button">Change aspect ratio</string>
+    <string name="cd_orientation_button">Rotate video</string>
 </resources>

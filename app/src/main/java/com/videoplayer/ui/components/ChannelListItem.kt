@@ -1,3 +1,5 @@
+@file:OptIn(UnstableApi::class)
+
 package com.videoplayer.ui.components
 
 import androidx.compose.foundation.clickable
@@ -16,6 +18,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.media3.common.util.UnstableApi
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import coil.size.Precision
@@ -24,10 +27,11 @@ import com.videoplayer.R
 import com.videoplayer.data.model.Channel
 import com.videoplayer.data.model.EpgProgram
 import com.videoplayer.ui.theme.ruTvColors
+import com.videoplayer.util.Constants
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private val ChannelLogoSize = 48.dp
+private val ChannelLogoSize = Constants.CHANNEL_LOGO_SIZE_DP.dp
 
 /**
  * Channel list item composable with double-tap support
@@ -64,7 +68,7 @@ fun ChannelListItem(
                 // Cancel pending single tap
                 clickJob?.cancel()
 
-                if (timeSinceLastClick < 300) {
+                if (timeSinceLastClick < Constants.DOUBLE_TAP_DELAY_MS) {
                     // Double tap - play channel
                     lastClickTime = 0
                     onChannelClick()
@@ -72,7 +76,7 @@ fun ChannelListItem(
                     // Single tap - schedule EPG show
                     lastClickTime = currentTime
                     clickJob = coroutineScope.launch {
-                        delay(300)
+                        delay(Constants.DOUBLE_TAP_DELAY_MS)
                         if (channel.hasEpg) {
                             onShowPrograms()
                         }

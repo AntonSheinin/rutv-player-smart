@@ -10,11 +10,11 @@ object Constants {
 
     // UI
     const val DOUBLE_TAP_DELAY_MS = 300L
-    const val CONTROLLER_AUTO_HIDE_TIMEOUT_MS = 3_000
+    const val CONTROLLER_AUTO_HIDE_TIMEOUT_MS = 2_000
 
     // Playlist
     const val MAX_PLAYLIST_SIZE_BYTES = 500_000
-    const val CHANNEL_LOGO_SIZE_DP = 40
+    const val CHANNEL_LOGO_SIZE_DP = 48
 
     // EPG
     const val EPG_CONNECT_TIMEOUT_MS = 60_000
@@ -27,7 +27,6 @@ object Constants {
 
     // Player
     const val VIDEO_ROTATION_0 = 0f
-    const val VIDEO_ROTATION_90 = 90f
     const val VIDEO_ROTATION_270 = 270f
     const val SEEK_INCREMENT_MS = 10_000L
 
@@ -38,9 +37,4 @@ object Constants {
 
     // Database
     const val DATABASE_NAME = "rutv_database"
-    const val DATABASE_VERSION = 1
-
-    // Preferences
-    const val PREFS_NAME = "VideoPlayerPrefs"
-    const val CHANNEL_STORAGE_PREFS = "ChannelStorage"
 }

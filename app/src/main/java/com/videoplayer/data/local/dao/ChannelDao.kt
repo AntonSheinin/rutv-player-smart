@@ -1,8 +1,10 @@
 package com.videoplayer.data.local.dao
 
-import androidx.room.*
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
 import com.videoplayer.data.local.entity.ChannelEntity
-import kotlinx.coroutines.flow.Flow
 
 /**
  * Data Access Object for Channel operations
@@ -11,25 +13,13 @@ import kotlinx.coroutines.flow.Flow
 interface ChannelDao {
 
     @Query("SELECT * FROM channels ORDER BY position ASC")
-    fun observeAllChannels(): Flow<List<ChannelEntity>>
-
-    @Query("SELECT * FROM channels ORDER BY position ASC")
     suspend fun getAllChannels(): List<ChannelEntity>
-
-    @Query("SELECT * FROM channels WHERE isFavorite = 1 ORDER BY position ASC")
-    fun observeFavorites(): Flow<List<ChannelEntity>>
-
-    @Query("SELECT * FROM channels WHERE isFavorite = 1 ORDER BY position ASC")
-    suspend fun getFavorites(): List<ChannelEntity>
 
     @Query("SELECT * FROM channels WHERE url = :url LIMIT 1")
     suspend fun getChannelByUrl(url: String): ChannelEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertChannels(channels: List<ChannelEntity>)
-
-    @Update
-    suspend fun updateChannel(channel: ChannelEntity)
 
     @Query("DELETE FROM channels")
     suspend fun deleteAllChannels()
@@ -39,10 +29,4 @@ interface ChannelDao {
 
     @Query("UPDATE channels SET aspectRatio = :aspectRatio WHERE url = :url")
     suspend fun updateAspectRatio(url: String, aspectRatio: Int)
-
-    @Query("SELECT COUNT(*) FROM channels")
-    suspend fun getChannelCount(): Int
-
-    @Query("SELECT COUNT(*) FROM channels WHERE isFavorite = 1")
-    suspend fun getFavoriteCount(): Int
 }

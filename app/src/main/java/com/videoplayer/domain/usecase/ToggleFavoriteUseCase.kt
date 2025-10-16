@@ -1,7 +1,10 @@
+@file:OptIn(UnstableApi::class)
+
 package com.videoplayer.domain.usecase
 
 import com.videoplayer.data.repository.ChannelRepository
 import com.videoplayer.util.Result
+import androidx.media3.common.util.UnstableApi
 import timber.log.Timber
 import javax.inject.Inject
 

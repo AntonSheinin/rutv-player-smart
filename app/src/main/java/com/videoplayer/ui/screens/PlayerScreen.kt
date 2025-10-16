@@ -1,3 +1,5 @@
+@file:OptIn(UnstableApi::class)
+
 package com.videoplayer.ui.screens
 
 import android.view.ViewGroup
@@ -33,6 +35,7 @@ import com.videoplayer.ui.components.ChannelListItem
 import com.videoplayer.ui.components.EpgDateDelimiter
 import com.videoplayer.ui.components.EpgProgramItem
 import com.videoplayer.ui.theme.ruTvColors
+import com.videoplayer.util.Constants
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -83,7 +86,7 @@ fun PlayerScreen(
                             ViewGroup.LayoutParams.MATCH_PARENT
                         )
                         useController = true
-                        controllerShowTimeoutMs = 2000 // 2 seconds timeout
+                        controllerShowTimeoutMs = Constants.CONTROLLER_AUTO_HIDE_TIMEOUT_MS // Auto-hide controls
                         controllerHideOnTouch = false // We'll handle tap manually
                         resizeMode = viewState.currentResizeMode
                         setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
