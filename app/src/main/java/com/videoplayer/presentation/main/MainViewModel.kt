@@ -347,6 +347,24 @@ class MainViewModel @Inject constructor(
     }
 
     /**
+     * Show program details
+     */
+    fun showProgramDetails(program: EpgProgram) {
+        _viewState.update {
+            it.copy(selectedProgramDetails = program)
+        }
+    }
+
+    /**
+     * Close program details
+     */
+    fun closeProgramDetails() {
+        _viewState.update {
+            it.copy(selectedProgramDetails = null)
+        }
+    }
+
+    /**
      * Update current program for channel
      */
     private fun updateCurrentProgram(channel: Channel) {

@@ -18,6 +18,7 @@ data class MainViewState(
     val showEpgPanel: Boolean = false,
     val epgPrograms: List<EpgProgram> = emptyList(),
     val currentProgram: EpgProgram? = null,
+    val selectedProgramDetails: EpgProgram? = null, // Program selected for details view
     val currentProgramsMap: Map<String, EpgProgram?> = emptyMap(), // Always empty - current program display disabled for performance
     val debugMessages: List<DebugMessage> = emptyList(),
     val showDebugLog: Boolean = true,

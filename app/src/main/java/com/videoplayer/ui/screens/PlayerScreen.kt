@@ -57,6 +57,8 @@ fun PlayerScreen(
     onToggleRotation: () -> Unit,
     onOpenSettings: () -> Unit,
     onGoToChannel: () -> Unit,
+    onShowProgramDetails: (EpgProgram) -> Unit,
+    onCloseProgramDetails: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showControls by remember { mutableStateOf(false) }
@@ -214,8 +216,17 @@ fun PlayerScreen(
         if (viewState.showEpgPanel && viewState.epgPrograms.isNotEmpty()) {
             EpgPanel(
                 programs = viewState.epgPrograms,
-                onProgramClick = { /* Handle program click if needed */ },
+                onProgramClick = onShowProgramDetails,
                 modifier = Modifier.align(Alignment.CenterEnd)
+            )
+        }
+
+        // Program Details Panel
+        viewState.selectedProgramDetails?.let { program ->
+            ProgramDetailsPanel(
+                program = program,
+                onClose = onCloseProgramDetails,
+                modifier = Modifier.align(Alignment.Center)
             )
         }
 
@@ -326,7 +337,7 @@ private fun PlaylistPanel(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(vertical = 4.dp, end = 12.dp) // Add end padding for scrollbar
+                    contentPadding = PaddingValues(start = 0.dp, top = 4.dp, end = 12.dp, bottom = 4.dp) // Add end padding for scrollbar
                 ) {
                     itemsIndexed(
                         items = channels,
@@ -466,7 +477,7 @@ private fun EpgPanel(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(vertical = 4.dp, horizontal = 8.dp, end = 16.dp) // Add end padding for scrollbar
+                    contentPadding = PaddingValues(start = 8.dp, top = 4.dp, end = 16.dp, bottom = 4.dp) // Add end padding for scrollbar
                 ) {
                     items(items.size, key = { items[it].first }) { index ->
                         val item = items[index]
@@ -510,6 +521,110 @@ private fun EpgPanel(
                             .offset(y = (scrollProgress.value * 0.9f * 100).dp)
                             .background(MaterialTheme.ruTvColors.gold)
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProgramDetailsPanel(
+    program: EpgProgram,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val timeFormat = SimpleDateFormat("HH:mm, EEEE, MMMM d", Locale.getDefault())
+    val startTimeFormatted = program.startTimeMillis.takeIf { it > 0L }?.let {
+        timeFormat.format(Date(it))
+    } ?: "--"
+
+    Card(
+        modifier = modifier
+            .fillMaxHeight(0.8f)
+            .width(500.dp)
+            .padding(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f)
+        )
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Header with close button
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.program_details_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.ruTvColors.gold
+                )
+                IconButton(onClick = onClose) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = stringResource(R.string.cd_close_playlist),
+                        tint = MaterialTheme.ruTvColors.textPrimary
+                    )
+                }
+            }
+
+            Divider(color = MaterialTheme.ruTvColors.textDisabled)
+
+            // Scrollable content
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                item {
+                    // Program Title
+                    Text(
+                        text = program.title,
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.ruTvColors.gold
+                    )
+                }
+
+                item {
+                    // Start Time
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Schedule,
+                            contentDescription = null,
+                            tint = MaterialTheme.ruTvColors.textSecondary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = startTimeFormatted,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.ruTvColors.textSecondary
+                        )
+                    }
+                }
+
+                if (program.description.isNotEmpty()) {
+                    item {
+                        // Description
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = "Description",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.ruTvColors.textPrimary
+                            )
+                            Text(
+                                text = program.description,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.ruTvColors.textSecondary,
+                                lineHeight = MaterialTheme.typography.bodyMedium.lineHeight
+                            )
+                        }
+                    }
                 }
             }
         }

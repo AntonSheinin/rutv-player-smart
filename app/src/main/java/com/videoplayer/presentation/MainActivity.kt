@@ -85,6 +85,8 @@ class MainActivity : ComponentActivity() {
                 onToggleRotation = { viewModel.toggleRotation() },
                 onOpenSettings = { settingsLauncher.launch(Intent(context, SettingsActivity::class.java)) },
                 onGoToChannel = { showChannelNumberDialog() },
+                onShowProgramDetails = { program -> viewModel.showProgramDetails(program) },
+                onCloseProgramDetails = { viewModel.closeProgramDetails() },
                 modifier = Modifier.fillMaxSize()
             )
         }
