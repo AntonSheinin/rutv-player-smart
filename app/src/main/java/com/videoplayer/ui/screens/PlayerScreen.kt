@@ -108,7 +108,7 @@ fun PlayerScreen(
 
                         // Set custom forward/rewind listener to switch channels
                         findViewById<android.view.View>(androidx.media3.ui.R.id.exo_prev)?.setOnClickListener {
-                            // Switch to previous channel
+                            // Switch to previous channel in full channel list
                             val currentIndex = viewState.currentChannelIndex
                             if (currentIndex > 0) {
                                 onPlayChannel(currentIndex - 1)
@@ -116,7 +116,7 @@ fun PlayerScreen(
                         }
 
                         findViewById<android.view.View>(androidx.media3.ui.R.id.exo_next)?.setOnClickListener {
-                            // Switch to next channel
+                            // Switch to next channel in full channel list
                             val currentIndex = viewState.currentChannelIndex
                             val maxIndex = viewState.channels.size - 1
                             if (currentIndex < maxIndex) {
@@ -136,7 +136,13 @@ fun PlayerScreen(
                 update = { playerView ->
                     playerView.player = it
                     playerView.resizeMode = viewState.currentResizeMode
-                    playerView.rotation = viewState.videoRotation
+
+                    // Rotate the video surface, not the entire player view (including controls)
+                    // Find the video surface view and rotate it
+                    val videoSurfaceView = playerView.videoSurfaceView
+                    if (videoSurfaceView is android.view.View) {
+                        videoSurfaceView.rotation = viewState.videoRotation
+                    }
                 },
                 modifier = Modifier.fillMaxSize()
             )
@@ -317,7 +323,7 @@ private fun PlaylistPanel(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp), // Match EPG panel title height
+                    .padding(horizontal = 16.dp, vertical = 8.dp), // Match program details panel title height
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -464,7 +470,7 @@ private fun EpgPanel(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp), // Increased vertical padding for taller title
+                    .padding(horizontal = 16.dp, vertical = 8.dp), // Match program details panel title height
                 horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -584,10 +590,9 @@ private fun ProgramDetailsPanel(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp),
+                        .fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(vertical = 16.dp)
+                    contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 20.dp, bottom = 16.dp) // Add end padding for scrollbar
                 ) {
                     item {
                         // Program Title
@@ -642,7 +647,11 @@ private fun ProgramDetailsPanel(
                 // Scroll indicator - only show if content is scrollable
                 val canScroll = remember {
                     derivedStateOf {
-                        listState.layoutInfo.let { it.totalItemsCount > 0 && it.visibleItemsInfo.isNotEmpty() }
+                        listState.layoutInfo.let { layoutInfo ->
+                            val totalItemsHeight = layoutInfo.totalItemsCount
+                            val visibleHeight = layoutInfo.visibleItemsInfo.size
+                            totalItemsHeight > visibleHeight
+                        }
                     }
                 }
 
@@ -650,11 +659,25 @@ private fun ProgramDetailsPanel(
                     val scrollProgress = remember {
                         derivedStateOf {
                             val layoutInfo = listState.layoutInfo
-                            val totalHeight = layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset
-                            val contentHeight = layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset
-                            if (contentHeight <= totalHeight) 0f else {
-                                val scrollPosition = -layoutInfo.viewportStartOffset.toFloat()
-                                scrollPosition / (contentHeight - totalHeight).toFloat()
+                            if (layoutInfo.totalItemsCount == 0) {
+                                0f
+                            } else {
+                                // Calculate scroll position based on first visible item
+                                val firstVisibleItemIndex = listState.firstVisibleItemIndex
+                                val firstVisibleItemScrollOffset = listState.firstVisibleItemScrollOffset
+
+                                // Estimate total scrollable content
+                                val totalItems = layoutInfo.totalItemsCount
+                                val averageItemHeight = layoutInfo.visibleItemsInfo.firstOrNull()?.size ?: 1
+                                val totalContentHeight = totalItems * averageItemHeight
+                                val viewportHeight = layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset
+
+                                if (totalContentHeight <= viewportHeight) {
+                                    0f
+                                } else {
+                                    val scrollPosition = firstVisibleItemIndex * averageItemHeight + firstVisibleItemScrollOffset
+                                    (scrollPosition.toFloat() / (totalContentHeight - viewportHeight).toFloat()).coerceIn(0f, 1f)
+                                }
                             }
                         }
                     }
@@ -674,7 +697,7 @@ private fun ProgramDetailsPanel(
                                 .align(Alignment.TopEnd)
                                 .fillMaxWidth()
                                 .fillMaxHeight(thumbHeight)
-                                .offset(y = (minOf(maxOffset, scrollProgress.value) * 100).dp)
+                                .offset(y = (scrollProgress.value * maxOffset * 100).dp)
                                 .background(MaterialTheme.ruTvColors.gold)
                         )
                     }
