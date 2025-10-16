@@ -1,10 +1,12 @@
 package com.videoplayer.presentation.player
 
+import androidx.media3.common.util.UnstableApi
 import com.videoplayer.data.model.Channel
 
 /**
  * Represents the state of the player
  */
+@UnstableApi
 sealed class PlayerState {
     object Idle : PlayerState()
     object Buffering : PlayerState()
@@ -16,12 +18,12 @@ sealed class PlayerState {
 /**
  * Player events
  */
+@UnstableApi
 sealed class PlayerEvent {
     data class ChannelChanged(val channel: Channel, val index: Int) : PlayerEvent()
     data class AudioDecoderInitialized(val decoderName: String) : PlayerEvent()
     data class VideoDecoderInitialized(val decoderName: String) : PlayerEvent()
     data class DroppedFrames(val count: Int, val elapsedMs: Long) : PlayerEvent()
-    data class TracksChanged(val hasAudio: Boolean, val hasVideo: Boolean) : PlayerEvent()
     data class BufferingTimeout(val durationMs: Long) : PlayerEvent()
 }
 
