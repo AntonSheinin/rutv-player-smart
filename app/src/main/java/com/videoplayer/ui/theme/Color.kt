@@ -8,7 +8,7 @@ val GoldAlpha50 = Color(0x80FFD700)
 val DarkBackground = Color(0xFF1A1A1A)
 val CardBackground = Color(0xFF2A2A2A)
 val SelectedBackground = Color(0xFF444444)
-val EpgOpenBackground = Color(0xFFFFAA00) // Bright yellow/orange to indicate EPG panel is open for this channel
+val EpgOpenBackground = Color(0xFF3A3A2A) // Subtle dark color to indicate EPG panel is open (better UX than bright yellow)
 
 // Text Colors
 val TextPrimary = Color(0xFFFFFFFF)

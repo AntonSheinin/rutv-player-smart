@@ -317,7 +317,7 @@ private fun PlaylistPanel(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp), // Reduced vertical padding for narrower title
+                    .padding(horizontal = 16.dp, vertical = 12.dp), // Match EPG panel title height
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -585,8 +585,9 @@ private fun ProgramDetailsPanel(
                     state = listState,
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(start = 16.dp, end = 24.dp, top = 16.dp, bottom = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(vertical = 16.dp)
                 ) {
                     item {
                         // Program Title
@@ -638,44 +639,45 @@ private fun ProgramDetailsPanel(
                     }
                 }
 
-                // Scroll indicator
-                val scrollProgress = remember {
+                // Scroll indicator - only show if content is scrollable
+                val canScroll = remember {
                     derivedStateOf {
-                        val layoutInfo = listState.layoutInfo
-                        if (layoutInfo.totalItemsCount == 0 || layoutInfo.visibleItemsInfo.isEmpty()) {
-                            0f
-                        } else {
-                            val visibleItemsCount = layoutInfo.visibleItemsInfo.size
-                            val totalItemsCount = layoutInfo.totalItemsCount
-
-                            // If all items fit on screen, show at top
-                            if (visibleItemsCount >= totalItemsCount) {
-                                0f
-                            } else {
-                                val firstVisibleItem = listState.firstVisibleItemIndex.toFloat()
-                                val scrollableItems = (totalItemsCount - visibleItemsCount).toFloat()
-                                minOf(1f, firstVisibleItem / scrollableItems)
-                            }
-                        }
+                        listState.layoutInfo.let { it.totalItemsCount > 0 && it.visibleItemsInfo.isNotEmpty() }
                     }
                 }
 
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .fillMaxHeight()
-                        .width(4.dp)
-                        .padding(vertical = 8.dp)
-                        .background(MaterialTheme.ruTvColors.textDisabled.copy(alpha = 0.3f))
-                ) {
+                if (canScroll.value) {
+                    val scrollProgress = remember {
+                        derivedStateOf {
+                            val layoutInfo = listState.layoutInfo
+                            val totalHeight = layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset
+                            val contentHeight = layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset
+                            if (contentHeight <= totalHeight) 0f else {
+                                val scrollPosition = -layoutInfo.viewportStartOffset.toFloat()
+                                scrollPosition / (contentHeight - totalHeight).toFloat()
+                            }
+                        }
+                    }
+
                     Box(
                         modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .fillMaxWidth()
-                            .fillMaxHeight(0.15f)
-                            .offset(y = (scrollProgress.value * (1f - 0.15f) * 100).dp)
-                            .background(MaterialTheme.ruTvColors.gold)
-                    )
+                            .align(Alignment.CenterEnd)
+                            .fillMaxHeight()
+                            .width(4.dp)
+                            .padding(vertical = 8.dp)
+                            .background(MaterialTheme.ruTvColors.textDisabled.copy(alpha = 0.3f))
+                    ) {
+                        val thumbHeight = 0.12f
+                        val maxOffset = 1f - thumbHeight
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .fillMaxWidth()
+                                .fillMaxHeight(thumbHeight)
+                                .offset(y = (minOf(maxOffset, scrollProgress.value) * 100).dp)
+                                .background(MaterialTheme.ruTvColors.gold)
+                        )
+                    }
                 }
             }
         }
