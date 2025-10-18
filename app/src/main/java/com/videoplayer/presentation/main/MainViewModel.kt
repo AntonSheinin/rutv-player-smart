@@ -105,9 +105,13 @@ class MainViewModel @Inject constructor(
                 )
                 // Build current programs cache for fast channel list display
                 epgRepository.buildCurrentProgramsCache()
+                val currentPrograms = epgRepository.getCurrentProgramsSnapshot()
 
                 _viewState.update {
-                    it.copy(epgLoadedTimestamp = System.currentTimeMillis())
+                    it.copy(
+                        epgLoadedTimestamp = System.currentTimeMillis(),
+                        currentProgramsMap = currentPrograms
+                    )
                 }
             } else {
                 Timber.d("No cached EPG found - will fetch when playlist is loaded")
@@ -130,9 +134,11 @@ class MainViewModel @Inject constructor(
             }) {
                 is Result.Success -> {
                     val channels = result.data
+                    val currentPrograms = epgRepository.getCurrentProgramsSnapshot()
                     _viewState.update {
                         it.copy(
                             channels = channels,
+                            currentProgramsMap = currentPrograms,
                             isLoading = false,
                             error = null
                         )
@@ -215,7 +221,10 @@ class MainViewModel @Inject constructor(
 
                     // Update state with timestamp to trigger adapter refresh
                     _viewState.update {
-                        it.copy(epgLoadedTimestamp = System.currentTimeMillis())
+                        it.copy(
+                            epgLoadedTimestamp = System.currentTimeMillis(),
+                            currentProgramsMap = epgRepository.getCurrentProgramsSnapshot()
+                        )
                     }
 
                     // Update current program for current channel
@@ -368,7 +377,23 @@ class MainViewModel @Inject constructor(
     private fun updateCurrentProgram(channel: Channel) {
         if (channel.hasEpg) {
             val program = epgRepository.getCurrentProgram(channel.tvgId)
-            _viewState.update { it.copy(currentProgram = program) }
+            _viewState.update {
+                val updatedMap = it.currentProgramsMap.toMutableMap()
+                updatedMap[channel.tvgId] = program
+                it.copy(
+                    currentProgram = program,
+                    currentProgramsMap = updatedMap
+                )
+            }
+        } else {
+            _viewState.update {
+                val updatedMap = it.currentProgramsMap.toMutableMap()
+                updatedMap.remove(channel.tvgId)
+                it.copy(
+                    currentProgram = null,
+                    currentProgramsMap = updatedMap
+                )
+            }
         }
     }
 

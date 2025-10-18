@@ -450,6 +450,21 @@ class EpgRepository @Inject constructor(
         return epgData.epg[tvgId] ?: emptyList()
     }
 
+    /**
+     * Snapshot of current programs for all channels.
+     * Ensures the cache is populated before returning.
+     */
+    fun getCurrentProgramsSnapshot(): Map<String, EpgProgram?> {
+        val now = System.currentTimeMillis()
+        val cache = currentProgramsCache
+        return if (cache == null || now - currentProgramsCacheTime >= currentProgramsCacheTtl) {
+            buildCurrentProgramsCache()
+            currentProgramsCache ?: emptyMap()
+        } else {
+            cache
+        }
+    }
+
     private fun JsonReader.safeNextString(maxLength: Int): String {
         val value = nextString()
         if (value.length > maxLength) {
