@@ -325,7 +325,8 @@ private fun PlaylistPanel(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .height(56.dp)
+                    .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -472,8 +473,9 @@ private fun EpgPanel(
     // Auto-scroll to current program when panel opens (center it in viewport)
     LaunchedEffect(scrollToIndex, items.size) {
         if (scrollToIndex >= 0 && scrollToIndex < items.size) {
-            // Scroll with offset to center the item in viewport
-            listState.animateScrollToItem(scrollToIndex, scrollOffset = -200)
+            // Jump close to the current program immediately, then apply a small offset animation.
+            listState.scrollToItem(scrollToIndex)
+            listState.animateScrollBy(-200f)
         }
     }
 
@@ -492,7 +494,8 @@ private fun EpgPanel(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .height(56.dp)
+                    .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically
             ) {
