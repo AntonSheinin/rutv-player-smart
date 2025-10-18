@@ -47,6 +47,7 @@
     <string name="settings_back">Back</string>
     <string name="settings_current_file">File</string>
     <string name="settings_current_url">URL</string>
+    <string name="settings_unknown_file">Unknown file</string>
 
     <!-- Channel Info -->
     <string name="epg_panel_title">Programs guide</string>

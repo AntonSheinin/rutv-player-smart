@@ -8,12 +8,12 @@ plugins {
 
 android {
     namespace 'com.videoplayer'
-    compileSdk 36
+    compileSdk 35
 
     defaultConfig {
         applicationId "com.videoplayer"
         minSdk 24
-        targetSdk 36
+        targetSdk 35
         versionCode 5
         versionName "1.4"
     }
@@ -54,8 +54,8 @@ android {
 
     buildFeatures {
         compose true
-        buildConfig true
     }
+    buildFeatures.buildConfig = true
 
     composeOptions {
         kotlinCompilerExtensionVersion = '1.7.3'

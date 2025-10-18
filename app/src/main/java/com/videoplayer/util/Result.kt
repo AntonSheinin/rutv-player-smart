@@ -1,8 +1,8 @@
 package com.videoplayer.util
 
 /**
- * A sealed class representing the result of an operation.
- * This provides type-safe error handling.
+ * Lightweight sealed result type used across the player codebase.
+ * Mirrors the former implementation so call sites remain unchanged.
  */
 sealed class Result<out T> {
     data class Success<T>(val data: T) : Result<T>()

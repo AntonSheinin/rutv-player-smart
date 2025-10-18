@@ -57,8 +57,8 @@ class SettingsActivity : ComponentActivity() {
 
         SettingsScreen(
             viewState = viewState,
-            onLoadFile = { content ->
-                viewModel.savePlaylistFromFile(content)
+            onLoadFile = { content, displayName ->
+                viewModel.savePlaylistFromFile(content, displayName)
                 finish()
             },
             onLoadUrl = { url ->

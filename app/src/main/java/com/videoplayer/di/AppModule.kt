@@ -21,6 +21,7 @@ import javax.inject.Singleton
  */
 @Module
 @InstallIn(SingletonComponent::class)
+@Suppress("unused")
 object AppModule {
 
     @Provides
@@ -45,7 +46,6 @@ object AppModule {
     @Singleton
     fun provideGson(): Gson {
         return GsonBuilder()
-            .setLenient()
             .create()
     }
 }

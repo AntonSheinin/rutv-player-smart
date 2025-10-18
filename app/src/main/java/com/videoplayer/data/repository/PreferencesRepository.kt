@@ -34,6 +34,7 @@ class PreferencesRepository @Inject constructor(
         val PLAYLIST_TYPE = stringPreferencesKey("playlist_type")
         val PLAYLIST_CONTENT = stringPreferencesKey("playlist_content")
         val PLAYLIST_URL = stringPreferencesKey("playlist_url")
+        val PLAYLIST_FILE_NAME = stringPreferencesKey("playlist_file_name")
         val PLAYLIST_HASH = stringPreferencesKey("playlist_hash")
 
         val EPG_URL = stringPreferencesKey("epg_url")
@@ -64,7 +65,8 @@ class PreferencesRepository @Inject constructor(
             when (type) {
                 PlaylistSource.TYPE_FILE -> {
                     val content = preferences[PreferencesKeys.PLAYLIST_CONTENT] ?: ""
-                    PlaylistSource.File(content)
+                    val displayName = preferences[PreferencesKeys.PLAYLIST_FILE_NAME]
+                    PlaylistSource.File(content, displayName)
                 }
                 PlaylistSource.TYPE_URL -> {
                     val url = preferences[PreferencesKeys.PLAYLIST_URL] ?: ""
@@ -74,10 +76,15 @@ class PreferencesRepository @Inject constructor(
             }
         }
 
-    suspend fun savePlaylistFromFile(content: String) {
+    suspend fun savePlaylistFromFile(content: String, displayName: String?) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.PLAYLIST_TYPE] = PlaylistSource.TYPE_FILE
             preferences[PreferencesKeys.PLAYLIST_CONTENT] = content
+            if (!displayName.isNullOrBlank()) {
+                preferences[PreferencesKeys.PLAYLIST_FILE_NAME] = displayName
+            } else {
+                preferences.remove(PreferencesKeys.PLAYLIST_FILE_NAME)
+            }
             preferences.remove(PreferencesKeys.PLAYLIST_URL)
         }
         Timber.d("Saved playlist from file")
@@ -88,6 +95,7 @@ class PreferencesRepository @Inject constructor(
             preferences[PreferencesKeys.PLAYLIST_TYPE] = PlaylistSource.TYPE_URL
             preferences[PreferencesKeys.PLAYLIST_URL] = url
             preferences.remove(PreferencesKeys.PLAYLIST_CONTENT)
+            preferences.remove(PreferencesKeys.PLAYLIST_FILE_NAME)
         }
         Timber.d("Saved playlist from URL: $url")
     }

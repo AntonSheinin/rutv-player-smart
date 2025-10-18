@@ -1,6 +1,7 @@
 package com.videoplayer.ui.screens
 
 import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -33,7 +34,7 @@ import timber.log.Timber
 @Composable
 fun SettingsScreen(
     viewState: SettingsViewState,
-    onLoadFile: (String) -> Unit,
+    onLoadFile: (String, String?) -> Unit,
     onLoadUrl: (String) -> Unit,
     onReloadPlaylist: () -> Unit,
     onForceEpgFetch: () -> Unit,
@@ -58,11 +59,25 @@ fun SettingsScreen(
     ) { uri: Uri? ->
         uri?.let {
             try {
+                val displayName = context.contentResolver.query(
+                    it,
+                    arrayOf(OpenableColumns.DISPLAY_NAME),
+                    null,
+                    null,
+                    null
+                )?.use { cursor ->
+                    val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (index != -1 && cursor.moveToFirst()) {
+                        cursor.getString(index)
+                    } else {
+                        null
+                    }
+                }
                 val content = context.contentResolver.openInputStream(it)
                     ?.bufferedReader()
                     ?.use { reader -> reader.readText() }
                 content?.let { fileContent ->
-                    onLoadFile(fileContent)
+                    onLoadFile(fileContent, displayName)
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Failed to load playlist from URI")
@@ -125,7 +140,8 @@ fun SettingsScreen(
                         playlistSource = viewState.playlistSource,
                         playlistInfo = viewState.playlistInfo,
                         playlistUrl = viewState.playlistUrl.orEmpty(),
-                        urlName = viewState.urlName
+                        urlName = viewState.urlName,
+                        fileName = viewState.fileName
                     )
             }
 
@@ -231,8 +247,7 @@ fun SettingsScreen(
                 TextInputSetting(
                     label = stringResource(R.string.settings_epg_url),
                     value = viewState.epgUrl,
-                    onValueChange = onEpgUrlChanged,
-                    placeholder = "https://example.com/epg.xml"
+                    onValueChange = onEpgUrlChanged
                 )
             }
 
@@ -328,7 +343,8 @@ private fun PlaylistInfoCard(
     playlistSource: PlaylistSource,
     playlistInfo: String,
     playlistUrl: String,
-    urlName: String
+    urlName: String,
+    fileName: String?
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -346,23 +362,17 @@ private fun PlaylistInfoCard(
             when (playlistSource) {
                 is PlaylistSource.Url -> {
                     Spacer(modifier = Modifier.height(8.dp))
+                    val urlDisplay = playlistUrl.ifEmpty { urlName }
                     Text(
-                        text = "${stringResource(R.string.settings_current_url)}: $urlName",
+                        text = "${stringResource(R.string.settings_current_url)}: $urlDisplay",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.ruTvColors.textSecondary
                     )
-                    if (playlistUrl.isNotEmpty()) {
-                        Text(
-                            text = playlistUrl,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.ruTvColors.textHint
-                        )
-                    }
                 }
                 is PlaylistSource.File -> {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "${stringResource(R.string.settings_current_file)}: ${stringResource(R.string.status_file)}",
+                        text = "${stringResource(R.string.settings_current_file)}: ${fileName ?: stringResource(R.string.settings_unknown_file)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.ruTvColors.textSecondary
                     )
@@ -410,8 +420,7 @@ private fun TextInputSetting(
     label: String,
     value: String,
     onValueChange: (String) -> Unit,
-    modifier: Modifier = Modifier,
-    placeholder: String = ""
+    modifier: Modifier = Modifier
 ) {
     // Use local state to avoid immediate updates while typing
     var localValue by remember(value) { mutableStateOf(value) }
@@ -434,7 +443,6 @@ private fun TextInputSetting(
         OutlinedTextField(
             value = localValue,
             onValueChange = { localValue = it },
-            placeholder = { Text(placeholder) },
             modifier = Modifier
                 .fillMaxWidth()
                 .onFocusChanged { focusState ->

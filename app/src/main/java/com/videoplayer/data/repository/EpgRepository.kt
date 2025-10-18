@@ -454,7 +454,7 @@ class EpgRepository @Inject constructor(
         val value = nextString()
         if (value.length > maxLength) {
             if (!truncationWarningLogged) {
-                Timber.w("EPG field at ${path} truncated to $maxLength characters (further truncation messages suppressed)")
+                Timber.w("EPG field at $path truncated to $maxLength characters (further truncation messages suppressed)")
                 truncationWarningLogged = true
             }
             return value.take(maxLength)

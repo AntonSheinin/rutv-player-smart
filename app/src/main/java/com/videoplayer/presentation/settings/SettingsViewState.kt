@@ -28,15 +28,18 @@ data class SettingsViewState(
             else -> null
         }
 
-    val fileName: String
-        get() = when (playlistSource) {
-            is PlaylistSource.File -> "File"
-            else -> "None"
+    val fileName: String?
+        get() = when (val source = playlistSource) {
+            is PlaylistSource.File -> source.displayName?.takeIf { it.isNotBlank() }
+            else -> null
         }
 
     val urlName: String
-        get() = when (playlistSource) {
-            is PlaylistSource.Url -> playlistSource.url.substringAfterLast('/').take(20)
-            else -> "None"
+        get() = when (val source = playlistSource) {
+            is PlaylistSource.Url -> {
+                val lastSegment = source.url.substringAfterLast('/').takeIf { it.isNotBlank() }
+                lastSegment ?: source.url
+            }
+            else -> ""
         }
 }

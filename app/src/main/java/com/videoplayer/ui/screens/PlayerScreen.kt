@@ -1,5 +1,3 @@
-@file:OptIn(UnstableApi::class)
-
 package com.videoplayer.ui.screens
 
 import android.view.ViewGroup
@@ -7,6 +5,7 @@ import android.widget.FrameLayout
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
@@ -314,7 +313,8 @@ private fun PlaylistPanel(
             .padding(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f)
-        )
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.ruTvColors.textDisabled.copy(alpha = 0.4f))
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Header
@@ -461,7 +461,8 @@ private fun EpgPanel(
             .padding(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f)
-        )
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.ruTvColors.textDisabled.copy(alpha = 0.4f))
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Header
@@ -554,7 +555,9 @@ private fun ProgramDetailsPanel(
             .padding(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f)
-        )
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.ruTvColors.textDisabled.copy(alpha = 0.4f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Header with close button

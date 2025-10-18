@@ -1,5 +1,3 @@
-@file:OptIn(UnstableApi::class)
-
 package com.videoplayer.ui.components
 
 import androidx.compose.foundation.clickable
@@ -18,7 +16,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.media3.common.util.UnstableApi
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import coil.size.Precision

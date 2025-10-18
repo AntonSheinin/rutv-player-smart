@@ -4,7 +4,7 @@ package com.videoplayer.data.model
  * Represents the source of a playlist
  */
 sealed class PlaylistSource {
-    data class File(val content: String) : PlaylistSource()
+    data class File(val content: String, val displayName: String? = null) : PlaylistSource()
     data class Url(val url: String) : PlaylistSource()
     object None : PlaylistSource()
 

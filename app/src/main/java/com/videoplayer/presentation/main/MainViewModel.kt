@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package com.videoplayer.presentation.main
 
 import androidx.lifecycle.ViewModel
@@ -280,11 +282,13 @@ class MainViewModel @Inject constructor(
      * Toggle playlist visibility
      */
     fun togglePlaylist() {
-        _viewState.update {
-            it.copy(
-                showPlaylist = !it.showPlaylist,
+        _viewState.update { current ->
+            val showPlaylist = !current.showPlaylist
+            current.copy(
+                showPlaylist = showPlaylist,
                 showFavoritesOnly = false,
-                showEpgPanel = false
+                showEpgPanel = false,
+                selectedProgramDetails = if (showPlaylist) current.selectedProgramDetails else null
             )
         }
     }
@@ -306,10 +310,11 @@ class MainViewModel @Inject constructor(
      * Close playlist
      */
     fun closePlaylist() {
-        _viewState.update {
-            it.copy(
+        _viewState.update { current ->
+            current.copy(
                 showPlaylist = false,
-                showEpgPanel = false
+                showEpgPanel = false,
+                selectedProgramDetails = null
             )
         }
     }
