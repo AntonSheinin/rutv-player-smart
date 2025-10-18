@@ -10,8 +10,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.*
@@ -19,10 +21,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
@@ -314,7 +318,7 @@ private fun PlaylistPanel(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f)
         ),
-        border = BorderStroke(1.dp, MaterialTheme.ruTvColors.textDisabled.copy(alpha = 0.4f))
+        border = BorderStroke(2.dp, MaterialTheme.ruTvColors.gold.copy(alpha = 0.7f))
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Header
@@ -367,29 +371,48 @@ private fun PlaylistPanel(
                 }
 
                 // Scroll indicator
-                val scrollProgress = remember {
-                    derivedStateOf {
-                        if (channels.isEmpty()) 0f
-                        else listState.firstVisibleItemIndex.toFloat() / channels.size.toFloat()
-                    }
+                val showScrollbar = remember {
+                    derivedStateOf { listState.canScrollForward || listState.canScrollBackward }
                 }
 
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .fillMaxHeight()
-                        .width(4.dp)
-                        .padding(vertical = 8.dp)
-                        .background(MaterialTheme.ruTvColors.textDisabled.copy(alpha = 0.3f))
-                ) {
-                    Box(
+                if (showScrollbar.value) {
+                    val scrollProgress = remember { derivedStateOf { calculateScrollProgress(listState) } }
+                    val thumbFraction = 0.18f
+                    val trackFraction = 1f - thumbFraction
+                    val topWeight = (scrollProgress.value * trackFraction).coerceIn(0f, trackFraction)
+                    val bottomWeight = (trackFraction - topWeight).coerceAtLeast(0f)
+
+                    Column(
                         modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .fillMaxWidth()
-                            .fillMaxHeight(0.1f)
-                            .offset(y = (scrollProgress.value * 0.9f * 100).dp)
-                            .background(MaterialTheme.ruTvColors.gold)
-                    )
+                            .align(Alignment.CenterEnd)
+                            .fillMaxHeight()
+                            .width(6.dp)
+                            .padding(vertical = 8.dp)
+                            .background(MaterialTheme.ruTvColors.textDisabled.copy(alpha = 0.25f), RoundedCornerShape(3.dp))
+                            .padding(horizontal = 1.dp, vertical = 4.dp)
+                    ) {
+                        if (topWeight > 0f) {
+                            Spacer(
+                                modifier = Modifier
+                                    .weight(topWeight)
+                                    .fillMaxWidth()
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .weight(thumbFraction)
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(MaterialTheme.ruTvColors.gold)
+                        )
+                        if (bottomWeight > 0f) {
+                            Spacer(
+                                modifier = Modifier
+                                    .weight(bottomWeight)
+                                    .fillMaxWidth()
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -462,7 +485,7 @@ private fun EpgPanel(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f)
         ),
-        border = BorderStroke(1.dp, MaterialTheme.ruTvColors.textDisabled.copy(alpha = 0.4f))
+        border = BorderStroke(2.dp, MaterialTheme.ruTvColors.gold.copy(alpha = 0.7f))
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Header
@@ -508,29 +531,48 @@ private fun EpgPanel(
                 }
 
                 // Scroll indicator
-                val scrollProgress = remember {
-                    derivedStateOf {
-                        if (items.isEmpty()) 0f
-                        else listState.firstVisibleItemIndex.toFloat() / items.size.toFloat()
-                    }
+                val showScrollbar = remember {
+                    derivedStateOf { listState.canScrollForward || listState.canScrollBackward }
                 }
 
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .fillMaxHeight()
-                        .width(4.dp)
-                        .padding(vertical = 8.dp)
-                        .background(MaterialTheme.ruTvColors.textDisabled.copy(alpha = 0.3f))
-                ) {
-                    Box(
+                if (showScrollbar.value) {
+                    val scrollProgress = remember { derivedStateOf { calculateScrollProgress(listState) } }
+                    val thumbFraction = 0.18f
+                    val trackFraction = 1f - thumbFraction
+                    val topWeight = (scrollProgress.value * trackFraction).coerceIn(0f, trackFraction)
+                    val bottomWeight = (trackFraction - topWeight).coerceAtLeast(0f)
+
+                    Column(
                         modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .fillMaxWidth()
-                            .fillMaxHeight(0.1f)
-                            .offset(y = (scrollProgress.value * 0.9f * 100).dp)
-                            .background(MaterialTheme.ruTvColors.gold)
-                    )
+                            .align(Alignment.CenterEnd)
+                            .fillMaxHeight()
+                            .width(6.dp)
+                            .padding(vertical = 8.dp)
+                            .background(MaterialTheme.ruTvColors.textDisabled.copy(alpha = 0.25f), RoundedCornerShape(3.dp))
+                            .padding(horizontal = 1.dp, vertical = 4.dp)
+                    ) {
+                        if (topWeight > 0f) {
+                            Spacer(
+                                modifier = Modifier
+                                    .weight(topWeight)
+                                    .fillMaxWidth()
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .weight(thumbFraction)
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(MaterialTheme.ruTvColors.gold)
+                        )
+                        if (bottomWeight > 0f) {
+                            Spacer(
+                                modifier = Modifier
+                                    .weight(bottomWeight)
+                                    .fillMaxWidth()
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -556,8 +598,8 @@ private fun ProgramDetailsPanel(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f)
         ),
-        border = BorderStroke(1.dp, MaterialTheme.ruTvColors.textDisabled.copy(alpha = 0.4f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
+        border = BorderStroke(2.dp, MaterialTheme.ruTvColors.gold.copy(alpha = 0.7f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 24.dp)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Header with close button
@@ -638,74 +680,82 @@ private fun ProgramDetailsPanel(
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.ruTvColors.textSecondary,
                                     lineHeight = MaterialTheme.typography.bodyMedium.lineHeight,
-                                    maxLines = Int.MAX_VALUE
+                                    maxLines = Int.MAX_VALUE,
+                                    overflow = TextOverflow.Visible,
+                                    softWrap = true,
+                                    modifier = Modifier.fillMaxWidth()
                                 )
                             }
                         }
                     }
                 }
 
-                // Scroll indicator - only show if content is scrollable
-                val canScroll = remember {
-                    derivedStateOf {
-                        listState.layoutInfo.let { layoutInfo ->
-                            val totalItemsHeight = layoutInfo.totalItemsCount
-                            val visibleHeight = layoutInfo.visibleItemsInfo.size
-                            totalItemsHeight > visibleHeight
-                        }
-                    }
+                // Scroll indicator
+                val showScrollbar = remember {
+                    derivedStateOf { listState.canScrollForward || listState.canScrollBackward }
                 }
 
-                if (canScroll.value) {
-                    val scrollProgress = remember {
-                        derivedStateOf {
-                            val layoutInfo = listState.layoutInfo
-                            if (layoutInfo.totalItemsCount == 0) {
-                                0f
-                            } else {
-                                // Calculate scroll position based on first visible item
-                                val firstVisibleItemIndex = listState.firstVisibleItemIndex
-                                val firstVisibleItemScrollOffset = listState.firstVisibleItemScrollOffset
+                if (showScrollbar.value) {
+                    val scrollProgress = remember { derivedStateOf { calculateScrollProgress(listState) } }
+                    val thumbFraction = 0.18f
+                    val trackFraction = 1f - thumbFraction
+                    val topWeight = (scrollProgress.value * trackFraction).coerceIn(0f, trackFraction)
+                    val bottomWeight = (trackFraction - topWeight).coerceAtLeast(0f)
 
-                                // Estimate total scrollable content
-                                val totalItems = layoutInfo.totalItemsCount
-                                val averageItemHeight = layoutInfo.visibleItemsInfo.firstOrNull()?.size ?: 1
-                                val totalContentHeight = totalItems * averageItemHeight
-                                val viewportHeight = layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset
-
-                                if (totalContentHeight <= viewportHeight) {
-                                    0f
-                                } else {
-                                    val scrollPosition = firstVisibleItemIndex * averageItemHeight + firstVisibleItemScrollOffset
-                                    (scrollPosition.toFloat() / (totalContentHeight - viewportHeight).toFloat()).coerceIn(0f, 1f)
-                                }
-                            }
-                        }
-                    }
-
-                    Box(
+                    Column(
                         modifier = Modifier
                             .align(Alignment.CenterEnd)
                             .fillMaxHeight()
-                            .width(4.dp)
+                            .width(6.dp)
                             .padding(vertical = 8.dp)
-                            .background(MaterialTheme.ruTvColors.textDisabled.copy(alpha = 0.3f))
+                            .background(MaterialTheme.ruTvColors.textDisabled.copy(alpha = 0.25f), RoundedCornerShape(3.dp))
+                            .padding(horizontal = 1.dp, vertical = 4.dp)
                     ) {
-                        val thumbHeight = 0.12f
-                        val maxOffset = 1f - thumbHeight
+                        if (topWeight > 0f) {
+                            Spacer(
+                                modifier = Modifier
+                                    .weight(topWeight)
+                                    .fillMaxWidth()
+                            )
+                        }
                         Box(
                             modifier = Modifier
-                                .align(Alignment.TopEnd)
+                                .weight(thumbFraction)
                                 .fillMaxWidth()
-                                .fillMaxHeight(thumbHeight)
-                                .offset(y = (scrollProgress.value * maxOffset * 100).dp)
+                                .clip(RoundedCornerShape(3.dp))
                                 .background(MaterialTheme.ruTvColors.gold)
                         )
+                        if (bottomWeight > 0f) {
+                            Spacer(
+                                modifier = Modifier
+                                    .weight(bottomWeight)
+                                    .fillMaxWidth()
+                            )
+                        }
                     }
                 }
             }
         }
     }
+}
+
+private fun calculateScrollProgress(listState: LazyListState): Float {
+    val layoutInfo = listState.layoutInfo
+    val totalItems = layoutInfo.totalItemsCount
+    if (totalItems == 0) return 0f
+
+    val averageItemSize = layoutInfo.visibleItemsInfo
+        .takeIf { it.isNotEmpty() }
+        ?.map { it.size }
+        ?.average()
+        ?.coerceAtLeast(1.0)
+        ?: return 0f
+
+    val viewportSize = (layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset).coerceAtLeast(1)
+    val totalContentHeight = (averageItemSize * totalItems).toInt()
+    val maxScroll = (totalContentHeight - viewportSize).coerceAtLeast(1)
+    val scrolled = (listState.firstVisibleItemIndex * averageItemSize + listState.firstVisibleItemScrollOffset).toInt()
+    return (scrolled.toFloat() / maxScroll.toFloat()).coerceIn(0f, 1f)
 }
 
 @Composable
