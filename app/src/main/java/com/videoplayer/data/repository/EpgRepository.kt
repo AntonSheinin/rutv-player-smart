@@ -480,5 +480,5 @@ class EpgRepository @Inject constructor(
 private const val MAX_FIELD_LENGTH_ID = 128
 private const val MAX_FIELD_LENGTH_TIME = 64
 private const val MAX_FIELD_LENGTH_TITLE = 256
-private const val MAX_FIELD_LENGTH_DESCRIPTION = 512
+private const val MAX_FIELD_LENGTH_DESCRIPTION = 1_024
 private var truncationWarningLogged = false
