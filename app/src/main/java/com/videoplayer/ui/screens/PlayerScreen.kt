@@ -475,7 +475,10 @@ private fun EpgPanel(
         if (scrollToIndex >= 0 && scrollToIndex < items.size) {
             // Jump close to the current program immediately, then apply a small offset animation.
             listState.scrollToItem(scrollToIndex)
-            listState.animateScrollBy(-200f)
+            listState.animateScrollToItem(
+                scrollToIndex,
+                scrollOffset = -200
+            )
         }
     }
 
