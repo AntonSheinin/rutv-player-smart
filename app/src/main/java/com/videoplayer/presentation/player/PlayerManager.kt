@@ -9,6 +9,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DataSourceInputStream
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
@@ -45,6 +46,8 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
+import java.nio.charset.StandardCharsets
+import kotlin.math.min
 
 @UnstableApi
 @Singleton
@@ -472,29 +475,79 @@ class PlayerManager @Inject constructor(
 
     private fun probeArchiveUri(uri: Uri) {
         networkScope.launch {
-            val dataSource = ensureHttpDataSourceFactory().createDataSource()
+            val factory = ensureHttpDataSourceFactory()
+            val headSource = factory.createDataSource()
             try {
-                val httpDataSource = dataSource as DefaultHttpDataSource
-                val dataSpec = DataSpec.Builder()
+                val headSpec = DataSpec.Builder()
                     .setUri(uri)
                     .setHttpMethod(DataSpec.HTTP_METHOD_HEAD)
                     .build()
-                httpDataSource.open(dataSpec)
-                val resolved = httpDataSource.uri ?: uri
-                val headers = httpDataSource.responseHeaders
+                headSource.open(headSpec)
+                val resolved = headSource.uri ?: uri
+                val headers = (headSource as? DefaultHttpDataSource)?.responseHeaders.orEmpty()
                 val contentType = headers["Content-Type"]?.firstOrNull()
                 val contentLength = headers["Content-Length"]?.firstOrNull()
                 addDebugMessage(
                     "DVR: Probe ${maskSensitive(resolved)} (${contentType ?: "content-type=?"}, len=${contentLength ?: "?"})"
                 )
+                fetchManifestPreview(factory, resolved)
             } catch (e: Exception) {
                 addDebugMessage("DVR: Probe failed (${e.message ?: "unknown error"})")
             } finally {
                 try {
-                    dataSource.close()
+                    headSource.close()
                 } catch (_: Exception) {
                     // Ignore close errors
                 }
+            }
+        }
+    }
+
+    private fun fetchManifestPreview(
+        factory: DefaultHttpDataSource.Factory,
+        uri: Uri
+    ) {
+        val source = factory.createDataSource()
+        try {
+            val dataSpec = DataSpec.Builder()
+                .setUri(uri)
+                .setHttpMethod(DataSpec.HTTP_METHOD_GET)
+                .build()
+            val inputStream = DataSourceInputStream(source, dataSpec)
+            inputStream.use { stream ->
+                val buffer = ByteArray(1024)
+                val builder = StringBuilder()
+                var totalRead = 0
+                while (totalRead < 2048) {
+                    val bytesToRead = min(buffer.size, 2048 - totalRead)
+                    val read = stream.read(buffer, 0, bytesToRead)
+                    if (read <= 0) break
+                    builder.append(String(buffer, 0, read, StandardCharsets.UTF_8))
+                    totalRead += read
+                }
+                val manifest = builder.toString()
+                if (manifest.isNotBlank()) {
+                    val preview = manifest.lineSequence()
+                        .map { it.trim() }
+                        .filter { it.isNotEmpty() }
+                        .take(6)
+                        .joinToString(" | ")
+                    if (preview.isNotEmpty()) {
+                        addDebugMessage("DVR: Manifest ${maskSensitive(preview)}")
+                    } else {
+                        addDebugMessage("DVR: Manifest (only blank lines)")
+                    }
+                } else {
+                    addDebugMessage("DVR: Manifest empty response")
+                }
+            }
+        } catch (e: Exception) {
+            addDebugMessage("DVR: Manifest fetch failed (${e.message ?: "unknown error"})")
+        } finally {
+            try {
+                source.close()
+            } catch (_: Exception) {
+                // Ignore close errors
             }
         }
     }
