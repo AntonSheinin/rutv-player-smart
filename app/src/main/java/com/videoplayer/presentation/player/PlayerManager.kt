@@ -643,9 +643,12 @@ class PlayerManager @Inject constructor(
         _debugMessages.tryEmit(DebugMessage(message))
     }
 
-    private fun maskSensitive(uri: Uri): String {
-        val pattern = Regex("(?i)((token|auth|sig|key|session)[^=]*)=[^&]*")
-        return uri.toString().replace(pattern) { matchResult ->
+    private val sensitivePattern = Regex("(?i)((token|auth|sig|key|session)[^=]*)=[^&]*")
+
+    private fun maskSensitive(uri: Uri): String = maskSensitive(uri.toString())
+
+    private fun maskSensitive(text: CharSequence): String {
+        return sensitivePattern.replace(text) { matchResult ->
             "${matchResult.groups[1]?.value}=***"
         }
     }
