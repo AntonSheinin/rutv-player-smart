@@ -429,32 +429,18 @@ class EpgRepository @Inject constructor(
      * Rebuild the current-program cache in batches to avoid long blocking work.
      * The [onBatch] callback receives incremental updates that can be applied to UI state.
      */
-    suspend fun refreshCurrentProgramsCache(
-        batchSize: Int = 100,
-        onBatch: (Map<String, EpgProgram?>) -> Unit = {}
-    ) {
+    suspend fun refreshCurrentProgramsCache(batchSize: Int = 100) {
         val epgData = cachedEpgData ?: loadEpgData() ?: return
 
         val cache = mutableMapOf<String, EpgProgram?>()
-        val batch = mutableMapOf<String, EpgProgram?>()
         val now = System.currentTimeMillis()
-        var processed = 0
 
         for ((tvgId, programs) in epgData.epg) {
             val current = programs.firstOrNull { it.isCurrent(now) }
             cache[tvgId] = current
-            batch[tvgId] = current
-            processed++
-
-            if (batch.size >= batchSize) {
-                onBatch(batch.toMap())
-                batch.clear()
+            if (cache.size % batchSize == 0) {
                 kotlinx.coroutines.yield()
             }
-        }
-
-        if (batch.isNotEmpty()) {
-            onBatch(batch.toMap())
         }
 
         currentProgramsCache = cache

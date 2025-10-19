@@ -103,14 +103,12 @@ class MainViewModel @Inject constructor(
                         "EPG: Loaded cached data (${cachedEpg.totalPrograms} programs for ${cachedEpg.channelsFound} channels)"
                     )
                 )
-                epgRepository.refreshCurrentProgramsCache { batch ->
-                    _viewState.update { state ->
-                        state.copy(currentProgramsMap = state.currentProgramsMap + batch)
-                    }
-                }
-
+                epgRepository.refreshCurrentProgramsCache()
                 _viewState.update {
-                    it.copy(epgLoadedTimestamp = System.currentTimeMillis())
+                    it.copy(
+                        epgLoadedTimestamp = System.currentTimeMillis(),
+                        currentProgramsMap = epgRepository.getCurrentProgramsSnapshot()
+                    )
                 }
             } else {
                 Timber.d("No cached EPG found - will fetch when playlist is loaded")
@@ -136,7 +134,7 @@ class MainViewModel @Inject constructor(
                     _viewState.update {
                         it.copy(
                             channels = channels,
-                            currentProgramsMap = emptyMap(),
+                            currentProgramsMap = epgRepository.getCurrentProgramsSnapshot(),
                             isLoading = false,
                             error = null
                         )
@@ -144,10 +142,9 @@ class MainViewModel @Inject constructor(
 
                     if (channels.isNotEmpty()) {
                         viewModelScope.launch(Dispatchers.Default) {
-                            epgRepository.refreshCurrentProgramsCache { batch ->
-                                _viewState.update { state ->
-                                    state.copy(currentProgramsMap = state.currentProgramsMap + batch)
-                                }
+                            epgRepository.refreshCurrentProgramsCache()
+                            _viewState.update { state ->
+                                state.copy(currentProgramsMap = epgRepository.getCurrentProgramsSnapshot())
                             }
                         }
 
@@ -221,15 +218,14 @@ class MainViewModel @Inject constructor(
                     )
 
                     withContext(Dispatchers.Default) {
-                        epgRepository.refreshCurrentProgramsCache { batch ->
-                            _viewState.update { state ->
-                                state.copy(currentProgramsMap = state.currentProgramsMap + batch)
-                            }
-                        }
+                        epgRepository.refreshCurrentProgramsCache()
                     }
 
                     _viewState.update {
-                        it.copy(epgLoadedTimestamp = System.currentTimeMillis())
+                        it.copy(
+                            epgLoadedTimestamp = System.currentTimeMillis(),
+                            currentProgramsMap = epgRepository.getCurrentProgramsSnapshot()
+                        )
                     }
 
                     // Update current program for current channel
@@ -340,6 +336,12 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             val programs = epgRepository.getProgramsForChannel(tvgId)
             val currentProgram = epgRepository.getCurrentProgram(tvgId)
+
+            _viewState.update { state ->
+                val updatedMap = state.currentProgramsMap.toMutableMap()
+                updatedMap[tvgId] = currentProgram
+                state.copy(currentProgramsMap = updatedMap)
+            }
 
             appendDebugMessage(
                 DebugMessage(
