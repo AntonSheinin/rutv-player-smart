@@ -133,11 +133,10 @@ class MainViewModel @Inject constructor(
             }) {
                 is Result.Success -> {
                     val channels = result.data
-                    val currentPrograms = epgRepository.getCurrentProgramsSnapshot()
                     _viewState.update {
                         it.copy(
                             channels = channels,
-                            currentProgramsMap = currentPrograms,
+                            currentProgramsMap = emptyMap(),
                             isLoading = false,
                             error = null
                         )

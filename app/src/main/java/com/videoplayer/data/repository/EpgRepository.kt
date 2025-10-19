@@ -475,14 +475,7 @@ class EpgRepository @Inject constructor(
      * Ensures the cache is populated before returning.
      */
     fun getCurrentProgramsSnapshot(): Map<String, EpgProgram?> {
-        val now = System.currentTimeMillis()
-        val cache = currentProgramsCache
-        return if (cache == null || now - currentProgramsCacheTime >= currentProgramsCacheTtl) {
-            refreshCurrentProgramsCache()
-            currentProgramsCache ?: emptyMap()
-        } else {
-            cache
-        }
+        return currentProgramsCache ?: emptyMap()
     }
 
     private fun JsonReader.safeNextString(maxLength: Int): String {
