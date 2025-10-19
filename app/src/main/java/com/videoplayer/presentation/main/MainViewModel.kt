@@ -399,7 +399,8 @@ class MainViewModel @Inject constructor(
     }
 
     private fun startArchivePlayback(channel: Channel, program: EpgProgram) {
-        playerManager.playArchive(channel, program)
+        val started = playerManager.playArchive(channel, program)
+        if (!started) return
         val channelIndex = _viewState.value.channels.indexOfFirst { it.url == channel.url }.coerceAtLeast(0)
 
         _viewState.update {

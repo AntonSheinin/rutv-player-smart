@@ -27,14 +27,13 @@ data class Channel(
 
     fun buildArchiveUrl(program: EpgProgram): String? {
         if (!hasEpg) return null
-        val sourceTemplate = catchupSource
-        if (sourceTemplate.isBlank()) return null
+        val template = if (catchupSource.isBlank()) "?utc={utc}" else catchupSource
 
         val startSeconds = (program.startTimeMillis / 1000L).coerceAtLeast(0)
         val durationSeconds = ((program.stopTimeMillis - program.startTimeMillis) / 1000L)
             .coerceAtLeast(60)
 
-        val filled = sourceTemplate
+        val filled = template
             .replace("{utc}", startSeconds.toString())
             .replace("{start}", startSeconds.toString())
             .replace("{duration}", durationSeconds.toString())

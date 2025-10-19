@@ -389,12 +389,12 @@ class PlayerManager @Inject constructor(
         }
     }
 
-    fun playArchive(channel: Channel, program: EpgProgram) {
-        val playerInstance = player ?: return
+    fun playArchive(channel: Channel, program: EpgProgram): Boolean {
+        val playerInstance = player ?: return false
         val archiveUrl = channel.buildArchiveUrl(program)
         if (archiveUrl.isNullOrBlank()) {
             addDebugMessage("DVR: ${channel.title} does not provide a catch-up URL")
-            return
+            return false
         }
         val uri = Uri.parse(archiveUrl)
         val channelIndex = channels.indexOfFirst { it.url == channel.url }
@@ -416,8 +416,9 @@ class PlayerManager @Inject constructor(
         playerInstance.prepare()
         playerInstance.playWhenReady = true
 
-        addDebugMessage("â–¶ DVR: ${channel.title} â†’ ${program.title}")
+        addDebugMessage("▶ DVR: ${channel.title} → ${program.title}")
         _playerState.value = PlayerState.Archive(channel, program)
+        return true
     }
 
     fun returnToLive() {
