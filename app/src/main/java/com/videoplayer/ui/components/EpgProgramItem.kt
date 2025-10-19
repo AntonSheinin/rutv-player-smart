@@ -2,9 +2,8 @@ package com.videoplayer.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.clickable
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,7 +39,12 @@ fun EpgProgramItem(
         modifier = modifier
             .fillMaxWidth()
             .background(backgroundColor)
-            .clickable(onClick = onClick)
+            .pointerInput(onClick, onPlayArchive) {
+                detectTapGestures(
+                    onTap = { onClick() },
+                    onDoubleTap = { onPlayArchive?.invoke() }
+                )
+            }
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         // Start Time only
