@@ -426,20 +426,40 @@ class EpgRepository @Inject constructor(
     }
 
     /**
-     * Build current programs cache for all channels
-     * Call this after loading EPG to speed up channel list display
+     * Rebuild the current-program cache in batches to avoid long blocking work.
+     * The [onBatch] callback receives incremental updates that can be applied to UI state.
      */
-    fun buildCurrentProgramsCache() {
+    suspend fun refreshCurrentProgramsCache(
+        batchSize: Int = 100,
+        onBatch: (Map<String, EpgProgram?>) -> Unit = {}
+    ) {
         val epgData = cachedEpgData ?: loadEpgData() ?: return
 
         val cache = mutableMapOf<String, EpgProgram?>()
-        epgData.epg.forEach { (tvgId, programs) ->
-            cache[tvgId] = programs.firstOrNull { it.isCurrent() }
+        val batch = mutableMapOf<String, EpgProgram?>()
+        val now = System.currentTimeMillis()
+        var processed = 0
+
+        for ((tvgId, programs) in epgData.epg) {
+            val current = programs.firstOrNull { it.isCurrent(now) }
+            cache[tvgId] = current
+            batch[tvgId] = current
+            processed++
+
+            if (batch.size >= batchSize) {
+                onBatch(batch.toMap())
+                batch.clear()
+                kotlinx.coroutines.yield()
+            }
+        }
+
+        if (batch.isNotEmpty()) {
+            onBatch(batch.toMap())
         }
 
         currentProgramsCache = cache
         currentProgramsCacheTime = System.currentTimeMillis()
-        Timber.d("EPG: Built current programs cache for ${cache.size} channels")
+        Timber.d("EPG: Rebuilt current programs cache for ${cache.size} channels")
     }
 
     /**
@@ -458,7 +478,7 @@ class EpgRepository @Inject constructor(
         val now = System.currentTimeMillis()
         val cache = currentProgramsCache
         return if (cache == null || now - currentProgramsCacheTime >= currentProgramsCacheTtl) {
-            buildCurrentProgramsCache()
+            refreshCurrentProgramsCache()
             currentProgramsCache ?: emptyMap()
         } else {
             cache

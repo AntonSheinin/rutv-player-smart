@@ -103,15 +103,14 @@ class MainViewModel @Inject constructor(
                         "EPG: Loaded cached data (${cachedEpg.totalPrograms} programs for ${cachedEpg.channelsFound} channels)"
                     )
                 )
-                // Build current programs cache for fast channel list display
-                epgRepository.buildCurrentProgramsCache()
-                val currentPrograms = epgRepository.getCurrentProgramsSnapshot()
+                epgRepository.refreshCurrentProgramsCache { batch ->
+                    _viewState.update { state ->
+                        state.copy(currentProgramsMap = state.currentProgramsMap + batch)
+                    }
+                }
 
                 _viewState.update {
-                    it.copy(
-                        epgLoadedTimestamp = System.currentTimeMillis(),
-                        currentProgramsMap = currentPrograms
-                    )
+                    it.copy(epgLoadedTimestamp = System.currentTimeMillis())
                 }
             } else {
                 Timber.d("No cached EPG found - will fetch when playlist is loaded")
@@ -145,6 +144,14 @@ class MainViewModel @Inject constructor(
                     }
 
                     if (channels.isNotEmpty()) {
+                        viewModelScope.launch(Dispatchers.Default) {
+                            epgRepository.refreshCurrentProgramsCache { batch ->
+                                _viewState.update { state ->
+                                    state.copy(currentProgramsMap = state.currentProgramsMap + batch)
+                                }
+                            }
+                        }
+
                         // Initialize player
                         initializePlayer()
 
@@ -214,17 +221,16 @@ class MainViewModel @Inject constructor(
                         )
                     )
 
-                    // Build current programs cache for fast channel list display (on IO thread)
-                    withContext(Dispatchers.IO) {
-                        epgRepository.buildCurrentProgramsCache()
+                    withContext(Dispatchers.Default) {
+                        epgRepository.refreshCurrentProgramsCache { batch ->
+                            _viewState.update { state ->
+                                state.copy(currentProgramsMap = state.currentProgramsMap + batch)
+                            }
+                        }
                     }
 
-                    // Update state with timestamp to trigger adapter refresh
                     _viewState.update {
-                        it.copy(
-                            epgLoadedTimestamp = System.currentTimeMillis(),
-                            currentProgramsMap = epgRepository.getCurrentProgramsSnapshot()
-                        )
+                        it.copy(epgLoadedTimestamp = System.currentTimeMillis())
                     }
 
                     // Update current program for current channel
