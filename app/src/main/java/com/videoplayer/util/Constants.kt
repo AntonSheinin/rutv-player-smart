@@ -24,6 +24,7 @@ object Constants {
     // Network
     const val HTTP_CONNECT_TIMEOUT_MS = 15_000
     const val HTTP_READ_TIMEOUT_MS = 15_000
+    const val DEFAULT_USER_AGENT = "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36"
 
     // Player
     const val VIDEO_ROTATION_0 = 0f

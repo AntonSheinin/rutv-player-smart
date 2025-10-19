@@ -171,6 +171,11 @@ class MainViewModel @Inject constructor(
                             }
                         }
 
+                        val catchupSupported = channels.count { it.supportsCatchup() }
+                        appendDebugMessage(
+                            DebugMessage("DVR: Playlist loaded (${channels.size} channels, catch-up: $catchupSupported)")
+                        )
+
                         // Initialize player
                         initializePlayer()
 
@@ -398,7 +403,14 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    private fun startArchivePlayback(channel: Channel, program: EpgProgram) {
+    private suspend fun startArchivePlayback(channel: Channel, program: EpgProgram) {
+        val durationMinutes = ((program.stopTimeMillis - program.startTimeMillis) / 60000L).coerceAtLeast(1)
+        val ageMinutes = ((System.currentTimeMillis() - program.startTimeMillis) / 60000L).coerceAtLeast(0)
+        appendDebugMessage(
+            DebugMessage(
+                "DVR: Request ${channel.title} • ${program.title} (start=${program.startTime}, duration=${durationMinutes}m, age=${ageMinutes}m, template=${if (channel.catchupSource.isBlank()) "<default>" else channel.catchupSource})"
+            )
+        )
         val started = playerManager.playArchive(channel, program)
         if (!started) return
         val channelIndex = _viewState.value.channels.indexOfFirst { it.url == channel.url }.coerceAtLeast(0)

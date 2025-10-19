@@ -9,6 +9,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
@@ -31,12 +32,16 @@ import com.videoplayer.presentation.player.ArchiveEndReason
 import com.videoplayer.util.Constants
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -67,6 +72,8 @@ class PlayerManager @Inject constructor(
     private var archiveProgram: EpgProgram? = null
     private var archiveChannel: Channel? = null
     private var lastLiveIndex: Int = 0
+    private val networkScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private lateinit var httpDataSourceFactory: DefaultHttpDataSource.Factory
 
     companion object {
         @Suppress("StaticFieldLeak")
@@ -133,8 +140,6 @@ class PlayerManager @Inject constructor(
                 }
             }
 
-            val bandwidthMeter = getBandwidthMeter(context)
-
             // Calculate buffer durations
             val bufferMs = config.bufferSeconds * 1000
             val minBufferMs = maxOf(Constants.MIN_BUFFER_MS, bufferMs)
@@ -150,17 +155,7 @@ class PlayerManager @Inject constructor(
                 .setPrioritizeTimeOverSizeThresholds(true)
                 .build()
 
-            val httpDataSourceFactory = DefaultHttpDataSource.Factory()
-                .setConnectTimeoutMs(Constants.HTTP_CONNECT_TIMEOUT_MS)
-                .setReadTimeoutMs(Constants.HTTP_READ_TIMEOUT_MS)
-                .setAllowCrossProtocolRedirects(true)
-                .setUserAgent("Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36")
-                .setTransferListener(bandwidthMeter)
-                .setDefaultRequestProperties(mapOf(
-                    "Accept" to "*/*",
-                    "Accept-Encoding" to "gzip, deflate",
-                    "Connection" to "keep-alive"
-                ))
+            val httpDataSourceFactory = ensureHttpDataSourceFactory()
 
             val hlsExtractorFactory = DefaultHlsExtractorFactory(
                 DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES,
@@ -402,6 +397,10 @@ class PlayerManager @Inject constructor(
             lastLiveIndex = channelIndex
         }
 
+        val durationSeconds = ((program.stopTimeMillis - program.startTimeMillis) / 1000L).coerceAtLeast(60)
+        addDebugMessage("DVR: Loading ${channel.title} @ ${maskSensitive(uri)} (duration=${durationSeconds}s)")
+        probeArchiveUri(uri)
+
         isArchivePlayback = true
         archiveChannel = channel
         archiveProgram = program
@@ -449,6 +448,55 @@ class PlayerManager @Inject constructor(
         isArchivePlayback = false
         archiveChannel = null
         archiveProgram = null
+    }
+
+    private fun ensureHttpDataSourceFactory(): DefaultHttpDataSource.Factory {
+        if (!::httpDataSourceFactory.isInitialized) {
+            httpDataSourceFactory = DefaultHttpDataSource.Factory()
+                .setConnectTimeoutMs(Constants.HTTP_CONNECT_TIMEOUT_MS)
+                .setReadTimeoutMs(Constants.HTTP_READ_TIMEOUT_MS)
+                .setAllowCrossProtocolRedirects(true)
+                .setKeepPostFor302Redirects(true)
+                .setUserAgent(Constants.DEFAULT_USER_AGENT)
+                .setTransferListener(getBandwidthMeter(context))
+                .setDefaultRequestProperties(
+                    mapOf(
+                        "Accept" to "*/*",
+                        "Accept-Encoding" to "gzip, deflate",
+                        "Connection" to "keep-alive"
+                    )
+                )
+        }
+        return httpDataSourceFactory
+    }
+
+    private fun probeArchiveUri(uri: Uri) {
+        networkScope.launch {
+            val dataSource = ensureHttpDataSourceFactory().createDataSource()
+            try {
+                val httpDataSource = dataSource as DefaultHttpDataSource
+                val dataSpec = DataSpec.Builder()
+                    .setUri(uri)
+                    .setHttpMethod(DataSpec.HTTP_METHOD_HEAD)
+                    .build()
+                httpDataSource.open(dataSpec)
+                val resolved = httpDataSource.uri ?: uri
+                val headers = httpDataSource.responseHeaders
+                val contentType = headers["Content-Type"]?.firstOrNull()
+                val contentLength = headers["Content-Length"]?.firstOrNull()
+                addDebugMessage(
+                    "DVR: Probe ${maskSensitive(resolved)} (${contentType ?: "content-type=?"}, len=${contentLength ?: "?"})"
+                )
+            } catch (e: Exception) {
+                addDebugMessage("DVR: Probe failed (${e.message ?: "unknown error"})")
+            } finally {
+                try {
+                    dataSource.close()
+                } catch (_: Exception) {
+                    // Ignore close errors
+                }
+            }
+        }
     }
 
     /**
@@ -540,6 +588,13 @@ class PlayerManager @Inject constructor(
     private fun addDebugMessage(message: String) {
         Timber.d(message)
         _debugMessages.tryEmit(DebugMessage(message))
+    }
+
+    private fun maskSensitive(uri: Uri): String {
+        val pattern = Regex("(?i)((token|auth|sig|key|session)[^=]*)=[^&]*")
+        return uri.toString().replace(pattern) { matchResult ->
+            "${matchResult.groups[1]?.value}=***"
+        }
     }
 }
 
