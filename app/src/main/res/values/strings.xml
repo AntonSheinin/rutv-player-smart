@@ -1,4 +1,4 @@
-﻿<resources>
+<resources>
     <string name="app_name">RuTV</string>
 
     <!-- Dialog Titles -->
@@ -27,7 +27,7 @@
     <string name="hint_m3u_url">Enter M3U/M3U8 URL</string>
 
     <!-- Status -->
-    <string name="status_playing">▶ Playing</string>
+    <string name="status_playing">&#x25B6; Playing</string>
     <string name="status_file">File</string>
 
     <!-- Playlist / Settings -->
@@ -52,11 +52,11 @@
     <!-- Channel Info -->
     <string name="epg_panel_title">Programs guide</string>
     <string name="program_details_title">Program Details</string>
-    <string name="channel_info_format">#%1$d • %2$s</string>
+    <string name="channel_info_format">#%1$d &#8226; %2$s</string>
 
     <!-- Favorites -->
-    <string name="favorite_filled">★</string>
-    <string name="favorite_empty">☆</string>
+    <string name="favorite_filled">&#9733;</string>
+    <string name="favorite_empty">&#9734;</string>
 
     <!-- Accessibility -->
     <string name="cd_channel_logo">Channel logo</string>
@@ -68,11 +68,10 @@
     <string name="cd_aspect_ratio_button">Change aspect ratio</string>
     <string name="cd_orientation_button">Rotate video</string>
     <string name="player_return_to_live">Return to Live</string>
-    <string name="player_archive_label">DVR � %1$s</string>
-</resources>
-
+    <string name="player_archive_label">DVR &#8226; %1$s</string>
     <string name="archive_prompt_title">Playback Finished</string>
     <string name="archive_prompt_message">Continue with &quot;%1$s&quot;?</string>
     <string name="archive_prompt_message_no_next">Archive playback finished.</string>
     <string name="archive_prompt_continue">Play Next Program</string>
+</resources>
 
