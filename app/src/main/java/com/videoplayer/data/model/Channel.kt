@@ -40,20 +40,28 @@ data class Channel(
 
         return when {
             filled.startsWith("http://", true) || filled.startsWith("https://", true) -> filled
-            filled.startsWith("?") || filled.startsWith("&") -> {
-                val separator = if (url.contains("?")) {
-                    if (filled.startsWith("&")) "" else ""
+            filled.startsWith("?") -> {
+                if (url.contains("?")) {
+                    val suffix = filled.removePrefix("?")
+                    if (suffix.isEmpty()) url else "$url&$suffix"
                 } else {
-                    if (filled.startsWith("&")) "?" else ""
+                    url + filled
                 }
-                url + separator + filled.removePrefix(if (filled.startsWith("&") && !url.contains("?")) "&" else "")
+            }
+            filled.startsWith("&") -> {
+                val suffix = filled.removePrefix("&")
+                if (url.contains("?")) {
+                    if (suffix.isEmpty()) url else "$url&$suffix"
+                } else {
+                    if (suffix.isEmpty()) url else "$url?$suffix"
+                }
             }
             filled.startsWith("/") -> {
                 val base = url.substringBeforeLast("/", url)
                 base + filled
             }
             else -> {
-                // Assume relative
+                // Assume relative segment
                 val base = url.substringBeforeLast("/", url)
                 "$base/$filled"
             }
