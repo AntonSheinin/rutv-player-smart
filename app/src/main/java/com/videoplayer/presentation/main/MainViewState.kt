@@ -23,6 +23,8 @@ data class MainViewState(
     val currentProgram: EpgProgram? = null,
     val selectedProgramDetails: EpgProgram? = null, // Program selected for details view
     val currentProgramsMap: Map<String, EpgProgram?> = emptyMap(),
+    val isArchivePlayback: Boolean = false,
+    val archiveProgram: EpgProgram? = null,
     val debugMessages: List<DebugMessage> = emptyList(),
     val showDebugLog: Boolean = true,
     val currentResizeMode: Int = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT,

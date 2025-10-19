@@ -84,6 +84,8 @@ class MainActivity : ComponentActivity() {
             onOpenSettings = { settingsLauncher.launch(Intent(context, SettingsActivity::class.java)) },
             onGoToChannel = { showChannelNumberDialog() },
             onShowProgramDetails = { program -> viewModel.showProgramDetails(program) },
+            onPlayArchiveProgram = { program -> viewModel.playArchiveProgram(program) },
+            onReturnToLive = { viewModel.returnToLive() },
             onCloseProgramDetails = { viewModel.closeProgramDetails() },
             modifier = Modifier.fillMaxSize()
         )
@@ -213,3 +215,4 @@ class MainActivity : ComponentActivity() {
         viewModel.onResume()
     }
 }
+

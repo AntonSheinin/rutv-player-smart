@@ -259,7 +259,9 @@ class MainViewModel @Inject constructor(
             _viewState.update {
                 it.copy(
                     showPlaylist = false,
-                    showEpgPanel = false
+                    showEpgPanel = false,
+                    isArchivePlayback = false,
+                    archiveProgram = null
                 )
             }
         }
@@ -355,6 +357,57 @@ class MainViewModel @Inject constructor(
                     epgChannelTvgId = tvgId,
                     epgPrograms = programs,
                     currentProgram = currentProgram
+                )
+            }
+        }
+    }
+
+    fun returnToLive() {
+        viewModelScope.launch {
+            playerManager.returnToLive()
+            _viewState.update {
+                it.copy(
+                    isArchivePlayback = false,
+                    archiveProgram = null
+                )
+            }
+        }
+    }
+
+    fun playArchiveProgram(program: EpgProgram) {
+        viewModelScope.launch {
+            val state = _viewState.value
+            val channel = state.channels.firstOrNull { it.tvgId == state.epgChannelTvgId }
+            if (channel == null) {
+                appendDebugMessage(DebugMessage("DVR: Channel not found for program ${program.title}"))
+                return@launch
+            }
+            if (!channel.hasEpg) {
+                appendDebugMessage(DebugMessage("DVR: Channel ${channel.title} does not support catch-up"))
+                return@launch
+            }
+
+            val maxArchiveMillis = channel.catchupDays * 24L * 60 * 60 * 1000
+            val age = System.currentTimeMillis() - program.startTimeMillis
+            if (maxArchiveMillis > 0 && age > maxArchiveMillis) {
+                appendDebugMessage(
+                    DebugMessage("DVR: ${program.title} is outside of ${channel.catchupDays} day archive")
+                )
+                return@launch
+            }
+
+            playerManager.playArchive(channel, program)
+            val channelIndex = state.channels.indexOfFirst { it.url == channel.url }.coerceAtLeast(0)
+
+            _viewState.update {
+                it.copy(
+                    isArchivePlayback = true,
+                    archiveProgram = program,
+                    currentChannel = channel,
+                    currentChannelIndex = channelIndex,
+                    currentProgram = program,
+                    showPlaylist = false,
+                    showEpgPanel = false
                 )
             }
         }
@@ -479,3 +532,7 @@ class MainViewModel @Inject constructor(
         playerManager.release()
     }
 }
+
+
+
+

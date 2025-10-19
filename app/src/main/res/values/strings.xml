@@ -67,4 +67,7 @@
     <string name="cd_close_playlist">Close playlist</string>
     <string name="cd_aspect_ratio_button">Change aspect ratio</string>
     <string name="cd_orientation_button">Rotate video</string>
+    <string name="player_return_to_live">Return to Live</string>
+    <string name="player_archive_label">DVR • %1$s</string>
 </resources>
+

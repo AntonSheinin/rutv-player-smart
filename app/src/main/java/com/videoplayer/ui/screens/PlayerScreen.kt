@@ -61,6 +61,8 @@ fun PlayerScreen(
     onOpenSettings: () -> Unit,
     onGoToChannel: () -> Unit,
     onShowProgramDetails: (EpgProgram) -> Unit,
+    onPlayArchiveProgram: (EpgProgram) -> Unit,
+    onReturnToLive: () -> Unit,
     onCloseProgramDetails: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -199,6 +201,9 @@ fun PlayerScreen(
                     channelNumber = viewState.currentChannelIndex + 1,
                     channel = channel,
                     currentProgram = viewState.currentProgram,
+                    isArchivePlayback = viewState.isArchivePlayback,
+                    archiveProgram = viewState.archiveProgram,
+                    onReturnToLive = onReturnToLive,
                     modifier = Modifier.padding(16.dp)
                 )
             }
@@ -230,6 +235,8 @@ fun PlayerScreen(
             EpgPanel(
                 programs = viewState.epgPrograms,
                 onProgramClick = onShowProgramDetails,
+                onPlayArchive = onPlayArchiveProgram,
+                isArchivePlayback = viewState.isArchivePlayback,
                 modifier = Modifier.align(Alignment.CenterEnd)
             )
         }
@@ -260,6 +267,9 @@ private fun ChannelInfoOverlay(
     channelNumber: Int,
     channel: Channel,
     currentProgram: EpgProgram?,
+    isArchivePlayback: Boolean,
+    archiveProgram: EpgProgram?,
+    onReturnToLive: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -276,12 +286,36 @@ private fun ChannelInfoOverlay(
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.ruTvColors.textPrimary
             )
-            currentProgram?.let { program ->
-                Text(
-                    text = program.title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.ruTvColors.textSecondary
-                )
+            if (isArchivePlayback) {
+                archiveProgram?.let { program ->
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.player_archive_label, program.title),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.ruTvColors.gold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = onReturnToLive,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.ruTvColors.gold,
+                        contentColor = MaterialTheme.ruTvColors.darkBackground)
+                ) {
+                    Text(text = stringResource(R.string.player_return_to_live))
+                }
+            } else {
+                currentProgram?.let { program ->
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = program.title,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.ruTvColors.textSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     }
@@ -424,6 +458,8 @@ private fun PlaylistPanel(
 private fun EpgPanel(
     programs: List<EpgProgram>,
     onProgramClick: (EpgProgram) -> Unit,
+    onPlayArchive: (EpgProgram) -> Unit,
+    isArchivePlayback: Boolean,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
@@ -526,10 +562,12 @@ private fun EpgPanel(
                             }
                             is EpgProgram -> {
                                 val programIndex = programs.indexOf(data)
+                                val canPlayArchive = data.startTimeMillis < currentTime && !isArchivePlayback
                                 EpgProgramItem(
                                     program = data,
                                     isCurrent = programIndex == currentProgramIndex,
-                                    onClick = { onProgramClick(data) }
+                                    onClick = { onProgramClick(data) },
+                                    onPlayArchive = if (canPlayArchive) { { onPlayArchive(data) } } else null
                                 )
                             }
                         }
@@ -922,3 +960,7 @@ private fun CustomControlButtons(
         }
     }
 }
+
+
+
+

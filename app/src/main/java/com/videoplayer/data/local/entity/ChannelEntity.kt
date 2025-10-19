@@ -17,6 +17,7 @@ data class ChannelEntity(
     val group: String,
     val tvgId: String,
     val catchupDays: Int,
+    val catchupSource: String,
     val isFavorite: Boolean,
     val aspectRatio: Int,
     val position: Int
@@ -31,6 +32,7 @@ data class ChannelEntity(
         group = group,
         tvgId = tvgId,
         catchupDays = catchupDays,
+        catchupSource = catchupSource,
         isFavorite = isFavorite,
         aspectRatio = aspectRatio,
         position = position
@@ -47,6 +49,7 @@ data class ChannelEntity(
             group = channel.group,
             tvgId = channel.tvgId,
             catchupDays = channel.catchupDays,
+            catchupSource = channel.catchupSource,
             isFavorite = channel.isFavorite,
             aspectRatio = channel.aspectRatio,
             position = channel.position

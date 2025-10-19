@@ -1,6 +1,7 @@
 package com.videoplayer.presentation.player
 
 import android.content.Context
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import androidx.media3.common.C
@@ -24,6 +25,7 @@ import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
 import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
 import com.videoplayer.data.model.Channel
+import com.videoplayer.data.model.EpgProgram
 import com.videoplayer.data.model.PlayerConfig
 import com.videoplayer.util.Constants
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -60,6 +62,10 @@ class PlayerManager @Inject constructor(
     private var bufferingCheckRunnable: Runnable? = null
 
     private var currentConfig: PlayerConfig? = null
+    private var isArchivePlayback: Boolean = false
+    private var archiveProgram: EpgProgram? = null
+    private var archiveChannel: Channel? = null
+    private var lastLiveIndex: Int = 0
 
     companion object {
         @Suppress("StaticFieldLeak")
@@ -191,12 +197,7 @@ class PlayerManager @Inject constructor(
                 .build()
                 .apply {
                     // Set media items
-                    val mediaItems = channels.map { channel ->
-                        MediaItem.Builder()
-                            .setUri(channel.url)
-                            .setMediaId(channel.title)
-                            .build()
-                    }
+                    val mediaItems = buildLiveMediaItems()
                     setMediaItems(mediaItems)
 
                     addDebugMessage("📺 Loaded ${mediaItems.size} channels into player")
@@ -218,6 +219,11 @@ class PlayerManager @Inject constructor(
                     prepare()
                     playWhenReady = true
                 }
+
+            isArchivePlayback = false
+            archiveChannel = null
+            archiveProgram = null
+            lastLiveIndex = startIndex.coerceIn(0, channels.lastIndex.takeIf { channels.isNotEmpty() } ?: 0)
 
             addDebugMessage("━━━ PLAYER READY ━━━")
 
@@ -271,6 +277,7 @@ class PlayerManager @Inject constructor(
     private fun createPlayerListener(): Player.Listener {
         return object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                if (isArchivePlayback) return
                 mediaItem?.let {
                     val currentIndex = player?.currentMediaItemIndex ?: return
                     val channel = channels.getOrNull(currentIndex) ?: return
@@ -284,6 +291,16 @@ class PlayerManager @Inject constructor(
             override fun onPlaybackStateChanged(playbackState: Int) {
                 when (playbackState) {
                     Player.STATE_READY -> {
+                        if (isArchivePlayback) {
+                            val channel = archiveChannel
+                            val program = archiveProgram
+                            if (channel != null && program != null) {
+                                addDebugMessage("▶ DVR Playing: ${channel.title}")
+                                _playerState.value = PlayerState.Archive(channel, program)
+                            }
+                            stopBufferingCheck()
+                            return
+                        }
                         val currentIndex = player?.currentMediaItemIndex ?: return
                         val channel = channels.getOrNull(currentIndex)
 
@@ -345,14 +362,80 @@ class PlayerManager @Inject constructor(
         player?.let { p ->
             if (index >= 0 && index < channels.size) {
                 Timber.d("Playing channel at index $index")
-                p.seekTo(index, C.TIME_UNSET)
-                p.prepare()
-                p.playWhenReady = true
-                p.play()
+                if (isArchivePlayback) {
+                    restoreLivePlaylist(index)
+                } else {
+                    p.seekTo(index, C.TIME_UNSET)
+                    p.prepare()
+                    p.playWhenReady = true
+                    p.play()
+                }
+                lastLiveIndex = index
+                isArchivePlayback = false
+                archiveChannel = null
+                archiveProgram = null
             } else {
                 Timber.w("Invalid channel index: $index")
             }
         }
+    }
+
+    fun playArchive(channel: Channel, program: EpgProgram) {
+        val playerInstance = player ?: return
+        val archiveUrl = channel.buildArchiveUrl(program)
+        if (archiveUrl.isNullOrBlank()) {
+            addDebugMessage("DVR: ${channel.title} does not provide a catch-up URL")
+            return
+        }
+        val uri = Uri.parse(archiveUrl)
+        val channelIndex = channels.indexOfFirst { it.url == channel.url }
+        if (channelIndex >= 0) {
+            lastLiveIndex = channelIndex
+        }
+
+        isArchivePlayback = true
+        archiveChannel = channel
+        archiveProgram = program
+
+        playerInstance.stop()
+        playerInstance.clearMediaItems()
+        val mediaItem = MediaItem.Builder()
+            .setUri(uri)
+            .setMediaId("${channel.title}_${program.startTimeMillis}")
+            .build()
+        playerInstance.setMediaItem(mediaItem)
+        playerInstance.prepare()
+        playerInstance.playWhenReady = true
+
+        addDebugMessage("â–¶ DVR: ${channel.title} â†’ ${program.title}")
+        _playerState.value = PlayerState.Archive(channel, program)
+    }
+
+    fun returnToLive() {
+        if (!isArchivePlayback) return
+        val index = lastLiveIndex.coerceIn(0, channels.lastIndex.takeIf { channels.isNotEmpty() } ?: 0)
+        restoreLivePlaylist(index)
+        addDebugMessage("â–¶ Live: ${channels.getOrNull(index)?.title ?: "Unknown"}")
+        channels.getOrNull(index)?.let {
+            _playerState.value = PlayerState.Ready(it, index)
+            _playerEvents.tryEmit(PlayerEvent.ChannelChanged(it, index))
+        }
+    }
+
+    private fun restoreLivePlaylist(targetIndex: Int) {
+        if (channels.isEmpty()) return
+        val items = buildLiveMediaItems()
+        player?.apply {
+            stop()
+            clearMediaItems()
+            val index = targetIndex.coerceIn(0, channels.lastIndex)
+            setMediaItems(items, index, C.TIME_UNSET)
+            prepare()
+            playWhenReady = true
+        }
+        isArchivePlayback = false
+        archiveChannel = null
+        archiveProgram = null
     }
 
     /**
@@ -365,6 +448,15 @@ class PlayerManager @Inject constructor(
      */
     fun pause() {
         player?.playWhenReady = false
+    }
+
+    private fun buildLiveMediaItems(): List<MediaItem> {
+        return channels.map { channel ->
+            MediaItem.Builder()
+                .setUri(channel.url)
+                .setMediaId(channel.title)
+                .build()
+        }
     }
 
     /**
@@ -512,3 +604,6 @@ class FFmpegRenderersFactory(
         // Disable text renderers
     }
 }
+
+
+

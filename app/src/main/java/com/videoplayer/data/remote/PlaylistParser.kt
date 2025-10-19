@@ -26,6 +26,7 @@ class PlaylistParser @Inject constructor() {
         var currentGroup = ""
         var currentTvgId = ""
         var currentCatchupDays = 0
+        var currentCatchupSource = ""
 
         for (i in lines.indices) {
             val line = lines[i].trim()
@@ -37,6 +38,7 @@ class PlaylistParser @Inject constructor() {
                 val logoMatch = Regex("""tvg-logo="([^"]+)"""").find(line)
                 val groupMatch = Regex("""group-title="([^"]+)"""").find(line)
                 val catchupDaysMatch = Regex("""catchup-days="([^"]+)"""").find(line)
+                val catchupSourceMatch = Regex("""catchup-source="([^"]+)"""").find(line)
                 val titleMatch = Regex(""",\s*(.+)$""").find(line)
 
                 currentTitle = tvgNameMatch?.groupValues?.get(1)
@@ -46,6 +48,7 @@ class PlaylistParser @Inject constructor() {
                 currentGroup = groupMatch?.groupValues?.get(1) ?: "General"
                 currentTvgId = tvgIdMatch?.groupValues?.get(1) ?: ""
                 currentCatchupDays = catchupDaysMatch?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                currentCatchupSource = catchupSourceMatch?.groupValues?.get(1) ?: ""
 
             } else if (line.isNotEmpty() && !line.startsWith("#") && currentTitle.isNotEmpty()) {
                 // This is the URL line
@@ -57,6 +60,7 @@ class PlaylistParser @Inject constructor() {
                         group = currentGroup,
                         tvgId = currentTvgId,
                         catchupDays = currentCatchupDays,
+                        catchupSource = currentCatchupSource,
                         position = channels.size
                     )
                 )
@@ -67,6 +71,7 @@ class PlaylistParser @Inject constructor() {
                 currentGroup = ""
                 currentTvgId = ""
                 currentCatchupDays = 0
+                currentCatchupSource = ""
             }
         }
 

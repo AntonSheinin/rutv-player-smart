@@ -11,7 +11,7 @@ import com.videoplayer.data.local.entity.ChannelEntity
 @Suppress("unused")
 @Database(
     entities = [ChannelEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
