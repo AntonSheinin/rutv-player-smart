@@ -86,6 +86,8 @@ class MainActivity : ComponentActivity() {
             onShowProgramDetails = { program -> viewModel.showProgramDetails(program) },
             onPlayArchiveProgram = { program -> viewModel.playArchiveProgram(program) },
             onReturnToLive = { viewModel.returnToLive() },
+            onArchivePromptContinue = { viewModel.continueArchiveFromPrompt() },
+            onArchivePromptBackToLive = { viewModel.dismissArchivePrompt() },
             onCloseProgramDetails = { viewModel.closeProgramDetails() },
             modifier = Modifier.fillMaxSize()
         )
@@ -215,5 +217,6 @@ class MainActivity : ComponentActivity() {
         viewModel.onResume()
     }
 }
+
 
 
