@@ -27,6 +27,7 @@ import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
 import com.videoplayer.data.model.Channel
 import com.videoplayer.data.model.EpgProgram
 import com.videoplayer.data.model.PlayerConfig
+import com.videoplayer.presentation.player.ArchiveEndReason
 import com.videoplayer.util.Constants
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory
@@ -320,9 +321,17 @@ class PlayerManager @Inject constructor(
                         }
                     }
                     Player.STATE_ENDED -> {
-                        addDebugMessage("⏹ Playback ended")
-                        _playerState.value = PlayerState.Ended
                         stopBufferingCheck()
+                        if (isArchivePlayback) {
+                            val channel = archiveChannel
+                            val program = archiveProgram
+                            if (channel != null && program != null) {
+                                _playerState.value = PlayerState.Archive(channel, program, ArchiveEndReason.COMPLETED)
+                            }
+                        } else {
+                            addDebugMessage("⏹ Playback ended")
+                            _playerState.value = PlayerState.Ended
+                        }
                     }
                     Player.STATE_IDLE -> {
                         stopBufferingCheck()
@@ -604,6 +613,9 @@ class FFmpegRenderersFactory(
         // Disable text renderers
     }
 }
+
+
+
 
 
 

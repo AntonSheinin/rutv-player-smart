@@ -18,6 +18,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,6 +65,8 @@ fun PlayerScreen(
     onShowProgramDetails: (EpgProgram) -> Unit,
     onPlayArchiveProgram: (EpgProgram) -> Unit,
     onReturnToLive: () -> Unit,
+    onArchivePromptContinue: () -> Unit,
+    onArchivePromptBackToLive: () -> Unit,
     onCloseProgramDetails: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -257,6 +261,34 @@ fun PlayerScreen(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(16.dp)
+            )
+        }
+
+        viewState.archivePrompt?.let { prompt ->
+            val hasNext = prompt.nextProgram != null
+            val message = if (hasNext) {
+                stringResource(R.string.archive_prompt_message, prompt.nextProgram!!.title)
+            } else {
+                stringResource(R.string.archive_prompt_message_no_next)
+            }
+
+            AlertDialog(
+                onDismissRequest = onArchivePromptBackToLive,
+                title = { Text(stringResource(R.string.archive_prompt_title)) },
+                text = { Text(message) },
+                confirmButton = {
+                    TextButton(
+                        onClick = onArchivePromptContinue,
+                        enabled = hasNext
+                    ) {
+                        Text(text = stringResource(R.string.archive_prompt_continue))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = onArchivePromptBackToLive) {
+                        Text(text = stringResource(R.string.player_return_to_live))
+                    }
+                }
             )
         }
     }
@@ -960,6 +992,8 @@ private fun CustomControlButtons(
         }
     }
 }
+
+
 
 
 

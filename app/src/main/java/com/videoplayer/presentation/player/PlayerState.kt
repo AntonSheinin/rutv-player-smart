@@ -12,9 +12,17 @@ sealed class PlayerState {
     object Idle : PlayerState()
     object Buffering : PlayerState()
     data class Ready(val channel: Channel, val index: Int) : PlayerState()
-    data class Archive(val channel: Channel, val program: EpgProgram) : PlayerState()
+    data class Archive(
+        val channel: Channel,
+        val program: EpgProgram,
+        val endReason: ArchiveEndReason? = null
+    ) : PlayerState()
     data class Error(val message: String, val channel: Channel?) : PlayerState()
     object Ended : PlayerState()
+}
+
+enum class ArchiveEndReason {
+    COMPLETED
 }
 
 /**

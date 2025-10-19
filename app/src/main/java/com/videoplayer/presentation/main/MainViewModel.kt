@@ -15,6 +15,7 @@ import com.videoplayer.domain.usecase.FetchEpgUseCase
 import com.videoplayer.domain.usecase.LoadPlaylistUseCase
 import com.videoplayer.domain.usecase.ToggleFavoriteUseCase
 import com.videoplayer.domain.usecase.UpdateAspectRatioUseCase
+import com.videoplayer.presentation.player.ArchiveEndReason
 import com.videoplayer.presentation.player.DebugMessage
 import com.videoplayer.presentation.player.PlayerManager
 import com.videoplayer.presentation.player.PlayerState
@@ -55,15 +56,37 @@ class MainViewModel @Inject constructor(
             playerManager.playerState.collect { state ->
                 _viewState.update { it.copy(playerState = state) }
 
-                // Update current channel when player state changes
-                if (state is PlayerState.Ready) {
-                    _viewState.update {
-                        it.copy(
-                            currentChannel = state.channel,
-                            currentChannelIndex = state.index
-                        )
+                when (state) {
+                    is PlayerState.Ready -> {
+                        _viewState.update {
+                            it.copy(
+                                currentChannel = state.channel,
+                                currentChannelIndex = state.index,
+                                isArchivePlayback = false,
+                                archiveProgram = null,
+                                archivePrompt = null
+                            )
+                        }
+                        updateCurrentProgram(state.channel)
                     }
-                    updateCurrentProgram(state.channel)
+                    is PlayerState.Archive -> {
+                        if (state.endReason == null) {
+                            _viewState.update {
+                                it.copy(
+                                    currentChannel = state.channel,
+                                    currentProgram = state.program,
+                                    isArchivePlayback = true,
+                                    archiveProgram = state.program,
+                                    archivePrompt = null
+                                )
+                            }
+                        } else {
+                            viewModelScope.launch {
+                                handleArchiveCompletion(state.channel, state.program)
+                            }
+                        }
+                    }
+                    else -> Unit
                 }
             }
         }
@@ -368,9 +391,28 @@ class MainViewModel @Inject constructor(
             _viewState.update {
                 it.copy(
                     isArchivePlayback = false,
-                    archiveProgram = null
+                    archiveProgram = null,
+                    archivePrompt = null
                 )
             }
+        }
+    }
+
+    private fun startArchivePlayback(channel: Channel, program: EpgProgram) {
+        playerManager.playArchive(channel, program)
+        val channelIndex = _viewState.value.channels.indexOfFirst { it.url == channel.url }.coerceAtLeast(0)
+
+        _viewState.update {
+            it.copy(
+                isArchivePlayback = true,
+                archiveProgram = program,
+                currentChannel = channel,
+                currentChannelIndex = channelIndex,
+                currentProgram = program,
+                showPlaylist = false,
+                showEpgPanel = false,
+                archivePrompt = null
+            )
         }
     }
 
@@ -382,7 +424,7 @@ class MainViewModel @Inject constructor(
                 appendDebugMessage(DebugMessage("DVR: Channel not found for program ${program.title}"))
                 return@launch
             }
-            if (!channel.hasEpg) {
+            if (!channel.supportsCatchup()) {
                 appendDebugMessage(DebugMessage("DVR: Channel ${channel.title} does not support catch-up"))
                 return@launch
             }
@@ -396,21 +438,25 @@ class MainViewModel @Inject constructor(
                 return@launch
             }
 
-            playerManager.playArchive(channel, program)
-            val channelIndex = state.channels.indexOfFirst { it.url == channel.url }.coerceAtLeast(0)
-
-            _viewState.update {
-                it.copy(
-                    isArchivePlayback = true,
-                    archiveProgram = program,
-                    currentChannel = channel,
-                    currentChannelIndex = channelIndex,
-                    currentProgram = program,
-                    showPlaylist = false,
-                    showEpgPanel = false
-                )
-            }
+            startArchivePlayback(channel, program)
         }
+    }
+
+    fun continueArchiveFromPrompt() {
+        viewModelScope.launch {
+            val prompt = _viewState.value.archivePrompt ?: return@launch
+            val nextProgram = prompt.nextProgram
+            if (nextProgram == null) {
+                returnToLive()
+                _viewState.update { it.copy(archivePrompt = null) }
+                return@launch
+            }
+            startArchivePlayback(prompt.channel, nextProgram)
+        }
+    }
+
+    fun dismissArchivePrompt() {
+        returnToLive()
     }
 
     /**
@@ -454,6 +500,27 @@ class MainViewModel @Inject constructor(
                     currentProgramsMap = updatedMap
                 )
             }
+        }
+    }
+
+    private suspend fun handleArchiveCompletion(channel: Channel, program: EpgProgram) {
+        val programs = epgRepository.getProgramsForChannel(channel.tvgId)
+        val nextProgram = programs
+            .filter { it.startTimeMillis >= program.stopTimeMillis }
+            .minByOrNull { it.startTimeMillis }
+
+        appendDebugMessage(
+            DebugMessage(
+                "DVR: Completed ${program.title}${nextProgram?.let { " -> next ${it.title}" } ?: " (no next program)"}"
+            )
+        )
+
+        _viewState.update {
+            it.copy(
+                isArchivePlayback = false,
+                archiveProgram = null,
+                archivePrompt = ArchivePrompt(channel, program, nextProgram)
+            )
         }
     }
 
@@ -532,6 +599,9 @@ class MainViewModel @Inject constructor(
         playerManager.release()
     }
 }
+
+
+
 
 
 

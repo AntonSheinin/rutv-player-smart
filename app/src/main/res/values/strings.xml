@@ -1,4 +1,4 @@
-<resources>
+ï»¿<resources>
     <string name="app_name">RuTV</string>
 
     <!-- Dialog Titles -->
@@ -68,6 +68,11 @@
     <string name="cd_aspect_ratio_button">Change aspect ratio</string>
     <string name="cd_orientation_button">Rotate video</string>
     <string name="player_return_to_live">Return to Live</string>
-    <string name="player_archive_label">DVR • %1$s</string>
+    <string name="player_archive_label">DVR ï¿½ %1$s</string>
 </resources>
+
+    <string name="archive_prompt_title">Playback Finished</string>
+    <string name="archive_prompt_message">Continue with &quot;%1$s&quot;?</string>
+    <string name="archive_prompt_message_no_next">Archive playback finished.</string>
+    <string name="archive_prompt_continue">Play Next Program</string>
 

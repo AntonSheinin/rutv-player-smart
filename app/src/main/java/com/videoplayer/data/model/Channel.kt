@@ -23,16 +23,18 @@ data class Channel(
     val hasEpg: Boolean
         get() = tvgId.isNotBlank() && catchupDays > 0
 
-    fun supportsCatchup(): Boolean = hasEpg && catchupSource.isNotBlank()
+    fun supportsCatchup(): Boolean = hasEpg
 
     fun buildArchiveUrl(program: EpgProgram): String? {
         if (!hasEpg) return null
+        val sourceTemplate = catchupSource
+        if (sourceTemplate.isBlank()) return null
+
         val startSeconds = (program.startTimeMillis / 1000L).coerceAtLeast(0)
         val durationSeconds = ((program.stopTimeMillis - program.startTimeMillis) / 1000L)
             .coerceAtLeast(60)
 
-        val template = catchupSource.ifBlank { "?utc={utc}" }
-        val filled = template
+        val filled = sourceTemplate
             .replace("{utc}", startSeconds.toString())
             .replace("{start}", startSeconds.toString())
             .replace("{duration}", durationSeconds.toString())
@@ -59,3 +61,4 @@ data class Channel(
         }
     }
 }
+

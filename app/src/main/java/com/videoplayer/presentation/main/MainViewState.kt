@@ -25,6 +25,7 @@ data class MainViewState(
     val currentProgramsMap: Map<String, EpgProgram?> = emptyMap(),
     val isArchivePlayback: Boolean = false,
     val archiveProgram: EpgProgram? = null,
+    val archivePrompt: ArchivePrompt? = null,
     val debugMessages: List<DebugMessage> = emptyList(),
     val showDebugLog: Boolean = true,
     val currentResizeMode: Int = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT,
@@ -46,3 +47,9 @@ data class MainViewState(
     val hasChannels: Boolean
         get() = channels.isNotEmpty()
 }
+
+data class ArchivePrompt(
+    val channel: Channel,
+    val currentProgram: EpgProgram,
+    val nextProgram: EpgProgram?
+)
