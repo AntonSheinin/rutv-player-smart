@@ -415,6 +415,7 @@ class PlayerManager @Inject constructor(
         playerInstance.setMediaItem(mediaItem)
         playerInstance.prepare()
         playerInstance.playWhenReady = true
+        playerInstance.play()
 
         addDebugMessage("▶ DVR: ${channel.title} → ${program.title}")
         _playerState.value = PlayerState.Archive(channel, program)
