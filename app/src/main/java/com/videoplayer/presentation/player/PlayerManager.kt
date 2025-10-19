@@ -412,7 +412,8 @@ class PlayerManager @Inject constructor(
             .setUri(uri)
             .setMediaId("${channel.title}_${program.startTimeMillis}")
             .build()
-        playerInstance.setMediaItem(mediaItem)
+        playerInstance.setMediaItems(listOf(mediaItem), /* startIndex = */ 0, /* startPositionMs = */ 0L)
+        playerInstance.repeatMode = Player.REPEAT_MODE_OFF
         playerInstance.prepare()
         playerInstance.playWhenReady = true
         playerInstance.play()
@@ -441,6 +442,7 @@ class PlayerManager @Inject constructor(
             clearMediaItems()
             val index = targetIndex.coerceIn(0, channels.lastIndex)
             setMediaItems(items, index, C.TIME_UNSET)
+            repeatMode = Player.REPEAT_MODE_ALL
             prepare()
             playWhenReady = true
         }
