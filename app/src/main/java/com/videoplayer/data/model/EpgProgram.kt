@@ -83,8 +83,9 @@ data class EpgProgram(
         }
 
         private fun parseXmlTv(value: String): Long? {
-            // Format: yyyyMMddHHmmss Z (e.g. 20251010193000 +0300)
-            if (value.length < 19) return null
+            // Format: yyyyMMddHHmmss +HHMM (e.g. 20251010193000 +0300)
+            // Minimum valid length: 14 (date/time) + 1 (space) + 1 (sign) + 4 (offset) = 20
+            if (value.length < 20) return null
             return try {
                 val year = value.substring(0, 4).toInt()
                 val month = value.substring(4, 6).toInt()

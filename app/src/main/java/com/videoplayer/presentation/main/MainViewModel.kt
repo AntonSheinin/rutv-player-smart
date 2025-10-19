@@ -442,8 +442,19 @@ class MainViewModel @Inject constructor(
                 return@launch
             }
 
+            val currentTime = System.currentTimeMillis()
+
+            // Check if program has ended
+            if (program.stopTimeMillis > currentTime) {
+                appendDebugMessage(
+                    DebugMessage("DVR: ${program.title} is still airing (ends in ${(program.stopTimeMillis - currentTime) / 60000} minutes)")
+                )
+                return@launch
+            }
+
+            // Check if program is within archive window
             val maxArchiveMillis = channel.catchupDays * 24L * 60 * 60 * 1000
-            val age = System.currentTimeMillis() - program.startTimeMillis
+            val age = currentTime - program.startTimeMillis
             if (maxArchiveMillis > 0 && age > maxArchiveMillis) {
                 appendDebugMessage(
                     DebugMessage("DVR: ${program.title} is outside of ${channel.catchupDays} day archive")

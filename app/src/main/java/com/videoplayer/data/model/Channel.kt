@@ -27,16 +27,34 @@ data class Channel(
 
     fun buildArchiveUrl(program: EpgProgram): String? {
         if (!hasEpg) return null
-        val template = if (catchupSource.isBlank()) "?utc={utc}&l={duration}" else catchupSource
 
+        // Validate EPG times
+        if (program.startTimeMillis <= 0 || program.stopTimeMillis <= 0) {
+            return null // Invalid EPG data
+        }
+        if (program.stopTimeMillis <= program.startTimeMillis) {
+            return null // Invalid program duration
+        }
+
+        // Flussonic DVR default format: ?from={utc}&duration={duration}
+        val template = if (catchupSource.isBlank()) "?from={utc}&duration={duration}" else catchupSource
+
+        val currentTimeMillis = System.currentTimeMillis()
         val startSeconds = (program.startTimeMillis / 1000L).coerceAtLeast(0)
+        val endSeconds = (program.stopTimeMillis / 1000L).coerceAtLeast(0)
         val durationSeconds = ((program.stopTimeMillis - program.startTimeMillis) / 1000L)
-            .coerceAtLeast(60)
+            .coerceAtLeast(1)
+        val offsetSeconds = ((program.startTimeMillis - currentTimeMillis) / 1000L)
 
         val filled = template
             .replace("{utc}", startSeconds.toString())
             .replace("{start}", startSeconds.toString())
             .replace("{duration}", durationSeconds.toString())
+            .replace("{end}", endSeconds.toString())
+            .replace("{stop}", endSeconds.toString())
+            .replace("{offset}", offsetSeconds.toString())
+            .replace("{timestamp}", startSeconds.toString())
+            .replace("{lutc}", startSeconds.toString())
 
         val baseUri = java.net.URI(url)
         val baseQuery = baseUri.rawQuery ?: ""
@@ -51,17 +69,19 @@ data class Channel(
         }
 
         fun mergeQuery(primary: String, secondary: String): String {
-            return listOf(primary, secondary)
+            // Primary params come first, secondary params override duplicates
+            val allParams = listOf(primary, secondary)
                 .map { it.trim('?', '&') }
                 .filter { it.isNotEmpty() }
                 .joinToString("&")
+            return allParams
         }
 
         return when {
             filled.startsWith("http://", true) || filled.startsWith("https://", true) -> filled
             filled.startsWith("?") -> {
                 val extra = filled.removePrefix("?")
-                val mergedQuery = mergeQuery(baseQuery, extra)
+                val mergedQuery = mergeQuery(extra, baseQuery)
                 java.net.URI(
                     baseUri.scheme,
                     baseUri.authority,
@@ -72,7 +92,7 @@ data class Channel(
             }
             filled.startsWith("&") -> {
                 val extra = filled.removePrefix("&")
-                val mergedQuery = mergeQuery(baseQuery, extra)
+                val mergedQuery = mergeQuery(extra, baseQuery)
                 java.net.URI(
                     baseUri.scheme,
                     baseUri.authority,
@@ -91,7 +111,7 @@ data class Channel(
                 val pathParts = pathWithTemplate.split("?", limit = 2)
                 val newPath = pathParts[0]
                 val extraQuery = if (pathParts.size > 1) pathParts[1] else ""
-                val mergedQuery = mergeQuery(extraQuery, baseQuery)
+                val mergedQuery = mergeQuery(extraQuery, baseQuery) // DVR params first
 
                 java.net.URI(
                     baseUri.scheme,
