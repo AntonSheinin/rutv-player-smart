@@ -38,32 +38,68 @@ data class Channel(
             .replace("{start}", startSeconds.toString())
             .replace("{duration}", durationSeconds.toString())
 
+        val baseUri = java.net.URI(url)
+        val baseQuery = baseUri.rawQuery ?: ""
+        val basePath = baseUri.rawPath ?: ""
+        val baseDir = run {
+            val lastSlash = basePath.lastIndexOf('/')
+            when {
+                lastSlash >= 0 -> basePath.substring(0, lastSlash + 1)
+                basePath.isEmpty() -> "/"
+                else -> "/"
+            }
+        }
+
+        fun mergeQuery(primary: String, secondary: String): String {
+            return listOf(primary, secondary)
+                .map { it.trim('?', '&') }
+                .filter { it.isNotEmpty() }
+                .joinToString("&")
+        }
+
         return when {
             filled.startsWith("http://", true) || filled.startsWith("https://", true) -> filled
             filled.startsWith("?") -> {
-                if (url.contains("?")) {
-                    val suffix = filled.removePrefix("?")
-                    if (suffix.isEmpty()) url else "$url&$suffix"
-                } else {
-                    url + filled
-                }
+                val extra = filled.removePrefix("?")
+                val mergedQuery = mergeQuery(baseQuery, extra)
+                java.net.URI(
+                    baseUri.scheme,
+                    baseUri.authority,
+                    baseUri.rawPath,
+                    mergedQuery.ifEmpty { null },
+                    null
+                ).toString()
             }
             filled.startsWith("&") -> {
-                val suffix = filled.removePrefix("&")
-                if (url.contains("?")) {
-                    if (suffix.isEmpty()) url else "$url&$suffix"
-                } else {
-                    if (suffix.isEmpty()) url else "$url?$suffix"
-                }
-            }
-            filled.startsWith("/") -> {
-                val base = url.substringBeforeLast("/", url)
-                base + filled
+                val extra = filled.removePrefix("&")
+                val mergedQuery = mergeQuery(baseQuery, extra)
+                java.net.URI(
+                    baseUri.scheme,
+                    baseUri.authority,
+                    baseUri.rawPath,
+                    mergedQuery.ifEmpty { null },
+                    null
+                ).toString()
             }
             else -> {
-                // Assume relative segment
-                val base = url.substringBeforeLast("/", url)
-                "$base/$filled"
+                val pathWithTemplate = if (filled.startsWith("/")) {
+                    filled
+                } else {
+                    val dir = if (baseDir.startsWith("/")) baseDir else "/$baseDir"
+                    dir + filled
+                }
+                val pathParts = pathWithTemplate.split("?", limit = 2)
+                val newPath = pathParts[0]
+                val extraQuery = if (pathParts.size > 1) pathParts[1] else ""
+                val mergedQuery = mergeQuery(extraQuery, baseQuery)
+
+                java.net.URI(
+                    baseUri.scheme,
+                    baseUri.authority,
+                    newPath,
+                    mergedQuery.ifEmpty { null },
+                    null
+                ).toString()
             }
         }
     }
