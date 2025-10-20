@@ -265,21 +265,23 @@ class SettingsViewModel @Inject constructor(
     }
 
     /**
-     * Force EPG fetch - delete cached data and refetch
+     * Force EPG fetch - delete cached data and clear timestamp to force refetch
      */
     fun forceEpgFetch() {
         viewModelScope.launch {
             try {
                 Timber.d("Force EPG fetch requested")
                 epgRepository.clearCache()
+                // Clear last fetch timestamp to force refetch on app restart
+                preferencesRepository.saveLastEpgFetchTimestamp(0L)
 
                 _viewState.update {
                     it.copy(
-                        successMessage = "EPG cache cleared. Reload playlist to fetch new EPG data.",
+                        successMessage = "EPG cache cleared. Return to player to fetch new EPG data.",
                         error = null
                     )
                 }
-                Timber.d("EPG cache cleared successfully")
+                Timber.d("EPG cache cleared successfully, timestamp reset")
             } catch (e: Exception) {
                 _viewState.update {
                     it.copy(error = "Failed to clear EPG cache: ${e.message}")

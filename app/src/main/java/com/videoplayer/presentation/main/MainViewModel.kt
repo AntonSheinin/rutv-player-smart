@@ -255,6 +255,20 @@ class MainViewModel @Inject constructor(
                     DebugMessage("EPG: Using cached data (fetched ${hoursSinceLastFetch}h ago, ${cachedEpg.totalPrograms} programs)")
                 )
                 Timber.d("EPG: Skipping fetch, cached data is ${hoursSinceLastFetch}h old")
+
+                // Refresh current programs cache and update view state
+                withContext(Dispatchers.Default) {
+                    epgRepository.refreshCurrentProgramsCache()
+                }
+                _viewState.update {
+                    it.copy(currentProgramsMap = epgRepository.getCurrentProgramsSnapshot())
+                }
+
+                // Update current program for current channel
+                _viewState.value.currentChannel?.let { channel ->
+                    updateCurrentProgram(channel)
+                }
+
                 return@launch
             }
 
