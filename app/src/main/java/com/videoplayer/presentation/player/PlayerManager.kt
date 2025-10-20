@@ -414,6 +414,11 @@ class PlayerManager @Inject constructor(
         val mediaItem = MediaItem.Builder()
             .setUri(uri)
             .setMediaId("${channel.title}_${program.startTimeMillis}")
+            .setLiveConfiguration(
+                MediaItem.LiveConfiguration.Builder()
+                    .setTargetOffsetMs(C.TIME_UNSET)
+                    .build()
+            )
             .build()
         playerInstance.setMediaItems(listOf(mediaItem), /* startIndex = */ 0, /* startPositionMs = */ 0L)
         playerInstance.repeatMode = Player.REPEAT_MODE_OFF
