@@ -179,11 +179,8 @@ class MainViewModel @Inject constructor(
                         // Initialize player
                         initializePlayer()
 
-                        // Fetch EPG (will check if URL is configured)
-                        appendDebugMessage(
-                            DebugMessage("EPG: Preparing to fetch data for ${channels.count { it.hasEpg }} channels")
-                        )
-                        fetchEpg()
+                        // Fetch EPG only if needed (not more than once per day)
+                        fetchEpgIfNeeded()
                     } else {
                         Timber.d("No channels loaded, skipping EPG fetch")
                         appendDebugMessage(DebugMessage("EPG: Playlist empty, skipping fetch"))
@@ -234,10 +231,52 @@ class MainViewModel @Inject constructor(
     }
 
     /**
-     * Fetch EPG data
+     * Fetch EPG data only if needed (not more than once per day)
      */
-    fun fetchEpg() {
+    private fun fetchEpgIfNeeded() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val channels = _viewState.value.channels
+            val channelsWithEpg = channels.count { it.hasEpg }
+
+            if (channelsWithEpg == 0) {
+                appendDebugMessage(DebugMessage("EPG: No channels with EPG support, skipping fetch"))
+                return@launch
+            }
+
+            // Check if EPG cache exists
+            val cachedEpg = epgRepository.loadEpgData()
+            val lastFetchTimestamp = preferencesRepository.lastEpgFetchTimestamp.first()
+            val currentTime = System.currentTimeMillis()
+            val hoursSinceLastFetch = (currentTime - lastFetchTimestamp) / (1000 * 60 * 60)
+
+            if (cachedEpg != null && lastFetchTimestamp > 0 && hoursSinceLastFetch < 24) {
+                // EPG is fresh (less than 24 hours old)
+                appendDebugMessage(
+                    DebugMessage("EPG: Using cached data (fetched ${hoursSinceLastFetch}h ago, ${cachedEpg.totalPrograms} programs)")
+                )
+                Timber.d("EPG: Skipping fetch, cached data is ${hoursSinceLastFetch}h old")
+                return@launch
+            }
+
+            // EPG is stale or missing, fetch new data
+            if (cachedEpg == null) {
+                appendDebugMessage(DebugMessage("EPG: No cached data, fetching from service"))
+            } else {
+                appendDebugMessage(DebugMessage("EPG: Cached data is ${hoursSinceLastFetch}h old, refreshing"))
+            }
+
+            fetchEpg(forceUpdate = true)
+        }
+    }
+
+    /**
+     * Fetch EPG data from service
+     */
+    fun fetchEpg(forceUpdate: Boolean = false) {
         viewModelScope.launch {
+            if (!forceUpdate) {
+                appendDebugMessage(DebugMessage("EPG: Manual fetch requested"))
+            }
             appendDebugMessage(DebugMessage("EPG: Fetch started"))
             when (val fetchResult = fetchEpgUseCase()) {
                 is Result.Success -> {
@@ -249,13 +288,17 @@ class MainViewModel @Inject constructor(
                         )
                     )
 
+                    // Save fetch timestamp
+                    val timestamp = System.currentTimeMillis()
+                    preferencesRepository.saveLastEpgFetchTimestamp(timestamp)
+
                     withContext(Dispatchers.Default) {
                         epgRepository.refreshCurrentProgramsCache()
                     }
 
                     _viewState.update {
                         it.copy(
-                            epgLoadedTimestamp = System.currentTimeMillis(),
+                            epgLoadedTimestamp = timestamp,
                             currentProgramsMap = epgRepository.getCurrentProgramsSnapshot()
                         )
                     }
