@@ -45,6 +45,16 @@ data class Channel(
             template = "?from=$template"
         }
 
+        // Flussonic DVR workaround: Replace video.m3u8 with index.m3u8 if using default template
+        // video.m3u8 might be a redirect that doesn't preserve DVR parameters
+        val needsIndexFix = catchupSource.isBlank() && url.contains("/video.m3u8", ignoreCase = true)
+        val adjustedUrl = if (needsIndexFix) {
+            timber.log.Timber.d("DVR: Adjusting URL from video.m3u8 to index.m3u8 for better DVR support")
+            url.replace("/video.m3u8", "/index.m3u8", ignoreCase = true)
+        } else {
+            url
+        }
+
         val currentTimeMillis = System.currentTimeMillis()
         val startSeconds = (program.startTimeMillis / 1000L).coerceAtLeast(0)
         val endSeconds = (program.stopTimeMillis / 1000L).coerceAtLeast(0)
@@ -62,7 +72,7 @@ data class Channel(
             .replace("{timestamp}", startSeconds.toString())
             .replace("{lutc}", startSeconds.toString())
 
-        val baseUri = java.net.URI(url)
+        val baseUri = java.net.URI(adjustedUrl)
         val baseQuery = baseUri.rawQuery ?: ""
         val basePath = baseUri.rawPath ?: ""
         val baseDir = run {
