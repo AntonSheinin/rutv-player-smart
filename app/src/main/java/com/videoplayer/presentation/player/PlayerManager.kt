@@ -411,17 +411,40 @@ class PlayerManager @Inject constructor(
 
         playerInstance.stop()
         playerInstance.clearMediaItems()
+
+        // Configure media item for archive playback
         val mediaItem = MediaItem.Builder()
             .setUri(uri)
             .setMediaId("${channel.title}_${program.startTimeMillis}")
             .setLiveConfiguration(
                 MediaItem.LiveConfiguration.Builder()
                     .setTargetOffsetMs(C.TIME_UNSET)
+                    .setMinPlaybackSpeed(1f)
+                    .setMaxPlaybackSpeed(1f)
                     .build()
             )
             .build()
-        playerInstance.setMediaItems(listOf(mediaItem), /* startIndex = */ 0, /* startPositionMs = */ 0L)
+
+        playerInstance.setMediaItems(listOf(mediaItem))
         playerInstance.repeatMode = Player.REPEAT_MODE_OFF
+
+        // Add one-time listener to seek to start when timeline is loaded
+        val archiveSeekListener = object : Player.Listener {
+            private var hasSeekToStart = false
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_READY && isArchivePlayback && !hasSeekToStart) {
+                    hasSeekToStart = true
+                    // Force seek to the very beginning of the archive content
+                    playerInstance.seekTo(0L)
+                    addDebugMessage("DVR: Seeking to start (position 0)")
+                    // Remove this listener after seeking once
+                    playerInstance.removeListener(this)
+                }
+            }
+        }
+        playerInstance.addListener(archiveSeekListener)
+
         playerInstance.prepare()
         playerInstance.playWhenReady = true
         playerInstance.play()
