@@ -212,7 +212,8 @@ class MainViewModel @Inject constructor(
      * Initialize player with current channels
      */
     private fun initializePlayer() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
+            // Read preferences on IO thread to avoid blocking main thread
             val config = preferencesRepository.playerConfig.first()
             val lastPlayedIndex = preferencesRepository.lastPlayedIndex.first()
             val channels = _viewState.value.channels
@@ -224,7 +225,10 @@ class MainViewModel @Inject constructor(
                     0
                 }
 
-                playerManager.initialize(channels, config, startIndex)
+                // Initialize player on main thread (required for ExoPlayer)
+                withContext(Dispatchers.Main) {
+                    playerManager.initialize(channels, config, startIndex)
+                }
             }
         }
     }
