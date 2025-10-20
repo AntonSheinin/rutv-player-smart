@@ -404,7 +404,6 @@ class PlayerManager @Inject constructor(
         addDebugMessage("DVR: Template='${channel.catchupSource.ifBlank { "<default>" }}'")
         addDebugMessage("DVR: Generated URL: ${maskSensitive(uri)}")
         addDebugMessage("DVR: Duration=${durationSeconds}s, Start=${program.startTimeMillis/1000}")
-        probeArchiveUri(uri)
 
         isArchivePlayback = true
         archiveChannel = channel
