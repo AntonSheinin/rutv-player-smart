@@ -37,7 +37,13 @@ data class Channel(
         }
 
         // Flussonic DVR default format: ?from={utc}&duration={duration}
-        val template = if (catchupSource.isBlank()) "?from={utc}&duration={duration}" else catchupSource
+        var template = if (catchupSource.isBlank()) "?from={utc}&duration={duration}" else catchupSource
+
+        // Fix common malformed templates
+        if (template.startsWith("{") && !template.startsWith("http")) {
+            // Template like "{utc}" or "{utc}&duration={duration}" (missing ? or & prefix)
+            template = "?from=$template"
+        }
 
         val currentTimeMillis = System.currentTimeMillis()
         val startSeconds = (program.startTimeMillis / 1000L).coerceAtLeast(0)

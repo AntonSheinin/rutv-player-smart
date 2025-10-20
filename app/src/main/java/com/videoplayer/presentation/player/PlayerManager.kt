@@ -401,7 +401,9 @@ class PlayerManager @Inject constructor(
         }
 
         val durationSeconds = ((program.stopTimeMillis - program.startTimeMillis) / 1000L).coerceAtLeast(60)
-        addDebugMessage("DVR: Loading ${channel.title} @ ${maskSensitive(uri)} (duration=${durationSeconds}s)")
+        addDebugMessage("DVR: Template='${channel.catchupSource.ifBlank { "<default>" }}'")
+        addDebugMessage("DVR: Generated URL: ${maskSensitive(uri)}")
+        addDebugMessage("DVR: Duration=${durationSeconds}s, Start=${program.startTimeMillis/1000}")
         probeArchiveUri(uri)
 
         isArchivePlayback = true
