@@ -36,25 +36,6 @@ data class Channel(
             return null // Invalid program duration
         }
 
-        // Flussonic DVR default format: ?from={utc}&duration={duration}
-        var template = if (catchupSource.isBlank()) "?from={utc}&duration={duration}" else catchupSource
-
-        // Fix common malformed templates
-        if (template.startsWith("{") && !template.startsWith("http")) {
-            // Template like "{utc}" or "{utc}&duration={duration}" (missing ? or & prefix)
-            template = "?from=$template"
-        }
-
-        // Flussonic DVR workaround: Replace video.m3u8 with index.m3u8 if using default template
-        // video.m3u8 might be a redirect that doesn't preserve DVR parameters
-        val needsIndexFix = catchupSource.isBlank() && url.contains("/video.m3u8", ignoreCase = true)
-        val adjustedUrl = if (needsIndexFix) {
-            timber.log.Timber.d("DVR: Adjusting URL from video.m3u8 to index.m3u8 for better DVR support")
-            url.replace("/video.m3u8", "/index.m3u8", ignoreCase = true)
-        } else {
-            url
-        }
-
         val currentTimeMillis = System.currentTimeMillis()
         val startSeconds = (program.startTimeMillis / 1000L).coerceAtLeast(0)
         val endSeconds = (program.stopTimeMillis / 1000L).coerceAtLeast(0)
@@ -62,7 +43,91 @@ data class Channel(
             .coerceAtLeast(1)
         val offsetSeconds = ((program.startTimeMillis - currentTimeMillis) / 1000L)
 
-        val filled = template
+        // If custom catchup-source is provided, use it (for non-Flussonic servers)
+        if (catchupSource.isNotBlank()) {
+            return buildCustomArchiveUrl(
+                catchupSource, startSeconds, endSeconds,
+                durationSeconds, offsetSeconds, currentTimeMillis
+            )
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // Flussonic DVR: Official path-based format (not query params!)
+        // Format: http://server/stream/archive-{from}-{duration}.m3u8
+        // Docs: https://flussonic.com/doc/add-support-for-dvr-to-middleware/
+        // ═══════════════════════════════════════════════════════════════
+
+        val baseUri = java.net.URI(url)
+        val basePath = baseUri.rawPath ?: ""
+        val baseQuery = baseUri.rawQuery ?: ""
+
+        // Extract stream name and directory from base URL
+        // e.g., "/TNTHD/index.m3u8" -> streamDir="/TNTHD", fileName="index.m3u8"
+        val lastSlash = basePath.lastIndexOf('/')
+        val streamDir = if (lastSlash > 0) basePath.substring(0, lastSlash) else ""
+
+        // Build archive path: /STREAM/archive-{from}-{duration}.m3u8
+        val archivePath = "$streamDir/archive-$startSeconds-$durationSeconds.m3u8"
+
+        // Check if program is still airing (ongoing event)
+        val isOngoing = program.stopTimeMillis > currentTimeMillis
+
+        // Build query parameters
+        val queryParams = mutableListOf<String>()
+
+        // Preserve existing query params (like token, etc.)
+        if (baseQuery.isNotBlank()) {
+            queryParams.add(baseQuery)
+        }
+
+        // Add event=true for ongoing programs (EVENT playlist vs VOD)
+        // EVENT: Playlist grows as new content arrives (for live viewing of past content)
+        // VOD: Static completed playlist (for fully archived content)
+        if (isOngoing) {
+            queryParams.add("event=true")
+        }
+
+        val finalQuery = queryParams.joinToString("&")
+
+        // Construct final URL
+        val archiveUrl = java.net.URI(
+            baseUri.scheme,
+            baseUri.authority,
+            archivePath,
+            finalQuery.ifEmpty { null },
+            null
+        ).toString()
+
+        timber.log.Timber.d("DVR: Using Flussonic path-based format")
+        timber.log.Timber.d("DVR: Archive path: $archivePath")
+        if (isOngoing) {
+            timber.log.Timber.d("DVR: Program still airing, using EVENT mode")
+        }
+
+        return archiveUrl
+    }
+
+    /**
+     * Build archive URL using custom catchup-source template
+     * (for non-Flussonic or custom DVR servers)
+     */
+    private fun buildCustomArchiveUrl(
+        template: String,
+        startSeconds: Long,
+        endSeconds: Long,
+        durationSeconds: Long,
+        offsetSeconds: Long,
+        currentTimeMillis: Long
+    ): String? {
+        var filled = template
+
+        // Fix common malformed templates
+        if (filled.startsWith("{") && !filled.startsWith("http")) {
+            filled = "?from=$filled"
+        }
+
+        // Replace all placeholder variables
+        filled = filled
             .replace("{utc}", startSeconds.toString())
             .replace("{start}", startSeconds.toString())
             .replace("{duration}", durationSeconds.toString())
@@ -72,7 +137,7 @@ data class Channel(
             .replace("{timestamp}", startSeconds.toString())
             .replace("{lutc}", startSeconds.toString())
 
-        val baseUri = java.net.URI(adjustedUrl)
+        val baseUri = java.net.URI(url)
         val baseQuery = baseUri.rawQuery ?: ""
         val basePath = baseUri.rawPath ?: ""
         val baseDir = run {
@@ -85,7 +150,6 @@ data class Channel(
         }
 
         fun mergeQuery(primary: String, secondary: String): String {
-            // Primary params come first, secondary params override duplicates
             val allParams = listOf(primary, secondary)
                 .map { it.trim('?', '&') }
                 .filter { it.isNotEmpty() }
@@ -127,7 +191,7 @@ data class Channel(
                 val pathParts = pathWithTemplate.split("?", limit = 2)
                 val newPath = pathParts[0]
                 val extraQuery = if (pathParts.size > 1) pathParts[1] else ""
-                val mergedQuery = mergeQuery(extraQuery, baseQuery) // DVR params first
+                val mergedQuery = mergeQuery(extraQuery, baseQuery)
 
                 java.net.URI(
                     baseUri.scheme,

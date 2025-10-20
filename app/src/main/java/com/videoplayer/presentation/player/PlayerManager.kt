@@ -401,9 +401,15 @@ class PlayerManager @Inject constructor(
         }
 
         val durationSeconds = ((program.stopTimeMillis - program.startTimeMillis) / 1000L).coerceAtLeast(60)
-        addDebugMessage("DVR: Template='${channel.catchupSource.ifBlank { "<default>" }}'")
+        val isOngoing = program.stopTimeMillis > System.currentTimeMillis()
+        addDebugMessage("DVR: Template='${channel.catchupSource.ifBlank { "Flussonic path-based" }}'")
         addDebugMessage("DVR: Generated URL: ${maskSensitive(uri)}")
         addDebugMessage("DVR: Duration=${durationSeconds}s, Start=${program.startTimeMillis/1000}")
+        if (isOngoing) {
+            addDebugMessage("DVR: Ongoing program (EVENT playlist)")
+        } else {
+            addDebugMessage("DVR: Completed program (VOD playlist)")
+        }
 
         isArchivePlayback = true
         archiveChannel = channel
@@ -412,38 +418,19 @@ class PlayerManager @Inject constructor(
         playerInstance.stop()
         playerInstance.clearMediaItems()
 
-        // Configure media item for archive playback
+        // ═══════════════════════════════════════════════════════════════
+        // Flussonic DVR: Simple MediaItem without workarounds
+        // The archive-{from}-{duration}.m3u8 format returns proper VOD
+        // playlists with #EXT-X-ENDLIST, so ExoPlayer treats them
+        // correctly without needing LiveConfiguration or seek hacks
+        // ═══════════════════════════════════════════════════════════════
         val mediaItem = MediaItem.Builder()
             .setUri(uri)
             .setMediaId("${channel.title}_${program.startTimeMillis}")
-            .setLiveConfiguration(
-                MediaItem.LiveConfiguration.Builder()
-                    .setTargetOffsetMs(C.TIME_UNSET)
-                    .setMinPlaybackSpeed(1f)
-                    .setMaxPlaybackSpeed(1f)
-                    .build()
-            )
             .build()
 
         playerInstance.setMediaItems(listOf(mediaItem))
         playerInstance.repeatMode = Player.REPEAT_MODE_OFF
-
-        // Add one-time listener to seek to start when timeline is loaded
-        val archiveSeekListener = object : Player.Listener {
-            private var hasSeekToStart = false
-
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                if (playbackState == Player.STATE_READY && isArchivePlayback && !hasSeekToStart) {
-                    hasSeekToStart = true
-                    // Force seek to the very beginning of the archive content
-                    playerInstance.seekTo(0L)
-                    addDebugMessage("DVR: Seeking to start (position 0)")
-                    // Remove this listener after seeking once
-                    playerInstance.removeListener(this)
-                }
-            }
-        }
-        playerInstance.addListener(archiveSeekListener)
 
         playerInstance.prepare()
         playerInstance.playWhenReady = true
