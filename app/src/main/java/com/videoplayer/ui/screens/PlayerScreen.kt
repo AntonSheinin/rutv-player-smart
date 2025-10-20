@@ -65,6 +65,7 @@ fun PlayerScreen(
     onShowProgramDetails: (EpgProgram) -> Unit,
     onPlayArchiveProgram: (EpgProgram) -> Unit,
     onReturnToLive: () -> Unit,
+    onWatchFromBeginning: () -> Unit,
     onArchivePromptContinue: () -> Unit,
     onArchivePromptBackToLive: () -> Unit,
     onCloseProgramDetails: () -> Unit,
@@ -208,6 +209,7 @@ fun PlayerScreen(
                     isArchivePlayback = viewState.isArchivePlayback,
                     archiveProgram = viewState.archiveProgram,
                     onReturnToLive = onReturnToLive,
+                    onWatchFromBeginning = onWatchFromBeginning,
                     modifier = Modifier.padding(16.dp)
                 )
             }
@@ -302,6 +304,7 @@ private fun ChannelInfoOverlay(
     isArchivePlayback: Boolean,
     archiveProgram: EpgProgram?,
     onReturnToLive: () -> Unit,
+    onWatchFromBeginning: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -347,6 +350,29 @@ private fun ChannelInfoOverlay(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    // Show "Watch from Beginning" button if channel supports catchup and program has started
+                    if (channel.supportsCatchup() && program.startTimeMillis < System.currentTimeMillis()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = onWatchFromBeginning,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.ruTvColors.gold,
+                                contentColor = MaterialTheme.ruTvColors.darkBackground
+                            ),
+                            modifier = Modifier.height(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Replay,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = stringResource(R.string.player_watch_from_beginning),
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                        }
+                    }
                 }
             }
         }

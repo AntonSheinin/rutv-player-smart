@@ -68,6 +68,7 @@
     <string name="cd_aspect_ratio_button">Change aspect ratio</string>
     <string name="cd_orientation_button">Rotate video</string>
     <string name="player_return_to_live">Return to Live</string>
+    <string name="player_watch_from_beginning">Watch from Beginning</string>
     <string name="player_archive_label">DVR &#8226; %1$s</string>
     <string name="archive_prompt_title">Playback Finished</string>
     <string name="archive_prompt_message">Continue with &quot;%1$s&quot;?</string>

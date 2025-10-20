@@ -450,6 +450,49 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Watch current program from beginning (timeshift/restart)
+     * Allows users to restart the currently airing program
+     */
+    fun watchFromBeginning() {
+        viewModelScope.launch {
+            val state = _viewState.value
+            val currentChannel = state.currentChannel
+            val currentProgram = state.currentProgram
+
+            if (currentChannel == null || currentProgram == null) {
+                appendDebugMessage(DebugMessage("DVR: No current program to restart"))
+                return@launch
+            }
+
+            if (!currentChannel.supportsCatchup()) {
+                appendDebugMessage(DebugMessage("DVR: ${currentChannel.title} does not support timeshift"))
+                return@launch
+            }
+
+            val currentTime = System.currentTimeMillis()
+
+            // Check if program has started
+            if (currentProgram.startTimeMillis > currentTime) {
+                appendDebugMessage(DebugMessage("DVR: ${currentProgram.title} hasn't started yet"))
+                return@launch
+            }
+
+            // Check if program is within archive window
+            val maxArchiveMillis = currentChannel.catchupDays * 24L * 60 * 60 * 1000
+            val age = currentTime - currentProgram.startTimeMillis
+            if (maxArchiveMillis > 0 && age > maxArchiveMillis) {
+                appendDebugMessage(
+                    DebugMessage("DVR: ${currentProgram.title} is outside of ${currentChannel.catchupDays} day archive")
+                )
+                return@launch
+            }
+
+            appendDebugMessage(DebugMessage("DVR: Restarting ${currentProgram.title} from beginning"))
+            startArchivePlayback(currentChannel, currentProgram)
+        }
+    }
+
     private suspend fun startArchivePlayback(channel: Channel, program: EpgProgram) {
         val durationMinutes = ((program.stopTimeMillis - program.startTimeMillis) / 60000L).coerceAtLeast(1)
         val ageMinutes = ((System.currentTimeMillis() - program.startTimeMillis) / 60000L).coerceAtLeast(0)

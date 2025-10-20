@@ -86,6 +86,7 @@ class MainActivity : ComponentActivity() {
             onShowProgramDetails = { program -> viewModel.showProgramDetails(program) },
             onPlayArchiveProgram = { program -> viewModel.playArchiveProgram(program) },
             onReturnToLive = { viewModel.returnToLive() },
+            onWatchFromBeginning = { viewModel.watchFromBeginning() },
             onArchivePromptContinue = { viewModel.continueArchiveFromPrompt() },
             onArchivePromptBackToLive = { viewModel.dismissArchivePrompt() },
             onCloseProgramDetails = { viewModel.closeProgramDetails() },
