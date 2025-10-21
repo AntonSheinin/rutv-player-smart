@@ -322,9 +322,9 @@ class PlayerManager @Inject constructor(
                         if (firstSegmentMillis != null) {
                             val deltaSeconds = ((firstSegmentMillis - program.startUtcMillis) / 1000.0)
                             addDebugMessage(
-                            addDebugMessage(
                                 "DVR: Variant first PDT=${timestamp} (delta=${String.format(Locale.US, "%.1f", deltaSeconds)}s vs EPG start)"
                             )
+                        } else {
                             addDebugMessage("DVR: Variant PDT parse failed (${maskSensitive(line)})")
                         }
                     }
@@ -897,6 +897,3 @@ class FFmpegRenderersFactory(
         // Disable text renderers
     }
 }
-
-
-        addDebugMessage("Return to live: ${channels.getOrNull(index)?.title ?: "Unknown"}")
