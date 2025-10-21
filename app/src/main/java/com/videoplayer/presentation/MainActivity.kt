@@ -100,6 +100,7 @@ class MainActivity : ComponentActivity() {
             onArchivePromptBackToLive = { viewModel.dismissArchivePrompt() },
             onCloseProgramDetails = { viewModel.closeProgramDetails() },
             modifier = Modifier.fillMaxSize()
+        )
     }
 
     /**
