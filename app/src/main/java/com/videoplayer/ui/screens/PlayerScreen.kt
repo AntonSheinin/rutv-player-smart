@@ -1027,6 +1027,7 @@ private fun CustomControlButtons(
 
 
 
+@Suppress("DiscouragedApi")
 private fun configurePlayerControls(
     playerView: PlayerView,
     isArchivePlayback: Boolean,
@@ -1037,6 +1038,8 @@ private fun configurePlayerControls(
     onResumePlayback: () -> Unit
 ) {
     // Use runtime resource resolution for Media3 UI resources
+    // We can't directly access androidx.media3.ui.R due to library resource visibility,
+    // so getIdentifier() is necessary here despite the performance warning
     val resources = playerView.resources
     val exoSettingsId = resources.getIdentifier("exo_settings", "id", "androidx.media3.ui")
     val exoRewId = resources.getIdentifier("exo_rew", "id", "androidx.media3.ui")
