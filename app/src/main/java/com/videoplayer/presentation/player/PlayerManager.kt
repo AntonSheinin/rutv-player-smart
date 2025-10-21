@@ -321,9 +321,8 @@ class PlayerManager @Inject constructor(
                         val firstSegmentMillis = parseIso8601ToMillis(timestamp)
                         if (firstSegmentMillis != null) {
                             val deltaSeconds = ((firstSegmentMillis - program.startUtcMillis) / 1000.0)
-                addDebugMessage(
-                    "DVR: Probe ${maskSensitive(resolved)} (${contentType ?: \"content-type=?\"}, len=${contentLength ?: \"?\"})"
-                )
+                            addDebugMessage(
+                                "DVR: Variant first PDT=${timestamp} (Δ=${"%.1f".format(deltaSeconds)}s vs EPG start)"
                             )
                         } else {
                             addDebugMessage("DVR: Variant PDT parse failed (${maskSensitive(line)})")
@@ -615,9 +614,9 @@ class PlayerManager @Inject constructor(
                     "DVR: Probe ${maskSensitive(resolved)} (${contentType ?: \"content-type=?\"}, len=${contentLength ?: \"?\"})"
                 )
                 fetchManifestPreview(factory, resolved, program)
-            } catch (e: Exception) {
-                addDebugMessage("DVR: Probe failed (${e.message ?: \"unknown error\"})")
-            } finally {
+                addDebugMessage(
+                    "DVR: Probe ${maskSensitive(resolved)} (${contentType ?: \"content-type=?\"}, len=${contentLength ?: \"?\"})"
+                )
                 try {
                     headSource.close()
                 } catch (_: Exception) {
