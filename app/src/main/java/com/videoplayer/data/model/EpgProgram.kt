@@ -3,7 +3,6 @@ package com.videoplayer.data.model
 import com.google.gson.annotations.SerializedName
 import java.util.Calendar
 import java.util.GregorianCalendar
-import java.util.Locale
 import java.util.TimeZone
 
 /**
@@ -61,7 +60,7 @@ data class EpgProgram(
                 val offsetMinutes = value.substring(23, 25).toInt()
                 val offsetMillis = sign * ((offsetHours * 60 + offsetMinutes) * 60_000)
 
-                val cal = utcCalendar.get()
+                val cal = utcCalendar.get() ?: return null
                 cal.clear()
                 cal.set(year, month - 1, day, hour, minute, second)
                 cal.set(Calendar.MILLISECOND, 0)
@@ -81,7 +80,7 @@ data class EpgProgram(
                 val minute = value.substring(14, 16).toInt()
                 val second = value.substring(17, 19).toInt()
 
-                val cal = localCalendar.get()
+                val cal = localCalendar.get() ?: return null
                 cal.clear()
                 cal.set(year, month - 1, day, hour, minute, second)
                 cal.set(Calendar.MILLISECOND, 0)
@@ -107,7 +106,7 @@ data class EpgProgram(
                 val offsetMinutes = value.substring(18, 20).toInt()
                 val offsetMillis = sign * ((offsetHours * 60 + offsetMinutes) * 60_000)
 
-                val cal = utcCalendar.get()
+                val cal = utcCalendar.get() ?: return null
                 cal.clear()
                 cal.set(year, month - 1, day, hour, minute, second)
                 cal.set(Calendar.MILLISECOND, 0)
