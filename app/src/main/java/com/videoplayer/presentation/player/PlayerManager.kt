@@ -53,6 +53,7 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
 import kotlin.math.min
+import kotlin.math.max
 
 @UnstableApi
 @Singleton
@@ -520,11 +521,37 @@ class PlayerManager @Inject constructor(
         return true
     }
 
-    fun returnToLive() {
+    fun restartArchive() {
         if (!isArchivePlayback) return
+        player?.seekTo(0L)
+        pendingArchiveSeek = false
+    }
+
+    fun seekBy(offsetMs: Long): Boolean {
+        val playerInstance = player ?: return false
+        var target = playerInstance.currentPosition + offsetMs
+        val duration = playerInstance.duration
+        if (duration != C.TIME_UNSET && offsetMs > 0) {
+            target = min(target, max(0L, duration - 1000L))
+        }
+        target = max(0L, target)
+        playerInstance.seekTo(target)
+        return true
+    }
+
+    fun returnToLive() {
+        if (!isArchivePlayback) {
+            player?.let { exoPlayer ->
+                addDebugMessage("Return to live: resume live edge")
+                exoPlayer.seekToDefaultPosition()
+                exoPlayer.playWhenReady = true
+                exoPlayer.play()
+            }
+            return
+        }
         val index = lastLiveIndex.coerceIn(0, channels.lastIndex.takeIf { channels.isNotEmpty() } ?: 0)
         restoreLivePlaylist(index)
-        addDebugMessage("â–¶ Live: ${channels.getOrNull(index)?.title ?: "Unknown"}")
+        addDebugMessage("â–¶ Live: ${channels.getOrNull(index)?.title ?: \"Unknown\"}")
         channels.getOrNull(index)?.let {
             _playerState.value = PlayerState.Ready(it, index)
             _playerEvents.tryEmit(PlayerEvent.ChannelChanged(it, index))

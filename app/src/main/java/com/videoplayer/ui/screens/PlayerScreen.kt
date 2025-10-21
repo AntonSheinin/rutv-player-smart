@@ -1,7 +1,10 @@
 package com.videoplayer.ui.screens
 
+import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.ImageButton
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -65,7 +68,11 @@ fun PlayerScreen(
     onShowProgramDetails: (EpgProgram) -> Unit,
     onPlayArchiveProgram: (EpgProgram) -> Unit,
     onReturnToLive: () -> Unit,
-    onWatchFromBeginning: () -> Unit,
+    onRestartPlayback: () -> Unit,
+    onSeekBack: () -> Unit,
+    onSeekForward: () -> Unit,
+    onPausePlayback: () -> Unit,
+    onResumePlayback: () -> Unit,
     onArchivePromptContinue: () -> Unit,
     onArchivePromptBackToLive: () -> Unit,
     onCloseProgramDetails: () -> Unit,
@@ -214,9 +221,9 @@ fun PlayerScreen(
                     channel = channel,
                     currentProgram = viewState.currentProgram,
                     isArchivePlayback = viewState.isArchivePlayback,
+                    isTimeshiftPlayback = viewState.isTimeshiftPlayback,
                     archiveProgram = viewState.archiveProgram,
                     onReturnToLive = onReturnToLive,
-                    onWatchFromBeginning = onWatchFromBeginning,
                     modifier = Modifier.padding(16.dp)
                 )
             }
@@ -309,9 +316,9 @@ private fun ChannelInfoOverlay(
     channel: Channel,
     currentProgram: EpgProgram?,
     isArchivePlayback: Boolean,
+    isTimeshiftPlayback: Boolean,
     archiveProgram: EpgProgram?,
     onReturnToLive: () -> Unit,
-    onWatchFromBeginning: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -357,28 +364,17 @@ private fun ChannelInfoOverlay(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    // Show "Watch from Beginning" button if channel supports catchup and program has started
-                    if (channel.supportsCatchup() && program.startTimeMillis < System.currentTimeMillis()) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Button(
-                            onClick = onWatchFromBeginning,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.ruTvColors.gold,
-                                contentColor = MaterialTheme.ruTvColors.darkBackground
-                            ),
-                            modifier = Modifier.height(36.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Replay,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = stringResource(R.string.player_watch_from_beginning),
-                                style = MaterialTheme.typography.labelLarge
-                            )
-                        }
+                }
+                if (isTimeshiftPlayback) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = onReturnToLive,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.ruTvColors.gold,
+                            contentColor = MaterialTheme.ruTvColors.darkBackground
+                        )
+                    ) {
+                        Text(text = stringResource(R.string.player_return_to_live))
                     }
                 }
             }
@@ -1030,4 +1026,52 @@ private fun CustomControlButtons(
 
 
 
+
+private fun configurePlayerControls(
+    playerView: PlayerView,
+    isArchivePlayback: Boolean,
+    onRestartPlayback: () -> Unit,
+    onSeekBack: () -> Unit,
+    onSeekForward: () -> Unit,
+    onPausePlayback: () -> Unit,
+    onResumePlayback: () -> Unit
+) {
+    playerView.findViewById<View>(androidx.media3.ui.R.id.exo_settings)?.visibility = View.GONE
+
+    playerView.findViewById<ImageButton>(androidx.media3.ui.R.id.exo_rew)?.apply {
+        visibility = View.VISIBLE
+        setOnClickListener { onRestartPlayback() }
+    }
+
+    playerView.findViewById<ImageButton>(androidx.media3.ui.R.id.exo_ff)?.apply {
+        visibility = if (isArchivePlayback) View.VISIBLE else View.GONE
+    }
+
+    playerView.findViewById<ImageButton>(androidx.media3.ui.R.id.exo_rew_with_amount)?.apply {
+        visibility = View.VISIBLE
+        setOnClickListener { onSeekBack() }
+    }
+
+    playerView.findViewById<ImageButton>(androidx.media3.ui.R.id.exo_ff_with_amount)?.apply {
+        visibility = if (isArchivePlayback) View.VISIBLE else View.GONE
+        setOnClickListener { onSeekForward() }
+    }
+
+    playerView.findViewById<ImageButton>(androidx.media3.ui.R.id.exo_play_pause)?.setOnClickListener {
+        val isPlaying = playerView.player?.isPlaying == true
+        if (isPlaying) {
+            onPausePlayback()
+        } else {
+            onResumePlayback()
+        }
+    }
+
+    playerView.findViewById<ImageButton>(androidx.media3.ui.R.id.exo_pause)?.setOnClickListener {
+        onPausePlayback()
+    }
+
+    playerView.findViewById<ImageButton>(androidx.media3.ui.R.id.exo_play)?.setOnClickListener {
+        onResumePlayback()
+    }
+}
 

@@ -91,12 +91,15 @@ class MainActivity : ComponentActivity() {
             onShowProgramDetails = { program -> viewModel.showProgramDetails(program) },
             onPlayArchiveProgram = { program -> viewModel.playArchiveProgram(program) },
             onReturnToLive = { viewModel.returnToLive() },
-            onWatchFromBeginning = { viewModel.watchFromBeginning() },
+            onRestartPlayback = { viewModel.restartCurrentPlayback() },
+            onSeekBack = { viewModel.seekBackTenSeconds() },
+            onSeekForward = { viewModel.seekForwardTenSeconds() },
+            onPausePlayback = { viewModel.pausePlayback() },
+            onResumePlayback = { viewModel.resumePlayback() },
             onArchivePromptContinue = { viewModel.continueArchiveFromPrompt() },
             onArchivePromptBackToLive = { viewModel.dismissArchivePrompt() },
             onCloseProgramDetails = { viewModel.closeProgramDetails() },
             modifier = Modifier.fillMaxSize()
-        )
     }
 
     /**

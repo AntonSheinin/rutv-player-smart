@@ -69,6 +69,7 @@ class MainViewModel @Inject constructor(
                                 currentChannel = state.channel,
                                 currentChannelIndex = state.index,
                                 isArchivePlayback = false,
+                                isTimeshiftPlayback = false,
                                 archiveProgram = null,
                                 archivePrompt = null
                             )
@@ -85,6 +86,7 @@ class MainViewModel @Inject constructor(
                                     currentChannel = state.channel,
                                     currentProgram = state.program,
                                     isArchivePlayback = true,
+                                    isTimeshiftPlayback = false,
                                     archiveProgram = state.program,
                                     archivePrompt = null
                                 )
@@ -304,7 +306,7 @@ class MainViewModel @Inject constructor(
                                 }
                             } else if (wasArchivePlayback) {
                                 _viewState.update { state ->
-                                    state.copy(isArchivePlayback = false, archiveProgram = null)
+                                    state.copy(isArchivePlayback = false, isTimeshiftPlayback = false, archiveProgram = null)
                                 }
                             }
 
@@ -476,6 +478,7 @@ class MainViewModel @Inject constructor(
                     showPlaylist = false,
                     showEpgPanel = false,
                     isArchivePlayback = false,
+                    isTimeshiftPlayback = false,
                     archiveProgram = null
                 )
             }
@@ -593,6 +596,7 @@ class MainViewModel @Inject constructor(
             _viewState.update {
                 it.copy(
                     isArchivePlayback = false,
+                    isTimeshiftPlayback = false,
                     archiveProgram = null,
                     archivePrompt = null
                 )
@@ -633,6 +637,46 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    fun restartCurrentPlayback() {
+        if (_viewState.value.isArchivePlayback) {
+            playerManager.restartArchive()
+        } else {
+            watchFromBeginning()
+        }
+    }
+
+    fun seekBackTenSeconds() {
+        val wasArchive = _viewState.value.isArchivePlayback
+        if (playerManager.seekBy(-Constants.SEEK_INCREMENT_MS)) {
+            if (!wasArchive) {
+                _viewState.update { it.copy(isTimeshiftPlayback = true) }
+            }
+        }
+    }
+
+    fun seekForwardTenSeconds() {
+        val wasArchive = _viewState.value.isArchivePlayback
+        if (playerManager.seekBy(Constants.SEEK_INCREMENT_MS)) {
+            if (!wasArchive) {
+                _viewState.update { it.copy(isTimeshiftPlayback = true) }
+            }
+        }
+    }
+
+    fun pausePlayback() {
+        playerManager.pause()
+        if (!_viewState.value.isArchivePlayback) {
+            _viewState.update { it.copy(isTimeshiftPlayback = true) }
+        }
+    }
+
+    fun resumePlayback() {
+        playerManager.resume()
+        if (!_viewState.value.isArchivePlayback) {
+            _viewState.update { it.copy(isTimeshiftPlayback = true) }
+        }
+    }
+
     private suspend fun startArchivePlayback(channel: Channel, program: EpgProgram) {
         val durationMinutes = ((program.stopTimeMillis - program.startTimeMillis) / 60000L).coerceAtLeast(1)
         val ageMinutes = ((System.currentTimeMillis() - program.startTimeMillis) / 60000L).coerceAtLeast(0)
@@ -648,6 +692,7 @@ class MainViewModel @Inject constructor(
         _viewState.update {
             it.copy(
                 isArchivePlayback = true,
+                isTimeshiftPlayback = false,
                 archiveProgram = program,
                 currentChannel = channel,
                 currentChannelIndex = channelIndex,
@@ -766,6 +811,7 @@ class MainViewModel @Inject constructor(
         _viewState.update {
             it.copy(
                 isArchivePlayback = false,
+                isTimeshiftPlayback = false,
                 archiveProgram = null,
                 archivePrompt = ArchivePrompt(channel, program, nextProgram)
             )

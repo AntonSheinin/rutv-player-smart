@@ -24,6 +24,7 @@ data class MainViewState(
     val selectedProgramDetails: EpgProgram? = null, // Program selected for details view
     val currentProgramsMap: Map<String, EpgProgram?> = emptyMap(),
     val isArchivePlayback: Boolean = false,
+    val isTimeshiftPlayback: Boolean = false,
     val archiveProgram: EpgProgram? = null,
     val archivePrompt: ArchivePrompt? = null,
     val debugMessages: List<DebugMessage> = emptyList(),
