@@ -1036,42 +1036,69 @@ private fun configurePlayerControls(
     onPausePlayback: () -> Unit,
     onResumePlayback: () -> Unit
 ) {
-    playerView.findViewById<View>(androidx.media3.ui.R.id.exo_settings)?.visibility = View.GONE
+    // Use runtime resource resolution for Media3 UI resources
+    val resources = playerView.resources
+    val exoSettingsId = resources.getIdentifier("exo_settings", "id", "androidx.media3.ui")
+    val exoRewId = resources.getIdentifier("exo_rew", "id", "androidx.media3.ui")
+    val exoFfId = resources.getIdentifier("exo_ff", "id", "androidx.media3.ui")
+    val exoRewWithAmountId = resources.getIdentifier("exo_rew_with_amount", "id", "androidx.media3.ui")
+    val exoFfWithAmountId = resources.getIdentifier("exo_ff_with_amount", "id", "androidx.media3.ui")
+    val exoPlayPauseId = resources.getIdentifier("exo_play_pause", "id", "androidx.media3.ui")
+    val exoPauseId = resources.getIdentifier("exo_pause", "id", "androidx.media3.ui")
+    val exoPlayId = resources.getIdentifier("exo_play", "id", "androidx.media3.ui")
 
-    playerView.findViewById<ImageButton>(androidx.media3.ui.R.id.exo_rew)?.apply {
-        visibility = View.VISIBLE
-        setOnClickListener { onRestartPlayback() }
+    if (exoSettingsId != 0) {
+        playerView.findViewById<View>(exoSettingsId)?.visibility = View.GONE
     }
 
-    playerView.findViewById<ImageButton>(androidx.media3.ui.R.id.exo_ff)?.apply {
-        visibility = if (isArchivePlayback) View.VISIBLE else View.GONE
-    }
-
-    playerView.findViewById<ImageButton>(androidx.media3.ui.R.id.exo_rew_with_amount)?.apply {
-        visibility = View.VISIBLE
-        setOnClickListener { onSeekBack() }
-    }
-
-    playerView.findViewById<ImageButton>(androidx.media3.ui.R.id.exo_ff_with_amount)?.apply {
-        visibility = if (isArchivePlayback) View.VISIBLE else View.GONE
-        setOnClickListener { onSeekForward() }
-    }
-
-    playerView.findViewById<ImageButton>(androidx.media3.ui.R.id.exo_play_pause)?.setOnClickListener {
-        val isPlaying = playerView.player?.isPlaying == true
-        if (isPlaying) {
-            onPausePlayback()
-        } else {
-            onResumePlayback()
+    if (exoRewId != 0) {
+        playerView.findViewById<ImageButton>(exoRewId)?.apply {
+            visibility = View.VISIBLE
+            setOnClickListener { onRestartPlayback() }
         }
     }
 
-    playerView.findViewById<ImageButton>(androidx.media3.ui.R.id.exo_pause)?.setOnClickListener {
-        onPausePlayback()
+    if (exoFfId != 0) {
+        playerView.findViewById<ImageButton>(exoFfId)?.apply {
+            visibility = if (isArchivePlayback) View.VISIBLE else View.GONE
+        }
     }
 
-    playerView.findViewById<ImageButton>(androidx.media3.ui.R.id.exo_play)?.setOnClickListener {
-        onResumePlayback()
+    if (exoRewWithAmountId != 0) {
+        playerView.findViewById<ImageButton>(exoRewWithAmountId)?.apply {
+            visibility = View.VISIBLE
+            setOnClickListener { onSeekBack() }
+        }
+    }
+
+    if (exoFfWithAmountId != 0) {
+        playerView.findViewById<ImageButton>(exoFfWithAmountId)?.apply {
+            visibility = if (isArchivePlayback) View.VISIBLE else View.GONE
+            setOnClickListener { onSeekForward() }
+        }
+    }
+
+    if (exoPlayPauseId != 0) {
+        playerView.findViewById<ImageButton>(exoPlayPauseId)?.setOnClickListener {
+            val isPlaying = playerView.player?.isPlaying == true
+            if (isPlaying) {
+                onPausePlayback()
+            } else {
+                onResumePlayback()
+            }
+        }
+    }
+
+    if (exoPauseId != 0) {
+        playerView.findViewById<ImageButton>(exoPauseId)?.setOnClickListener {
+            onPausePlayback()
+        }
+    }
+
+    if (exoPlayId != 0) {
+        playerView.findViewById<ImageButton>(exoPlayId)?.setOnClickListener {
+            onResumePlayback()
+        }
     }
 }
 
