@@ -321,8 +321,9 @@ class PlayerManager @Inject constructor(
                         val firstSegmentMillis = parseIso8601ToMillis(timestamp)
                         if (firstSegmentMillis != null) {
                             val deltaSeconds = ((firstSegmentMillis - program.startUtcMillis) / 1000.0)
-                            addDebugMessage(
-                                "DVR: Variant first PDT=${timestamp} (Δ=${"%.1f".format(deltaSeconds)}s vs EPG start)"
+                addDebugMessage(
+                    "DVR: Probe ${maskSensitive(resolved)} (${contentType ?: \"content-type=?\"}, len=${contentLength ?: \"?\"})"
+                )
                             )
                         } else {
                             addDebugMessage("DVR: Variant PDT parse failed (${maskSensitive(line)})")
@@ -551,7 +552,7 @@ class PlayerManager @Inject constructor(
         }
         val index = lastLiveIndex.coerceIn(0, channels.lastIndex.takeIf { channels.isNotEmpty() } ?: 0)
         restoreLivePlaylist(index)
-        addDebugMessage("â–¶ Live: ${channels.getOrNull(index)?.title ?: \"Unknown\"}")
+        addDebugMessage("Return to live: ${channels.getOrNull(index)?.title ?: \"Unknown\"}")
         channels.getOrNull(index)?.let {
             _playerState.value = PlayerState.Ready(it, index)
             _playerEvents.tryEmit(PlayerEvent.ChannelChanged(it, index))
@@ -611,11 +612,11 @@ class PlayerManager @Inject constructor(
                 val contentType = headers["Content-Type"]?.firstOrNull()
                 val contentLength = headers["Content-Length"]?.firstOrNull()
                 addDebugMessage(
-                    "DVR: Probe ${maskSensitive(resolved)} (${contentType ?: "content-type=?"}, len=${contentLength ?: "?"})"
+                    "DVR: Probe ${maskSensitive(resolved)} (${contentType ?: \"content-type=?\"}, len=${contentLength ?: \"?\"})"
                 )
                 fetchManifestPreview(factory, resolved, program)
             } catch (e: Exception) {
-                addDebugMessage("DVR: Probe failed (${e.message ?: "unknown error"})")
+                addDebugMessage("DVR: Probe failed (${e.message ?: \"unknown error\"})")
             } finally {
                 try {
                     headSource.close()
@@ -899,4 +900,4 @@ class FFmpegRenderersFactory(
 }
 
 
-
+        addDebugMessage("Return to live: ${channels.getOrNull(index)?.title ?: "Unknown"}")
