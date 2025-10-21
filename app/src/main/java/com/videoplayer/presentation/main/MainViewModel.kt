@@ -12,9 +12,12 @@ import com.videoplayer.data.repository.ChannelRepository
 import com.videoplayer.data.repository.EpgRepository
 import com.videoplayer.data.repository.PreferencesRepository
 import com.videoplayer.domain.usecase.FetchEpgUseCase
+import com.videoplayer.domain.usecase.LoadEpgForChannelUseCase
 import com.videoplayer.domain.usecase.LoadPlaylistUseCase
+import com.videoplayer.domain.usecase.PlayArchiveProgramUseCase
 import com.videoplayer.domain.usecase.ToggleFavoriteUseCase
 import com.videoplayer.domain.usecase.UpdateAspectRatioUseCase
+import com.videoplayer.domain.usecase.WatchFromBeginningUseCase
 import com.videoplayer.presentation.player.ArchiveEndReason
 import com.videoplayer.presentation.player.DebugMessage
 import com.videoplayer.presentation.player.PlayerManager
@@ -41,7 +44,10 @@ class MainViewModel @Inject constructor(
     private val loadPlaylistUseCase: LoadPlaylistUseCase,
     private val fetchEpgUseCase: FetchEpgUseCase,
     private val toggleFavoriteUseCase: ToggleFavoriteUseCase,
-    private val updateAspectRatioUseCase: UpdateAspectRatioUseCase
+    private val updateAspectRatioUseCase: UpdateAspectRatioUseCase,
+    private val playArchiveProgramUseCase: PlayArchiveProgramUseCase,
+    private val watchFromBeginningUseCase: WatchFromBeginningUseCase,
+    private val loadEpgForChannelUseCase: LoadEpgForChannelUseCase
 ) : ViewModel() {
 
     private val _viewState = MutableStateFlow(MainViewState())
@@ -525,28 +531,38 @@ class MainViewModel @Inject constructor(
      */
     fun showEpgForChannel(tvgId: String) {
         viewModelScope.launch {
-            val programs = epgRepository.getProgramsForChannel(tvgId)
-            val currentProgram = epgRepository.getCurrentProgram(tvgId)
+            when (val result = loadEpgForChannelUseCase(tvgId)) {
+                is Result.Success -> {
+                    val data = result.data
 
-            _viewState.update { state ->
-                val updatedMap = state.currentProgramsMap.toMutableMap()
-                updatedMap[tvgId] = currentProgram
-                state.copy(currentProgramsMap = updatedMap)
-            }
+                    _viewState.update { state ->
+                        val updatedMap = state.currentProgramsMap.toMutableMap()
+                        updatedMap[tvgId] = data.currentProgram
+                        state.copy(currentProgramsMap = updatedMap)
+                    }
 
-            appendDebugMessage(
-                DebugMessage(
-                    "EPG: Showing ${programs.size} programs for $tvgId${currentProgram?.let { " (current: ${it.title})" } ?: ""}"
-                )
-            )
+                    appendDebugMessage(
+                        DebugMessage(
+                            "EPG: Showing ${data.programs.size} programs for $tvgId${data.currentProgram?.let { " (current: ${it.title})" } ?: ""}"
+                        )
+                    )
 
-            _viewState.update {
-                it.copy(
-                    showEpgPanel = programs.isNotEmpty(),
-                    epgChannelTvgId = tvgId,
-                    epgPrograms = programs,
-                    currentProgram = currentProgram
-                )
+                    _viewState.update {
+                        it.copy(
+                            showEpgPanel = data.programs.isNotEmpty(),
+                            epgChannelTvgId = tvgId,
+                            epgPrograms = data.programs,
+                            currentProgram = data.currentProgram
+                        )
+                    }
+                }
+                is Result.Error -> {
+                    Timber.e("Failed to load EPG for channel: ${result.message}")
+                    appendDebugMessage(DebugMessage("EPG: Failed to load for $tvgId - ${result.message}"))
+                }
+                is Result.Loading -> {
+                    // Should not happen
+                }
             }
         }
     }
@@ -579,31 +595,21 @@ class MainViewModel @Inject constructor(
                 return@launch
             }
 
-            if (!currentChannel.supportsCatchup()) {
-                appendDebugMessage(DebugMessage("DVR: ${currentChannel.title} does not support timeshift"))
-                return@launch
+            // Use WatchFromBeginningUseCase for validation
+            when (val result = watchFromBeginningUseCase(currentChannel, currentProgram)) {
+                is Result.Success -> {
+                    val info = result.data
+                    appendDebugMessage(DebugMessage("DVR: Restarting ${currentProgram.title} from beginning"))
+                    startArchivePlayback(info.channel, info.program)
+                }
+                is Result.Error -> {
+                    appendDebugMessage(DebugMessage("DVR: ${result.message}"))
+                    Timber.w("Timeshift validation failed: ${result.message}")
+                }
+                is Result.Loading -> {
+                    // Should not happen
+                }
             }
-
-            val currentTime = System.currentTimeMillis()
-
-            // Check if program has started
-            if (currentProgram.startTimeMillis > currentTime) {
-                appendDebugMessage(DebugMessage("DVR: ${currentProgram.title} hasn't started yet"))
-                return@launch
-            }
-
-            // Check if program is within archive window
-            val maxArchiveMillis = currentChannel.catchupDays * 24L * 60 * 60 * 1000
-            val age = currentTime - currentProgram.startTimeMillis
-            if (maxArchiveMillis > 0 && age > maxArchiveMillis) {
-                appendDebugMessage(
-                    DebugMessage("DVR: ${currentProgram.title} is outside of ${currentChannel.catchupDays} day archive")
-                )
-                return@launch
-            }
-
-            appendDebugMessage(DebugMessage("DVR: Restarting ${currentProgram.title} from beginning"))
-            startArchivePlayback(currentChannel, currentProgram)
         }
     }
 
@@ -641,32 +647,21 @@ class MainViewModel @Inject constructor(
                 appendDebugMessage(DebugMessage("DVR: Channel not found for program ${program.title}"))
                 return@launch
             }
-            if (!channel.supportsCatchup()) {
-                appendDebugMessage(DebugMessage("DVR: Channel ${channel.title} does not support catch-up"))
-                return@launch
+
+            // Use PlayArchiveProgramUseCase for validation
+            when (val result = playArchiveProgramUseCase(channel, program)) {
+                is Result.Success -> {
+                    val info = result.data
+                    startArchivePlayback(info.channel, info.program)
+                }
+                is Result.Error -> {
+                    appendDebugMessage(DebugMessage("DVR: ${result.message}"))
+                    Timber.w("Archive playback validation failed: ${result.message}")
+                }
+                is Result.Loading -> {
+                    // Should not happen
+                }
             }
-
-            val currentTime = System.currentTimeMillis()
-
-            // Check if program has ended
-            if (program.stopTimeMillis > currentTime) {
-                appendDebugMessage(
-                    DebugMessage("DVR: ${program.title} is still airing (ends in ${(program.stopTimeMillis - currentTime) / 60000} minutes)")
-                )
-                return@launch
-            }
-
-            // Check if program is within archive window
-            val maxArchiveMillis = channel.catchupDays * 24L * 60 * 60 * 1000
-            val age = currentTime - program.startTimeMillis
-            if (maxArchiveMillis > 0 && age > maxArchiveMillis) {
-                appendDebugMessage(
-                    DebugMessage("DVR: ${program.title} is outside of ${channel.catchupDays} day archive")
-                )
-                return@launch
-            }
-
-            startArchivePlayback(channel, program)
         }
     }
 
