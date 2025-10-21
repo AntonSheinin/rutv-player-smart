@@ -322,9 +322,9 @@ class PlayerManager @Inject constructor(
                         if (firstSegmentMillis != null) {
                             val deltaSeconds = ((firstSegmentMillis - program.startUtcMillis) / 1000.0)
                             addDebugMessage(
-                                "DVR: Variant first PDT=${timestamp} (Δ=${"%.1f".format(deltaSeconds)}s vs EPG start)"
+                            addDebugMessage(
+                                "DVR: Variant first PDT=${timestamp} (delta=${String.format(Locale.US, "%.1f", deltaSeconds)}s vs EPG start)"
                             )
-                        } else {
                             addDebugMessage("DVR: Variant PDT parse failed (${maskSensitive(line)})")
                         }
                     }
@@ -608,15 +608,15 @@ class PlayerManager @Inject constructor(
                 headSource.open(headSpec)
                 val resolved = headSource.uri ?: uri
                 val headers = (headSource as? DefaultHttpDataSource)?.responseHeaders.orEmpty()
-                val contentType = headers["Content-Type"]?.firstOrNull()
-                val contentLength = headers["Content-Length"]?.firstOrNull()
+                val contentType = headers["Content-Type"]?.firstOrNull() ?: "content-type=?"
+                val contentLength = headers["Content-Length"]?.firstOrNull() ?: "?"
                 addDebugMessage(
-                    "DVR: Probe ${maskSensitive(resolved)} (${contentType ?: \"content-type=?\"}, len=${contentLength ?: \"?\"})"
+                    "DVR: Probe ${maskSensitive(resolved)} ($contentType, len=$contentLength)"
                 )
                 fetchManifestPreview(factory, resolved, program)
-                addDebugMessage(
-                    "DVR: Probe ${maskSensitive(resolved)} (${contentType ?: \"content-type=?\"}, len=${contentLength ?: \"?\"})"
-                )
+            } catch (e: Exception) {
+                addDebugMessage("DVR: Probe failed (${e.message ?: \"unknown error\"})")
+            } finally {
                 try {
                     headSource.close()
                 } catch (_: Exception) {
