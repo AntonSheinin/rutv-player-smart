@@ -18,7 +18,6 @@ val TextDisabled = Color(0xFF666666)
 
 // Status Colors
 val StatusPlaying = Color(0xFF4CAF50)
-val StatusBuffering = Color(0xFFFFA726)
 val StatusError = Color(0xFFF44336)
 
 // Material3 Dark Color Scheme
