@@ -30,6 +30,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
@@ -116,35 +117,11 @@ fun PlayerScreen(
                         } catch (e: Exception) {
                             // Method doesn't exist in this version, ignore
                         }
-
-                        // Wire prev/next buttons to channel switching
                         setShowPreviousButton(true)
-                        setShowNextButton(true)
-
-                        // Set custom forward/rewind listener to switch channels
-                        val exoPrevId = resources.getIdentifier("exo_prev", "id", "androidx.media3.ui")
-                        val exoNextId = resources.getIdentifier("exo_next", "id", "androidx.media3.ui")
-
-                        if (exoPrevId != 0) {
-                            findViewById<View>(exoPrevId)?.setOnClickListener {
-                                // Switch to previous channel in full channel list
-                                val currentIndex = viewState.currentChannelIndex
-                                if (currentIndex > 0) {
-                                    onPlayChannel(currentIndex - 1)
-                                }
-                            }
-                        }
-
-                        if (exoNextId != 0) {
-                            findViewById<View>(exoNextId)?.setOnClickListener {
-                                // Switch to next channel in full channel list
-                                val currentIndex = viewState.currentChannelIndex
-                                val maxIndex = viewState.channels.size - 1
-                                if (currentIndex < maxIndex) {
-                                    onPlayChannel(currentIndex + 1)
-                                }
-                            }
-                        }
+                        setShowNextButton(false)
+                        setShowRewindButton(true)
+                        setShowFastForwardButton(false)
+                        hideSettingsControls()
 
                         // Listen for controller visibility changes
                         setControllerVisibilityListener(
@@ -158,6 +135,15 @@ fun PlayerScreen(
                 update = { playerView ->
                     playerView.player = it
                     playerView.resizeMode = viewState.currentResizeMode
+                    playerView.applyControlCustomizations(
+                        isArchivePlayback = viewState.isArchivePlayback,
+                        onRestartPlayback = onRestartPlayback,
+                        onSeekBack = onSeekBack,
+                        onSeekForward = onSeekForward,
+                        onPausePlayback = onPausePlayback,
+                        onResumePlayback = onResumePlayback
+                    )
+                    playerView.hideSettingsControls()
 
                     // Rotate the video surface, not the entire player view (including controls)
                     // Find the video surface view and rotate it
@@ -1020,6 +1006,86 @@ private fun CustomControlButtons(
                     )
                 }
             }
+        }
+    }
+}
+
+private const val MEDIA3_UI_PACKAGE = "androidx.media3.ui"
+
+private fun PlayerView.findControlView(name: String): View? {
+    val id = resources.getIdentifier(name, "id", MEDIA3_UI_PACKAGE)
+    return if (id != 0) findViewById(id) else null
+}
+
+private fun PlayerView.hideSettingsControls() {
+    listOf(
+        "exo_settings",
+        "exo_settings_container",
+        "exo_overflow_show",
+        "exo_overflow_hide"
+    ).forEach { controlId ->
+        findControlView(controlId)?.apply {
+            visibility = View.GONE
+            isEnabled = false
+            setOnClickListener(null)
+        }
+    }
+}
+
+private fun PlayerView.applyControlCustomizations(
+    isArchivePlayback: Boolean,
+    onRestartPlayback: () -> Unit,
+    onSeekBack: () -> Unit,
+    onSeekForward: () -> Unit,
+    onPausePlayback: () -> Unit,
+    onResumePlayback: () -> Unit
+) {
+    setShowPreviousButton(true)
+    setShowNextButton(false)
+    setShowRewindButton(true)
+    setShowFastForwardButton(isArchivePlayback)
+
+    findControlView("exo_prev")?.apply {
+        isEnabled = true
+        setOnClickListener { onRestartPlayback() }
+    }
+
+    findControlView("exo_next")?.apply {
+        visibility = View.GONE
+        isEnabled = false
+        setOnClickListener(null)
+    }
+
+    listOf("exo_rew", "exo_rew_with_amount").forEach { controlId ->
+        findControlView(controlId)?.apply {
+            visibility = View.VISIBLE
+            isEnabled = true
+            setOnClickListener { onSeekBack() }
+        }
+    }
+
+    listOf("exo_ffwd", "exo_ffwd_with_amount").forEach { controlId ->
+        findControlView(controlId)?.apply {
+            if (isArchivePlayback) {
+                visibility = View.VISIBLE
+                isEnabled = true
+                setOnClickListener { onSeekForward() }
+            } else {
+                visibility = View.GONE
+                isEnabled = false
+                setOnClickListener(null)
+            }
+        }
+    }
+
+    findControlView("exo_pause")?.setOnClickListener { onPausePlayback() }
+    findControlView("exo_play")?.setOnClickListener { onResumePlayback() }
+    findControlView("exo_play_pause")?.setOnClickListener {
+        val playerInstance = player
+        if (playerInstance?.isPlaying == true) {
+            onPausePlayback()
+        } else {
+            onResumePlayback()
         }
     }
 }
