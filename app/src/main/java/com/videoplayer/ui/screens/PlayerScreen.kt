@@ -127,7 +127,7 @@ fun PlayerScreen(
                         val exoNextId = resources.getIdentifier("exo_next", "id", "androidx.media3.ui")
 
                         if (exoPrevId != 0) {
-                            findViewById<android.view.View>(exoPrevId)?.setOnClickListener {
+                            findViewById<View>(exoPrevId)?.setOnClickListener {
                                 // Switch to previous channel in full channel list
                                 val currentIndex = viewState.currentChannelIndex
                                 if (currentIndex > 0) {
@@ -137,7 +137,7 @@ fun PlayerScreen(
                         }
 
                         if (exoNextId != 0) {
-                            findViewById<android.view.View>(exoNextId)?.setOnClickListener {
+                            findViewById<View>(exoNextId)?.setOnClickListener {
                                 // Switch to next channel in full channel list
                                 val currentIndex = viewState.currentChannelIndex
                                 val maxIndex = viewState.channels.size - 1
@@ -151,7 +151,7 @@ fun PlayerScreen(
                         setControllerVisibilityListener(
                             PlayerView.ControllerVisibilityListener { visibility ->
                                 // Show custom controls when ExoPlayer controls are visible
-                                showControls = (visibility == android.view.View.VISIBLE)
+                                showControls = (visibility == View.VISIBLE)
                             }
                         )
                     }
@@ -163,7 +163,7 @@ fun PlayerScreen(
                     // Rotate the video surface, not the entire player view (including controls)
                     // Find the video surface view and rotate it
                     val videoSurfaceView = playerView.videoSurfaceView
-                    if (videoSurfaceView is android.view.View) {
+                    if (videoSurfaceView is View) {
                         videoSurfaceView.rotation = viewState.videoRotation
                     }
                 },
@@ -283,7 +283,7 @@ fun PlayerScreen(
         viewState.archivePrompt?.let { prompt ->
             val hasNext = prompt.nextProgram != null
             val message = if (hasNext) {
-                stringResource(R.string.archive_prompt_message, prompt.nextProgram!!.title)
+                stringResource(R.string.archive_prompt_message, prompt.nextProgram.title)
             } else {
                 stringResource(R.string.archive_prompt_message_no_next)
             }
@@ -1021,87 +1021,3 @@ private fun CustomControlButtons(
         }
     }
 }
-
-
-
-
-
-
-@Suppress("DiscouragedApi")
-private fun configurePlayerControls(
-    playerView: PlayerView,
-    isArchivePlayback: Boolean,
-    onRestartPlayback: () -> Unit,
-    onSeekBack: () -> Unit,
-    onSeekForward: () -> Unit,
-    onPausePlayback: () -> Unit,
-    onResumePlayback: () -> Unit
-) {
-    // Use runtime resource resolution for Media3 UI resources
-    // We can't directly access androidx.media3.ui.R due to library resource visibility,
-    // so getIdentifier() is necessary here despite the performance warning
-    val resources = playerView.resources
-    val exoSettingsId = resources.getIdentifier("exo_settings", "id", "androidx.media3.ui")
-    val exoRewId = resources.getIdentifier("exo_rew", "id", "androidx.media3.ui")
-    val exoFfId = resources.getIdentifier("exo_ff", "id", "androidx.media3.ui")
-    val exoRewWithAmountId = resources.getIdentifier("exo_rew_with_amount", "id", "androidx.media3.ui")
-    val exoFfWithAmountId = resources.getIdentifier("exo_ff_with_amount", "id", "androidx.media3.ui")
-    val exoPlayPauseId = resources.getIdentifier("exo_play_pause", "id", "androidx.media3.ui")
-    val exoPauseId = resources.getIdentifier("exo_pause", "id", "androidx.media3.ui")
-    val exoPlayId = resources.getIdentifier("exo_play", "id", "androidx.media3.ui")
-
-    if (exoSettingsId != 0) {
-        playerView.findViewById<View>(exoSettingsId)?.visibility = View.GONE
-    }
-
-    if (exoRewId != 0) {
-        playerView.findViewById<ImageButton>(exoRewId)?.apply {
-            visibility = View.VISIBLE
-            setOnClickListener { onRestartPlayback() }
-        }
-    }
-
-    if (exoFfId != 0) {
-        playerView.findViewById<ImageButton>(exoFfId)?.apply {
-            visibility = if (isArchivePlayback) View.VISIBLE else View.GONE
-        }
-    }
-
-    if (exoRewWithAmountId != 0) {
-        playerView.findViewById<ImageButton>(exoRewWithAmountId)?.apply {
-            visibility = View.VISIBLE
-            setOnClickListener { onSeekBack() }
-        }
-    }
-
-    if (exoFfWithAmountId != 0) {
-        playerView.findViewById<ImageButton>(exoFfWithAmountId)?.apply {
-            visibility = if (isArchivePlayback) View.VISIBLE else View.GONE
-            setOnClickListener { onSeekForward() }
-        }
-    }
-
-    if (exoPlayPauseId != 0) {
-        playerView.findViewById<ImageButton>(exoPlayPauseId)?.setOnClickListener {
-            val isPlaying = playerView.player?.isPlaying == true
-            if (isPlaying) {
-                onPausePlayback()
-            } else {
-                onResumePlayback()
-            }
-        }
-    }
-
-    if (exoPauseId != 0) {
-        playerView.findViewById<ImageButton>(exoPauseId)?.setOnClickListener {
-            onPausePlayback()
-        }
-    }
-
-    if (exoPlayId != 0) {
-        playerView.findViewById<ImageButton>(exoPlayId)?.setOnClickListener {
-            onResumePlayback()
-        }
-    }
-}
-
