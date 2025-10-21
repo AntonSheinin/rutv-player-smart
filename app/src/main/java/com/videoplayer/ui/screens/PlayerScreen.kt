@@ -3,8 +3,6 @@ package com.videoplayer.ui.screens
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
-import android.widget.ImageButton
-
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -94,6 +92,7 @@ fun PlayerScreen(
     ) {
         // ExoPlayer View
         player?.let {
+            @Suppress("DiscouragedApi")
             AndroidView(
                 factory = { context ->
                     PlayerView(context).apply {
@@ -382,6 +381,7 @@ private fun ChannelInfoOverlay(
     }
 }
 
+@UnstableApi
 @Composable
 private fun PlaylistPanel(
     channels: List<Channel>,
@@ -515,6 +515,7 @@ private fun PlaylistPanel(
     }
 }
 
+@UnstableApi
 @Composable
 private fun EpgPanel(
     programs: List<EpgProgram>,
