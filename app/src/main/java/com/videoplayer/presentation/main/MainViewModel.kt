@@ -18,7 +18,6 @@ import com.videoplayer.domain.usecase.PlayArchiveProgramUseCase
 import com.videoplayer.domain.usecase.ToggleFavoriteUseCase
 import com.videoplayer.domain.usecase.UpdateAspectRatioUseCase
 import com.videoplayer.domain.usecase.WatchFromBeginningUseCase
-import com.videoplayer.presentation.player.ArchiveEndReason
 import com.videoplayer.presentation.player.DebugMessage
 import com.videoplayer.presentation.player.PlayerManager
 import com.videoplayer.presentation.player.PlayerState
@@ -65,11 +64,13 @@ class MainViewModel @Inject constructor(
                 when (state) {
                     is PlayerState.Ready -> {
                         _viewState.update {
+                            val channelChanged = it.currentChannelIndex != state.index ||
+                                it.currentChannel?.url != state.channel.url
                             it.copy(
                                 currentChannel = state.channel,
                                 currentChannelIndex = state.index,
                                 isArchivePlayback = false,
-                                isTimeshiftPlayback = false,
+                                isTimeshiftPlayback = if (channelChanged) false else it.isTimeshiftPlayback,
                                 archiveProgram = null,
                                 archivePrompt = null
                             )
@@ -266,7 +267,7 @@ class MainViewModel @Inject constructor(
                         }
                         val newProgramsMap = epgRepository.getCurrentProgramsSnapshot()
                         // Use new map if not empty, otherwise keep existing to avoid flicker
-                        val programsMapToUse = if (newProgramsMap.isNotEmpty()) newProgramsMap else existingProgramsMap
+                        val programsMapToUse = newProgramsMap.ifEmpty { existingProgramsMap }
 
                         withContext(Dispatchers.Main) {
                             _viewState.update {
@@ -361,9 +362,7 @@ class MainViewModel @Inject constructor(
             0
         }
 
-        withContext(Dispatchers.Main) {
-            playerManager.initialize(channels, config, startIndex)
-        }
+        playerManager.initialize(channels, config, startIndex)
     }
 
     /**
@@ -682,7 +681,7 @@ class MainViewModel @Inject constructor(
         val ageMinutes = ((System.currentTimeMillis() - program.startTimeMillis) / 60000L).coerceAtLeast(0)
         appendDebugMessage(
             DebugMessage(
-                "DVR: Request ${channel.title} • ${program.title} (start=${program.startTime}, duration=${durationMinutes}m, age=${ageMinutes}m, template=${if (channel.catchupSource.isBlank()) "<default>" else channel.catchupSource})"
+                "DVR: Request ${channel.title} • ${program.title} (start=${program.startTime}, duration=${durationMinutes}m, age=${ageMinutes}m, template=${channel.catchupSource.ifBlank { "<default>" }})"
             )
         )
         val started = playerManager.playArchive(channel, program)

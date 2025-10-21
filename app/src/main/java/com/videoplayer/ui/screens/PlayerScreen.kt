@@ -30,7 +30,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
@@ -118,9 +117,9 @@ fun PlayerScreen(
                             // Method doesn't exist in this version, ignore
                         }
                         setShowPreviousButton(true)
-                        setShowNextButton(false)
+                        setShowNextButton(true)
                         setShowRewindButton(true)
-                        setShowFastForwardButton(false)
+                        setShowFastForwardButton(true)
                         hideSettingsControls()
 
                         // Listen for controller visibility changes
@@ -1011,6 +1010,17 @@ private fun CustomControlButtons(
 }
 
 private const val MEDIA3_UI_PACKAGE = "androidx.media3.ui"
+private const val DISABLED_CONTROL_ALPHA = 0.4f
+
+private fun View.enableControl() {
+    alpha = 1f
+    isEnabled = true
+}
+
+private fun View.disableControl() {
+    alpha = DISABLED_CONTROL_ALPHA
+    isEnabled = false
+}
 
 private fun PlayerView.findControlView(name: String): View? {
     val id = resources.getIdentifier(name, "id", MEDIA3_UI_PACKAGE)
@@ -1041,38 +1051,38 @@ private fun PlayerView.applyControlCustomizations(
     onResumePlayback: () -> Unit
 ) {
     setShowPreviousButton(true)
-    setShowNextButton(false)
+    setShowNextButton(true)
     setShowRewindButton(true)
-    setShowFastForwardButton(isArchivePlayback)
+    setShowFastForwardButton(true)
 
     findControlView("exo_prev")?.apply {
-        isEnabled = true
+        visibility = View.VISIBLE
+        enableControl()
         setOnClickListener { onRestartPlayback() }
     }
 
     findControlView("exo_next")?.apply {
-        visibility = View.GONE
-        isEnabled = false
+        visibility = View.VISIBLE
+        disableControl()
         setOnClickListener(null)
     }
 
     listOf("exo_rew", "exo_rew_with_amount").forEach { controlId ->
         findControlView(controlId)?.apply {
             visibility = View.VISIBLE
-            isEnabled = true
+            enableControl()
             setOnClickListener { onSeekBack() }
         }
     }
 
     listOf("exo_ffwd", "exo_ffwd_with_amount").forEach { controlId ->
         findControlView(controlId)?.apply {
+            visibility = View.VISIBLE
             if (isArchivePlayback) {
-                visibility = View.VISIBLE
-                isEnabled = true
+                enableControl()
                 setOnClickListener { onSeekForward() }
             } else {
-                visibility = View.GONE
-                isEnabled = false
+                disableControl()
                 setOnClickListener(null)
             }
         }

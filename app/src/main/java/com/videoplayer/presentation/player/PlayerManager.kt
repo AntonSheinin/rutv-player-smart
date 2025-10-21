@@ -74,6 +74,7 @@ class PlayerManager @Inject constructor(
 
     private var bufferingStartTime: Long = 0
     private val bufferingCheckHandler = Handler(Looper.getMainLooper())
+    private val mainHandler = Handler(Looper.getMainLooper())
     private var bufferingCheckRunnable: Runnable? = null
 
     private var currentConfig: PlayerConfig? = null
@@ -106,21 +107,27 @@ class PlayerManager @Inject constructor(
      * Initialize player with channels
      */
     fun initialize(channels: List<Channel>, config: PlayerConfig, startIndex: Int = 0) {
-        Timber.d("Initializing player with ${channels.size} channels, startIndex=$startIndex")
+        val task = Runnable { initializeInternal(channels, config, startIndex) }
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            task.run()
+        } else {
+            mainHandler.post(task)
+        }
+    }
+
+    private fun initializeInternal(channelList: List<Channel>, config: PlayerConfig, startIndex: Int) {
+        Timber.d("Initializing player with ${channelList.size} channels, startIndex=$startIndex")
         addDebugMessage("App Started")
 
-        if (channels.isEmpty()) {
+        if (channelList.isEmpty()) {
             Timber.w("Cannot initialize player with empty channel list")
             return
         }
 
-        this.channels = channels
+        this.channels = channelList
         this.currentConfig = config
 
-        // Release existing player if any
-        release()
-
-        // Create new player
+        releaseInternal()
         createPlayer(config, startIndex)
     }
 
@@ -723,6 +730,14 @@ class PlayerManager @Inject constructor(
      * Release player resources
      */
     fun release() {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            releaseInternal()
+        } else {
+            mainHandler.post { releaseInternal() }
+        }
+    }
+
+    private fun releaseInternal() {
         stopBufferingCheck()
         player?.stop()
         player?.release()
