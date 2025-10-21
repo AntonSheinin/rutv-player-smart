@@ -67,7 +67,10 @@ class MainViewModel @Inject constructor(
                                 archivePrompt = null
                             )
                         }
-                        updateCurrentProgram(state.channel)
+                        // Update current program (will wait if EPG not loaded yet)
+                        viewModelScope.launch(Dispatchers.Default) {
+                            updateCurrentProgram(state.channel)
+                        }
                     }
                     is PlayerState.Archive -> {
                         if (state.endReason == null) {
@@ -105,37 +108,54 @@ class MainViewModel @Inject constructor(
             }
         }
 
-        // Load cached EPG data on startup
-        loadCachedEpg()
-
-        // Load playlist automatically
-        loadPlaylist()
+        // Initialize app: load EPG cache FIRST, then playlist
+        // This ensures EPG data is ready before player starts
+        initializeApp()
     }
 
     /**
-     * Load cached EPG data from disk on app startup
+     * Initialize app in proper order: EPG cache -> Playlist -> Player
+     * This prevents race conditions and ensures EPG is ready
      */
-    private fun loadCachedEpg() {
+    private fun initializeApp() {
         viewModelScope.launch(Dispatchers.IO) {
-            Timber.d("Loading cached EPG on startup")
-            val cachedEpg = epgRepository.loadEpgData()
-            if (cachedEpg != null) {
-                Timber.d("Cached EPG loaded successfully")
-                appendDebugMessage(
-                    DebugMessage(
-                        "EPG: Loaded cached data (${cachedEpg.totalPrograms} programs for ${cachedEpg.channelsFound} channels)"
+            try {
+                // Step 1: Load cached EPG data FIRST (synchronously)
+                Timber.d("App Init: Step 1 - Loading cached EPG")
+                val cachedEpg = epgRepository.loadEpgData()
+                if (cachedEpg != null) {
+                    Timber.d("App Init: Cached EPG loaded (${cachedEpg.totalPrograms} programs)")
+                    appendDebugMessage(
+                        DebugMessage("EPG: Loaded cached data (${cachedEpg.totalPrograms} programs for ${cachedEpg.channelsFound} channels)")
                     )
-                )
-                epgRepository.refreshCurrentProgramsCache()
-                _viewState.update {
-                    it.copy(
-                        epgLoadedTimestamp = System.currentTimeMillis(),
-                        currentProgramsMap = epgRepository.getCurrentProgramsSnapshot()
-                    )
+                    // Refresh current programs cache
+                    epgRepository.refreshCurrentProgramsCache()
+                    _viewState.update {
+                        it.copy(
+                            epgLoadedTimestamp = System.currentTimeMillis(),
+                            currentProgramsMap = epgRepository.getCurrentProgramsSnapshot()
+                        )
+                    }
+                } else {
+                    Timber.d("App Init: No cached EPG found")
+                    appendDebugMessage(DebugMessage("EPG: No cached data found"))
                 }
-            } else {
-                Timber.d("No cached EPG found - will fetch when playlist is loaded")
-                appendDebugMessage(DebugMessage("EPG: No cached data found"))
+
+                // Step 2: Load playlist (on main thread to update UI)
+                withContext(Dispatchers.Main) {
+                    Timber.d("App Init: Step 2 - Loading playlist")
+                    loadPlaylist()
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "App Init: Error during initialization")
+                withContext(Dispatchers.Main) {
+                    _viewState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = "Initialization failed: ${e.message}"
+                        )
+                    }
+                }
             }
         }
     }
@@ -154,23 +174,20 @@ class MainViewModel @Inject constructor(
             }) {
                 is Result.Success -> {
                     val channels = result.data
+
+                    // Get current EPG snapshot
+                    val currentProgramsMap = epgRepository.getCurrentProgramsSnapshot()
+
                     _viewState.update {
                         it.copy(
                             channels = channels,
-                            currentProgramsMap = epgRepository.getCurrentProgramsSnapshot(),
+                            currentProgramsMap = currentProgramsMap,
                             isLoading = false,
                             error = null
                         )
                     }
 
                     if (channels.isNotEmpty()) {
-                        viewModelScope.launch(Dispatchers.Default) {
-                            epgRepository.refreshCurrentProgramsCache()
-                            _viewState.update { state ->
-                                state.copy(currentProgramsMap = epgRepository.getCurrentProgramsSnapshot())
-                            }
-                        }
-
                         val catchupSupported = channels.count { it.supportsCatchup() }
                         appendDebugMessage(
                             DebugMessage("DVR: Playlist loaded (${channels.size} channels, catch-up: $catchupSupported)")
@@ -180,6 +197,7 @@ class MainViewModel @Inject constructor(
                         initializePlayer()
 
                         // Fetch EPG only if needed (not more than once per day)
+                        // This will also refresh current programs cache if needed
                         fetchEpgIfNeeded()
                     } else {
                         Timber.d("No channels loaded, skipping EPG fetch")
@@ -607,9 +625,17 @@ class MainViewModel @Inject constructor(
 
     /**
      * Update current program for channel
+     * Safely retrieves current program from EPG and updates view state
      */
     private fun updateCurrentProgram(channel: Channel) {
-        if (channel.hasEpg) {
+        if (!channel.hasEpg || channel.tvgId.isBlank()) {
+            _viewState.update {
+                it.copy(currentProgram = null)
+            }
+            return
+        }
+
+        try {
             val program = epgRepository.getCurrentProgram(channel.tvgId)
             _viewState.update {
                 val updatedMap = it.currentProgramsMap.toMutableMap()
@@ -619,14 +645,11 @@ class MainViewModel @Inject constructor(
                     currentProgramsMap = updatedMap
                 )
             }
-        } else {
+            Timber.d("Current program updated for ${channel.title}: ${program?.title ?: "none"}")
+        } catch (e: Exception) {
+            Timber.e(e, "Error updating current program for ${channel.title}")
             _viewState.update {
-                val updatedMap = it.currentProgramsMap.toMutableMap()
-                updatedMap.remove(channel.tvgId)
-                it.copy(
-                    currentProgram = null,
-                    currentProgramsMap = updatedMap
-                )
+                it.copy(currentProgram = null)
             }
         }
     }
