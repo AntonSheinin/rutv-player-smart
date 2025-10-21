@@ -551,7 +551,7 @@ class PlayerManager @Inject constructor(
         }
         val index = lastLiveIndex.coerceIn(0, channels.lastIndex.takeIf { channels.isNotEmpty() } ?: 0)
         restoreLivePlaylist(index)
-        addDebugMessage("Return to live: ${channels.getOrNull(index)?.title ?: \"Unknown\"}")
+        addDebugMessage("Return to live: ${channels.getOrNull(index)?.title ?: "Unknown"}")
         channels.getOrNull(index)?.let {
             _playerState.value = PlayerState.Ready(it, index)
             _playerEvents.tryEmit(PlayerEvent.ChannelChanged(it, index))
@@ -607,7 +607,7 @@ class PlayerManager @Inject constructor(
                     .build()
                 headSource.open(headSpec)
                 val resolved = headSource.uri ?: uri
-                val headers = (headSource as? DefaultHttpDataSource)?.responseHeaders.orEmpty()
+                val headers = headSource.responseHeaders
                 val contentType = headers["Content-Type"]?.firstOrNull() ?: "content-type=?"
                 val contentLength = headers["Content-Length"]?.firstOrNull() ?: "?"
                 addDebugMessage(
@@ -615,7 +615,7 @@ class PlayerManager @Inject constructor(
                 )
                 fetchManifestPreview(factory, resolved, program)
             } catch (e: Exception) {
-                addDebugMessage("DVR: Probe failed (${e.message ?: \"unknown error\"})")
+                addDebugMessage("DVR: Probe failed (${e.message ?: "unknown error"})")
             } finally {
                 try {
                     headSource.close()
