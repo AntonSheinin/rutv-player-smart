@@ -43,10 +43,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
+import java.net.URI
 import java.nio.charset.StandardCharsets
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 import kotlin.math.min
 
 @UnstableApi
@@ -75,7 +80,8 @@ class PlayerManager @Inject constructor(
     private var archiveProgram: EpgProgram? = null
     private var archiveChannel: Channel? = null
     private var lastLiveIndex: Int = 0
-    private val networkScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var pendingArchiveSeek: Boolean = false
+    private var networkScope = newNetworkScope()
     private lateinit var httpDataSourceFactory: DefaultHttpDataSource.Factory
 
     companion object {
@@ -91,6 +97,9 @@ class PlayerManager @Inject constructor(
             return sharedBandwidthMeter!!
         }
     }
+
+    private fun newNetworkScope(): CoroutineScope =
+        CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /**
      * Initialize player with channels
@@ -270,6 +279,72 @@ class PlayerManager @Inject constructor(
         }
     }
 
+    private fun fetchVariantPreview(
+        factory: DefaultHttpDataSource.Factory,
+        uri: Uri,
+        program: EpgProgram
+    ) {
+        val source = factory.createDataSource()
+        try {
+            val dataSpec = DataSpec.Builder()
+                .setUri(uri)
+                .setHttpMethod(DataSpec.HTTP_METHOD_GET)
+                .build()
+            val inputStream = DataSourceInputStream(source, dataSpec)
+            inputStream.use { stream ->
+                val buffer = ByteArray(2048)
+                val builder = StringBuilder()
+                var totalRead = 0
+                while (totalRead < buffer.size) {
+                    val read = stream.read(buffer, 0, buffer.size - totalRead)
+                    if (read <= 0) break
+                    builder.append(String(buffer, 0, read, StandardCharsets.UTF_8))
+                    totalRead += read
+                }
+                val manifest = builder.toString()
+                if (manifest.isNotBlank()) {
+                    val lines = manifest.lineSequence()
+                        .map { it.trim() }
+                        .filter { it.isNotEmpty() }
+                        .toList()
+                    val preview = lines.take(6).joinToString(" | ")
+                    if (preview.isNotEmpty()) {
+                        addDebugMessage("DVR: Variant ${maskSensitive(preview)}")
+                    } else {
+                        addDebugMessage("DVR: Variant (only blank lines)")
+                    }
+                    val programDateLine = lines.firstOrNull { it.startsWith("#EXT-X-PROGRAM-DATE-TIME", ignoreCase = true) }
+                    val mediaSequenceLine = lines.firstOrNull { it.startsWith("#EXT-X-MEDIA-SEQUENCE", ignoreCase = true) }
+                    programDateLine?.let { line ->
+                        val timestamp = line.substringAfter(':', "").trim()
+                        val firstSegmentMillis = parseIso8601ToMillis(timestamp)
+                        if (firstSegmentMillis != null) {
+                            val deltaSeconds = ((firstSegmentMillis - program.startUtcMillis) / 1000.0)
+                            addDebugMessage(
+                                "DVR: Variant first PDT=${timestamp} (Δ=${"%.1f".format(deltaSeconds)}s vs EPG start)"
+                            )
+                        } else {
+                            addDebugMessage("DVR: Variant PDT parse failed (${maskSensitive(line)})")
+                        }
+                    }
+                    mediaSequenceLine?.let { line ->
+                        addDebugMessage("DVR: Variant $line")
+                    }
+                } else {
+                    addDebugMessage("DVR: Variant manifest empty")
+                }
+            }
+        } catch (e: Exception) {
+            addDebugMessage("DVR: Variant fetch failed (${e.message ?: "unknown error"})")
+        } finally {
+            try {
+                source.close()
+            } catch (_: Exception) {
+                // Ignore close errors
+            }
+        }
+    }
+
     /**
      * Create player listener for state changes
      */
@@ -294,6 +369,10 @@ class PlayerManager @Inject constructor(
                             val channel = archiveChannel
                             val program = archiveProgram
                             if (channel != null && program != null) {
+                                if (pendingArchiveSeek) {
+                                    player?.seekTo(0L)
+                                    pendingArchiveSeek = false
+                                }
                                 addDebugMessage("▶ DVR Playing: ${channel.title}")
                                 _playerState.value = PlayerState.Archive(channel, program)
                             }
@@ -326,6 +405,7 @@ class PlayerManager @Inject constructor(
                             if (channel != null && program != null) {
                                 _playerState.value = PlayerState.Archive(channel, program, ArchiveEndReason.COMPLETED)
                             }
+                            pendingArchiveSeek = false
                         } else {
                             addDebugMessage("⏹ Playback ended")
                             _playerState.value = PlayerState.Ended
@@ -381,6 +461,7 @@ class PlayerManager @Inject constructor(
                 isArchivePlayback = false
                 archiveChannel = null
                 archiveProgram = null
+                pendingArchiveSeek = false
             } else {
                 Timber.w("Invalid channel index: $index")
             }
@@ -395,25 +476,23 @@ class PlayerManager @Inject constructor(
             return false
         }
         val uri = Uri.parse(archiveUrl)
-        val channelIndex = channels.indexOfFirst { it.url == channel.url }
-        if (channelIndex >= 0) {
-            lastLiveIndex = channelIndex
-        }
+        channels.indexOfFirst { it.url == channel.url }
+            .takeIf { it >= 0 }
+            ?.let { lastLiveIndex = it }
 
-        val durationSeconds = ((program.stopTimeMillis - program.startTimeMillis) / 1000L).coerceAtLeast(60)
-        val isOngoing = program.stopTimeMillis > System.currentTimeMillis()
-        addDebugMessage("DVR: Template='${channel.catchupSource.ifBlank { "Flussonic path-based" }}'")
-        addDebugMessage("DVR: Generated URL: ${maskSensitive(uri)}")
-        addDebugMessage("DVR: Duration=${durationSeconds}s, Start=${program.startTimeMillis/1000}")
-        if (isOngoing) {
-            addDebugMessage("DVR: Ongoing program (EVENT playlist)")
-        } else {
-            addDebugMessage("DVR: Completed program (VOD playlist)")
+        val durationSeconds = program.durationUtcSeconds.coerceAtLeast(60)
+        val startUtcSeconds = program.startUtcMillis / 1000L
+        addDebugMessage("DVR: Request ${channel.title} • ${program.title}")
+        addDebugMessage("DVR: Start=${startUtcSeconds}s, Duration=${durationSeconds}s")
+        addDebugMessage("DVR: URL ${maskSensitive(uri)}")
+        if (isDebugLoggingEnabled()) {
+            probeArchiveUri(uri, program)
         }
 
         isArchivePlayback = true
         archiveChannel = channel
         archiveProgram = program
+        pendingArchiveSeek = true
 
         playerInstance.stop()
         playerInstance.clearMediaItems()
@@ -426,10 +505,10 @@ class PlayerManager @Inject constructor(
         // ═══════════════════════════════════════════════════════════════
         val mediaItem = MediaItem.Builder()
             .setUri(uri)
-            .setMediaId("${channel.title}_${program.startTimeMillis}")
+            .setMediaId("${channel.title}_${program.startUtcMillis}")
             .build()
 
-        playerInstance.setMediaItems(listOf(mediaItem))
+        playerInstance.setMediaItems(listOf(mediaItem), /* startIndex = */ 0, /* startPositionMs = */ 0L)
         playerInstance.repeatMode = Player.REPEAT_MODE_OFF
 
         playerInstance.prepare()
@@ -467,6 +546,7 @@ class PlayerManager @Inject constructor(
         isArchivePlayback = false
         archiveChannel = null
         archiveProgram = null
+        pendingArchiveSeek = false
     }
 
     private fun ensureHttpDataSourceFactory(): DefaultHttpDataSource.Factory {
@@ -489,7 +569,7 @@ class PlayerManager @Inject constructor(
         return httpDataSourceFactory
     }
 
-    private fun probeArchiveUri(uri: Uri) {
+    private fun probeArchiveUri(uri: Uri, program: EpgProgram) {
         networkScope.launch {
             val factory = ensureHttpDataSourceFactory()
             val headSource = factory.createDataSource()
@@ -506,7 +586,7 @@ class PlayerManager @Inject constructor(
                 addDebugMessage(
                     "DVR: Probe ${maskSensitive(resolved)} (${contentType ?: "content-type=?"}, len=${contentLength ?: "?"})"
                 )
-                fetchManifestPreview(factory, resolved)
+                fetchManifestPreview(factory, resolved, program)
             } catch (e: Exception) {
                 addDebugMessage("DVR: Probe failed (${e.message ?: "unknown error"})")
             } finally {
@@ -521,7 +601,8 @@ class PlayerManager @Inject constructor(
 
     private fun fetchManifestPreview(
         factory: DefaultHttpDataSource.Factory,
-        uri: Uri
+        uri: Uri,
+        program: EpgProgram
     ) {
         val source = factory.createDataSource()
         try {
@@ -553,6 +634,14 @@ class PlayerManager @Inject constructor(
                     } else {
                         addDebugMessage("DVR: Manifest (only blank lines)")
                     }
+                    manifest.lineSequence()
+                        .map { it.trim() }
+                        .firstOrNull { line ->
+                            line.isNotEmpty() && !line.startsWith("#") && line.contains(".m3u8", ignoreCase = true)
+                        }?.let { variantLine ->
+                            val variantUri = resolveRelativeUri(uri, variantLine)
+                            fetchVariantPreview(factory, variantUri, program)
+                        }
                 } else {
                     addDebugMessage("DVR: Manifest empty response")
                 }
@@ -610,6 +699,12 @@ class PlayerManager @Inject constructor(
         player?.stop()
         player?.release()
         player = null
+        networkScope.cancel()
+        networkScope = newNetworkScope()
+        isArchivePlayback = false
+        archiveChannel = null
+        archiveProgram = null
+        pendingArchiveSeek = false
         _playerState.value = PlayerState.Idle
         Timber.d("Player released")
     }
@@ -649,6 +744,37 @@ class PlayerManager @Inject constructor(
     private fun stopBufferingCheck() {
         cancelBufferingCheckCallbacks()
         bufferingStartTime = 0
+    }
+
+    private fun isDebugLoggingEnabled(): Boolean = currentConfig?.showDebugLog == true
+
+    private fun resolveRelativeUri(base: Uri, reference: String): Uri {
+        return try {
+            val resolved = URI(base.toString()).resolve(reference)
+            Uri.parse(resolved.toString())
+        } catch (e: Exception) {
+            addDebugMessage("DVR: Failed to resolve URI ${maskSensitive(reference)} (${e.message ?: "unknown"})")
+            base
+        }
+    }
+
+    private fun parseIso8601ToMillis(value: String): Long? {
+        val patterns = arrayOf(
+            "yyyy-MM-dd'T'HH:mm:ssX",
+            "yyyy-MM-dd'T'HH:mm:ss.SSSX"
+        )
+        for (pattern in patterns) {
+            try {
+                val formatter = SimpleDateFormat(pattern, Locale.US).apply {
+                    timeZone = TimeZone.getTimeZone("UTC")
+                }
+                val date = formatter.parse(value)
+                if (date != null) return date.time
+            } catch (_: Exception) {
+                // Try next pattern
+            }
+        }
+        return null
     }
 
     /**
@@ -744,9 +870,6 @@ class FFmpegRenderersFactory(
         // Disable text renderers
     }
 }
-
-
-
 
 
 

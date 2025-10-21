@@ -37,16 +37,15 @@ data class Channel(
         }
 
         val currentTimeMillis = System.currentTimeMillis()
-        val startSeconds = (program.startTimeMillis / 1000L).coerceAtLeast(0)
-        val endSeconds = (program.stopTimeMillis / 1000L).coerceAtLeast(0)
-        val durationSeconds = ((program.stopTimeMillis - program.startTimeMillis) / 1000L)
-            .coerceAtLeast(1)
-        val offsetSeconds = ((program.startTimeMillis - currentTimeMillis) / 1000L)
+        val startUtcSeconds = (program.startUtcMillis / 1000L).coerceAtLeast(0)
+        val stopUtcSeconds = (program.stopUtcMillis / 1000L).coerceAtLeast(startUtcSeconds)
+        val durationSeconds = program.durationUtcSeconds
+        val offsetSeconds = ((program.startUtcMillis - currentTimeMillis) / 1000L)
 
         // If custom catchup-source is provided, use it (for non-Flussonic servers)
         if (catchupSource.isNotBlank()) {
             return buildCustomArchiveUrl(
-                catchupSource, startSeconds, endSeconds,
+                catchupSource, startUtcSeconds, stopUtcSeconds,
                 durationSeconds, offsetSeconds, currentTimeMillis
             )
         }
@@ -67,10 +66,10 @@ data class Channel(
         val streamDir = if (lastSlash > 0) basePath.substring(0, lastSlash) else ""
 
         // Build archive path: /STREAM/archive-{from}-{duration}.m3u8
-        val archivePath = "$streamDir/archive-$startSeconds-$durationSeconds.m3u8"
+        val archivePath = "$streamDir/archive-$startUtcSeconds-$durationSeconds.m3u8"
 
         // Check if program is still airing (ongoing event)
-        val isOngoing = program.stopTimeMillis > currentTimeMillis
+        val isOngoing = program.stopUtcMillis > currentTimeMillis
 
         // Build query parameters
         val queryParams = mutableListOf<String>()
@@ -83,9 +82,7 @@ data class Channel(
         // Add event=true for ongoing programs (EVENT playlist vs VOD)
         // EVENT: Playlist grows as new content arrives (for live viewing of past content)
         // VOD: Static completed playlist (for fully archived content)
-        if (isOngoing) {
-            queryParams.add("event=true")
-        }
+        queryParams.add("event=true")
 
         val finalQuery = queryParams.joinToString("&")
 
@@ -100,9 +97,7 @@ data class Channel(
 
         timber.log.Timber.d("DVR: Using Flussonic path-based format")
         timber.log.Timber.d("DVR: Archive path: $archivePath")
-        if (isOngoing) {
-            timber.log.Timber.d("DVR: Program still airing, using EVENT mode")
-        }
+        timber.log.Timber.d("DVR: ${if (isOngoing) "Program still airing" else "Program complete"}, using EVENT playlist")
 
         return archiveUrl
     }
@@ -204,4 +199,3 @@ data class Channel(
         }
     }
 }
-

@@ -18,6 +18,15 @@ data class EpgProgram(
     val startTimeMillis: Long = parseTime(startTime),
     val stopTimeMillis: Long = parseTime(stopTime)
 ) {
+    val startUtcMillis: Long
+        get() = toUtcMillis(startTime, startTimeMillis)
+
+    val stopUtcMillis: Long
+        get() = toUtcMillis(stopTime, stopTimeMillis)
+
+    val durationUtcSeconds: Long
+        get() = ((stopUtcMillis - startUtcMillis) / 1000L).coerceAtLeast(1)
+
     fun isCurrent(currentTimeMillis: Long = System.currentTimeMillis()): Boolean {
         return currentTimeMillis in startTimeMillis..stopTimeMillis
     }
@@ -106,6 +115,12 @@ data class EpgProgram(
             } catch (_: Exception) {
                 null
             }
+        }
+
+        private fun toUtcMillis(raw: String, fallback: Long): Long {
+            return parseIsoOffset(raw)
+                ?: parseXmlTv(raw)
+                ?: fallback
         }
     }
 }
