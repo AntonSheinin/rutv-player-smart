@@ -243,16 +243,22 @@ class MainViewModel @Inject constructor(
                         val channels = result.data
 
                         // Refresh current programs cache if EPG data exists
+                        // Note: After "Force EPG Fetch", cache will be empty until fetch completes
+                        // So we preserve the existing currentProgramsMap to avoid showing empty state
+                        val existingProgramsMap = _viewState.value.currentProgramsMap
                         val cachedEpg = epgRepository.loadEpgData()
                         if (cachedEpg != null) {
                             epgRepository.refreshCurrentProgramsCache()
                         }
+                        val newProgramsMap = epgRepository.getCurrentProgramsSnapshot()
+                        // Use new map if not empty, otherwise keep existing to avoid flicker
+                        val programsMapToUse = if (newProgramsMap.isNotEmpty()) newProgramsMap else existingProgramsMap
 
                         withContext(Dispatchers.Main) {
                             _viewState.update {
                                 it.copy(
                                     channels = channels,
-                                    currentProgramsMap = epgRepository.getCurrentProgramsSnapshot(),
+                                    currentProgramsMap = programsMapToUse,
                                     isLoading = false,
                                     error = null
                                 )
