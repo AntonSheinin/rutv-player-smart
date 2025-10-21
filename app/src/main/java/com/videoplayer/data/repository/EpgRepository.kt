@@ -90,8 +90,8 @@ class EpgRepository @Inject constructor(
 
         val channelsWithEpg = channels.filter { it.hasEpg }
         if (channelsWithEpg.isEmpty()) {
-            Timber.w("No channels with EPG data")
-            return@withContext Result.Error(Exception("No channels with EPG data"))
+            Timber.w("No channels with EPG identifiers")
+            return@withContext Result.Error(Exception("No channels with EPG identifiers"))
         }
 
         Timber.d("Fetching EPG for ${channelsWithEpg.size} channels")

@@ -77,8 +77,8 @@ class FetchEpgUseCase @Inject constructor(
 
             val channelsWithEpg = channels.filter { it.hasEpg }
             if (channelsWithEpg.isEmpty()) {
-                Timber.w("✗ No channels with EPG configuration (tvgId and catchupDays)")
-                return Result.Error(Exception("No channels with EPG"))
+                Timber.w("✗ No channels provide EPG identifiers (tvg-id)")
+                return Result.Error(Exception("No channels with EPG identifiers"))
             }
             Timber.d("Channels with EPG: ${channelsWithEpg.size}/${channels.size}")
 

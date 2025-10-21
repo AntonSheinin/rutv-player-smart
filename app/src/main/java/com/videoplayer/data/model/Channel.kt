@@ -21,12 +21,12 @@ data class Channel(
     val position: Int = 0
 ) {
     val hasEpg: Boolean
-        get() = tvgId.isNotBlank() && catchupDays > 0
+        get() = tvgId.isNotBlank()
 
-    fun supportsCatchup(): Boolean = hasEpg
+    fun supportsCatchup(): Boolean = hasEpg && catchupDays > 0
 
     fun buildArchiveUrl(program: EpgProgram): String? {
-        if (!hasEpg) return null
+        if (!supportsCatchup()) return null
 
         // Validate EPG times
         if (program.startTimeMillis <= 0 || program.stopTimeMillis <= 0) {

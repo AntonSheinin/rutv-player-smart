@@ -116,20 +116,27 @@ fun PlayerScreen(
                         setShowNextButton(true)
 
                         // Set custom forward/rewind listener to switch channels
-                        findViewById<android.view.View>(androidx.media3.ui.R.id.exo_prev)?.setOnClickListener {
-                            // Switch to previous channel in full channel list
-                            val currentIndex = viewState.currentChannelIndex
-                            if (currentIndex > 0) {
-                                onPlayChannel(currentIndex - 1)
+                        val exoPrevId = resources.getIdentifier("exo_prev", "id", "androidx.media3.ui")
+                        val exoNextId = resources.getIdentifier("exo_next", "id", "androidx.media3.ui")
+
+                        if (exoPrevId != 0) {
+                            findViewById<android.view.View>(exoPrevId)?.setOnClickListener {
+                                // Switch to previous channel in full channel list
+                                val currentIndex = viewState.currentChannelIndex
+                                if (currentIndex > 0) {
+                                    onPlayChannel(currentIndex - 1)
+                                }
                             }
                         }
 
-                        findViewById<android.view.View>(androidx.media3.ui.R.id.exo_next)?.setOnClickListener {
-                            // Switch to next channel in full channel list
-                            val currentIndex = viewState.currentChannelIndex
-                            val maxIndex = viewState.channels.size - 1
-                            if (currentIndex < maxIndex) {
-                                onPlayChannel(currentIndex + 1)
+                        if (exoNextId != 0) {
+                            findViewById<android.view.View>(exoNextId)?.setOnClickListener {
+                                // Switch to next channel in full channel list
+                                val currentIndex = viewState.currentChannelIndex
+                                val maxIndex = viewState.channels.size - 1
+                                if (currentIndex < maxIndex) {
+                                    onPlayChannel(currentIndex + 1)
+                                }
                             }
                         }
 
