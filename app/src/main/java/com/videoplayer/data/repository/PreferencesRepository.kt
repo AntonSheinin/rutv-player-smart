@@ -152,7 +152,7 @@ class PreferencesRepository @Inject constructor(
                 useFfmpegAudio = preferences[PreferencesKeys.USE_FFMPEG_AUDIO] ?: false,
                 useFfmpegVideo = preferences[PreferencesKeys.USE_FFMPEG_VIDEO] ?: false,
                 bufferSeconds = preferences[PreferencesKeys.BUFFER_SECONDS] ?: Constants.DEFAULT_BUFFER_SECONDS,
-                showDebugLog = preferences[PreferencesKeys.SHOW_DEBUG_LOG] ?: true
+                showDebugLog = preferences[PreferencesKeys.SHOW_DEBUG_LOG] ?: false
             )
         }
 

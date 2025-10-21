@@ -62,8 +62,13 @@ class MainActivity : ComponentActivity() {
         val context = LocalContext.current
 
         // Show no-playlist dialog if needed
+        var playlistCheckStarted by remember { mutableStateOf(false) }
+
         LaunchedEffect(viewState.hasChannels, viewState.isLoading) {
-            if (!viewState.isLoading && !viewState.hasChannels && !hasShownNoPlaylistPrompt) {
+            if (viewState.isLoading) {
+                playlistCheckStarted = true
+            }
+            if (playlistCheckStarted && !viewState.isLoading && !viewState.hasChannels && !hasShownNoPlaylistPrompt) {
                 hasShownNoPlaylistPrompt = true
                 showNoPlaylistDialog()
             }

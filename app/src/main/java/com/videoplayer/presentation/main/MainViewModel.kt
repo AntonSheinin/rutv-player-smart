@@ -182,17 +182,18 @@ class MainViewModel @Inject constructor(
                                     DebugMessage("DVR: Playlist loaded (${channels.size} channels, catch-up: $catchupSupported)")
                                 )
 
-                                // Step 3: Initialize player
-                                Timber.d("App Init: Step 3 - Initializing player")
-                                initializePlayer()
-
-                                // Step 4: Fetch EPG if needed (async, don't wait)
-                                Timber.d("App Init: Step 4 - Checking EPG freshness")
-                                fetchEpgIfNeeded()
                             } else {
                                 Timber.d("App Init: No channels loaded")
                                 appendDebugMessage(DebugMessage("EPG: Playlist empty"))
                             }
+                        }
+
+                        if (channels.isNotEmpty()) {
+                            Timber.d("App Init: Step 3 - Initializing player")
+                            initializePlayer(channels)
+
+                            Timber.d("App Init: Step 4 - Checking EPG freshness")
+                            fetchEpgIfNeeded()
                         }
                     }
                     is Result.Error -> {
@@ -234,6 +235,11 @@ class MainViewModel @Inject constructor(
     fun loadPlaylist(forceReload: Boolean = false) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                val wasArchivePlayback = _viewState.value.isArchivePlayback
+                val archiveProgramToResume = _viewState.value.archiveProgram
+                val archiveChannelUrl = _viewState.value.currentChannel?.url
+                val archiveChannelTvgId = _viewState.value.currentChannel?.tvgId
+
                 withContext(Dispatchers.Main) {
                     _viewState.update { it.copy(isLoading = true, error = null) }
                 }
@@ -276,15 +282,33 @@ class MainViewModel @Inject constructor(
                                     DebugMessage("DVR: Playlist loaded (${channels.size} channels, catch-up: $catchupSupported)")
                                 )
 
-                                // Initialize player (if not already initialized)
-                                initializePlayer()
-
-                                // Fetch EPG if needed (this will check 24h cache)
-                                fetchEpgIfNeeded()
                             } else {
                                 Timber.d("No channels loaded")
                                 appendDebugMessage(DebugMessage("EPG: Playlist empty"))
                             }
+                        }
+
+                        if (channels.isNotEmpty()) {
+                            initializePlayer(channels)
+
+                            val resumeChannel = when {
+                                wasArchivePlayback && archiveProgramToResume != null -> {
+                                    channels.firstOrNull { it.url == archiveChannelUrl }
+                                        ?: channels.firstOrNull { it.tvgId.isNotBlank() && it.tvgId == archiveChannelTvgId }
+                                }
+                                else -> null
+                            }
+                            if (resumeChannel != null && archiveProgramToResume != null) {
+                                withContext(Dispatchers.Main) {
+                                    startArchivePlayback(resumeChannel, archiveProgramToResume)
+                                }
+                            } else if (wasArchivePlayback) {
+                                _viewState.update { state ->
+                                    state.copy(isArchivePlayback = false, archiveProgram = null)
+                                }
+                            }
+
+                            fetchEpgIfNeeded()
                         }
                     }
                     is Result.Error -> {
@@ -322,25 +346,21 @@ class MainViewModel @Inject constructor(
     /**
      * Initialize player with current channels
      */
-    private fun initializePlayer() {
-        viewModelScope.launch(Dispatchers.IO) {
-            // Read preferences on IO thread to avoid blocking main thread
-            val config = preferencesRepository.playerConfig.first()
-            val lastPlayedIndex = preferencesRepository.lastPlayedIndex.first()
-            val channels = _viewState.value.channels
+    private suspend fun initializePlayer(channels: List<Channel>) {
+        if (channels.isEmpty()) return
 
-            if (channels.isNotEmpty()) {
-                val startIndex = if (lastPlayedIndex >= 0 && lastPlayedIndex < channels.size) {
-                    lastPlayedIndex
-                } else {
-                    0
-                }
+        // Read preferences on IO thread
+        val config = preferencesRepository.playerConfig.first()
+        val lastPlayedIndex = preferencesRepository.lastPlayedIndex.first()
 
-                // Initialize player on main thread (required for ExoPlayer)
-                withContext(Dispatchers.Main) {
-                    playerManager.initialize(channels, config, startIndex)
-                }
-            }
+        val startIndex = if (lastPlayedIndex >= 0 && lastPlayedIndex < channels.size) {
+            lastPlayedIndex
+        } else {
+            0
+        }
+
+        withContext(Dispatchers.Main) {
+            playerManager.initialize(channels, config, startIndex)
         }
     }
 

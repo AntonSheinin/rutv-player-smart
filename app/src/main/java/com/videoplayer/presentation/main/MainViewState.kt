@@ -27,7 +27,7 @@ data class MainViewState(
     val archiveProgram: EpgProgram? = null,
     val archivePrompt: ArchivePrompt? = null,
     val debugMessages: List<DebugMessage> = emptyList(),
-    val showDebugLog: Boolean = true,
+    val showDebugLog: Boolean = false,
     val currentResizeMode: Int = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT,
     val videoRotation: Float = 0f,
     val isLoading: Boolean = false,

@@ -44,11 +44,6 @@ class EpgRepository @Inject constructor(
      * Check if EPG service is healthy
      */
     suspend fun checkHealth(epgUrl: String): Result<Boolean> = withContext(Dispatchers.IO) {
-        if (epgUrl.isBlank()) {
-            Timber.w("EPG URL not configured")
-            return@withContext Result.Error(Exception("EPG URL is empty"))
-        }
-
         try {
             Timber.d("Checking EPG service health: $epgUrl/health")
             val healthUrl = URL("$epgUrl/health")
