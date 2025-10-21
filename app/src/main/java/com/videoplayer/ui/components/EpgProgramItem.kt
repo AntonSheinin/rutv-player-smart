@@ -24,8 +24,8 @@ fun EpgProgramItem(
     program: EpgProgram,
     isCurrent: Boolean,
     onClick: () -> Unit,
-    onPlayArchive: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onPlayArchive: (() -> Unit)? = null
 ) {
     val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
     val startTime = program.startTimeMillis.takeIf { it > 0L }?.let { timeFormat.format(Date(it)) } ?: "--:--"
