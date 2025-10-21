@@ -309,6 +309,7 @@ fun PlayerScreen(
     }
 }
 
+@UnstableApi
 @Composable
 private fun ChannelInfoOverlay(
     channelNumber: Int,
