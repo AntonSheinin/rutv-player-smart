@@ -3,6 +3,7 @@ package com.videoplayer.presentation.player
 import android.content.Context
 import android.net.Uri
 import android.os.Handler
+import androidx.core.net.toUri
 import android.os.Looper
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -29,7 +30,6 @@ import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
 import com.videoplayer.data.model.Channel
 import com.videoplayer.data.model.EpgProgram
 import com.videoplayer.data.model.PlayerConfig
-import com.videoplayer.presentation.player.ArchiveEndReason
 import com.videoplayer.util.Constants
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory
@@ -273,7 +273,8 @@ class PlayerManager @Inject constructor(
             ) {
                 if (droppedFrames > 0) {
                     val fps = if (elapsedMs > 0) (droppedFrames * 1000f / elapsedMs) else 0f
-                    addDebugMessage("⚠️ Dropped $droppedFrames frames in ${elapsedMs}ms (${String.format(java.util.Locale.US, "%.1f", fps)} fps)")
+                    addDebugMessage("⚠️ Dropped $droppedFrames frames in ${elapsedMs}ms (${String.format(
+                        Locale.US, "%.1f", fps)} fps)")
                     _playerEvents.tryEmit(PlayerEvent.DroppedFrames(droppedFrames, elapsedMs))
                 }
             }
@@ -476,7 +477,7 @@ class PlayerManager @Inject constructor(
             addDebugMessage("DVR: ${channel.title} does not provide a catch-up URL")
             return false
         }
-        val uri = Uri.parse(archiveUrl)
+        val uri = archiveUrl.toUri()
         channels.indexOfFirst { it.url == channel.url }
             .takeIf { it >= 0 }
             ?.let { lastLiveIndex = it }
@@ -778,7 +779,7 @@ class PlayerManager @Inject constructor(
     private fun resolveRelativeUri(base: Uri, reference: String): Uri {
         return try {
             val resolved = URI(base.toString()).resolve(reference)
-            Uri.parse(resolved.toString())
+            resolved.toString().toUri()
         } catch (e: Exception) {
             addDebugMessage("DVR: Failed to resolve URI ${maskSensitive(reference)} (${e.message ?: "unknown"})")
             base
