@@ -1,5 +1,6 @@
 package com.videoplayer.ui.screens
 
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -160,14 +161,12 @@ fun PlayerScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .pointerInput(Unit) {
-                        pointerInteropFilter { motionEvent ->
-                            if (motionEvent.action == android.view.MotionEvent.ACTION_UP) {
-                                showControls = false
-                            }
-                            // Allow the event to pass through to PlayerView
-                            false
+                    .pointerInteropFilter { motionEvent ->
+                        if (motionEvent.action == MotionEvent.ACTION_UP) {
+                            showControls = false
                         }
+                        // Allow the event to pass through to PlayerView
+                        false
                     }
             )
         }
