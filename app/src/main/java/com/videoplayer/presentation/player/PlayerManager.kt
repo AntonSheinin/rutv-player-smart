@@ -107,15 +107,46 @@ class PlayerManager @Inject constructor(
      * Initialize player with channels
      */
     fun initialize(channels: List<Channel>, config: PlayerConfig, startIndex: Int = 0) {
-        val task = Runnable { initializeInternal(channels, config, startIndex) }
-        if (Looper.myLooper() == Looper.getMainLooper()) {
-            task.run()
-        } else {
+        if (channels.isEmpty()) {
+            Timber.w("Cannot initialize player with empty channel list")
+            return
+        }
+
+        val channelSnapshot = channels.toList()
+        val postInitialize: (List<MediaItem>) -> Unit = { mediaItems ->
+            val task = Runnable { initializeInternal(channelSnapshot, config, startIndex, mediaItems) }
             mainHandler.post(task)
+        }
+
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            CoroutineScope(Dispatchers.Default).launch {
+                try {
+                    val mediaItems = buildMediaItems(channelSnapshot)
+                    postInitialize(mediaItems)
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to prepare media items on background thread")
+                    mainHandler.post {
+                        _playerState.value = PlayerState.Error("Failed to prepare media items", null)
+                    }
+                }
+            }
+        } else {
+            try {
+                val mediaItems = buildMediaItems(channelSnapshot)
+                postInitialize(mediaItems)
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to prepare media items")
+                _playerState.value = PlayerState.Error("Failed to prepare media items", null)
+            }
         }
     }
 
-    private fun initializeInternal(channelList: List<Channel>, config: PlayerConfig, startIndex: Int) {
+    private fun initializeInternal(
+        channelList: List<Channel>,
+        config: PlayerConfig,
+        startIndex: Int,
+        mediaItems: List<MediaItem>
+    ) {
         Timber.d("Initializing player with ${channelList.size} channels, startIndex=$startIndex")
         addDebugMessage("App Started")
 
@@ -128,13 +159,13 @@ class PlayerManager @Inject constructor(
         this.currentConfig = config
 
         releaseInternal()
-        createPlayer(config, startIndex)
+        createPlayer(config, startIndex, mediaItems)
     }
 
     /**
      * Create ExoPlayer instance
      */
-    private fun createPlayer(config: PlayerConfig, startIndex: Int) {
+    private fun createPlayer(config: PlayerConfig, startIndex: Int, mediaItems: List<MediaItem>) {
         try {
             addDebugMessage("━━━ PLAYER INITIALIZATION ━━━")
 
@@ -213,7 +244,6 @@ class PlayerManager @Inject constructor(
                 .build()
                 .apply {
                     // Set media items
-                    val mediaItems = buildLiveMediaItems()
                     setMediaItems(mediaItems)
 
                     addDebugMessage("📺 Loaded ${mediaItems.size} channels into player")
@@ -704,8 +734,10 @@ class PlayerManager @Inject constructor(
         player?.playWhenReady = false
     }
 
-    private fun buildLiveMediaItems(): List<MediaItem> {
-        return channels.map { channel ->
+    private fun buildLiveMediaItems(): List<MediaItem> = buildMediaItems(channels)
+
+    private fun buildMediaItems(channelList: List<Channel>): List<MediaItem> {
+        return channelList.map { channel ->
             MediaItem.Builder()
                 .setUri(channel.url)
                 .setMediaId(channel.title)

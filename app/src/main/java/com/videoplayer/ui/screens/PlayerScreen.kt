@@ -26,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInteropFilter
+import androidx.compose.ui.layout.offset
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -187,7 +188,9 @@ fun PlayerScreen(
                 onAspectRatioClick = onCycleAspectRatio,
                 onRotationClick = onToggleRotation,
                 onSettingsClick = onOpenSettings,
-                modifier = Modifier.padding(bottom = 56.dp) // Above ExoPlayer default controls (increased for bigger buttons)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(y = -CONTROLS_VERTICAL_OFFSET)
             )
         }
 
@@ -385,8 +388,9 @@ private fun PlaylistPanel(
     // Auto-scroll to current channel when panel opens (center it in viewport)
     LaunchedEffect(currentChannelIndex, channels.size) {
         if (currentChannelIndex >= 0 && currentChannelIndex < channels.size) {
-            // Scroll with offset to center the item in viewport
-            listState.animateScrollToItem(currentChannelIndex, scrollOffset = -50)
+            // Jump instantly, then apply a small animated offset for a snappier feel
+            listState.scrollToItem(currentChannelIndex)
+            listState.animateScrollToItem(currentChannelIndex, scrollOffset = -160)
         }
     }
 
@@ -1010,6 +1014,7 @@ private fun CustomControlButtons(
 
 private const val MEDIA3_UI_PACKAGE = "androidx.media3.ui"
 private const val DISABLED_CONTROL_ALPHA = 0.4f
+private val CONTROLS_VERTICAL_OFFSET = 96.dp
 
 private fun View.enableControl() {
     alpha = 1f
