@@ -3,10 +3,10 @@ package com.videoplayer.util
 object Constants {
     // Buffering
     const val BUFFERING_TIMEOUT_MS = 30_000L
-    const val MIN_BUFFER_MS = 15_000
-    const val MAX_BUFFER_MS = 50_000
-    const val BUFFER_FOR_PLAYBACK_MS = 7_500
-    const val BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS = 10_000
+    const val MIN_BUFFER_MS = 4_000
+    const val MAX_BUFFER_MS = 15_000
+    const val BUFFER_FOR_PLAYBACK_MS = 1_000
+    const val BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS = 3_000
 
     // UI
     const val DOUBLE_TAP_DELAY_MS = 300L

@@ -918,16 +918,19 @@ private fun CustomControlButtons(
 ) {
     Surface(
         modifier = modifier,
-        color = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.7f)
+        color = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.55f)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 16.dp)
+                .heightIn(min = 160.dp)
+                .padding(horizontal = 24.dp, vertical = 20.dp)
         ) {
             Column(
-                modifier = Modifier.align(Alignment.CenterStart),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterVertically)
             ) {
                 IconButton(
                     onClick = onPlaylistClick,
@@ -965,8 +968,10 @@ private fun CustomControlButtons(
             }
 
             Column(
-                modifier = Modifier.align(Alignment.CenterEnd),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterVertically)
             ) {
                 IconButton(
                     onClick = onAspectRatioClick,
@@ -1029,6 +1034,8 @@ private fun PlayerView.hideSettingsControls() {
     listOf(
         "exo_settings",
         "exo_settings_container",
+        "exo_settings_button",
+        "exo_settings_icon",
         "exo_overflow_show",
         "exo_overflow_hide"
     ).forEach { controlId ->

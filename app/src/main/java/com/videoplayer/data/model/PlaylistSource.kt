@@ -20,6 +20,6 @@ sealed class PlaylistSource {
 data class PlayerConfig(
     val useFfmpegAudio: Boolean = false,
     val useFfmpegVideo: Boolean = false,
-    val bufferSeconds: Int = 15,
+    val bufferSeconds: Int = 6,
     val showDebugLog: Boolean = false
 )
