@@ -920,29 +920,26 @@ private fun CustomControlButtons(
         modifier = modifier,
         color = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.7f)
     ) {
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp), // Increased vertical padding
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 24.dp, vertical = 16.dp)
         ) {
-            // Left side buttons
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp) // Increased spacing
+            Column(
+                modifier = Modifier.align(Alignment.CenterStart),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 IconButton(
                     onClick = onPlaylistClick,
-                    modifier = Modifier.size(56.dp) // Bigger button size
+                    modifier = Modifier.size(56.dp)
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.List,
                         contentDescription = stringResource(R.string.cd_playlist_button),
                         tint = MaterialTheme.ruTvColors.gold,
-                        modifier = Modifier.size(32.dp) // Bigger icon size
+                        modifier = Modifier.size(32.dp)
                     )
                 }
-
                 IconButton(
                     onClick = onFavoritesClick,
                     modifier = Modifier.size(56.dp)
@@ -954,7 +951,6 @@ private fun CustomControlButtons(
                         modifier = Modifier.size(32.dp)
                     )
                 }
-
                 IconButton(
                     onClick = onGoToChannelClick,
                     modifier = Modifier.size(56.dp)
@@ -968,9 +964,9 @@ private fun CustomControlButtons(
                 }
             }
 
-            // Right side buttons
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            Column(
+                modifier = Modifier.align(Alignment.CenterEnd),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 IconButton(
                     onClick = onAspectRatioClick,
@@ -983,7 +979,6 @@ private fun CustomControlButtons(
                         modifier = Modifier.size(32.dp)
                     )
                 }
-
                 IconButton(
                     onClick = onRotationClick,
                     modifier = Modifier.size(56.dp)
@@ -995,7 +990,6 @@ private fun CustomControlButtons(
                         modifier = Modifier.size(32.dp)
                     )
                 }
-
                 IconButton(
                     onClick = onSettingsClick,
                     modifier = Modifier.size(56.dp)
