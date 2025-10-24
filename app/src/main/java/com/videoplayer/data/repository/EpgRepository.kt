@@ -18,9 +18,14 @@ import java.io.File
 import java.io.Reader
 import java.net.HttpURLConnection
 import java.net.URL
+import java.time.Instant
+import java.time.LocalTime
+import java.time.ZoneOffset
 import java.util.TimeZone
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.max
+import kotlin.math.min
 
 /**
  * Repository for EPG data
@@ -76,7 +81,8 @@ class EpgRepository @Inject constructor(
      */
     suspend fun fetchEpgData(
         epgUrl: String,
-        channels: List<Channel>
+        channels: List<Channel>,
+        window: EpgWindow
     ): Result<EpgResponse> = withContext(Dispatchers.IO) {
         if (epgUrl.isBlank()) {
             Timber.w("EPG URL not configured")
@@ -98,12 +104,19 @@ class EpgRepository @Inject constructor(
             Timber.d("Device timezone: $deviceTimezone (UTC${if (timezoneOffset >= 0) "+" else ""}$timezoneOffset)")
             Timber.d("Channels to fetch: $channelsWithEpg.size")
 
+            val fromUtcMillis = window.fromUtcMillis
+            val toUtcMillis = window.toUtcMillis
+            val fromIso = Instant.ofEpochMilli(fromUtcMillis).toString()
+            val toIso = Instant.ofEpochMilli(toUtcMillis).toString()
+            Timber.d("EPG window request: from=$fromIso to=$toIso")
+
             val epgRequest = EpgRequest(
                 channels = channelsWithEpg.map {
                     EpgChannelRequest(xmltvId = it.tvgId, epgDepth = it.catchupDays)
                 },
-                update = "force",
-                timezone = deviceTimezone
+                timezone = deviceTimezone,
+                fromDate = fromIso,
+                toDate = toIso
             )
 
             val requestBody = gson.toJson(epgRequest)
@@ -155,9 +168,14 @@ class EpgRepository @Inject constructor(
                     }
 
                     Timber.d("━━━ EPG SAVED ━━━")
-                    saveEpgData(epgResponse)
+                    val trimmedResponse = trimEpgToWindow(
+                        epgResponse,
+                        fromUtcMillis,
+                        toUtcMillis
+                    )
+                    saveEpgData(trimmedResponse)
                     connection.disconnect()
-                    Result.Success(epgResponse)
+                    Result.Success(trimmedResponse)
                 } else {
                     Timber.e("EPG response is null")
                     connection.disconnect()
@@ -459,6 +477,82 @@ class EpgRepository @Inject constructor(
         return currentProgramsCache ?: emptyMap()
     }
 
+    fun calculateWindow(
+        channels: List<Channel>,
+        epgDaysAhead: Int,
+        now: Instant = Instant.now()
+    ): EpgWindow {
+        val utcZone = ZoneOffset.UTC
+        val zonedNow = now.atZone(utcZone)
+        val maxCatchupDays = channels
+            .filter { it.hasEpg }
+            .maxOfOrNull { max(0, it.catchupDays) }
+            ?: 0
+        val sanitizedDaysAhead = max(0, epgDaysAhead)
+        val fromInstant = zonedNow.toLocalDate()
+            .minusDays(maxCatchupDays.toLong())
+            .atStartOfDay()
+            .toInstant(utcZone)
+        val toInstant = zonedNow.toLocalDate()
+            .plusDays(sanitizedDaysAhead.toLong())
+            .atTime(LocalTime.of(23, 59, 59))
+            .toInstant(utcZone)
+        return EpgWindow(
+            fromUtcMillis = fromInstant.toEpochMilli(),
+            toUtcMillis = toInstant.toEpochMilli()
+        )
+    }
+
+    fun getCachedEpgBounds(): EpgBounds? {
+        val data = cachedEpgData ?: loadEpgData() ?: return null
+        var earliest = Long.MAX_VALUE
+        var latest = Long.MIN_VALUE
+        data.epg.values.forEach { programs ->
+            programs.forEach { program ->
+                val start = program.startUtcMillis
+                val stop = program.stopUtcMillis
+                if (start > 0) {
+                    earliest = min(earliest, start)
+                }
+                if (stop > 0) {
+                    latest = max(latest, stop)
+                }
+            }
+        }
+        if (earliest == Long.MAX_VALUE || latest == Long.MIN_VALUE) return null
+        return EpgBounds(earliest, latest)
+    }
+
+    fun coversWindow(window: EpgWindow, toleranceMillis: Long = 60_000L): Boolean {
+        val bounds = getCachedEpgBounds() ?: return false
+        val adjustedEarliest = bounds.earliestUtcMillis <= window.fromUtcMillis + toleranceMillis
+        val adjustedLatest = bounds.latestUtcMillis >= window.toUtcMillis - toleranceMillis
+        return adjustedEarliest && adjustedLatest
+    }
+
+    private fun trimEpgToWindow(
+        response: EpgResponse,
+        fromUtcMillis: Long,
+        toUtcMillis: Long
+    ): EpgResponse {
+        val filteredMap = response.epg.mapNotNull { (channelId, programs) ->
+            val filtered = programs.filter { program ->
+                val start = program.startUtcMillis
+                val stop = program.stopUtcMillis
+                val afterFrom = stop >= fromUtcMillis
+                val beforeTo = start <= toUtcMillis
+                afterFrom && beforeTo
+            }
+            if (filtered.isEmpty()) null else channelId to filtered
+        }.toMap()
+        val totalPrograms = filteredMap.values.sumOf { it.size }
+        return response.copy(
+            channelsFound = filteredMap.size,
+            totalPrograms = totalPrograms,
+            epg = filteredMap
+        )
+    }
+
     private fun JsonReader.safeNextString(maxLength: Int): String {
         val value = nextString()
         if (value.length > maxLength) {
@@ -491,3 +585,18 @@ private const val MAX_FIELD_LENGTH_TIME = 64
 private const val MAX_FIELD_LENGTH_TITLE = 256
 private const val MAX_FIELD_LENGTH_DESCRIPTION = 1_024
 private var truncationWarningLogged = false
+
+data class EpgWindow(
+    val fromUtcMillis: Long,
+    val toUtcMillis: Long
+) {
+    val fromInstant: Instant
+        get() = Instant.ofEpochMilli(fromUtcMillis)
+    val toInstant: Instant
+        get() = Instant.ofEpochMilli(toUtcMillis)
+}
+
+data class EpgBounds(
+    val earliestUtcMillis: Long,
+    val latestUtcMillis: Long
+)

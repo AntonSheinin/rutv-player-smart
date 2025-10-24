@@ -6,10 +6,12 @@ import androidx.lifecycle.viewModelScope
 import com.videoplayer.data.model.PlayerConfig
 import com.videoplayer.data.repository.ChannelRepository
 import com.videoplayer.data.repository.PreferencesRepository
+import com.videoplayer.domain.usecase.FetchEpgUseCase
 import com.videoplayer.domain.usecase.LoadPlaylistUseCase
 import com.videoplayer.util.Constants
 import com.videoplayer.util.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,7 +25,8 @@ class SettingsViewModel @Inject constructor(
     private val preferencesRepository: PreferencesRepository,
     private val channelRepository: ChannelRepository,
     private val loadPlaylistUseCase: LoadPlaylistUseCase,
-    private val epgRepository: com.videoplayer.data.repository.EpgRepository
+    private val epgRepository: com.videoplayer.data.repository.EpgRepository,
+    private val fetchEpgUseCase: FetchEpgUseCase
 ) : ViewModel() {
 
     private val _viewState = MutableStateFlow(SettingsViewState())
@@ -268,25 +271,46 @@ class SettingsViewModel @Inject constructor(
      * Force EPG fetch - delete cached data and clear timestamp to force refetch
      */
     fun forceEpgFetch() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
+            _viewState.update { it.copy(isLoading = true, error = null, successMessage = null) }
             try {
                 Timber.d("Force EPG fetch requested")
                 epgRepository.clearCache()
-                // Clear last fetch timestamp to force refetch on app restart
                 preferencesRepository.saveLastEpgFetchTimestamp(0L)
 
-                _viewState.update {
-                    it.copy(
-                        successMessage = "EPG cache cleared. Return to player to fetch new EPG data.",
-                        error = null
-                    )
+                when (val result = fetchEpgUseCase()) {
+                    is Result.Success -> {
+                        val timestamp = System.currentTimeMillis()
+                        preferencesRepository.saveLastEpgFetchTimestamp(timestamp)
+                        epgRepository.refreshCurrentProgramsCache()
+                        _viewState.update {
+                            it.copy(
+                                isLoading = false,
+                                successMessage = "EPG refreshed (${result.data.totalPrograms} programs)",
+                                error = null
+                            )
+                        }
+                        Timber.d("EPG refetched successfully")
+                    }
+                    is Result.Error -> {
+                        _viewState.update {
+                            it.copy(
+                                isLoading = false,
+                                error = result.message ?: "Failed to fetch EPG data",
+                                successMessage = null
+                            )
+                        }
+                        Timber.e("Failed to fetch EPG: ${result.message}")
+                    }
+                    is Result.Loading -> {
+                        _viewState.update { it.copy(isLoading = false, error = "Unexpected loading state", successMessage = null) }
+                    }
                 }
-                Timber.d("EPG cache cleared successfully, timestamp reset")
             } catch (e: Exception) {
                 _viewState.update {
-                    it.copy(error = "Failed to clear EPG cache: ${e.message}")
+                    it.copy(isLoading = false, error = "Failed to fetch EPG data: ${e.message}", successMessage = null)
                 }
-                Timber.e(e, "Failed to clear EPG cache")
+                Timber.e(e, "Failed to refetch EPG")
             }
         }
     }

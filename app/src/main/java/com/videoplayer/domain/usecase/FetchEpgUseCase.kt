@@ -82,10 +82,22 @@ class FetchEpgUseCase @Inject constructor(
             }
             Timber.d("Channels with EPG: ${channelsWithEpg.size}/${channels.size}")
 
+            val epgDaysAhead = preferencesRepository.epgDaysAhead.first()
+            val window = epgRepository.calculateWindow(channelsWithEpg, epgDaysAhead)
+            Timber.d("Desired EPG window: ${window.fromInstant} -> ${window.toInstant}")
+
+            // If cache already covers desired window, skip network fetch
+            if (epgRepository.coversWindow(window)) {
+                epgRepository.loadEpgData()?.let { cached ->
+                    Timber.d("EPG cache already covers desired window, skipping fetch")
+                    return Result.Success(cached)
+                }
+            }
+
             // Fetch EPG data
             Timber.d("━━━ FETCHING EPG DATA ━━━")
             val fetchStart = System.currentTimeMillis()
-            val result = epgRepository.fetchEpgData(epgUrl, channels)
+            val result = epgRepository.fetchEpgData(epgUrl, channelsWithEpg, window)
             val totalDuration = System.currentTimeMillis() - fetchStart
 
             when (result) {

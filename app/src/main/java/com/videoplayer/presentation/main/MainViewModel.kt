@@ -257,17 +257,22 @@ class MainViewModel @Inject constructor(
                     is Result.Success -> {
                         val channels = result.data
 
-                        // Refresh current programs cache if EPG data exists
-                        // Note: After "Force EPG Fetch", cache will be empty until fetch completes
-                        // So we preserve the existing currentProgramsMap to avoid showing empty state
-                        val existingProgramsMap = _viewState.value.currentProgramsMap
-                        val cachedEpg = epgRepository.loadEpgData()
-                        if (cachedEpg != null) {
-                            epgRepository.refreshCurrentProgramsCache()
+                        val programsMapToUse = if (forceReload) {
+                            epgRepository.clearCache()
+                            preferencesRepository.saveLastEpgFetchTimestamp(0L)
+                            emptyMap()
+                        } else {
+                            // Refresh current programs cache if EPG data exists
+                            // Note: After "Force EPG Fetch", cache will be empty until fetch completes
+                            // So we preserve the existing currentProgramsMap to avoid showing empty state
+                            val existingProgramsMap = _viewState.value.currentProgramsMap
+                            val cachedEpg = epgRepository.loadEpgData()
+                            if (cachedEpg != null) {
+                                epgRepository.refreshCurrentProgramsCache()
+                            }
+                            val newProgramsMap = epgRepository.getCurrentProgramsSnapshot()
+                            newProgramsMap.ifEmpty { existingProgramsMap }
                         }
-                        val newProgramsMap = epgRepository.getCurrentProgramsSnapshot()
-                        // Use new map if not empty, otherwise keep existing to avoid flicker
-                        val programsMapToUse = newProgramsMap.ifEmpty { existingProgramsMap }
 
                         withContext(Dispatchers.Main) {
                             _viewState.update {
@@ -311,7 +316,11 @@ class MainViewModel @Inject constructor(
                                 }
                             }
 
-                            fetchEpgIfNeeded()
+                            if (forceReload) {
+                                fetchEpg(forceUpdate = true)
+                            } else {
+                                fetchEpgIfNeeded()
+                            }
                         }
                     }
                     is Result.Error -> {
@@ -371,36 +380,41 @@ class MainViewModel @Inject constructor(
     private fun fetchEpgIfNeeded() {
         viewModelScope.launch(Dispatchers.IO) {
             val channels = _viewState.value.channels
-            val channelsWithEpg = channels.count { it.hasEpg }
+            if (channels.isEmpty()) {
+                appendDebugMessage(DebugMessage("EPG: No channels loaded yet, skipping fetch"))
+                return@launch
+            }
 
-            if (channelsWithEpg == 0) {
+            val channelsWithEpg = channels.filter { it.hasEpg }
+            if (channelsWithEpg.isEmpty()) {
                 appendDebugMessage(DebugMessage("EPG: No channels with EPG support, skipping fetch"))
                 return@launch
             }
 
-            // Check if EPG cache exists
+            val epgDaysAhead = preferencesRepository.epgDaysAhead.first()
+            val window = epgRepository.calculateWindow(channelsWithEpg, epgDaysAhead)
+
             val cachedEpg = epgRepository.loadEpgData()
             val lastFetchTimestamp = preferencesRepository.lastEpgFetchTimestamp.first()
             val currentTime = System.currentTimeMillis()
             val hoursSinceLastFetch = (currentTime - lastFetchTimestamp) / (1000 * 60 * 60)
+            val coverageSufficient = epgRepository.coversWindow(window)
 
-            if (cachedEpg != null && lastFetchTimestamp > 0 && hoursSinceLastFetch < 24) {
-                // EPG is fresh (less than 24 hours old)
+            if (cachedEpg != null && coverageSufficient && lastFetchTimestamp > 0 && hoursSinceLastFetch < 24) {
                 appendDebugMessage(
                     DebugMessage("EPG: Using cached data (fetched ${hoursSinceLastFetch}h ago, ${cachedEpg.totalPrograms} programs)")
                 )
-                Timber.d("EPG: Skipping fetch, cached data is ${hoursSinceLastFetch}h old")
+                Timber.d("EPG: Cached data covers desired window; skipping fetch")
 
-                // Update current program for current channel if playing
                 _viewState.value.currentChannel?.let { channel ->
                     updateCurrentProgram(channel)
                 }
-
                 return@launch
             }
 
-            // EPG is stale or missing, fetch new data
-            if (cachedEpg == null) {
+            if (!coverageSufficient) {
+                appendDebugMessage(DebugMessage("EPG: Cached data does not cover desired window, fetching missing data"))
+            } else if (cachedEpg == null) {
                 appendDebugMessage(DebugMessage("EPG: No cached data, fetching from service"))
             } else {
                 appendDebugMessage(DebugMessage("EPG: Cached data is ${hoursSinceLastFetch}h old, refreshing"))

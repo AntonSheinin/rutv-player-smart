@@ -37,7 +37,6 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import androidx.media3.ui.R as Media3UiR
 import com.videoplayer.R
-import kotlinx.coroutines.delay
 import com.videoplayer.data.model.Channel
 import com.videoplayer.data.model.EpgProgram
 import com.videoplayer.presentation.main.MainViewState
@@ -92,15 +91,15 @@ fun PlayerScreen(
 
     LaunchedEffect(showControls, playerViewRef) {
         val currentPlayerView = playerViewRef ?: return@LaunchedEffect
-        if (showControls) {
-            currentPlayerView.showController()
-            val timeout = currentPlayerView.controllerShowTimeoutMs
-                .takeIf { it > 0 }
-                ?: Constants.CONTROLLER_AUTO_HIDE_TIMEOUT_MS
-            delay(timeout.toLong())
+        currentPlayerView.post {
             if (showControls) {
-                currentPlayerView.hideController()
-                showControls = false
+                if (!currentPlayerView.isControllerFullyVisible) {
+                    currentPlayerView.showController()
+                }
+            } else {
+                if (currentPlayerView.isControllerFullyVisible) {
+                    currentPlayerView.hideController()
+                }
             }
         }
     }
