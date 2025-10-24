@@ -32,7 +32,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.annotation.StringRes
-import androidx.annotation.StringRes
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
@@ -1024,30 +1023,18 @@ private fun View.disableControl() {
 }
 
 private fun PlayerView.findControlView(name: String): View? {
-    val resolvedIds = buildList {
-        val appId = resources.getIdentifier(name, "id", context.packageName)
-        if (appId != 0) add(appId)
-        val libId = resources.getIdentifier(name, "id", MEDIA3_UI_PACKAGE)
-        if (libId != 0) add(libId)
-        when (name) {
-            "exo_settings" -> add(Media3UiR.id.exo_settings)
-            "exo_settings_container" -> add(Media3UiR.id.exo_settings_container)
-            "exo_settings_button" -> add(Media3UiR.id.exo_settings_button)
-            "exo_settings_icon" -> add(Media3UiR.id.exo_settings_icon)
-            "exo_overflow_show" -> add(Media3UiR.id.exo_overflow_show)
-            "exo_overflow_hide" -> add(Media3UiR.id.exo_overflow_hide)
-            "exo_prev" -> add(Media3UiR.id.exo_prev)
-            "exo_next" -> add(Media3UiR.id.exo_next)
-            "exo_rew" -> add(Media3UiR.id.exo_rew)
-            "exo_rew_with_amount" -> add(Media3UiR.id.exo_rew_with_amount)
-            "exo_ffwd" -> add(Media3UiR.id.exo_ffwd)
-            "exo_ffwd_with_amount" -> add(Media3UiR.id.exo_ffwd_with_amount)
-            "exo_pause" -> add(Media3UiR.id.exo_pause)
-            "exo_play" -> add(Media3UiR.id.exo_play)
-            "exo_play_pause" -> add(Media3UiR.id.exo_play_pause)
-        }
+    val candidateIds = buildList {
+        resources.getIdentifier(name, "id", context.packageName)
+            .takeIf { it != 0 }?.let(::add)
+        resources.getIdentifier(name, "id", MEDIA3_UI_PACKAGE)
+            .takeIf { it != 0 }?.let(::add)
+        try {
+            Media3UiR.id::class.java.getField(name).getInt(null)
+        } catch (_: Exception) {
+            null
+        }?.let(::add)
     }
-    resolvedIds.forEach { id ->
+    candidateIds.forEach { id ->
         findViewById<View>(id)?.let { return it }
     }
     return null
