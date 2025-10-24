@@ -10,7 +10,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -26,14 +25,18 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.annotation.StringRes
+import androidx.annotation.StringRes
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import androidx.media3.ui.R as Media3UiR
 import com.videoplayer.R
 import com.videoplayer.data.model.Channel
 import com.videoplayer.data.model.EpgProgram
@@ -122,6 +125,7 @@ fun PlayerScreen(
                         setShowRewindButton(true)
                         setShowFastForwardButton(true)
                         hideSettingsControls()
+                        post { hideSettingsControls() }
 
                         // Listen for controller visibility changes
                         setControllerVisibilityListener(
@@ -177,9 +181,7 @@ fun PlayerScreen(
             visible = showControls,
             enter = fadeIn(),
             exit = fadeOut(),
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
+            modifier = Modifier.fillMaxSize()
         ) {
             CustomControlButtons(
                 onPlaylistClick = onTogglePlaylist,
@@ -188,9 +190,7 @@ fun PlayerScreen(
                 onAspectRatioClick = onCycleAspectRatio,
                 onRotationClick = onToggleRotation,
                 onSettingsClick = onOpenSettings,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .offset(y = -CONTROLS_VERTICAL_OFFSET)
+                modifier = Modifier.fillMaxSize()
             )
         }
 
@@ -916,92 +916,91 @@ private fun CustomControlButtons(
     onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
+    Box(
         modifier = modifier,
-        color = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.55f)
+        contentAlignment = Alignment.Center
     ) {
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 160.dp)
-                .padding(horizontal = 24.dp, vertical = 20.dp)
+                .fillMaxSize()
+                .padding(horizontal = 24.dp, vertical = 24.dp)
+                .pointerInteropFilter { false }
         ) {
-            Column(
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .fillMaxHeight(),
-                verticalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterVertically)
-            ) {
-                IconButton(
-                    onClick = onPlaylistClick,
-                    modifier = Modifier.size(56.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.List,
-                        contentDescription = stringResource(R.string.cd_playlist_button),
-                        tint = MaterialTheme.ruTvColors.gold,
-                        modifier = Modifier.size(32.dp)
+            ControlColumn(
+                modifier = Modifier.align(Alignment.CenterStart),
+                buttons = listOf(
+                    ControlButtonData(
+                        icon = Icons.AutoMirrored.Filled.List,
+                        description = R.string.cd_playlist_button,
+                        onClick = onPlaylistClick
+                    ),
+                    ControlButtonData(
+                        icon = Icons.Default.Star,
+                        description = R.string.cd_favorites_button,
+                        onClick = onFavoritesClick
+                    ),
+                    ControlButtonData(
+                        icon = Icons.Default.Numbers,
+                        description = R.string.cd_go_to_channel_button,
+                        onClick = onGoToChannelClick
                     )
-                }
-                IconButton(
-                    onClick = onFavoritesClick,
-                    modifier = Modifier.size(56.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Star,
-                        contentDescription = stringResource(R.string.cd_favorites_button),
-                        tint = MaterialTheme.ruTvColors.gold,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-                IconButton(
-                    onClick = onGoToChannelClick,
-                    modifier = Modifier.size(56.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Numbers,
-                        contentDescription = stringResource(R.string.cd_go_to_channel_button),
-                        tint = MaterialTheme.ruTvColors.gold,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-            }
+                )
+            )
 
-            Column(
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .fillMaxHeight(),
-                verticalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterVertically)
-            ) {
-                IconButton(
-                    onClick = onAspectRatioClick,
-                    modifier = Modifier.size(56.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.AspectRatio,
-                        contentDescription = stringResource(R.string.cd_aspect_ratio_button),
-                        tint = MaterialTheme.ruTvColors.gold,
-                        modifier = Modifier.size(32.dp)
+            ControlColumn(
+                modifier = Modifier.align(Alignment.CenterEnd),
+                buttons = listOf(
+                    ControlButtonData(
+                        icon = Icons.Default.AspectRatio,
+                        description = R.string.cd_aspect_ratio_button,
+                        onClick = onAspectRatioClick
+                    ),
+                    ControlButtonData(
+                        icon = Icons.Default.ScreenRotation,
+                        description = R.string.cd_orientation_button,
+                        onClick = onRotationClick
+                    ),
+                    ControlButtonData(
+                        icon = Icons.Default.Settings,
+                        description = R.string.cd_settings_button,
+                        onClick = onSettingsClick
                     )
-                }
+                )
+            )
+        }
+    }
+}
+
+private data class ControlButtonData(
+    val icon: ImageVector,
+    @StringRes val description: Int,
+    val onClick: () -> Unit
+)
+
+@Composable
+private fun ControlColumn(
+    modifier: Modifier,
+    buttons: List<ControlButtonData>
+) {
+    Surface(
+        modifier = modifier,
+        color = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.55f),
+        shape = RoundedCornerShape(28.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 12.dp, vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(18.dp, Alignment.CenterVertically)
+        ) {
+            buttons.forEach { button ->
                 IconButton(
-                    onClick = onRotationClick,
+                    onClick = button.onClick,
                     modifier = Modifier.size(56.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.ScreenRotation,
-                        contentDescription = stringResource(R.string.cd_orientation_button),
-                        tint = MaterialTheme.ruTvColors.gold,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-                IconButton(
-                    onClick = onSettingsClick,
-                    modifier = Modifier.size(56.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = stringResource(R.string.cd_settings_button),
+                        imageVector = button.icon,
+                        contentDescription = stringResource(button.description),
                         tint = MaterialTheme.ruTvColors.gold,
                         modifier = Modifier.size(32.dp)
                     )
@@ -1013,7 +1012,6 @@ private fun CustomControlButtons(
 
 private const val MEDIA3_UI_PACKAGE = "androidx.media3.ui"
 private const val DISABLED_CONTROL_ALPHA = 0.4f
-private val CONTROLS_VERTICAL_OFFSET = 96.dp
 
 private fun View.enableControl() {
     alpha = 1f
@@ -1026,8 +1024,33 @@ private fun View.disableControl() {
 }
 
 private fun PlayerView.findControlView(name: String): View? {
-    val id = resources.getIdentifier(name, "id", MEDIA3_UI_PACKAGE)
-    return if (id != 0) findViewById(id) else null
+    val resolvedIds = buildList {
+        val appId = resources.getIdentifier(name, "id", context.packageName)
+        if (appId != 0) add(appId)
+        val libId = resources.getIdentifier(name, "id", MEDIA3_UI_PACKAGE)
+        if (libId != 0) add(libId)
+        when (name) {
+            "exo_settings" -> add(Media3UiR.id.exo_settings)
+            "exo_settings_container" -> add(Media3UiR.id.exo_settings_container)
+            "exo_settings_button" -> add(Media3UiR.id.exo_settings_button)
+            "exo_settings_icon" -> add(Media3UiR.id.exo_settings_icon)
+            "exo_overflow_show" -> add(Media3UiR.id.exo_overflow_show)
+            "exo_overflow_hide" -> add(Media3UiR.id.exo_overflow_hide)
+            "exo_prev" -> add(Media3UiR.id.exo_prev)
+            "exo_next" -> add(Media3UiR.id.exo_next)
+            "exo_rew" -> add(Media3UiR.id.exo_rew)
+            "exo_rew_with_amount" -> add(Media3UiR.id.exo_rew_with_amount)
+            "exo_ffwd" -> add(Media3UiR.id.exo_ffwd)
+            "exo_ffwd_with_amount" -> add(Media3UiR.id.exo_ffwd_with_amount)
+            "exo_pause" -> add(Media3UiR.id.exo_pause)
+            "exo_play" -> add(Media3UiR.id.exo_play)
+            "exo_play_pause" -> add(Media3UiR.id.exo_play_pause)
+        }
+    }
+    resolvedIds.forEach { id ->
+        findViewById<View>(id)?.let { return it }
+    }
+    return null
 }
 
 private fun PlayerView.hideSettingsControls() {
