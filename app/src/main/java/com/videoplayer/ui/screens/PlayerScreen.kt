@@ -123,7 +123,7 @@ fun PlayerScreen(
                         )
                         playerView.useController = true
                         playerView.controllerShowTimeoutMs = Constants.CONTROLLER_AUTO_HIDE_TIMEOUT_MS // Auto-hide controls
-                        playerView.controllerHideOnTouch = false // We'll handle tap manually
+                        playerView.controllerHideOnTouch = true
                         playerView.resizeMode = viewState.currentResizeMode
                         playerView.setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
                         // Hide shuffle, subtitle, and settings buttons (keep prev/next)
@@ -174,22 +174,6 @@ fun PlayerScreen(
                     }
                 },
                 modifier = Modifier.fillMaxSize()
-            )
-        }
-
-        // Tap detector overlay for hiding controls
-        // Only active when controls are visible and no panels are open
-        if (showControls && !viewState.showPlaylist && !viewState.showEpgPanel) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pointerInteropFilter { motionEvent ->
-                        if (motionEvent.action == MotionEvent.ACTION_UP) {
-                            showControls = false
-                        }
-                        // Allow the event to pass through to PlayerView
-                        false
-                    }
             )
         }
 
