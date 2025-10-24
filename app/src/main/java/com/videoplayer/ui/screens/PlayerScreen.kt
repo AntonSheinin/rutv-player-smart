@@ -37,6 +37,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import androidx.media3.ui.R as Media3UiR
 import com.videoplayer.R
+import kotlinx.coroutines.delay
 import com.videoplayer.data.model.Channel
 import com.videoplayer.data.model.EpgProgram
 import com.videoplayer.presentation.main.MainViewState
@@ -80,11 +81,27 @@ fun PlayerScreen(
     modifier: Modifier = Modifier
 ) {
     var showControls by remember { mutableStateOf(false) }
+    var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
 
     // Show controls initially if player is loaded (for first-time users)
     LaunchedEffect(player) {
         if (player != null && !showControls) {
             showControls = true
+        }
+    }
+
+    LaunchedEffect(showControls, playerViewRef) {
+        val currentPlayerView = playerViewRef ?: return@LaunchedEffect
+        if (showControls) {
+            currentPlayerView.showController()
+            val timeout = currentPlayerView.controllerShowTimeoutMs
+                .takeIf { it > 0 }
+                ?: Constants.CONTROLLER_AUTO_HIDE_TIMEOUT_MS
+            delay(timeout.toLong())
+            if (showControls) {
+                currentPlayerView.hideController()
+                showControls = false
+            }
         }
     }
 
@@ -98,44 +115,46 @@ fun PlayerScreen(
             @Suppress("DiscouragedApi")
             AndroidView(
                 factory = { context ->
-                    PlayerView(context).apply {
-                        this.player = it
-                        layoutParams = FrameLayout.LayoutParams(
+                    PlayerView(context).also { playerView ->
+                        playerViewRef = playerView
+                        playerView.player = it
+                        playerView.layoutParams = FrameLayout.LayoutParams(
                             ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.MATCH_PARENT
                         )
-                        useController = true
-                        controllerShowTimeoutMs = Constants.CONTROLLER_AUTO_HIDE_TIMEOUT_MS // Auto-hide controls
-                        controllerHideOnTouch = false // We'll handle tap manually
-                        resizeMode = viewState.currentResizeMode
-                        setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
+                        playerView.useController = true
+                        playerView.controllerShowTimeoutMs = Constants.CONTROLLER_AUTO_HIDE_TIMEOUT_MS // Auto-hide controls
+                        playerView.controllerHideOnTouch = false // We'll handle tap manually
+                        playerView.resizeMode = viewState.currentResizeMode
+                        playerView.setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
                         // Hide shuffle, subtitle, and settings buttons (keep prev/next)
-                        setShowShuffleButton(false)
-                        setShowSubtitleButton(false)
+                        playerView.setShowShuffleButton(false)
+                        playerView.setShowSubtitleButton(false)
                         // Try to hide settings button if method exists
                         try {
-                            this::class.java.getMethod("setShowSettingsButton", Boolean::class.javaPrimitiveType)
-                                .invoke(this, false)
+                            playerView::class.java.getMethod("setShowSettingsButton", Boolean::class.javaPrimitiveType)
+                                .invoke(playerView, false)
                         } catch (e: Exception) {
                             // Method doesn't exist in this version, ignore
                         }
-                        setShowPreviousButton(true)
-                        setShowNextButton(true)
-                        setShowRewindButton(true)
-                        setShowFastForwardButton(true)
-                        hideSettingsControls()
-                        post { hideSettingsControls() }
+                        playerView.setShowPreviousButton(true)
+                        playerView.setShowNextButton(true)
+                        playerView.setShowRewindButton(true)
+                        playerView.setShowFastForwardButton(true)
+                        playerView.hideSettingsControls()
+                        playerView.post { playerView.hideSettingsControls() }
 
                         // Listen for controller visibility changes
-                        setControllerVisibilityListener(
+                        playerView.setControllerVisibilityListener(
                             PlayerView.ControllerVisibilityListener { visibility ->
-                                // Show custom controls when ExoPlayer controls are visible
+                                // Update custom controls when ExoPlayer controls change visibility
                                 showControls = (visibility == View.VISIBLE)
                             }
                         )
                     }
                 },
                 update = { playerView ->
+                    playerViewRef = playerView
                     playerView.player = it
                     playerView.resizeMode = viewState.currentResizeMode
                     playerView.applyControlCustomizations(
@@ -325,7 +344,7 @@ private fun ChannelInfoOverlay(
                 archiveProgram?.let { program ->
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = stringResource(R.string.player_archive_label, program.title),
+                        text = stringResource(R.string.player_archive_label, program.title.truncateForOverlay()),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.ruTvColors.gold,
                         maxLines = 1,
@@ -344,7 +363,7 @@ private fun ChannelInfoOverlay(
                 currentProgram?.let { program ->
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = program.title,
+                        text = program.title.truncateForOverlay(),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.ruTvColors.textSecondary,
                         maxLines = 1,
@@ -1011,6 +1030,7 @@ private fun ControlColumn(
 
 private const val MEDIA3_UI_PACKAGE = "androidx.media3.ui"
 private const val DISABLED_CONTROL_ALPHA = 0.4f
+private const val MAX_PROGRAM_TITLE_CHARS = 48
 
 private fun View.enableControl() {
     alpha = 1f
@@ -1055,6 +1075,13 @@ private fun PlayerView.hideSettingsControls() {
             setOnClickListener(null)
         }
     }
+}
+
+private fun String.truncateForOverlay(maxChars: Int = MAX_PROGRAM_TITLE_CHARS): String {
+    if (length <= maxChars) return this
+    if (maxChars <= 1) return "…"
+    val trimmed = take(maxChars - 1).trimEnd()
+    return if (trimmed.isEmpty()) "…" else "$trimmed…"
 }
 
 private fun PlayerView.applyControlCustomizations(
