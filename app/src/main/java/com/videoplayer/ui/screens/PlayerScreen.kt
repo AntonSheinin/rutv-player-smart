@@ -239,8 +239,12 @@ fun PlayerScreen(
 
         // EPG Panel
         if (viewState.showEpgPanel && viewState.epgPrograms.isNotEmpty()) {
+            val epgChannel = viewState.channels.firstOrNull { it.tvgId == viewState.epgChannelTvgId }
+                ?: viewState.currentChannel
+
             EpgPanel(
                 programs = viewState.epgPrograms,
+                channel = epgChannel,
                 onProgramClick = onShowProgramDetails,
                 onPlayArchive = onPlayArchiveProgram,
                 isArchivePlayback = viewState.isArchivePlayback,
@@ -509,6 +513,7 @@ private fun PlaylistPanel(
 @Composable
 private fun EpgPanel(
     programs: List<EpgProgram>,
+    channel: Channel?,
     onProgramClick: (EpgProgram) -> Unit,
     onPlayArchive: (EpgProgram) -> Unit,
     isArchivePlayback: Boolean,
@@ -614,10 +619,20 @@ private fun EpgPanel(
                             }
                             is EpgProgram -> {
                                 val programIndex = programs.indexOf(data)
-                                val canPlayArchive = data.startTimeMillis < currentTime && !isArchivePlayback
+                                val isPast = data.stopTimeMillis > 0 && data.stopTimeMillis <= currentTime
+                                val catchupWindowMillis = channel
+                                    ?.takeIf { it.supportsCatchup() }
+                                    ?.let { java.util.concurrent.TimeUnit.DAYS.toMillis(it.catchupDays.toLong()) }
+                                val isArchiveCandidate = catchupWindowMillis != null &&
+                                    isPast &&
+                                    data.startTimeMillis > 0 &&
+                                    currentTime - data.startTimeMillis <= catchupWindowMillis
+                                val canPlayArchive = isArchiveCandidate && !isArchivePlayback
                                 EpgProgramItem(
                                     program = data,
                                     isCurrent = programIndex == currentProgramIndex,
+                                    isPast = isPast,
+                                    showArchiveIndicator = isArchiveCandidate,
                                     onClick = { onProgramClick(data) },
                                     onPlayArchive = if (canPlayArchive) { { onPlayArchive(data) } } else null
                                 )

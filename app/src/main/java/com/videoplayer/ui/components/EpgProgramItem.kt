@@ -1,16 +1,27 @@
 package com.videoplayer.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.videoplayer.R
 import com.videoplayer.data.model.EpgProgram
 import com.videoplayer.ui.theme.ruTvColors
 import java.text.SimpleDateFormat
@@ -23,6 +34,8 @@ import java.util.*
 fun EpgProgramItem(
     program: EpgProgram,
     isCurrent: Boolean,
+    isPast: Boolean,
+    showArchiveIndicator: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     onPlayArchive: (() -> Unit)? = null
@@ -30,36 +43,41 @@ fun EpgProgramItem(
     val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
     val startTime = program.startTimeMillis.takeIf { it > 0L }?.let { timeFormat.format(Date(it)) } ?: "--:--"
 
-    val backgroundColor = if (isCurrent)
+    val backgroundColor = if (isCurrent) {
         MaterialTheme.ruTvColors.selectedBackground
-    else
+    } else {
         MaterialTheme.ruTvColors.cardBackground
+    }
+    val contentAlpha = if (isPast && !isCurrent) 0.5f else 1f
 
     Row(
         modifier = modifier
             .fillMaxWidth()
             .background(backgroundColor)
+            .alpha(contentAlpha)
             .pointerInput(onClick, onPlayArchive) {
                 detectTapGestures(
                     onTap = { onClick() },
                     onDoubleTap = { onPlayArchive?.invoke() }
                 )
             }
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         // Start Time only
         Text(
             text = startTime,
             style = MaterialTheme.typography.bodyMedium,
-            color = if (isCurrent)
+            color = if (isCurrent) {
                 MaterialTheme.ruTvColors.gold
-            else
-                MaterialTheme.ruTvColors.textSecondary,
+            } else {
+                MaterialTheme.ruTvColors.textSecondary
+            },
             fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-            modifier = Modifier.width(50.dp) // Further reduced width
+            modifier = Modifier.width(50.dp) // Compact width keeps layout tight
         )
 
-        Spacer(modifier = Modifier.width(8.dp)) // Further reduced spacing to bring content even closer
+        Spacer(modifier = Modifier.width(8.dp))
 
         // Program Info
         Column(
@@ -68,10 +86,11 @@ fun EpgProgramItem(
             Text(
                 text = program.title,
                 style = MaterialTheme.typography.bodyLarge,
-                color = if (isCurrent)
+                color = if (isCurrent) {
                     MaterialTheme.ruTvColors.gold
-                else
-                    MaterialTheme.ruTvColors.textPrimary,
+                } else {
+                    MaterialTheme.ruTvColors.textPrimary
+                },
                 fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
@@ -85,6 +104,35 @@ fun EpgProgramItem(
                     color = MaterialTheme.ruTvColors.textSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+
+        if (showArchiveIndicator) {
+            Spacer(modifier = Modifier.width(12.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .border(
+                        BorderStroke(1.dp, MaterialTheme.ruTvColors.gold.copy(alpha = 0.65f)),
+                        RoundedCornerShape(12.dp)
+                    )
+                    .background(MaterialTheme.ruTvColors.gold.copy(alpha = 0.1f))
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.History,
+                    contentDescription = stringResource(R.string.cd_epg_archive_indicator),
+                    tint = MaterialTheme.ruTvColors.gold,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = stringResource(R.string.epg_archive_label).uppercase(Locale.getDefault()),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.ruTvColors.gold,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
         }

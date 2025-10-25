@@ -53,6 +53,7 @@
     <string name="epg_panel_title">Programs guide</string>
     <string name="program_details_title">Program Details</string>
     <string name="channel_info_format">#%1$d &#8226; %2$s</string>
+    <string name="epg_archive_label">Archive</string>
 
     <!-- Favorites -->
     <string name="favorite_filled">&#9733;</string>
@@ -67,6 +68,7 @@
     <string name="cd_close_playlist">Close playlist</string>
     <string name="cd_aspect_ratio_button">Change aspect ratio</string>
     <string name="cd_orientation_button">Rotate video</string>
+    <string name="cd_epg_archive_indicator">Available in archive</string>
     <string name="player_return_to_live">Return to Live</string>
     <string name="player_watch_from_beginning">Watch from Beginning</string>
     <string name="player_archive_label">DVR &#8226; %1$s</string>
