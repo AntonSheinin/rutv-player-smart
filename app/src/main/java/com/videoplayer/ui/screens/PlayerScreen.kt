@@ -917,58 +917,60 @@ private fun CustomControlButtons(
     onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(
-        modifier = modifier,
-        contentAlignment = Alignment.Center
+    Row(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp, vertical = 24.dp)
+            .pointerInteropFilter { false },
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 24.dp)
-                .pointerInteropFilter { false }
-        ) {
-            ControlColumn(
-                modifier = Modifier.align(Alignment.CenterStart),
-                buttons = listOf(
-                    ControlButtonData(
-                        icon = Icons.AutoMirrored.Filled.List,
-                        description = R.string.cd_playlist_button,
-                        onClick = onPlaylistClick
-                    ),
-                    ControlButtonData(
-                        icon = Icons.Default.Star,
-                        description = R.string.cd_favorites_button,
-                        onClick = onFavoritesClick
-                    ),
-                    ControlButtonData(
-                        icon = Icons.Default.Numbers,
-                        description = R.string.cd_go_to_channel_button,
-                        onClick = onGoToChannelClick
-                    )
+        ControlColumn(
+            modifier = Modifier,
+            buttons = listOf(
+                ControlButtonData(
+                    icon = Icons.AutoMirrored.Filled.List,
+                    description = R.string.cd_playlist_button,
+                    onClick = onPlaylistClick
+                ),
+                ControlButtonData(
+                    icon = Icons.Default.Star,
+                    description = R.string.cd_favorites_button,
+                    onClick = onFavoritesClick
+                ),
+                ControlButtonData(
+                    icon = Icons.Default.Numbers,
+                    description = R.string.cd_go_to_channel_button,
+                    onClick = onGoToChannelClick
                 )
             )
+        )
 
-            ControlColumn(
-                modifier = Modifier.align(Alignment.CenterEnd),
-                buttons = listOf(
-                    ControlButtonData(
-                        icon = Icons.Default.AspectRatio,
-                        description = R.string.cd_aspect_ratio_button,
-                        onClick = onAspectRatioClick
-                    ),
-                    ControlButtonData(
-                        icon = Icons.Default.ScreenRotation,
-                        description = R.string.cd_orientation_button,
-                        onClick = onRotationClick
-                    ),
-                    ControlButtonData(
-                        icon = Icons.Default.Settings,
-                        description = R.string.cd_settings_button,
-                        onClick = onSettingsClick
-                    )
+        Spacer(
+            modifier = Modifier
+                .weight(1f)
+                .pointerInteropFilter { false }
+        )
+
+        ControlColumn(
+            modifier = Modifier,
+            buttons = listOf(
+                ControlButtonData(
+                    icon = Icons.Default.AspectRatio,
+                    description = R.string.cd_aspect_ratio_button,
+                    onClick = onAspectRatioClick
+                ),
+                ControlButtonData(
+                    icon = Icons.Default.ScreenRotation,
+                    description = R.string.cd_orientation_button,
+                    onClick = onRotationClick
+                ),
+                ControlButtonData(
+                    icon = Icons.Default.Settings,
+                    description = R.string.cd_settings_button,
+                    onClick = onSettingsClick
                 )
             )
-        }
+        )
     }
 }
 
