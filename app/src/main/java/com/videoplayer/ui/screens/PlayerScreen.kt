@@ -917,15 +917,14 @@ private fun CustomControlButtons(
     onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 24.dp, vertical = 24.dp)
-            .pointerInteropFilter { false },
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 24.dp, vertical = 24.dp),
+        propagateMinConstraints = false
     ) {
         ControlColumn(
-            modifier = Modifier,
+            modifier = Modifier.align(Alignment.CenterStart),
             buttons = listOf(
                 ControlButtonData(
                     icon = Icons.AutoMirrored.Filled.List,
@@ -945,14 +944,8 @@ private fun CustomControlButtons(
             )
         )
 
-        Spacer(
-            modifier = Modifier
-                .weight(1f)
-                .pointerInteropFilter { false }
-        )
-
         ControlColumn(
-            modifier = Modifier,
+            modifier = Modifier.align(Alignment.CenterEnd),
             buttons = listOf(
                 ControlButtonData(
                     icon = Icons.Default.AspectRatio,
