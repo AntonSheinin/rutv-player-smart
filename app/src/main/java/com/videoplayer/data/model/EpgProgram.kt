@@ -128,8 +128,7 @@ data class EpgProgram(
  * EPG request/response models
  */
 data class EpgChannelRequest(
-    @SerializedName("xmltv_id") val xmltvId: String,
-    @SerializedName("epg_depth") val epgDepth: Int
+    @SerializedName("xmltv_id") val xmltvId: String
 )
 
 data class EpgRequest(

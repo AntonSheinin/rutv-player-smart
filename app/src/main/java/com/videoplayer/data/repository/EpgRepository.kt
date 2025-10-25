@@ -24,8 +24,10 @@ import java.time.ZoneOffset
 import java.util.TimeZone
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.jvm.Volatile
 import kotlin.math.max
 import kotlin.math.min
+
 
 /**
  * Repository for EPG data
@@ -39,6 +41,7 @@ class EpgRepository @Inject constructor(
 
     private val epgFile = File(context.filesDir, "epg_data.json")
     private var cachedEpgData: EpgResponse? = null
+    @Volatile private var cachedBounds: EpgBounds? = null
 
     // Cache for current programs only (lightweight)
     private var currentProgramsCache: Map<String, EpgProgram?>? = null
@@ -112,7 +115,7 @@ class EpgRepository @Inject constructor(
 
             val epgRequest = EpgRequest(
                 channels = channelsWithEpg.map {
-                    EpgChannelRequest(xmltvId = it.tvgId, epgDepth = it.catchupDays)
+                    EpgChannelRequest(xmltvId = it.tvgId)
                 },
                 timezone = deviceTimezone,
                 fromDate = fromIso,
@@ -313,6 +316,7 @@ class EpgRepository @Inject constructor(
         try {
             // Cache in memory first
             cachedEpgData = epgResponse
+            cachedBounds = calculateBounds(epgResponse)
             val programCount = epgResponse.totalPrograms
             val channelCount = epgResponse.epg.size
             Timber.d("EPG data cached in memory: $programCount programs across $channelCount channels")
@@ -334,11 +338,13 @@ class EpgRepository @Inject constructor(
                 val fileSizeKB = epgFile.length() / 1024
                 val fileSizeMB = fileSizeKB / 1024
 
-                Timber.d("✓ EPG saved to disk: ${fileSizeMB}MB (${fileSizeKB}KB) in ${duration}ms")
-                Timber.d("  Compression ratio: ~${programCount * 500 / (fileSizeKB * 1024)}:1")
+                Timber.d("EPG saved to disk: ${fileSizeMB}MB (${fileSizeKB}KB) in ${duration}ms")
+                if (fileSizeKB > 0) {
+                    val compressionRatio = (programCount * 500L) / (fileSizeKB * 1024L)
+                    Timber.d("  Compression ratio: ~$compressionRatio:1")
+                }
             } catch (e: OutOfMemoryError) {
-                Timber.w("⚠ Out of memory saving EPG to disk (${e.message}) - keeping memory cache only")
-                // Don't rethrow - memory cache is still valid
+                Timber.w("Out of memory saving EPG to disk (${e.message}) - keeping memory cache only")
             } catch (e: Exception) {
                 Timber.e(e, "Failed to write EPG to disk - keeping memory cache only")
             }
@@ -346,16 +352,13 @@ class EpgRepository @Inject constructor(
             Timber.e(e, "Failed to save EPG data")
         }
     }
-
     /**
      * Load EPG data from cache (with GZIP decompression support)
      * Uses streaming parser to avoid OutOfMemoryError
      */
     fun loadEpgData(): EpgResponse? {
-        // Return memory cache if available
         cachedEpgData?.let { return it }
 
-        // Try to load from disk
         return try {
             if (!epgFile.exists()) {
                 Timber.d("No EPG data file found")
@@ -365,7 +368,6 @@ class EpgRepository @Inject constructor(
             Timber.d("Loading EPG from disk with streaming parser...")
             val startTime = System.currentTimeMillis()
 
-            // Stream JSON from GZIP compressed file using streaming parser
             val epgResponse = epgFile.inputStream().buffered().use { fileIn ->
                 java.util.zip.GZIPInputStream(fileIn).buffered().use { gzipIn ->
                     gzipIn.reader().use { reader ->
@@ -376,20 +378,21 @@ class EpgRepository @Inject constructor(
 
             val duration = System.currentTimeMillis() - startTime
             cachedEpgData = epgResponse
+            cachedBounds = epgResponse?.let { calculateBounds(it) }
             if (epgResponse != null) {
-                Timber.d("✓ Loaded EPG data: ${epgResponse.totalPrograms} programs in ${duration}ms")
+                Timber.d("Loaded EPG data: ${epgResponse.totalPrograms} programs in ${duration}ms")
             } else {
                 Timber.e("Failed to parse EPG data from disk")
             }
             epgResponse
         } catch (e: java.util.zip.ZipException) {
-            // Handle legacy uncompressed files
             Timber.w("EPG file is not GZIP compressed, attempting plain JSON load with streaming...")
             try {
                 val epgResponse = epgFile.inputStream().bufferedReader().use { reader ->
                     parseEpgResponseStreaming(reader)
                 }
                 cachedEpgData = epgResponse
+                cachedBounds = epgResponse?.let { calculateBounds(it) }
                 if (epgResponse != null) {
                     Timber.d("Loaded EPG data (legacy format): ${epgResponse.totalPrograms} programs")
                 } else {
@@ -403,12 +406,14 @@ class EpgRepository @Inject constructor(
         } catch (e: OutOfMemoryError) {
             Timber.e(e, "Out of memory while loading cached EPG data (file size=${epgFile.length()} bytes). Clearing cache.")
             cachedEpgData = null
+            cachedBounds = null
             if (epgFile.exists() && !epgFile.delete()) {
                 Timber.w("Failed to delete EPG cache file after OOM")
             }
             null
         } catch (e: Exception) {
             Timber.e(e, "Failed to load EPG data")
+            cachedBounds = null
             null
         }
     }
@@ -504,23 +509,11 @@ class EpgRepository @Inject constructor(
     }
 
     fun getCachedEpgBounds(): EpgBounds? {
+        cachedBounds?.let { return it }
         val data = cachedEpgData ?: loadEpgData() ?: return null
-        var earliest = Long.MAX_VALUE
-        var latest = Long.MIN_VALUE
-        data.epg.values.forEach { programs ->
-            programs.forEach { program ->
-                val start = program.startUtcMillis
-                val stop = program.stopUtcMillis
-                if (start > 0) {
-                    earliest = min(earliest, start)
-                }
-                if (stop > 0) {
-                    latest = max(latest, stop)
-                }
-            }
-        }
-        if (earliest == Long.MAX_VALUE || latest == Long.MIN_VALUE) return null
-        return EpgBounds(earliest, latest)
+        val bounds = calculateBounds(data) ?: return null
+        cachedBounds = bounds
+        return bounds
     }
 
     fun coversWindow(window: EpgWindow, toleranceMillis: Long = 60_000L): Boolean {
@@ -553,6 +546,25 @@ class EpgRepository @Inject constructor(
         )
     }
 
+    private fun calculateBounds(response: EpgResponse): EpgBounds? {
+        var earliest = Long.MAX_VALUE
+        var latest = Long.MIN_VALUE
+        response.epg.values.forEach { programs ->
+            programs.forEach { program ->
+                val start = program.startUtcMillis
+                val stop = program.stopUtcMillis
+                if (start > 0) {
+                    earliest = min(earliest, start)
+                }
+                if (stop > 0) {
+                    latest = max(latest, stop)
+                }
+            }
+        }
+        if (earliest == Long.MAX_VALUE || latest == Long.MIN_VALUE) return null
+        return EpgBounds(earliest, latest)
+    }
+
     private fun JsonReader.safeNextString(maxLength: Int): String {
         val value = nextString()
         if (value.length > maxLength) {
@@ -570,6 +582,7 @@ class EpgRepository @Inject constructor(
      */
     fun clearCache() {
         cachedEpgData = null
+        cachedBounds = null
         currentProgramsCache = null
         currentProgramsCacheTime = 0
         if (epgFile.exists()) {
@@ -600,3 +613,4 @@ data class EpgBounds(
     val earliestUtcMillis: Long,
     val latestUtcMillis: Long
 )
+

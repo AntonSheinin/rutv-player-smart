@@ -6,7 +6,9 @@ import com.videoplayer.data.repository.ChannelRepository
 import com.videoplayer.data.repository.EpgRepository
 import com.videoplayer.data.repository.PreferencesRepository
 import com.videoplayer.util.Result
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -87,8 +89,12 @@ class FetchEpgUseCase @Inject constructor(
             Timber.d("Desired EPG window: ${window.fromInstant} -> ${window.toInstant}")
 
             // If cache already covers desired window, skip network fetch
-            if (epgRepository.coversWindow(window)) {
-                epgRepository.loadEpgData()?.let { cached ->
+            val cacheCoversWindow = withContext(Dispatchers.IO) {
+                epgRepository.coversWindow(window)
+            }
+            if (cacheCoversWindow) {
+                val cached = withContext(Dispatchers.IO) { epgRepository.loadEpgData() }
+                if (cached != null) {
                     Timber.d("EPG cache already covers desired window, skipping fetch")
                     return Result.Success(cached)
                 }
@@ -125,3 +131,4 @@ class FetchEpgUseCase @Inject constructor(
         }
     }
 }
+
