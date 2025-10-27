@@ -199,8 +199,10 @@ class EpgRepository @Inject constructor(
 
             val requestBody = gson.toJson(epgRequest)
             Timber.d(
-                "EPG batch payload: ${channels.size} channels, body=${requestBody.length} bytes. " +
-                    "Sample: ${channels.take(3).joinToString { "${it.title}(${it.tvgId})" }}"
+                "EPG batch payload: %d channels, body=%d bytes. Sample: %s",
+                channels.size,
+                requestBody.length,
+                channels.take(3).joinToString { "${it.title}(${it.tvgId})" }
             )
 
             val url = URL("$epgUrl/epg")
@@ -234,30 +236,29 @@ class EpgRepository @Inject constructor(
 
                 if (epgResponse != null) {
                     Timber.d(
-                        "EPG batch parsed in ${parseDuration}ms: " +
-                            "${epgResponse.channelsFound}/${epgResponse.channelsRequested} channels, " +
-                            "${epgResponse.totalPrograms} programs"
+                        "%snull", "EPG batch parsed in ${parseDuration}ms: " +
+                            "${epgResponse.channelsFound}/${epgResponse.channelsRequested} channels, "
                     )
                     val trimmedResponse = trimEpgToWindow(
                         epgResponse,
                         fromUtcMillis,
                         toUtcMillis
                     )
-                    return Result.Success(trimmedResponse)
+                    Result.Success(trimmedResponse)
                 } else {
                     Timber.e("EPG batch response is null")
-                    return Result.Error(Exception("EPG response is null"))
+                    Result.Error(Exception("EPG response is null"))
                 }
             } else {
                 Timber.e("EPG batch failed with HTTP $responseCode")
-                return Result.Error(Exception("HTTP error: $responseCode"))
+                Result.Error(Exception("HTTP error: $responseCode"))
             }
         } catch (e: OutOfMemoryError) {
             Timber.e(e, "Out of memory fetching EPG batch")
-            return Result.Error(Exception("Out of memory: ${e.message}"))
+            Result.Error(Exception("Out of memory: ${e.message}"))
         } catch (e: Exception) {
             Timber.e(e, "Error fetching EPG batch")
-            return Result.Error(e)
+            Result.Error(e)
         } finally {
             connection?.disconnect()
         }
@@ -571,7 +572,7 @@ class EpgRepository @Inject constructor(
 
     /**
      * Rebuild the current-program cache in batches to avoid long blocking work.
-     * The [onBatch] callback receives incremental updates that can be applied to UI state.
+     * Processes channels incrementally so UI can stay responsive.
      */
     suspend fun refreshCurrentProgramsCache(batchSize: Int = 100) {
         val epgData = cachedEpgData ?: loadEpgData() ?: return
@@ -583,7 +584,7 @@ class EpgRepository @Inject constructor(
             val current = programs.firstOrNull { it.isCurrent(now) }
             cache[tvgId] = current
             if (cache.size % batchSize == 0) {
-                kotlinx.coroutines.yield()
+                yield()
             }
         }
 

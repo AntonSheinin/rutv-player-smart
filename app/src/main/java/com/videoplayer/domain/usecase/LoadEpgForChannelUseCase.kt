@@ -21,7 +21,7 @@ class LoadEpgForChannelUseCase @Inject constructor(
      * @param tvgId Channel TVG ID
      * @return Result containing channel EPG data
      */
-    suspend operator fun invoke(tvgId: String): Result<ChannelEpgData> {
+    operator fun invoke(tvgId: String): Result<ChannelEpgData> {
         try {
             if (tvgId.isBlank()) {
                 val message = "TVG ID cannot be blank"

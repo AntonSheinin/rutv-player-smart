@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -12,15 +11,14 @@
         android:theme="@style/Theme.VideoPlayer"
         android:networkSecurityConfig="@xml/network_security_config"
         android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
         android:usesCleartextTraffic="true"
         android:largeHeap="true">
         <activity
             android:name=".presentation.MainActivity"
             android:exported="true"
-            android:screenOrientation="landscape"
             android:configChanges="orientation|screenSize|keyboardHidden"
-            android:theme="@style/Theme.VideoPlayer.SplashScreen"
-            tools:ignore="LockedOrientationActivity">
+            android:theme="@style/Theme.VideoPlayer.SplashScreen">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -29,9 +27,7 @@
         <activity
             android:name=".presentation.SettingsActivity"
             android:exported="false"
-            android:screenOrientation="landscape"
-            android:theme="@style/Theme.VideoPlayer"
-            tools:ignore="LockedOrientationActivity" />
+            android:theme="@style/Theme.VideoPlayer" />
     </application>
 
 </manifest>

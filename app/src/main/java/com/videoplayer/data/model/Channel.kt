@@ -46,7 +46,7 @@ data class Channel(
         if (catchupSource.isNotBlank()) {
             return buildCustomArchiveUrl(
                 catchupSource, startUtcSeconds, stopUtcSeconds,
-                durationSeconds, offsetSeconds, currentTimeMillis
+                durationSeconds, offsetSeconds
             )
         }
 
@@ -112,7 +112,6 @@ data class Channel(
         endSeconds: Long,
         durationSeconds: Long,
         offsetSeconds: Long,
-        currentTimeMillis: Long
     ): String? {
         var filled = template
 

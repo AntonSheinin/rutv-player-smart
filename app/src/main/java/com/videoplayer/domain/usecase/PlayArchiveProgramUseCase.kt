@@ -60,7 +60,7 @@ class PlayArchiveProgramUseCase @Inject constructor() {
                 program = program,
                 durationMinutes = durationMinutes,
                 ageMinutes = ageMinutes,
-                templateUsed = if (channel.catchupSource.isBlank()) "Flussonic path-based" else channel.catchupSource
+                templateUsed = channel.catchupSource.ifBlank { "Flussonic path-based" }
             )
 
             Timber.d("Archive playback validated: ${channel.title} -> ${program.title} (${durationMinutes}m, ${ageMinutes}m ago)")

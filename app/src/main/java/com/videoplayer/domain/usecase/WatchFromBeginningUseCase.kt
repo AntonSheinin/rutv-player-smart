@@ -60,7 +60,7 @@ class WatchFromBeginningUseCase @Inject constructor() {
                 program = program,
                 durationMinutes = durationMinutes,
                 ageMinutes = ageMinutes,
-                templateUsed = if (channel.catchupSource.isBlank()) "Flussonic path-based" else channel.catchupSource
+                templateUsed = channel.catchupSource.ifBlank { "Flussonic path-based" }
             )
 
             Timber.d("Timeshift validated: Restarting ${program.title} from beginning (${ageMinutes}m into program)")

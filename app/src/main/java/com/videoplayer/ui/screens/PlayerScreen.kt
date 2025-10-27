@@ -1,6 +1,7 @@
 package com.videoplayer.ui.screens
 
-import android.view.MotionEvent
+import android.graphics.Matrix
+import android.view.TextureView
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -26,7 +27,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -46,6 +46,7 @@ import com.videoplayer.ui.components.EpgDateDelimiter
 import com.videoplayer.ui.components.EpgProgramItem
 import com.videoplayer.ui.theme.ruTvColors
 import com.videoplayer.util.Constants
+import android.annotation.SuppressLint
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
@@ -107,11 +108,10 @@ fun PlayerScreen(
     }
 
     LaunchedEffect(showControls, playerViewRef) {
-        if (!showControls) return@LaunchedEffect
-        val playerView = playerViewRef ?: return@LaunchedEffect
-        val timeout = Constants.CONTROLLER_AUTO_HIDE_TIMEOUT_MS.toLong()
-        if (timeout <= 0L) return@LaunchedEffect
-        delay(timeout)
+       if (!showControls) return@LaunchedEffect
+       val playerView = playerViewRef ?: return@LaunchedEffect
+        val timeoutMs = Constants.CONTROLLER_AUTO_HIDE_TIMEOUT_MS.toLong()
+        delay(timeoutMs)
         if (showControls) {
             playerView.hideController()
         }
@@ -134,6 +134,7 @@ fun PlayerScreen(
                             ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.MATCH_PARENT
                         )
+                        playerView.setSurfaceType(PlayerView.SURFACE_TYPE_TEXTURE_VIEW)
                         playerView.useController = true
                         playerView.controllerShowTimeoutMs = Constants.CONTROLLER_AUTO_HIDE_TIMEOUT_MS // Auto-hide controls
                         playerView.controllerHideOnTouch = true
@@ -146,7 +147,7 @@ fun PlayerScreen(
                         try {
                             playerView::class.java.getMethod("setShowSettingsButton", Boolean::class.javaPrimitiveType)
                                 .invoke(playerView, false)
-                        } catch (e: Exception) {
+                        } catch (_: Exception) {
                             // Method doesn't exist in this version, ignore
                         }
                         playerView.setShowPreviousButton(true)
@@ -178,13 +179,7 @@ fun PlayerScreen(
                         onResumePlayback = onResumePlayback
                     )
                     playerView.hideSettingsControls()
-
-                    // Rotate the video surface, not the entire player view (including controls)
-                    // Find the video surface view and rotate it
-                    val videoSurfaceView = playerView.videoSurfaceView
-                    if (videoSurfaceView is View) {
-                        videoSurfaceView.rotation = viewState.videoRotation
-                    }
+                    playerView.updateVideoRotation(viewState.videoRotation)
                 },
                 modifier = Modifier.fillMaxSize()
             )
@@ -333,16 +328,13 @@ private fun ChannelInfoOverlay(
         )
     ) {
         Column(
-            modifier = Modifier
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-                .wrapContentWidth(Alignment.CenterHorizontally),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = stringResource(R.string.channel_info_format, channelNumber, channel.title),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.ruTvColors.textPrimary,
-                modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Center
             )
             if (isArchivePlayback) {
@@ -354,8 +346,8 @@ private fun ChannelInfoOverlay(
                         color = MaterialTheme.ruTvColors.gold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
                     )
                 }
                 Spacer(modifier = Modifier.height(8.dp))
@@ -376,8 +368,8 @@ private fun ChannelInfoOverlay(
                         color = MaterialTheme.ruTvColors.textSecondary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
                     )
                 }
                 if (isTimeshiftPlayback) {
@@ -1059,6 +1051,7 @@ private fun View.disableControl() {
     isEnabled = false
 }
 
+@SuppressLint("DiscouragedApi")
 private fun PlayerView.findControlView(name: String): View? {
     val candidateIds = buildList {
         resources.getIdentifier(name, "id", context.packageName)
@@ -1099,6 +1092,34 @@ private fun String.truncateForOverlay(maxChars: Int = MAX_PROGRAM_TITLE_CHARS): 
     if (maxChars <= 1) return "…"
     val trimmed = take(maxChars - 1).trimEnd()
     return if (trimmed.isEmpty()) "…" else "$trimmed…"
+}
+
+private fun PlayerView.updateVideoRotation(rotationDegrees: Float) {
+    val textureView = videoSurfaceView as? TextureView ?: return
+    textureView.post {
+        val width = textureView.width.toFloat()
+        val height = textureView.height.toFloat()
+        if (width <= 0f || height <= 0f) {
+            textureView.setTransform(Matrix())
+            return@post
+        }
+        val transform = Matrix()
+        val pivotX = width / 2f
+        val pivotY = height / 2f
+        transform.postRotate(rotationDegrees, pivotX, pivotY)
+
+        if (rotationDegrees % 180f != 0f) {
+            val videoSize = player?.videoSize
+            if (videoSize != null && videoSize.width > 0 && videoSize.height > 0) {
+                val viewAspect = width / height
+                val videoAspect = videoSize.width.toFloat() / videoSize.height.toFloat()
+                val scale = viewAspect / videoAspect
+                transform.postScale(scale, 1f / scale, pivotX, pivotY)
+            }
+        }
+
+        textureView.setTransform(transform)
+    }
 }
 
 private fun PlayerView.applyControlCustomizations(
@@ -1158,12 +1179,22 @@ private fun PlayerView.applyControlCustomizations(
         }
     }
 
-    val progressOffsetDp = 12f
+    val progressVerticalOffsetDp = 12f
+    val progressHorizontalOffsetDp = 72f
     listOf("exo_progress", "exo_progress_placeholder", "exo_timebar").forEach { controlId ->
-        findControlView(controlId)?.setVerticalOffsetDp(progressOffsetDp)
+        findControlView(controlId)?.apply {
+            setVerticalOffsetDp(progressVerticalOffsetDp)
+            setHorizontalOffsetDp(progressHorizontalOffsetDp)
+        }
     }
 }
 
 private fun View.setVerticalOffsetDp(offsetDp: Float) {
     translationY = offsetDp * resources.displayMetrics.density
 }
+
+private fun View.setHorizontalOffsetDp(offsetDp: Float) {
+    translationX = offsetDp * resources.displayMetrics.density
+}
+
+
