@@ -13,6 +13,7 @@ import com.videoplayer.util.Result
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
 import timber.log.Timber
 import java.io.File
 import java.io.Reader
@@ -128,10 +129,9 @@ class EpgRepository @Inject constructor(
         val toIso = Instant.ofEpochMilli(toUtcMillis).toString()
         Timber.d("EPG window request: from=$fromIso to=$toIso")
 
-        val aggregatedEpg = linkedMapOf<String, List<EpgProgram>>()
-        var firstResponse: EpgResponse? = null
-        var batchIndex = 0
+        val aggregationState = EpgAggregationState()
         val overallStartTime = System.currentTimeMillis()
+        var batchIndex = 0
 
         for (chunk in channelsWithEpg.chunked(batchSize)) {
             batchIndex++
@@ -149,14 +149,12 @@ class EpgRepository @Inject constructor(
                 )
             ) {
                 is Result.Success -> {
-                    val response = batchResult.data
-                    if (firstResponse == null) {
-                        firstResponse = response
-                    }
-                    aggregatedEpg.putAll(response.epg)
+                    val batchResponse = batchResult.data
+                    updateCachesWithBatch(aggregationState, batchResponse, channelsWithEpg.size)
                     Timber.d(
-                        "EPG batch $batchIndex parsed ${response.epg.size} channels (${response.totalPrograms} programs)"
+                        "EPG batch $batchIndex parsed ${batchResponse.epg.size} channels (${batchResponse.totalPrograms} programs)"
                     )
+                    yield()
                 }
                 is Result.Error -> {
                     Timber.e("EPG batch $batchIndex failed: ${batchResult.message}")
@@ -170,25 +168,14 @@ class EpgRepository @Inject constructor(
         }
 
         val totalDuration = System.currentTimeMillis() - overallStartTime
-        val totalPrograms = aggregatedEpg.values.sumOf { it.size }
-        val aggregatedResponse = EpgResponse(
-            updateMode = firstResponse?.updateMode ?: "",
-            timestamp = firstResponse?.timestamp ?: Instant.ofEpochMilli(System.currentTimeMillis()).toString(),
-            channelsRequested = channelsWithEpg.size,
-            channelsFound = aggregatedEpg.size,
-            totalPrograms = totalPrograms,
-            epg = aggregatedEpg
+        val aggregatedResponse = aggregationState.toResponse(channelsWithEpg.size)
+
+        Timber.d(
+            "EPG batches complete: ${aggregatedResponse.channelsFound}/${aggregatedResponse.channelsRequested} channels, ${aggregatedResponse.totalPrograms} programs collected in ${totalDuration}ms"
         )
 
-        Timber.d("EPG batches complete: ${aggregatedResponse.channelsFound}/${aggregatedResponse.channelsRequested} channels, $totalPrograms programs collected in ${totalDuration}ms")
-
-        val trimmedResponse = trimEpgToWindow(
-            aggregatedResponse,
-            fromUtcMillis,
-            toUtcMillis
-        )
-        saveEpgData(trimmedResponse)
-        Result.Success(trimmedResponse)
+        saveEpgData(aggregatedResponse)
+        Result.Success(aggregatedResponse)
     }
 
     private fun fetchEpgBatch(
@@ -256,25 +243,88 @@ class EpgRepository @Inject constructor(
                         fromUtcMillis,
                         toUtcMillis
                     )
-                    Result.Success(trimmedResponse)
+                    return Result.Success(trimmedResponse)
                 } else {
                     Timber.e("EPG batch response is null")
-                    Result.Error(Exception("EPG response is null"))
+                    return Result.Error(Exception("EPG response is null"))
                 }
             } else {
                 Timber.e("EPG batch failed with HTTP $responseCode")
-                Result.Error(Exception("HTTP error: $responseCode"))
+                return Result.Error(Exception("HTTP error: $responseCode"))
             }
         } catch (e: OutOfMemoryError) {
             Timber.e(e, "Out of memory fetching EPG batch")
-            Result.Error(Exception("Out of memory: ${e.message}"))
+            return Result.Error(Exception("Out of memory: ${e.message}"))
         } catch (e: Exception) {
             Timber.e(e, "Error fetching EPG batch")
-            Result.Error(e)
+            return Result.Error(e)
         } finally {
             connection?.disconnect()
         }
     }
+
+    private fun updateCachesWithBatch(
+        aggregationState: EpgAggregationState,
+        batchResponse: EpgResponse,
+        channelsRequested: Int,
+        now: Long = System.currentTimeMillis()
+    ) {
+        aggregationState.applyBatch(batchResponse)
+        val aggregatedResponse = aggregationState.toResponse(channelsRequested)
+        cachedEpgData = aggregatedResponse
+        cachedBounds = calculateBounds(aggregatedResponse)
+        updateCurrentProgramsCacheWithBatch(batchResponse, now)
+    }
+
+    private fun updateCurrentProgramsCacheWithBatch(
+        batchResponse: EpgResponse,
+        now: Long
+    ) {
+        val cache = currentProgramsCache?.toMutableMap() ?: mutableMapOf()
+        batchResponse.epg.forEach { (tvgId, programs) ->
+            val currentProgram = programs.firstOrNull { it.isCurrent(now) }
+            cache[tvgId] = currentProgram
+        }
+        currentProgramsCache = cache
+        currentProgramsCacheTime = now
+    }
+
+    private class EpgAggregationState {
+        private val epgMap = linkedMapOf<String, List<EpgProgram>>()
+        private val channelProgramCounts = mutableMapOf<String, Int>()
+        private var totalProgramsCount: Int = 0
+        private var firstUpdateMode: String? = null
+        private var firstTimestamp: String? = null
+
+        fun applyBatch(batch: EpgResponse) {
+            if (firstUpdateMode.isNullOrEmpty() && batch.updateMode.isNotEmpty()) {
+                firstUpdateMode = batch.updateMode
+            }
+            if (firstTimestamp.isNullOrEmpty() && batch.timestamp.isNotEmpty()) {
+                firstTimestamp = batch.timestamp
+            }
+
+            batch.epg.forEach { (channelId, programs) ->
+                val previousCount = channelProgramCounts[channelId]
+                if (previousCount != null) {
+                    totalProgramsCount -= previousCount
+                }
+                channelProgramCounts[channelId] = programs.size
+                epgMap[channelId] = programs
+                totalProgramsCount += programs.size
+            }
+        }
+
+        fun toResponse(channelsRequested: Int): EpgResponse = EpgResponse(
+            updateMode = firstUpdateMode.orEmpty(),
+            timestamp = firstTimestamp ?: Instant.ofEpochMilli(System.currentTimeMillis()).toString(),
+            channelsRequested = channelsRequested,
+            channelsFound = epgMap.size,
+            totalPrograms = totalProgramsCount,
+            epg = epgMap.toMap()
+        )
+    }
+
     /**
      * Parse EPG response using streaming JSON parser
      * This avoids loading the entire 255MB response into memory at once
