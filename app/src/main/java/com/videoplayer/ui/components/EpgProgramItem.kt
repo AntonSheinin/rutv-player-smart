@@ -1,11 +1,8 @@
 package com.videoplayer.ui.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.MaterialTheme
@@ -15,7 +12,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -79,6 +75,17 @@ fun EpgProgramItem(
 
         Spacer(modifier = Modifier.width(8.dp))
 
+        if (showArchiveIndicator) {
+            Icon(
+                imageVector = Icons.Filled.History,
+                contentDescription = stringResource(R.string.cd_epg_archive_indicator),
+                tint = if (isCurrent) MaterialTheme.ruTvColors.gold else MaterialTheme.ruTvColors.textSecondary,
+                modifier = Modifier
+                    .size(16.dp)
+                    .padding(end = 8.dp)
+            )
+        }
+
         // Program Info
         Column(
             modifier = Modifier.weight(1f)
@@ -104,35 +111,6 @@ fun EpgProgramItem(
                     color = MaterialTheme.ruTvColors.textSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-
-        if (showArchiveIndicator) {
-            Spacer(modifier = Modifier.width(12.dp))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .border(
-                        BorderStroke(1.dp, MaterialTheme.ruTvColors.gold.copy(alpha = 0.65f)),
-                        RoundedCornerShape(12.dp)
-                    )
-                    .background(MaterialTheme.ruTvColors.gold.copy(alpha = 0.1f))
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.History,
-                    contentDescription = stringResource(R.string.cd_epg_archive_indicator),
-                    tint = MaterialTheme.ruTvColors.gold,
-                    modifier = Modifier.size(14.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = stringResource(R.string.epg_archive_label).uppercase(Locale.getDefault()),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.ruTvColors.gold,
-                    fontWeight = FontWeight.SemiBold
                 )
             }
         }

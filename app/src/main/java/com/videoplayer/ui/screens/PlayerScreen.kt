@@ -30,6 +30,7 @@ import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.annotation.StringRes
 import androidx.media3.common.util.UnstableApi
@@ -45,6 +46,7 @@ import com.videoplayer.ui.components.EpgDateDelimiter
 import com.videoplayer.ui.components.EpgProgramItem
 import com.videoplayer.ui.theme.ruTvColors
 import com.videoplayer.util.Constants
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -101,6 +103,17 @@ fun PlayerScreen(
                     currentPlayerView.hideController()
                 }
             }
+        }
+    }
+
+    LaunchedEffect(showControls, playerViewRef) {
+        if (!showControls) return@LaunchedEffect
+        val playerView = playerViewRef ?: return@LaunchedEffect
+        val timeout = Constants.CONTROLLER_AUTO_HIDE_TIMEOUT_MS.toLong()
+        if (timeout <= 0L) return@LaunchedEffect
+        delay(timeout)
+        if (showControls) {
+            playerView.hideController()
         }
     }
 
@@ -320,12 +333,17 @@ private fun ChannelInfoOverlay(
         )
     ) {
         Column(
-            modifier = Modifier.padding(12.dp)
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .wrapContentWidth(Alignment.CenterHorizontally),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = stringResource(R.string.channel_info_format, channelNumber, channel.title),
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.ruTvColors.textPrimary
+                color = MaterialTheme.ruTvColors.textPrimary,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
             )
             if (isArchivePlayback) {
                 archiveProgram?.let { program ->
@@ -335,14 +353,17 @@ private fun ChannelInfoOverlay(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.ruTvColors.gold,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
                     )
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(
                     onClick = onReturnToLive,
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.ruTvColors.gold,
-                        contentColor = MaterialTheme.ruTvColors.darkBackground)
+                        contentColor = MaterialTheme.ruTvColors.darkBackground),
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
                 ) {
                     Text(text = stringResource(R.string.player_return_to_live))
                 }
@@ -354,7 +375,9 @@ private fun ChannelInfoOverlay(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.ruTvColors.textSecondary,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
                     )
                 }
                 if (isTimeshiftPlayback) {
@@ -364,7 +387,8 @@ private fun ChannelInfoOverlay(
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.ruTvColors.gold,
                             contentColor = MaterialTheme.ruTvColors.darkBackground
-                        )
+                        ),
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
                     ) {
                         Text(text = stringResource(R.string.player_return_to_live))
                     }
@@ -1133,4 +1157,13 @@ private fun PlayerView.applyControlCustomizations(
             onResumePlayback()
         }
     }
+
+    val progressOffsetDp = 12f
+    listOf("exo_progress", "exo_progress_placeholder", "exo_timebar").forEach { controlId ->
+        findControlView(controlId)?.setVerticalOffsetDp(progressOffsetDp)
+    }
+}
+
+private fun View.setVerticalOffsetDp(offsetDp: Float) {
+    translationY = offsetDp * resources.displayMetrics.density
 }
