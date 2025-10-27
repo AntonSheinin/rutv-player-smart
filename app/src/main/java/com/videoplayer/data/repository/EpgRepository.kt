@@ -180,10 +180,7 @@ class EpgRepository @Inject constructor(
             epg = aggregatedEpg
         )
 
-        Timber.d(
-            "EPG batches complete: ${aggregatedResponse.channelsFound}/${aggregatedResponse.channelsRequested} " +
-                "channels, $totalPrograms programs collected in ${totalDuration}ms"
-        )
+        Timber.d("EPG batches complete: ${aggregatedResponse.channelsFound}/${aggregatedResponse.channelsRequested} channels, $totalPrograms programs collected in ${totalDuration}ms")
 
         val trimmedResponse = trimEpgToWindow(
             aggregatedResponse,
@@ -216,7 +213,7 @@ class EpgRepository @Inject constructor(
             val requestBody = gson.toJson(epgRequest)
             Timber.d(
                 "EPG batch payload: ${channels.size} channels, body=${requestBody.length} bytes. " +
-                    "Sample: ${channels.take(3).joinToString { \"${it.title}(${it.tvgId})\" }}"
+                    "Sample: ${channels.take(3).joinToString { "${it.title}(${it.tvgId})" }}"
             )
 
             val url = URL("$epgUrl/epg")
