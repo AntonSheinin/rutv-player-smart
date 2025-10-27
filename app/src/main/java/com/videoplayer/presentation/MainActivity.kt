@@ -228,13 +228,13 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        val registeredReceiver = ContextCompat.registerReceiver(
+        ContextCompat.registerReceiver(
             this,
             receiver,
             filter,
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
-        timeChangeReceiver = registeredReceiver ?: receiver
+        timeChangeReceiver = receiver
         Timber.d("Registered system time change receiver")
     }
 
