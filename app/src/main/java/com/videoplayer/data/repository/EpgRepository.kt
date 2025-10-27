@@ -114,107 +114,170 @@ class EpgRepository @Inject constructor(
             return@withContext Result.Error(Exception("No channels with EPG identifiers"))
         }
 
-        Timber.d("Fetching EPG for ${channelsWithEpg.size} channels")
+        val batchSize = max(1, Constants.EPG_FETCH_BATCH_SIZE)
+        val totalBatches = (channelsWithEpg.size + batchSize - 1) / batchSize
+        Timber.d("Fetching EPG for ${channelsWithEpg.size} channels in $totalBatches batch(es)")
 
-        try {
-            val deviceTimezone = TimeZone.getDefault().id
-            val timezoneOffset = TimeZone.getDefault().getOffset(System.currentTimeMillis()) / (1000 * 60 * 60)
-            Timber.d("━━━ EPG REQUEST ━━━")
-            Timber.d("Device timezone: $deviceTimezone (UTC${if (timezoneOffset >= 0) "+" else ""}$timezoneOffset)")
-            Timber.d("Channels to fetch: $channelsWithEpg.size")
+        val deviceTimezone = TimeZone.getDefault().id
+        val timezoneOffsetHours = TimeZone.getDefault().getOffset(System.currentTimeMillis()) / (1000 * 60 * 60)
+        Timber.d("EPG request timezone: $deviceTimezone (UTC${if (timezoneOffsetHours >= 0) "+" else ""}$timezoneOffsetHours)")
 
-            val fromUtcMillis = window.fromUtcMillis
-            val toUtcMillis = window.toUtcMillis
-            val fromIso = Instant.ofEpochMilli(fromUtcMillis).toString()
-            val toIso = Instant.ofEpochMilli(toUtcMillis).toString()
-            Timber.d("EPG window request: from=$fromIso to=$toIso")
+        val fromUtcMillis = window.fromUtcMillis
+        val toUtcMillis = window.toUtcMillis
+        val fromIso = Instant.ofEpochMilli(fromUtcMillis).toString()
+        val toIso = Instant.ofEpochMilli(toUtcMillis).toString()
+        Timber.d("EPG window request: from=$fromIso to=$toIso")
 
+        val aggregatedEpg = linkedMapOf<String, List<EpgProgram>>()
+        var firstResponse: EpgResponse? = null
+        var batchIndex = 0
+        val overallStartTime = System.currentTimeMillis()
+
+        for (chunk in channelsWithEpg.chunked(batchSize)) {
+            batchIndex++
+            Timber.d("Fetching EPG batch $batchIndex/$totalBatches (${chunk.size} channels)")
+            when (
+                val batchResult = fetchEpgBatch(
+                    epgUrl = epgUrl,
+                    channels = chunk,
+                    fromUtcMillis = fromUtcMillis,
+                    toUtcMillis = toUtcMillis,
+                    fromIso = fromIso,
+                    toIso = toIso,
+                    deviceTimezone = deviceTimezone,
+                    timezoneOffsetHours = timezoneOffsetHours
+                )
+            ) {
+                is Result.Success -> {
+                    val response = batchResult.data
+                    if (firstResponse == null) {
+                        firstResponse = response
+                    }
+                    aggregatedEpg.putAll(response.epg)
+                    Timber.d(
+                        "EPG batch $batchIndex parsed ${response.epg.size} channels (${response.totalPrograms} programs)"
+                    )
+                }
+                is Result.Error -> {
+                    Timber.e("EPG batch $batchIndex failed: ${batchResult.message}")
+                    return@withContext batchResult
+                }
+                is Result.Loading -> {
+                    Timber.w("EPG batch $batchIndex returned unexpected loading state")
+                    return@withContext Result.Error(Exception("Unexpected loading state"))
+                }
+            }
+        }
+
+        val totalDuration = System.currentTimeMillis() - overallStartTime
+        val totalPrograms = aggregatedEpg.values.sumOf { it.size }
+        val aggregatedResponse = EpgResponse(
+            updateMode = firstResponse?.updateMode ?: "",
+            timestamp = firstResponse?.timestamp ?: Instant.ofEpochMilli(System.currentTimeMillis()).toString(),
+            channelsRequested = channelsWithEpg.size,
+            channelsFound = aggregatedEpg.size,
+            totalPrograms = totalPrograms,
+            epg = aggregatedEpg
+        )
+
+        Timber.d(
+            "EPG batches complete: ${aggregatedResponse.channelsFound}/${aggregatedResponse.channelsRequested} " +
+                "channels, $totalPrograms programs collected in ${totalDuration}ms"
+        )
+
+        val trimmedResponse = trimEpgToWindow(
+            aggregatedResponse,
+            fromUtcMillis,
+            toUtcMillis
+        )
+        saveEpgData(trimmedResponse)
+        Result.Success(trimmedResponse)
+    }
+
+    private fun fetchEpgBatch(
+        epgUrl: String,
+        channels: List<Channel>,
+        fromUtcMillis: Long,
+        toUtcMillis: Long,
+        fromIso: String,
+        toIso: String,
+        deviceTimezone: String,
+        timezoneOffsetHours: Int
+    ): Result<EpgResponse> {
+        var connection: HttpURLConnection? = null
+        return try {
             val epgRequest = EpgRequest(
-                channels = channelsWithEpg.map {
-                    EpgChannelRequest(xmltvId = it.tvgId)
-                },
+                channels = channels.map { EpgChannelRequest(xmltvId = it.tvgId) },
                 timezone = deviceTimezone,
                 fromDate = fromIso,
                 toDate = toIso
             )
 
             val requestBody = gson.toJson(epgRequest)
-            Timber.d("Request body size: ${requestBody.length} bytes")
-            Timber.d("First 3 channels: ${channelsWithEpg.take(3).joinToString { "${it.title}(${it.tvgId})" }}")
+            Timber.d(
+                "EPG batch payload: ${channels.size} channels, body=${requestBody.length} bytes. " +
+                    "Sample: ${channels.take(3).joinToString { \"${it.title}(${it.tvgId})\" }}"
+            )
 
             val url = URL("$epgUrl/epg")
-            Timber.d("POST $url")
-
-            val startTime = System.currentTimeMillis()
-            val connection = url.openConnection() as HttpURLConnection
-            connection.requestMethod = "POST"
-            connection.setRequestProperty("Content-Type", "application/json")
-            connection.connectTimeout = Constants.EPG_CONNECT_TIMEOUT_MS
-            connection.readTimeout = Constants.EPG_READ_TIMEOUT_MS
-            connection.doOutput = true
+            connection = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                setRequestProperty("Content-Type", "application/json")
+                connectTimeout = Constants.EPG_CONNECT_TIMEOUT_MS
+                readTimeout = Constants.EPG_READ_TIMEOUT_MS
+                doOutput = true
+            }
 
             connection.outputStream.use { os ->
                 os.write(requestBody.toByteArray())
             }
-            Timber.d("Request sent, waiting for response...")
 
+            Timber.d(
+                "EPG batch request sent (timezone=$deviceTimezone, UTC${if (timezoneOffsetHours >= 0) "+" else ""}$timezoneOffsetHours)"
+            )
+
+            val responseStart = System.currentTimeMillis()
             val responseCode = connection.responseCode
-            val fetchDuration = System.currentTimeMillis() - startTime
-            Timber.d("Response code: $responseCode (took ${fetchDuration}ms)")
+            val fetchDuration = System.currentTimeMillis() - responseStart
+            Timber.d("EPG batch HTTP $responseCode in ${fetchDuration}ms for ${channels.size} channels")
 
             if (responseCode == 200) {
-                Timber.d("━━━ EPG PARSING (STREAMING) ━━━")
-                // Stream parse JSON token-by-token to avoid loading large response into memory
-                val parseStartTime = System.currentTimeMillis()
+                val parseStart = System.currentTimeMillis()
                 val epgResponse = connection.inputStream.bufferedReader().use { reader ->
                     parseEpgResponseStreaming(reader)
                 }
-                val parseDuration = System.currentTimeMillis() - parseStartTime
+                val parseDuration = System.currentTimeMillis() - parseStart
 
                 if (epgResponse != null) {
-                    Timber.d("Parse time: ${parseDuration}ms")
-                    Timber.d("Channels requested: ${epgResponse.channelsRequested}")
-                    Timber.d("Channels found: ${epgResponse.channelsFound}")
-                    Timber.d("Total programs: ${epgResponse.totalPrograms}")
-                    Timber.d("Update mode: ${epgResponse.updateMode}")
-                    Timber.d("Timestamp: ${epgResponse.timestamp}")
-
-                    // Log sample program times to verify timezone
-                    val firstChannelWithPrograms = epgResponse.epg.entries.firstOrNull()
-                    if (firstChannelWithPrograms != null && firstChannelWithPrograms.value.isNotEmpty()) {
-                        val program = firstChannelWithPrograms.value.first()
-                        Timber.d("Sample program: '${program.title}' (${program.startTime} - ${program.stopTime})")
-                    }
-
-                    Timber.d("━━━ EPG SAVED ━━━")
+                    Timber.d(
+                        "EPG batch parsed in ${parseDuration}ms: " +
+                            "${epgResponse.channelsFound}/${epgResponse.channelsRequested} channels, " +
+                            "${epgResponse.totalPrograms} programs"
+                    )
                     val trimmedResponse = trimEpgToWindow(
                         epgResponse,
                         fromUtcMillis,
                         toUtcMillis
                     )
-                    saveEpgData(trimmedResponse)
-                    connection.disconnect()
                     Result.Success(trimmedResponse)
                 } else {
-                    Timber.e("EPG response is null")
-                    connection.disconnect()
+                    Timber.e("EPG batch response is null")
                     Result.Error(Exception("EPG response is null"))
                 }
             } else {
-                Timber.e("EPG fetch failed with code $responseCode")
-                connection.disconnect()
+                Timber.e("EPG batch failed with HTTP $responseCode")
                 Result.Error(Exception("HTTP error: $responseCode"))
             }
-
         } catch (e: OutOfMemoryError) {
-            Timber.e(e, "Out of memory fetching EPG")
+            Timber.e(e, "Out of memory fetching EPG batch")
             Result.Error(Exception("Out of memory: ${e.message}"))
         } catch (e: Exception) {
-            Timber.e(e, "Error fetching EPG")
+            Timber.e(e, "Error fetching EPG batch")
             Result.Error(e)
+        } finally {
+            connection?.disconnect()
         }
     }
-
     /**
      * Parse EPG response using streaming JSON parser
      * This avoids loading the entire 255MB response into memory at once
@@ -679,4 +742,5 @@ data class EpgBounds(
     val earliestUtcMillis: Long,
     val latestUtcMillis: Long
 )
+
 
