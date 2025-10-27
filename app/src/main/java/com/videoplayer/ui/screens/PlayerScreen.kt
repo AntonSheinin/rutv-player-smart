@@ -134,7 +134,7 @@ fun PlayerScreen(
                             ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.MATCH_PARENT
                         )
-                        playerView.setSurfaceType(PlayerView.SURFACE_TYPE_TEXTURE_VIEW)
+                        playerView.setUseTextureView(true)
                         playerView.useController = true
                         playerView.controllerShowTimeoutMs = Constants.CONTROLLER_AUTO_HIDE_TIMEOUT_MS // Auto-hide controls
                         playerView.controllerHideOnTouch = true
