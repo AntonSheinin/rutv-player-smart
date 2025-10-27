@@ -18,7 +18,7 @@ object Constants {
 
     // EPG
     const val EPG_CONNECT_TIMEOUT_MS = 180_000
-    const val EPG_READ_TIMEOUT_MS = 60_000
+    const val EPG_READ_TIMEOUT_MS = 180_000
     const val EPG_HEALTH_TIMEOUT_MS = 5_000
 
     // Network
