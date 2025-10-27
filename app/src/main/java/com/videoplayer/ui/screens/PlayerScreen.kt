@@ -134,7 +134,16 @@ fun PlayerScreen(
                             ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.MATCH_PARENT
                         )
-                        playerView.setUseTextureView(true)
+                        try {
+                            val surfaceTypeField = playerView::class.java.getDeclaredField("SURFACE_TYPE_TEXTURE_VIEW")
+                            surfaceTypeField.isAccessible = true
+                            val textureType = surfaceTypeField.getInt(playerView)
+                            playerView::class.java
+                                .getMethod("setSurfaceType", Integer.TYPE)
+                                .invoke(playerView, textureType)
+                        } catch (_: Exception) {
+                            // Ignore. Device will fallback to surface view and manual rotation won't apply.
+                        }
                         playerView.useController = true
                         playerView.controllerShowTimeoutMs = Constants.CONTROLLER_AUTO_HIDE_TIMEOUT_MS // Auto-hide controls
                         playerView.controllerHideOnTouch = true
@@ -1094,8 +1103,7 @@ private fun String.truncateForOverlay(maxChars: Int = MAX_PROGRAM_TITLE_CHARS): 
     return if (trimmed.isEmpty()) "…" else "$trimmed…"
 }
 
-private fun PlayerView.updateVideoRotation(rotationDegrees: Float) {
-    val textureView = videoSurfaceView as? TextureView ?: return
+private fun PlayerView.updateVideoRotation(rotationDegrees: Float) {\n    val textureView = videoSurfaceView as? TextureView\n    if (textureView == null) {\n        rotation = rotationDegrees\n        return\n    }
     textureView.post {
         val width = textureView.width.toFloat()
         val height = textureView.height.toFloat()
@@ -1196,5 +1204,6 @@ private fun View.setVerticalOffsetDp(offsetDp: Float) {
 private fun View.setHorizontalOffsetDp(offsetDp: Float) {
     translationX = offsetDp * resources.displayMetrics.density
 }
+
 
 
