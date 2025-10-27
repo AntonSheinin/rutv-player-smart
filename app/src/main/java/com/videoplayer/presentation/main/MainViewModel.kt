@@ -2,6 +2,7 @@
 
 package com.videoplayer.presentation.main
 
+import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.util.UnstableApi
@@ -472,6 +473,60 @@ class MainViewModel @Inject constructor(
                     // Should not happen
                 }
             }
+        }
+    }
+
+    fun onSystemTimeOrTimezoneChanged(action: String?) {
+        viewModelScope.launch {
+            val trigger = mapTimeChangeTrigger(action)
+            val result = withContext(Dispatchers.Default) {
+                epgRepository.handleSystemTimeOrTimezoneChange(trigger)
+            }
+
+            when (result) {
+                EpgRepository.TimeChangeResult.TIMEZONE_CHANGED -> {
+                    Timber.i("System timezone change detected (action=$action); clearing EPG cache and refetching")
+                    appendDebugMessage(DebugMessage("EPG: System timezone changed, refreshing data"))
+                    withContext(Dispatchers.IO) {
+                        preferencesRepository.saveLastEpgFetchTimestamp(0L)
+                    }
+                    _viewState.update {
+                        it.copy(
+                            currentProgram = null,
+                            currentProgramsMap = emptyMap(),
+                            epgLoadedTimestamp = 0L
+                        )
+                    }
+                    fetchEpg(forceUpdate = true)
+                }
+                EpgRepository.TimeChangeResult.CLOCK_CHANGED -> {
+                    Timber.i("System clock changed (action=$action); refreshing current program cache")
+                    appendDebugMessage(DebugMessage("EPG: System clock changed, refreshing current programs"))
+                    withContext(Dispatchers.Default) {
+                        epgRepository.refreshCurrentProgramsCache()
+                    }
+                    _viewState.update {
+                        it.copy(
+                            currentProgramsMap = epgRepository.getCurrentProgramsSnapshot()
+                        )
+                    }
+                    _viewState.value.currentChannel?.let { channel ->
+                        updateCurrentProgram(channel)
+                    }
+                }
+                EpgRepository.TimeChangeResult.NONE -> {
+                    Timber.d("Ignoring system time change broadcast (action=$action, trigger=$trigger)")
+                }
+            }
+        }
+    }
+
+    private fun mapTimeChangeTrigger(action: String?): EpgRepository.TimeChangeTrigger {
+        return when (action) {
+            Intent.ACTION_TIMEZONE_CHANGED -> EpgRepository.TimeChangeTrigger.TIMEZONE
+            Intent.ACTION_TIME_CHANGED -> EpgRepository.TimeChangeTrigger.TIME_SET
+            Intent.ACTION_DATE_CHANGED -> EpgRepository.TimeChangeTrigger.DATE
+            else -> EpgRepository.TimeChangeTrigger.UNKNOWN
         }
     }
 

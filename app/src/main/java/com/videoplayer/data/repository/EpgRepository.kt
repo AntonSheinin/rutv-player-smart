@@ -25,6 +25,7 @@ import java.util.TimeZone
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.jvm.Volatile
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
@@ -47,6 +48,21 @@ class EpgRepository @Inject constructor(
     private var currentProgramsCache: Map<String, EpgProgram?>? = null
     private var currentProgramsCacheTime: Long = 0
     private val currentProgramsCacheTtl = 60_000L // 1 minute
+    private var lastKnownTimezoneId: String = TimeZone.getDefault().id
+    private var lastKnownUtcOffsetMinutes: Int = TimeZone.getDefault().getOffset(System.currentTimeMillis()) / 60_000
+
+    enum class TimeChangeTrigger {
+        TIMEZONE,
+        TIME_SET,
+        DATE,
+        UNKNOWN
+    }
+
+    enum class TimeChangeResult {
+        NONE,
+        CLOCK_CHANGED,
+        TIMEZONE_CHANGED
+    }
 
     /**
      * Check if EPG service is healthy
@@ -563,6 +579,56 @@ class EpgRepository @Inject constructor(
         }
         if (earliest == Long.MAX_VALUE || latest == Long.MIN_VALUE) return null
         return EpgBounds(earliest, latest)
+    }
+
+    fun handleSystemTimeOrTimezoneChange(
+        trigger: TimeChangeTrigger,
+        now: Long = System.currentTimeMillis()
+    ): TimeChangeResult {
+        val timezone = TimeZone.getDefault()
+        val offsetMinutes = timezone.getOffset(now) / 60_000
+        val timezoneIdChanged = timezone.id != lastKnownTimezoneId
+        val offsetChanged = offsetMinutes != lastKnownUtcOffsetMinutes
+
+        if (timezoneIdChanged || offsetChanged) {
+            val previousId = lastKnownTimezoneId
+            val previousOffset = lastKnownUtcOffsetMinutes
+            lastKnownTimezoneId = timezone.id
+            lastKnownUtcOffsetMinutes = offsetMinutes
+            Timber.i(
+                "Device timezone changed from $previousId (UTC${formatUtcOffset(previousOffset)}) " +
+                    "to ${timezone.id} (UTC${formatUtcOffset(offsetMinutes)})"
+            )
+            clearCache()
+            return TimeChangeResult.TIMEZONE_CHANGED
+        }
+
+        if (trigger == TimeChangeTrigger.TIMEZONE) {
+            Timber.d("Timezone change broadcast received but timezone snapshot unchanged; no cache updates needed")
+            return TimeChangeResult.NONE
+        }
+
+        if (trigger == TimeChangeTrigger.TIME_SET || trigger == TimeChangeTrigger.DATE) {
+            Timber.i("System clock adjusted (${trigger.name.lowercase()}), refreshing cached programs")
+            currentProgramsCache = null
+            currentProgramsCacheTime = 0
+            cachedBounds = null
+            return TimeChangeResult.CLOCK_CHANGED
+        }
+
+        Timber.d(
+            "Ignoring time change trigger $trigger (timezone=${timezone.id}, offsetMinutes=$offsetMinutes, " +
+                "cachedTimezone=$lastKnownTimezoneId, cachedOffset=$lastKnownUtcOffsetMinutes)"
+        )
+        return TimeChangeResult.NONE
+    }
+
+    private fun formatUtcOffset(totalMinutes: Int): String {
+        val sign = if (totalMinutes >= 0) "+" else "-"
+        val absolute = abs(totalMinutes)
+        val hours = absolute / 60
+        val minutes = absolute % 60
+        return "$sign${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}"
     }
 
     private fun JsonReader.safeNextString(maxLength: Int): String {

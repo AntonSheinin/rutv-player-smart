@@ -1,7 +1,10 @@
 package com.videoplayer.presentation
 
 import android.app.AlertDialog
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.Bundle
 import android.view.WindowManager
 import android.widget.EditText
@@ -13,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -38,6 +42,7 @@ class MainActivity : ComponentActivity() {
 
     // Track if we've shown the no-playlist prompt
     private var hasShownNoPlaylistPrompt = false
+    private var timeChangeReceiver: BroadcastReceiver? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,6 +59,16 @@ class MainActivity : ComponentActivity() {
         }
 
         Timber.d("MainActivity created with Compose UI")
+    }
+
+    override fun onStart() {
+        super.onStart()
+        registerTimeChangeReceiver()
+    }
+
+    override fun onStop() {
+        unregisterTimeChangeReceiver()
+        super.onStop()
     }
 
     @Composable
@@ -194,6 +209,41 @@ class MainActivity : ComponentActivity() {
                 window?.setBackgroundDrawableResource(android.R.color.black)
                 show()
             }
+    }
+
+    private fun registerTimeChangeReceiver() {
+        if (timeChangeReceiver != null) return
+
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_TIME_CHANGED)
+            addAction(Intent.ACTION_TIMEZONE_CHANGED)
+            addAction(Intent.ACTION_DATE_CHANGED)
+        }
+
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                val action = intent?.action
+                Timber.i("System time broadcast received: $action")
+                viewModel.onSystemTimeOrTimezoneChanged(action)
+            }
+        }
+
+        val registeredReceiver = ContextCompat.registerReceiver(
+            this,
+            receiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+        timeChangeReceiver = registeredReceiver ?: receiver
+        Timber.d("Registered system time change receiver")
+    }
+
+    private fun unregisterTimeChangeReceiver() {
+        val receiver = timeChangeReceiver ?: return
+        runCatching { unregisterReceiver(receiver) }
+            .onFailure { Timber.w(it, "Failed to unregister time change receiver") }
+        timeChangeReceiver = null
+        Timber.d("Unregistered system time change receiver")
     }
 
     /**
