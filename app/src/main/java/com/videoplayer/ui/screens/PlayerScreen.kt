@@ -1103,7 +1103,12 @@ private fun String.truncateForOverlay(maxChars: Int = MAX_PROGRAM_TITLE_CHARS): 
     return if (trimmed.isEmpty()) "…" else "$trimmed…"
 }
 
-private fun PlayerView.updateVideoRotation(rotationDegrees: Float) {\n    val textureView = videoSurfaceView as? TextureView\n    if (textureView == null) {\n        rotation = rotationDegrees\n        return\n    }
+private fun PlayerView.updateVideoRotation(rotationDegrees: Float) {
+    val textureView = videoSurfaceView as? TextureView
+    if (textureView == null) {
+        rotation = rotationDegrees
+        return
+    }
     textureView.post {
         val width = textureView.width.toFloat()
         val height = textureView.height.toFloat()
@@ -1204,6 +1209,9 @@ private fun View.setVerticalOffsetDp(offsetDp: Float) {
 private fun View.setHorizontalOffsetDp(offsetDp: Float) {
     translationX = offsetDp * resources.displayMetrics.density
 }
+
+
+
 
 
 
