@@ -1,7 +1,7 @@
 package com.videoplayer.ui.screens
 
 import android.graphics.Matrix
-import android.view.ContextThemeWrapper
+import android.view.LayoutInflater
 import android.view.TextureView
 import android.view.View
 import android.view.ViewGroup
@@ -128,11 +128,8 @@ fun PlayerScreen(
             @Suppress("DiscouragedApi")
             AndroidView(
                 factory = { context ->
-                    val themedContext = ContextThemeWrapper(
-                        context,
-                        R.style.Theme_VideoPlayer_PlayerViewTexture
-                    )
-                    PlayerView(themedContext).also { playerView ->
+                    (LayoutInflater.from(context)
+                        .inflate(R.layout.player_view_texture, null, false) as PlayerView).also { playerView ->
                         playerViewRef = playerView
                         playerView.layoutParams = FrameLayout.LayoutParams(
                             ViewGroup.LayoutParams.MATCH_PARENT,
