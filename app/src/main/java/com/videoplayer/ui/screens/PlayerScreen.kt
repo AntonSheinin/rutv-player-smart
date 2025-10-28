@@ -1096,34 +1096,76 @@ private fun String.truncateForOverlay(maxChars: Int = MAX_PROGRAM_TITLE_CHARS): 
 }
 
 private fun PlayerView.updateVideoRotation(rotationDegrees: Float) {
+    val normalized = ((rotationDegrees % 360f) + 360f) % 360f
+    val swapAxes = normalized == 90f || normalized == 270f
+
     val textureView = videoSurfaceView as? TextureView
     if (textureView == null) {
         rotation = rotationDegrees
-        return
-    }
-    textureView.post {
-        val width = textureView.width.toFloat()
-        val height = textureView.height.toFloat()
-        if (width <= 0f || height <= 0f) {
-            textureView.setTransform(Matrix())
-            return@post
-        }
-        val transform = Matrix()
-        val pivotX = width / 2f
-        val pivotY = height / 2f
-        transform.postRotate(rotationDegrees, pivotX, pivotY)
-
-        if (rotationDegrees % 180f != 0f) {
-            val videoSize = player?.videoSize
-            if (videoSize != null && videoSize.width > 0 && videoSize.height > 0) {
-                val viewAspect = width / height
-                val videoAspect = videoSize.width.toFloat() / videoSize.height.toFloat()
-                val scale = viewAspect / videoAspect
-                transform.postScale(scale, 1f / scale, pivotX, pivotY)
+    } else {
+        textureView.post {
+            val width = textureView.width.toFloat()
+            val height = textureView.height.toFloat()
+            if (width <= 0f || height <= 0f) {
+                textureView.setTransform(Matrix())
+                return@post
             }
+            val pivotX = width / 2f
+            val pivotY = height / 2f
+            val transform = Matrix()
+            transform.postRotate(rotationDegrees, pivotX, pivotY)
+            if (swapAxes && width != height) {
+                val scaleX = width / height
+                val scaleY = height / width
+                transform.postScale(scaleX, scaleY, pivotX, pivotY)
+            }
+            textureView.setTransform(transform)
         }
+    }
 
-        textureView.setTransform(transform)
+    val rotateIds = listOf(
+        Media3UiR.id.exo_shutter,
+        Media3UiR.id.exo_image,
+        Media3UiR.id.exo_artwork,
+        Media3UiR.id.exo_subtitles,
+        Media3UiR.id.exo_buffering,
+        Media3UiR.id.exo_error_message,
+        Media3UiR.id.exo_overlay,
+        Media3UiR.id.exo_ad_overlay,
+        Media3UiR.id.exo_controller_placeholder
+    )
+
+    rotateIds
+        .mapNotNull { findViewById<View?>(it) }
+        .forEach { view -> view.applyRotationWithBounds(rotationDegrees, swapAxes) }
+
+    post {
+        findViewById<View?>(Media3UiR.id.exo_controller)
+            ?.applyRotationWithBounds(rotationDegrees, swapAxes)
+    }
+}
+
+private fun View.applyRotationWithBounds(rotationDegrees: Float, swapAxes: Boolean) {
+    post {
+        val widthF = width.toFloat()
+        val heightF = height.toFloat()
+        rotation = rotationDegrees
+        if (widthF > 0f && heightF > 0f) {
+            pivotX = widthF / 2f
+            pivotY = heightF / 2f
+            if (swapAxes && widthF != heightF) {
+                val scaleXFactor = widthF / heightF
+                val scaleYFactor = heightF / widthF
+                scaleX = scaleXFactor
+                scaleY = scaleYFactor
+            } else {
+                scaleX = 1f
+                scaleY = 1f
+            }
+        } else {
+            scaleX = 1f
+            scaleY = 1f
+        }
     }
 }
 
