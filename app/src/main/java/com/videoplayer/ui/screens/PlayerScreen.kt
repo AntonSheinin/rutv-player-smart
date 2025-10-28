@@ -554,13 +554,17 @@ private fun EpgPanel(
     val items = remember(programs) {
         val itemsList = mutableListOf<Pair<String, Any>>() // Pair of key to item (delimiter or program)
         var lastDate = ""
-        programs.forEach { program ->
+        programs.forEachIndexed { index, program ->
             val programDate = dateFormat.format(Date(program.startTimeMillis))
             if (programDate != lastDate) {
                 itemsList.add("date_$programDate" to programDate)
                 lastDate = programDate
             }
-            itemsList.add("program_${program.startTime}_${program.title}" to program)
+            val baseKey = when {
+                program.id.isNotBlank() -> program.id
+                else -> "${program.startTimeMillis}_${program.stopTimeMillis}_${program.title}_$index"
+            }
+            itemsList.add("program_$baseKey" to program)
         }
         itemsList
     }

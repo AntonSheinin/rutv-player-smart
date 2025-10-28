@@ -526,8 +526,15 @@ class EpgRepository @Inject constructor(
                     Timber.e("Failed to parse legacy EPG data")
                 }
                 epgResponse
-            } catch (_: Exception) {
-                Timber.e("Failed to load legacy EPG data")
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to load legacy EPG data")
+                if (epgFile.exists() && !epgFile.delete()) {
+                    Timber.w("Failed to delete legacy EPG cache file after parse error")
+                }
+                cachedEpgData = null
+                cachedBounds = null
+                currentProgramsCache = null
+                currentProgramsCacheTime = 0
                 null
             }
         } catch (e: OutOfMemoryError) {
@@ -540,7 +547,13 @@ class EpgRepository @Inject constructor(
             null
         } catch (e: Exception) {
             Timber.e(e, "Failed to load EPG data")
+            cachedEpgData = null
             cachedBounds = null
+            currentProgramsCache = null
+            currentProgramsCacheTime = 0
+            if (epgFile.exists() && !epgFile.delete()) {
+                Timber.w("Failed to delete corrupted EPG cache file after parse error")
+            }
             null
         }
     }

@@ -9,6 +9,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.AspectRatioFrameLayout
 import com.videoplayer.data.model.Channel
 import com.videoplayer.data.model.EpgProgram
+import com.videoplayer.data.model.EpgResponse
 import com.videoplayer.data.repository.ChannelRepository
 import com.videoplayer.data.repository.EpgRepository
 import com.videoplayer.data.repository.PreferencesRepository
@@ -480,12 +481,20 @@ class MainViewModel @Inject constructor(
      * Fetch EPG data from service
      */
     fun fetchEpg(forceUpdate: Boolean = false) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             if (!forceUpdate) {
                 appendDebugMessage(DebugMessage("EPG: Manual fetch requested"))
             }
             appendDebugMessage(DebugMessage("EPG: Fetch started"))
-            when (val fetchResult = fetchEpgUseCase()) {
+
+            val fetchResult: Result<EpgResponse> = try {
+                fetchEpgUseCase()
+            } catch (e: Exception) {
+                Timber.e(e, "EPG fetch threw an exception")
+                Result.Error(exception = e)
+            }
+
+            when (fetchResult) {
                 is Result.Success -> {
                     Timber.d("EPG fetched successfully")
                     val response = fetchResult.data
@@ -495,34 +504,25 @@ class MainViewModel @Inject constructor(
                         )
                     )
 
-                    // Save fetch timestamp
                     val timestamp = System.currentTimeMillis()
                     preferencesRepository.saveLastEpgFetchTimestamp(timestamp)
 
-                    withContext(Dispatchers.Default) {
+                    val snapshot = withContext(Dispatchers.Default) {
                         epgRepository.refreshCurrentProgramsCache()
+                        epgRepository.getCurrentProgramsSnapshot()
                     }
+                    deliverCurrentProgramsSnapshot(snapshot, timestamp)
 
-                    _viewState.update {
-                        it.copy(
-                            epgLoadedTimestamp = timestamp,
-                            currentProgramsMap = epgRepository.getCurrentProgramsSnapshot()
-                        )
-                    }
-
-                    // Update current program for current channel
                     _viewState.value.currentChannel?.let { channel ->
                         updateCurrentProgram(channel)
                     }
                 }
                 is Result.Error -> {
-                    Timber.w("EPG fetch failed")
-                    val message = fetchResult.message ?: "unknown error"
+                    Timber.w("EPG fetch failed: ${fetchResult.message}")
+                    val message = fetchResult.message ?: fetchResult.exception.message ?: "unknown error"
                     appendDebugMessage(DebugMessage("EPG: Fetch failed ($message)"))
                 }
-                is Result.Loading -> {
-                    // Should not happen
-                }
+                Result.Loading -> Unit
             }
         }
     }
