@@ -1,6 +1,7 @@
 package com.videoplayer.ui.screens
 
 import android.graphics.Matrix
+import android.graphics.RectF
 import android.view.LayoutInflater
 import android.view.TextureView
 import android.view.View
@@ -49,7 +50,8 @@ import com.videoplayer.ui.theme.ruTvColors
 import com.videoplayer.util.Constants
 import android.annotation.SuppressLint
 import kotlinx.coroutines.delay
-import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.min
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -1098,6 +1100,7 @@ private fun String.truncateForOverlay(maxChars: Int = MAX_PROGRAM_TITLE_CHARS): 
 
 private fun PlayerView.updateVideoRotation(rotationDegrees: Float) {
     val normalized = ((rotationDegrees % 360f) + 360f) % 360f
+    val appliedRotation = if (normalized == 270f) -90f else normalized
 
     val textureView = videoSurfaceView as? TextureView
     if (textureView == null) {
@@ -1106,8 +1109,21 @@ private fun PlayerView.updateVideoRotation(rotationDegrees: Float) {
     }
 
     val videoSize = player?.videoSize
-    val videoWidth = videoSize?.width ?: 0
-    val videoHeight = videoSize?.height ?: 0
+    val pixelRatio = when {
+        videoSize == null -> 1f
+        videoSize.pixelWidthHeightRatio <= 0f -> 1f
+        else -> videoSize.pixelWidthHeightRatio
+    }
+    val baseVideoWidth = if (videoSize != null && videoSize.width > 0) {
+        videoSize.width * pixelRatio
+    } else {
+        textureView.width.toFloat()
+    }
+    val baseVideoHeight = if (videoSize != null && videoSize.height > 0) {
+        videoSize.height.toFloat()
+    } else {
+        textureView.height.toFloat()
+    }
 
     textureView.post {
         val viewWidth = textureView.width.toFloat()
@@ -1121,27 +1137,32 @@ private fun PlayerView.updateVideoRotation(rotationDegrees: Float) {
             textureView.setTransform(Matrix())
             return@post
         }
-
-        val matrix = Matrix()
-        if (videoWidth > 0 && videoHeight > 0) {
-            matrix.postTranslate(-videoWidth / 2f, -videoHeight / 2f)
-            matrix.postRotate(normalized)
-
-            val swapAxes = normalized == 90f || normalized == 270f
-            val rotatedWidth = if (swapAxes) videoHeight.toFloat() else videoWidth.toFloat()
-            val rotatedHeight = if (swapAxes) videoWidth.toFloat() else videoHeight.toFloat()
-            if (rotatedWidth > 0f && rotatedHeight > 0f) {
-                val scale = max(viewWidth / rotatedWidth, viewHeight / rotatedHeight)
-                matrix.postScale(scale, scale)
-            }
-            matrix.postTranslate(viewWidth / 2f, viewHeight / 2f)
-        } else {
-            val pivotX = viewWidth / 2f
-            val pivotY = viewHeight / 2f
-            matrix.postRotate(normalized, pivotX, pivotY)
+        if (baseVideoWidth <= 0f || baseVideoHeight <= 0f) {
+            textureView.setTransform(Matrix())
+            return@post
         }
 
-        textureView.setTransform(matrix)
+        val srcRect = RectF(0f, 0f, baseVideoWidth, baseVideoHeight)
+        val workingMatrix = Matrix().apply {
+            setRotate(appliedRotation, baseVideoWidth / 2f, baseVideoHeight / 2f)
+        }
+
+        val rotatedRect = RectF()
+        workingMatrix.mapRect(rotatedRect, srcRect)
+
+        val rotatedWidth = rotatedRect.width()
+        val rotatedHeight = rotatedRect.height()
+        val scale = min(viewWidth / rotatedWidth, viewHeight / rotatedHeight)
+
+        workingMatrix.postScale(scale, scale, baseVideoWidth / 2f, baseVideoHeight / 2f)
+
+        val positionedRect = RectF()
+        workingMatrix.mapRect(positionedRect, srcRect)
+        val translateX = viewWidth / 2f - positionedRect.centerX()
+        val translateY = viewHeight / 2f - positionedRect.centerY()
+        workingMatrix.postTranslate(translateX, translateY)
+
+        textureView.setTransform(workingMatrix)
     }
 
     findViewById<View?>(Media3UiR.id.exo_subtitles)?.post {
