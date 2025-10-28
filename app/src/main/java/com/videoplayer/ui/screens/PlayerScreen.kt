@@ -1100,7 +1100,7 @@ private fun String.truncateForOverlay(maxChars: Int = MAX_PROGRAM_TITLE_CHARS): 
 
 private fun PlayerView.updateVideoRotation(rotationDegrees: Float) {
     val normalized = ((rotationDegrees % 360f) + 360f) % 360f
-    val appliedRotation = if (normalized == 270f) -90f else normalized
+    val appliedRotation = normalized
 
     val textureView = videoSurfaceView as? TextureView
     if (textureView == null) {
@@ -1109,57 +1109,49 @@ private fun PlayerView.updateVideoRotation(rotationDegrees: Float) {
     }
 
     val videoSize = player?.videoSize
-    val pixelRatio = when {
-        videoSize == null -> 1f
-        videoSize.pixelWidthHeightRatio <= 0f -> 1f
-        else -> videoSize.pixelWidthHeightRatio
-    }
-    val baseVideoWidth = if (videoSize != null && videoSize.width > 0) {
-        videoSize.width * pixelRatio
-    } else {
-        textureView.width.toFloat()
-    }
-    val baseVideoHeight = if (videoSize != null && videoSize.height > 0) {
-        videoSize.height.toFloat()
-    } else {
-        textureView.height.toFloat()
-    }
+    val pixelRatio = videoSize?.pixelWidthHeightRatio?.takeIf { it > 0f } ?: 1f
+    val baseRotation = (videoSize?.unappliedRotationDegrees ?: 0).toFloat()
+    val baseVideoWidth = ((videoSize?.width ?: textureView.width).takeIf { it > 0 } ?: textureView.width).toFloat()
+    val baseVideoHeight = ((videoSize?.height ?: textureView.height).takeIf { it > 0 } ?: textureView.height).toFloat()
 
     textureView.post {
         val viewWidth = textureView.width.toFloat()
         val viewHeight = textureView.height.toFloat()
-        if (viewWidth <= 0f || viewHeight <= 0f) {
-            textureView.setTransform(Matrix())
-            return@post
-        }
-
-        if (normalized == 0f) {
-            textureView.setTransform(Matrix())
-            return@post
-        }
-        if (baseVideoWidth <= 0f || baseVideoHeight <= 0f) {
+        if (viewWidth <= 0f || viewHeight <= 0f || baseVideoWidth <= 0f || baseVideoHeight <= 0f) {
             textureView.setTransform(Matrix())
             return@post
         }
 
         val srcRect = RectF(0f, 0f, baseVideoWidth, baseVideoHeight)
-        val workingMatrix = Matrix().apply {
-            setRotate(appliedRotation, baseVideoWidth / 2f, baseVideoHeight / 2f)
+        val workingMatrix = Matrix()
+        val pivotX = baseVideoWidth / 2f
+        val pivotY = baseVideoHeight / 2f
+
+        if (pixelRatio != 1f) {
+            workingMatrix.postScale(pixelRatio, 1f, pivotX, pivotY)
         }
 
-        val rotatedRect = RectF()
-        workingMatrix.mapRect(rotatedRect, srcRect)
+        if (baseRotation != 0f) {
+            workingMatrix.postRotate(baseRotation, pivotX, pivotY)
+        }
 
-        val rotatedWidth = rotatedRect.width()
-        val rotatedHeight = rotatedRect.height()
-        val scale = min(viewWidth / rotatedWidth, viewHeight / rotatedHeight)
+        if (appliedRotation != 0f) {
+            workingMatrix.postRotate(appliedRotation, pivotX, pivotY)
+        }
 
-        workingMatrix.postScale(scale, scale, baseVideoWidth / 2f, baseVideoHeight / 2f)
+        val transformedRect = RectF()
+        workingMatrix.mapRect(transformedRect, srcRect)
+        if (transformedRect.width() <= 0f || transformedRect.height() <= 0f) {
+            textureView.setTransform(Matrix())
+            return@post
+        }
 
-        val positionedRect = RectF()
-        workingMatrix.mapRect(positionedRect, srcRect)
-        val translateX = viewWidth / 2f - positionedRect.centerX()
-        val translateY = viewHeight / 2f - positionedRect.centerY()
+        val scale = min(viewWidth / transformedRect.width(), viewHeight / transformedRect.height())
+        workingMatrix.postScale(scale, scale, transformedRect.centerX(), transformedRect.centerY())
+
+        workingMatrix.mapRect(transformedRect, srcRect)
+        val translateX = viewWidth / 2f - transformedRect.centerX()
+        val translateY = viewHeight / 2f - transformedRect.centerY()
         workingMatrix.postTranslate(translateX, translateY)
 
         textureView.setTransform(workingMatrix)
