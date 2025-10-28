@@ -1,6 +1,7 @@
 package com.videoplayer.ui.screens
 
 import android.graphics.Matrix
+import android.view.ContextThemeWrapper
 import android.view.TextureView
 import android.view.View
 import android.view.ViewGroup
@@ -127,17 +128,16 @@ fun PlayerScreen(
             @Suppress("DiscouragedApi")
             AndroidView(
                 factory = { context ->
-                    PlayerView(context).also { playerView ->
+                    val themedContext = ContextThemeWrapper(
+                        context,
+                        R.style.Theme_VideoPlayer_PlayerViewTexture
+                    )
+                    PlayerView(themedContext).also { playerView ->
                         playerViewRef = playerView
                         playerView.layoutParams = FrameLayout.LayoutParams(
                             ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.MATCH_PARENT
                         )
-                        try {
-                            playerView.setSurfaceType(PlayerView.SURFACE_TYPE_TEXTURE_VIEW)
-                        } catch (_: Throwable) {
-                            // Ignore. Device will fallback to surface view and manual rotation won't apply.
-                        }
                         playerView.player = it
                         playerView.useController = true
                         playerView.controllerShowTimeoutMs = Constants.CONTROLLER_AUTO_HIDE_TIMEOUT_MS // Auto-hide controls
