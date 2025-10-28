@@ -1100,7 +1100,10 @@ private fun String.truncateForOverlay(maxChars: Int = MAX_PROGRAM_TITLE_CHARS): 
 
 private fun PlayerView.updateVideoRotation(rotationDegrees: Float) {
     val normalized = ((rotationDegrees % 360f) + 360f) % 360f
-    val appliedRotation = normalized
+    val appliedRotation = when (normalized) {
+        270f -> -90f
+        else -> normalized
+    }
 
     val textureView = videoSurfaceView as? TextureView
     if (textureView == null) {
@@ -1110,26 +1113,24 @@ private fun PlayerView.updateVideoRotation(rotationDegrees: Float) {
 
     val videoSize = player?.videoSize
     val pixelRatio = videoSize?.pixelWidthHeightRatio?.takeIf { it > 0f } ?: 1f
-    val baseRotation = (videoSize?.unappliedRotationDegrees ?: 0).toFloat()
-    val baseVideoWidth = ((videoSize?.width ?: textureView.width).takeIf { it > 0 } ?: textureView.width).toFloat()
-    val baseVideoHeight = ((videoSize?.height ?: textureView.height).takeIf { it > 0 } ?: textureView.height).toFloat()
+    val baseRotation = -((videoSize?.unappliedRotationDegrees ?: 0).toFloat())
+    val rawWidth = (videoSize?.width ?: textureView.width).takeIf { it > 0 } ?: textureView.width
+    val rawHeight = (videoSize?.height ?: textureView.height).takeIf { it > 0 } ?: textureView.height
+    val displayWidth = rawWidth * pixelRatio
+    val displayHeight = rawHeight.toFloat()
 
     textureView.post {
         val viewWidth = textureView.width.toFloat()
         val viewHeight = textureView.height.toFloat()
-        if (viewWidth <= 0f || viewHeight <= 0f || baseVideoWidth <= 0f || baseVideoHeight <= 0f) {
+        if (viewWidth <= 0f || viewHeight <= 0f || displayWidth <= 0f || displayHeight <= 0f) {
             textureView.setTransform(Matrix())
             return@post
         }
 
-        val srcRect = RectF(0f, 0f, baseVideoWidth, baseVideoHeight)
+        val srcRect = RectF(0f, 0f, displayWidth, displayHeight)
         val workingMatrix = Matrix()
-        val pivotX = baseVideoWidth / 2f
-        val pivotY = baseVideoHeight / 2f
-
-        if (pixelRatio != 1f) {
-            workingMatrix.postScale(pixelRatio, 1f, pivotX, pivotY)
-        }
+        val pivotX = srcRect.centerX()
+        val pivotY = srcRect.centerY()
 
         if (baseRotation != 0f) {
             workingMatrix.postRotate(baseRotation, pivotX, pivotY)
