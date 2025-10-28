@@ -129,21 +129,16 @@ fun PlayerScreen(
                 factory = { context ->
                     PlayerView(context).also { playerView ->
                         playerViewRef = playerView
-                        playerView.player = it
                         playerView.layoutParams = FrameLayout.LayoutParams(
                             ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.MATCH_PARENT
                         )
                         try {
-                            val surfaceTypeField = playerView::class.java.getDeclaredField("SURFACE_TYPE_TEXTURE_VIEW")
-                            surfaceTypeField.isAccessible = true
-                            val textureType = surfaceTypeField.getInt(playerView)
-                            playerView::class.java
-                                .getMethod("setSurfaceType", Integer.TYPE)
-                                .invoke(playerView, textureType)
-                        } catch (_: Exception) {
+                            playerView.setSurfaceType(PlayerView.SURFACE_TYPE_TEXTURE_VIEW)
+                        } catch (_: Throwable) {
                             // Ignore. Device will fallback to surface view and manual rotation won't apply.
                         }
+                        playerView.player = it
                         playerView.useController = true
                         playerView.controllerShowTimeoutMs = Constants.CONTROLLER_AUTO_HIDE_TIMEOUT_MS // Auto-hide controls
                         playerView.controllerHideOnTouch = true
