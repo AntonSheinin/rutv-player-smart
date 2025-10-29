@@ -1,6 +1,5 @@
 package com.videoplayer.presentation
 
-import android.app.AlertDialog
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -9,7 +8,6 @@ import android.content.pm.ActivityInfo
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
-import android.widget.EditText
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -18,6 +16,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.MaterialTheme
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -82,6 +85,10 @@ class MainActivity : ComponentActivity() {
         val viewState by viewModel.viewState.collectAsStateWithLifecycle()
         val context = LocalContext.current
 
+        var showNoPlaylistDialog by remember { mutableStateOf(false) }
+        var showChannelDialog by remember { mutableStateOf(false) }
+        var channelInput by remember { mutableStateOf("") }
+
         // Show no-playlist dialog if needed
         var playlistCheckStarted by remember { mutableStateOf(false) }
 
@@ -91,7 +98,7 @@ class MainActivity : ComponentActivity() {
             }
             if (playlistCheckStarted && !viewState.isLoading && !viewState.hasChannels && !hasShownNoPlaylistPrompt) {
                 hasShownNoPlaylistPrompt = true
-                showNoPlaylistDialog()
+                showNoPlaylistDialog = true
             }
         }
 
@@ -108,7 +115,12 @@ class MainActivity : ComponentActivity() {
             onCycleAspectRatio = { viewModel.cycleAspectRatio() },
             onToggleRotation = { viewModel.toggleRotation() },
             onOpenSettings = { settingsLauncher.launch(Intent(context, SettingsActivity::class.java)) },
-            onGoToChannel = { showChannelNumberDialog() },
+            onGoToChannel = {
+                if (viewState.hasChannels) {
+                    channelInput = ""
+                    showChannelDialog = true
+                }
+            },
             onShowProgramDetails = { program -> viewModel.showProgramDetails(program) },
             onPlayArchiveProgram = { program -> viewModel.playArchiveProgram(program) },
             onReturnToLive = { viewModel.returnToLive() },
@@ -124,6 +136,52 @@ class MainActivity : ComponentActivity() {
             onClearEpgNotification = { viewModel.clearEpgNotification() },
             modifier = Modifier.fillMaxSize()
         )
+
+        if (showNoPlaylistDialog) {
+            AlertDialog(
+                onDismissRequest = { showNoPlaylistDialog = false },
+                title = { Text(text = getString(R.string.dialog_title_no_playlist)) },
+                text = { Text(text = getString(R.string.dialog_message_no_playlist)) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showNoPlaylistDialog = false
+                        settingsLauncher.launch(Intent(context, SettingsActivity::class.java))
+                    }) { Text(text = getString(R.string.button_open_settings)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showNoPlaylistDialog = false }) {
+                        Text(text = getString(R.string.button_later))
+                    }
+                }
+            )
+        }
+
+        if (showChannelDialog) {
+            AlertDialog(
+                onDismissRequest = { showChannelDialog = false },
+                title = { Text(text = getString(R.string.dialog_title_go_to_channel)) },
+                text = {
+                    OutlinedTextField(
+                        value = channelInput,
+                        onValueChange = { new -> channelInput = new.filter { it.isDigit() }.take(4) },
+                        label = { Text(getString(R.string.hint_channel_number, viewState.channels.size)) }
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        channelInput.toIntOrNull()?.let { number ->
+                            if (number in 1..viewState.channels.size) {
+                                viewModel.playChannel(number - 1)
+                            }
+                        }
+                        showChannelDialog = false
+                    }) { Text(text = getString(R.string.button_ok)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showChannelDialog = false }) { Text(text = getString(R.string.button_cancel)) }
+                }
+            )
+        }
     }
 
     /**
@@ -140,84 +198,12 @@ class MainActivity : ComponentActivity() {
     /**
      * Show channel number dialog
      */
-    private fun showChannelNumberDialog() {
-        val state = viewModel.viewState.value
-        if (!state.hasChannels) return
-
-        val input = EditText(this).apply {
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER
-            hint = getString(R.string.hint_channel_number, state.channels.size)
-            textSize = 24f
-            gravity = android.view.Gravity.CENTER
-            setPadding(32, 32, 32, 32)
-            setTextColor(android.graphics.Color.WHITE)
-            setHintTextColor(android.graphics.Color.GRAY)
-            setBackgroundColor("#1A1A1A".toColorInt())
-            imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE
-        }
-
-        val switchChannel: () -> Unit = {
-            input.text.toString().toIntOrNull()?.let { channelNumber ->
-                if (channelNumber in 1..state.channels.size) {
-                    viewModel.playChannel(channelNumber - 1)
-                }
-            }
-        }
-
-        var currentDialog: AlertDialog? = null
-
-        input.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
-                switchChannel()
-                currentDialog?.dismiss()
-                true
-            } else {
-                false
-            }
-        }
-
-        currentDialog = AlertDialog.Builder(this)
-            .setTitle(getString(R.string.dialog_title_go_to_channel))
-            .setView(input)
-            .setPositiveButton(getString(R.string.button_ok)) { dialogInterface, _ ->
-                switchChannel()
-                dialogInterface.dismiss()
-            }
-            .setNegativeButton(getString(R.string.button_cancel)) { dialogInterface, _ ->
-                dialogInterface.dismiss()
-            }
-            .create()
-
-        currentDialog.window?.setSoftInputMode(
-            WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE
-        )
-        currentDialog.window?.setBackgroundDrawableResource(android.R.color.black)
-        currentDialog.show()
-
-        input.requestFocus()
-    }
+    private fun showChannelNumberDialog() { /* migrated to Compose */ }
 
     /**
      * Show dialog when no playlist is configured
      */
-    private fun showNoPlaylistDialog() {
-        AlertDialog.Builder(this)
-            .setTitle(getString(R.string.dialog_title_no_playlist))
-            .setMessage(getString(R.string.dialog_message_no_playlist))
-            .setPositiveButton(getString(R.string.button_open_settings)) { dialog, _ ->
-                dialog.dismiss()
-                settingsLauncher.launch(Intent(this, SettingsActivity::class.java))
-            }
-            .setNegativeButton(getString(R.string.button_later)) { dialog, _ ->
-                dialog.dismiss()
-            }
-            .setCancelable(true)
-            .create()
-            .apply {
-                window?.setBackgroundDrawableResource(android.R.color.black)
-                show()
-            }
-    }
+    private fun showNoPlaylistDialog() { /* migrated to Compose */ }
 
     private fun registerTimeChangeReceiver() {
         if (timeChangeReceiver != null) return

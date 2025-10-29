@@ -4,6 +4,11 @@ package com.videoplayer.di
 
 import android.content.Context
 import androidx.room.Room
+import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
+import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter.Builder
+import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter.Companion
+import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter.EventListener
+import androidx.media3.datasource.DefaultHttpDataSource
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.videoplayer.data.local.AppDatabase
@@ -47,5 +52,35 @@ object AppModule {
     fun provideGson(): Gson {
         return GsonBuilder()
             .create()
+    }
+
+    @Provides
+    @Singleton
+    fun provideBandwidthMeter(@ApplicationContext context: Context): DefaultBandwidthMeter {
+        return DefaultBandwidthMeter.Builder(context.applicationContext)
+            .setInitialBitrateEstimate(2_800_000L)
+            .build()
+    }
+
+    @Provides
+    @Singleton
+    fun provideDefaultHttpDataSourceFactory(
+        @ApplicationContext context: Context,
+        bandwidthMeter: DefaultBandwidthMeter
+    ): DefaultHttpDataSource.Factory {
+        return DefaultHttpDataSource.Factory()
+            .setConnectTimeoutMs(Constants.HTTP_CONNECT_TIMEOUT_MS)
+            .setReadTimeoutMs(Constants.HTTP_READ_TIMEOUT_MS)
+            .setAllowCrossProtocolRedirects(true)
+            .setKeepPostFor302Redirects(true)
+            .setUserAgent(Constants.DEFAULT_USER_AGENT)
+            .setTransferListener(bandwidthMeter)
+            .setDefaultRequestProperties(
+                mapOf(
+                    "Accept" to "*/*",
+                    "Accept-Encoding" to "gzip, deflate",
+                    "Connection" to "keep-alive"
+                )
+            )
     }
 }

@@ -58,7 +58,8 @@ import kotlin.math.max
 @UnstableApi
 @Singleton
 class PlayerManager @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val bandwidthMeter: DefaultBandwidthMeter
 ) {
 
     private var player: ExoPlayer? = null
@@ -86,19 +87,7 @@ class PlayerManager @Inject constructor(
     private var networkScope = newNetworkScope()
     private lateinit var httpDataSourceFactory: DefaultHttpDataSource.Factory
 
-    companion object {
-        @Suppress("StaticFieldLeak")
-        private var sharedBandwidthMeter: DefaultBandwidthMeter? = null
-
-        fun getBandwidthMeter(context: Context): DefaultBandwidthMeter {
-            if (sharedBandwidthMeter == null) {
-                sharedBandwidthMeter = DefaultBandwidthMeter.Builder(context.applicationContext)
-                    .setInitialBitrateEstimate(2800000L)
-                    .build()
-            }
-            return sharedBandwidthMeter!!
-        }
-    }
+    companion object {}
 
     private fun newNetworkScope(): CoroutineScope =
         CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -622,7 +611,7 @@ class PlayerManager @Inject constructor(
                 .setAllowCrossProtocolRedirects(true)
                 .setKeepPostFor302Redirects(true)
                 .setUserAgent(Constants.DEFAULT_USER_AGENT)
-                .setTransferListener(getBandwidthMeter(context))
+                .setTransferListener(bandwidthMeter)
                 .setDefaultRequestProperties(
                     mapOf(
                         "Accept" to "*/*",

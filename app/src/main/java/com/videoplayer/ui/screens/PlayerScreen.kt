@@ -1190,15 +1190,11 @@ private fun String.truncateForOverlay(maxChars: Int = MAX_PROGRAM_TITLE_CHARS): 
 }
 
 private fun PlayerView.updateVideoRotation(rotationDegrees: Float) {
-    val normalized = ((rotationDegrees % 360f) + 360f) % 360f
-    val appliedRotation = when (normalized) {
-        270f -> -90f
-        else -> normalized
-    }
+    val userRotation = ((rotationDegrees % 360f) + 360f) % 360f
 
     val textureView = videoSurfaceView as? TextureView
     if (textureView == null) {
-        rotation = normalized
+        rotation = userRotation
         return
     }
 
@@ -1223,12 +1219,18 @@ private fun PlayerView.updateVideoRotation(rotationDegrees: Float) {
         val pivotX = srcRect.centerX()
         val pivotY = srcRect.centerY()
 
+        // Apply the metadata compensation first
         if (baseRotation != 0f) {
             workingMatrix.postRotate(baseRotation, pivotX, pivotY)
         }
 
-        if (appliedRotation != 0f) {
-            workingMatrix.postRotate(appliedRotation, pivotX, pivotY)
+        // Compute rotation needed so that total visual rotation equals userRotation
+        var delta = userRotation - baseRotation
+        // Normalize to [-180, 180] friendly range for matrix application
+        delta = ((delta % 360f) + 360f) % 360f
+        if (delta == 270f) delta = -90f
+        if (delta != 0f) {
+            workingMatrix.postRotate(delta, pivotX, pivotY)
         }
 
         val transformedRect = RectF()
@@ -1250,13 +1252,13 @@ private fun PlayerView.updateVideoRotation(rotationDegrees: Float) {
     }
 
     findViewById<View?>(Media3UiR.id.exo_subtitles)?.post {
-        rotation = normalized
+        rotation = userRotation
         pivotX = width / 2f
         pivotY = height / 2f
     }
 
     findViewById<View?>(Media3UiR.id.exo_controller)?.post {
-        rotation = normalized
+        rotation = userRotation
         pivotX = width / 2f
         pivotY = height / 2f
     }
