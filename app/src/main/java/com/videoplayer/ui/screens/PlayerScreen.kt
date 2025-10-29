@@ -22,8 +22,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -84,6 +84,8 @@ fun PlayerScreen(
     onArchivePromptContinue: () -> Unit,
     onArchivePromptBackToLive: () -> Unit,
     onCloseProgramDetails: () -> Unit,
+    epgNotificationMessage: String?,
+    onClearEpgNotification: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showControls by remember { mutableStateOf(false) }
@@ -126,6 +128,31 @@ fun PlayerScreen(
             .fillMaxSize()
             .background(MaterialTheme.ruTvColors.darkBackground)
     ) {
+        epgNotificationMessage?.let { message ->
+            LaunchedEffect(message) {
+                delay(2000)
+                onClearEpgNotification()
+            }
+            AnimatedVisibility(
+                visible = true,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 32.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.9f)
+                ) {
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.ruTvColors.gold,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
+            }
+        }
+
         // ExoPlayer View
         player?.let {
             @Suppress("DiscouragedApi")
@@ -223,6 +250,7 @@ fun PlayerScreen(
                     isTimeshiftPlayback = viewState.isTimeshiftPlayback,
                     archiveProgram = viewState.archiveProgram,
                     onReturnToLive = onReturnToLive,
+                    onShowProgramInfo = onShowProgramDetails,
                     modifier = Modifier.padding(16.dp)
                 )
             }
@@ -323,6 +351,7 @@ private fun ChannelInfoOverlay(
     isTimeshiftPlayback: Boolean,
     archiveProgram: EpgProgram?,
     onReturnToLive: () -> Unit,
+    onShowProgramInfo: (EpgProgram) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -353,40 +382,98 @@ private fun ChannelInfoOverlay(
                         textAlign = TextAlign.Center,
                         modifier = Modifier.align(Alignment.CenterHorizontally)
                     )
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = onReturnToLive,
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.ruTvColors.gold,
-                        contentColor = MaterialTheme.ruTvColors.darkBackground),
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                ) {
-                    Text(text = stringResource(R.string.player_return_to_live))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Button(
+                            onClick = onReturnToLive,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.ruTvColors.gold,
+                                contentColor = MaterialTheme.ruTvColors.darkBackground
+                            )
+                        ) {
+                            Text(text = stringResource(R.string.player_return_to_live))
+                        }
+                        IconButton(
+                            onClick = { onShowProgramInfo(program) },
+                            colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.ruTvColors.gold)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = stringResource(R.string.player_program_info)
+                            )
+                        }
+                    }
                 }
             } else {
                 currentProgram?.let { program ->
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = program.title.truncateForOverlay(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.ruTvColors.textSecondary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
-                    )
+                    if (isTimeshiftPlayback) {
+                        Text(
+                            text = program.title.truncateForOverlay(),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.ruTvColors.textSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                        )
+                    } else {
+                        Row(
+                            modifier = Modifier.align(Alignment.CenterHorizontally),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = program.title.truncateForOverlay(),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.ruTvColors.textSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = TextAlign.Center
+                            )
+                            IconButton(
+                                onClick = { onShowProgramInfo(program) },
+                                colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.ruTvColors.gold)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Info,
+                                    contentDescription = stringResource(R.string.player_program_info)
+                                )
+                            }
+                        }
+                    }
                 }
                 if (isTimeshiftPlayback) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    Button(
-                        onClick = onReturnToLive,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.ruTvColors.gold,
-                            contentColor = MaterialTheme.ruTvColors.darkBackground
-                        ),
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    Row(
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text(text = stringResource(R.string.player_return_to_live))
+                        Button(
+                            onClick = onReturnToLive,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.ruTvColors.gold,
+                                contentColor = MaterialTheme.ruTvColors.darkBackground
+                            )
+                        ) {
+                            Text(text = stringResource(R.string.player_return_to_live))
+                        }
+                        currentProgram?.let { program ->
+                            IconButton(
+                                onClick = { onShowProgramInfo(program) },
+                                colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.ruTvColors.gold)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Info,
+                                    contentDescription = stringResource(R.string.player_program_info)
+                                )
+                            }
+                        }
                     }
                 }
             }

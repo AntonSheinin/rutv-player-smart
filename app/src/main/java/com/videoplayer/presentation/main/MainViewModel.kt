@@ -61,6 +61,19 @@ class MainViewModel @Inject constructor(
     private var pendingEpgTimestamp: Long? = null
     private var epgPreloadJob: Job? = null
 
+    private fun postEpgNotification(message: String) {
+        viewModelScope.launch(Dispatchers.Main) {
+            if (_viewState.value.epgNotificationMessage == message) return@launch
+            _viewState.update { it.copy(epgNotificationMessage = message) }
+        }
+    }
+
+    fun clearEpgNotification() {
+        viewModelScope.launch(Dispatchers.Main) {
+            _viewState.update { it.copy(epgNotificationMessage = null) }
+        }
+    }
+
     init {
         // Collect player state
         viewModelScope.launch {
@@ -257,10 +270,16 @@ class MainViewModel @Inject constructor(
                 pendingCurrentProgramsSnapshot = null
                 pendingEpgTimestamp = null
                 _viewState.update {
+                    val currentChannel = it.currentChannel
+                    val updatedCurrentProgram = currentChannel?.tvgId?.let(snapshot::get)
                     it.copy(
                         currentProgramsMap = snapshot,
+                        currentProgram = updatedCurrentProgram,
                         epgLoadedTimestamp = loadedAt
                     )
+                }
+                if (snapshot.isNotEmpty()) {
+                    postEpgNotification(EPG_LOADED_MESSAGE)
                 }
             }
         }
@@ -274,10 +293,16 @@ class MainViewModel @Inject constructor(
             pendingCurrentProgramsSnapshot = null
             pendingEpgTimestamp = null
             _viewState.update {
+                val currentChannel = it.currentChannel
+                val updatedCurrentProgram = currentChannel?.tvgId?.let(snapshot::get)
                 it.copy(
                     currentProgramsMap = snapshot,
+                    currentProgram = updatedCurrentProgram,
                     epgLoadedTimestamp = timestamp
                 )
+            }
+            if (snapshot.isNotEmpty()) {
+                postEpgNotification(EPG_LOADED_MESSAGE)
             }
         }
     }
@@ -327,12 +352,17 @@ class MainViewModel @Inject constructor(
 
                         withContext(Dispatchers.Main) {
                             _viewState.update {
+                                val updatedCurrentProgram = it.currentChannel?.tvgId?.let(programsMapToUse::get)
                                 it.copy(
                                     channels = channels,
                                     currentProgramsMap = programsMapToUse,
+                                    currentProgram = updatedCurrentProgram ?: it.currentProgram,
                                     isLoading = false,
                                     error = null
                                 )
+                            }
+                            if (programsMapToUse.isNotEmpty()) {
+                                postEpgNotification(EPG_LOADED_MESSAGE)
                             }
 
                             if (channels.isNotEmpty()) {
@@ -697,6 +727,7 @@ class MainViewModel @Inject constructor(
                             currentProgram = data.currentProgram
                         )
                     }
+                    postEpgNotification(EPG_LOADED_MESSAGE)
                 }
                 is Result.Error -> {
                     Timber.e("Failed to load EPG for channel: ${result.message}")
@@ -1010,6 +1041,10 @@ class MainViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         playerManager.release()
+    }
+
+    private companion object {
+        const val EPG_LOADED_MESSAGE = "EPG loaded"
     }
 }
 

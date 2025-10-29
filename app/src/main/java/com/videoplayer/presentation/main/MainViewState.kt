@@ -33,6 +33,7 @@ data class MainViewState(
     val videoRotation: Float = 0f,
     val isLoading: Boolean = false,
     val error: String? = null,
+    val epgNotificationMessage: String? = null,
     val epgLoadedTimestamp: Long = 0L // Timestamp when EPG was last loaded, used to trigger adapter refresh
 ) {
     val filteredChannels: List<Channel>
