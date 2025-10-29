@@ -15,7 +15,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import timber.log.Timber
+import java.io.BufferedOutputStream
 import java.io.File
+import java.io.FileOutputStream
 import java.io.Reader
 import java.net.HttpURLConnection
 import java.net.URL
@@ -452,23 +454,43 @@ class EpgRepository @Inject constructor(
                 Timber.d("Saving EPG to disk with streaming + GZIP...")
                 val startTime = System.currentTimeMillis()
 
-                // Stream JSON directly to GZIP compressed file
-                epgFile.outputStream().buffered().use { fileOut ->
-                    java.util.zip.GZIPOutputStream(fileOut).buffered().use { gzipOut ->
-                        gzipOut.writer().use { writer ->
-                            gson.toJson(epgResponse, writer)
+                val tempFile = File(epgFile.parentFile, "${epgFile.name}.tmp")
+                if (tempFile.exists() && !tempFile.delete()) {
+                    Timber.w("Failed to delete existing temp EPG file before saving")
+                }
+
+                FileOutputStream(tempFile).use { fileOut ->
+                    BufferedOutputStream(fileOut).use { bufferedOut ->
+                        java.util.zip.GZIPOutputStream(bufferedOut).buffered().use { gzipOut ->
+                            gzipOut.writer().use { writer ->
+                                gson.toJson(epgResponse, writer)
+                                writer.flush()
+                            }
                         }
+                        bufferedOut.flush()
+                    }
+                    try {
+                        fileOut.fd.sync()
+                    } catch (syncError: Exception) {
+                        Timber.w(syncError, "Failed to sync EPG temp file descriptor")
                     }
                 }
 
-                val duration = System.currentTimeMillis() - startTime
-                val fileSizeKB = epgFile.length() / 1024
-                val fileSizeMB = fileSizeKB / 1024
-
-                Timber.d("EPG saved to disk: ${fileSizeMB}MB (${fileSizeKB}KB) in ${duration}ms")
-                if (fileSizeKB > 0) {
-                    val compressionRatio = (programCount * 500L) / (fileSizeKB * 1024L)
-                    Timber.d("  Compression ratio: ~$compressionRatio:1")
+                if (epgFile.exists() && !epgFile.delete()) {
+                    Timber.w("Failed to delete previous EPG cache before rename")
+                }
+                if (!tempFile.renameTo(epgFile)) {
+                    Timber.e("Failed to rename temp EPG file to final cache file")
+                    tempFile.delete()
+                } else {
+                    val duration = System.currentTimeMillis() - startTime
+                    val fileSizeKB = epgFile.length() / 1024
+                    val fileSizeMB = fileSizeKB / 1024
+                    Timber.d("EPG saved to disk: ${fileSizeMB}MB (${fileSizeKB}KB) in ${duration}ms")
+                    if (fileSizeKB > 0) {
+                        val compressionRatio = (programCount * 500L) / (fileSizeKB * 1024L)
+                        Timber.d("  Compression ratio: ~$compressionRatio:1")
+                    }
                 }
             } catch (e: OutOfMemoryError) {
                 Timber.w("Out of memory saving EPG to disk (${e.message}) - keeping memory cache only")
