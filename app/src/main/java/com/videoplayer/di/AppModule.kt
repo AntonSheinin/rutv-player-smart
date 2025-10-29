@@ -5,9 +5,6 @@ package com.videoplayer.di
 import android.content.Context
 import androidx.room.Room
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
-import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter.Builder
-import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter.Companion
-import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter.EventListener
 import androidx.media3.datasource.DefaultHttpDataSource
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
