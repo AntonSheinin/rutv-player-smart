@@ -261,19 +261,6 @@ fun SettingsScreen(
                 )
             }
 
-            item {
-                Button(
-                    onClick = { showForceEpgDialog = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.ruTvColors.selectedBackground,
-                        contentColor = MaterialTheme.ruTvColors.textPrimary
-                    )
-                ) {
-                    Text(stringResource(R.string.settings_force_epg_fetch))
-                }
-            }
-
             item { Spacer(modifier = Modifier.height(32.dp)) }
         }
     }
@@ -298,18 +285,6 @@ fun SettingsScreen(
             onConfirm = {
                 onReloadPlaylist()
                 showReloadDialog = false
-            }
-        )
-    }
-
-    if (showForceEpgDialog) {
-        ConfirmationDialog(
-            title = stringResource(R.string.dialog_title_force_epg_fetch),
-            message = stringResource(R.string.dialog_message_force_epg_fetch),
-            onDismiss = { showForceEpgDialog = false },
-            onConfirm = {
-                onForceEpgFetch()
-                showForceEpgDialog = false
             }
         )
     }

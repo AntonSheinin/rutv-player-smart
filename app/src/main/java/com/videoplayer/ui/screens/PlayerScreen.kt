@@ -1221,64 +1221,44 @@ private fun PlayerView.updateVideoRotation(rotationDegrees: Float) {
         return
     }
 
-    val videoSize = player?.videoSize
-    val pixelRatio = videoSize?.pixelWidthHeightRatio?.takeIf { it > 0f } ?: 1f
-    val baseRotation = -((videoSize?.unappliedRotationDegrees ?: 0).toFloat())
-    val rawWidth = (videoSize?.width ?: textureView.width).takeIf { it > 0 } ?: textureView.width
-    val rawHeight = (videoSize?.height ?: textureView.height).takeIf { it > 0 } ?: textureView.height
-    val displayWidth = rawWidth * pixelRatio
-    val displayHeight = rawHeight.toFloat()
-
     textureView.post {
         val viewWidth = textureView.width.toFloat()
         val viewHeight = textureView.height.toFloat()
-        if (viewWidth <= 0f || viewHeight <= 0f || displayWidth <= 0f || displayHeight <= 0f) {
+
+        if (viewWidth <= 0f || viewHeight <= 0f) {
             textureView.setTransform(Matrix())
             return@post
         }
 
-        val srcRect = RectF(0f, 0f, displayWidth, displayHeight)
-        val workingMatrix = Matrix()
-        val pivotX = srcRect.centerX()
-        val pivotY = srcRect.centerY()
+        val centerX = viewWidth / 2f
+        val centerY = viewHeight / 2f
+        val matrix = Matrix()
 
-        // Apply the metadata compensation first
-        if (baseRotation != 0f) {
-            workingMatrix.postRotate(baseRotation, pivotX, pivotY)
+        // Simply rotate around the center of the view
+        matrix.postRotate(userRotation, centerX, centerY)
+
+        // Scale to fit the view while maintaining aspect ratio
+        val videoSize = player?.videoSize
+        val displayAspectRatio = viewWidth / viewHeight
+        val videoAspectRatio = if (userRotation == 90f || userRotation == 270f) {
+            // When rotated 90°, swap dimensions
+            (videoSize?.height ?: 1f) / (videoSize?.width ?: 1f) * (videoSize?.pixelWidthHeightRatio ?: 1f)
+        } else {
+            // Normal orientation
+            (videoSize?.width ?: 1f) / (videoSize?.height ?: 1f) * (videoSize?.pixelWidthHeightRatio ?: 1f)
         }
 
-        // Compute rotation needed so that total visual rotation equals userRotation
-        var delta = userRotation - baseRotation
-        // Normalize to [0, 360] range for matrix application
-        delta = ((delta % 360f) + 360f) % 360f
-        if (delta != 0f) {
-            workingMatrix.postRotate(delta, pivotX, pivotY)
+        val scale = if (videoAspectRatio > displayAspectRatio) {
+            viewWidth / (videoSize?.width?.toFloat() ?: viewWidth)
+        } else {
+            viewHeight / (videoSize?.height?.toFloat() ?: viewHeight)
         }
 
-        val transformedRect = RectF()
-        workingMatrix.mapRect(transformedRect, srcRect)
-        if (transformedRect.width() <= 0f || transformedRect.height() <= 0f) {
-            textureView.setTransform(Matrix())
-            return@post
-        }
-
-        val scale = min(viewWidth / transformedRect.width(), viewHeight / transformedRect.height())
-        workingMatrix.postScale(scale, scale, transformedRect.centerX(), transformedRect.centerY())
-
-        workingMatrix.mapRect(transformedRect, srcRect)
-        val translateX = viewWidth / 2f - transformedRect.centerX()
-        val translateY = viewHeight / 2f - transformedRect.centerY()
-        workingMatrix.postTranslate(translateX, translateY)
-
-        textureView.setTransform(workingMatrix)
+        matrix.postScale(scale, scale, centerX, centerY)
+        textureView.setTransform(matrix)
     }
 
-    findViewById<View?>(Media3UiR.id.exo_subtitles)?.post {
-        rotation = userRotation
-        pivotX = width / 2f
-        pivotY = height / 2f
-    }
-
+    // Also rotate controller UI
     findViewById<View?>(Media3UiR.id.exo_controller)?.post {
         rotation = userRotation
         pivotX = width / 2f

@@ -54,6 +54,13 @@ class EpgRepository @Inject constructor(
     private var lastKnownTimezoneId: String = TimeZone.getDefault().id
     private var lastKnownUtcOffsetMinutes: Int = TimeZone.getDefault().getOffset(System.currentTimeMillis()) / 60_000
 
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Session in-memory cache for windowed, per-channel EPG (lazy loading)
+    // Keyed by (epgUrl, tvgId, from, to) to avoid cross-endpoint mix-ups
+    private data class WindowKey(val epgUrl: String, val tvgId: String, val from: Long, val to: Long)
+    private val windowCache = mutableMapOf<WindowKey, List<EpgProgram>>()
+    private val windowInFlight = mutableMapOf<WindowKey, kotlinx.coroutines.Deferred<List<EpgProgram>>>()
+
     enum class TimeChangeTrigger {
         TIMEZONE,
         TIME_SET,
@@ -683,6 +690,92 @@ class EpgRepository @Inject constructor(
         val adjustedEarliest = bounds.earliestUtcMillis <= window.fromUtcMillis + toleranceMillis
         val adjustedLatest = bounds.latestUtcMillis >= window.toUtcMillis - toleranceMillis
         return adjustedEarliest && adjustedLatest
+    }
+
+    /**
+     * Lazy windowed fetch for a single channel, cached for the app session.
+     * Returns only the programs in [fromUtcMillis, toUtcMillis] for tvgId.
+     */
+    suspend fun getWindowedProgramsForChannel(
+        epgUrl: String,
+        tvgId: String,
+        fromUtcMillis: Long,
+        toUtcMillis: Long
+    ): List<EpgProgram> = withContext(Dispatchers.IO) {
+        val key = WindowKey(epgUrl, tvgId, fromUtcMillis, toUtcMillis)
+        windowCache[key]?.let { return@withContext it }
+
+        windowInFlight[key]?.let { existing ->
+            return@withContext existing.await()
+        }
+
+        val deferred = kotlinx.coroutines.GlobalScope.async(Dispatchers.IO) {
+            fetchSingleChannelWindow(epgUrl, tvgId, fromUtcMillis, toUtcMillis)
+        }
+        windowInFlight[key] = deferred
+        try {
+            val result = deferred.await()
+            windowCache[key] = result
+            return@withContext result
+        } finally {
+            windowInFlight.remove(key)
+        }
+    }
+
+    private fun fetchSingleChannelWindow(
+        epgUrl: String,
+        tvgId: String,
+        fromUtcMillis: Long,
+        toUtcMillis: Long
+    ): List<EpgProgram> {
+        var connection: HttpURLConnection? = null
+        return try {
+            val deviceTimezone = TimeZone.getDefault().id
+            val fromIso = Instant.ofEpochMilli(fromUtcMillis).toString()
+            val toIso = Instant.ofEpochMilli(toUtcMillis).toString()
+
+            val request = EpgRequest(
+                channels = listOf(EpgChannelRequest(xmltvId = tvgId)),
+                timezone = deviceTimezone,
+                fromDate = fromIso,
+                toDate = toIso
+            )
+            val body = gson.toJson(request)
+
+            val url = URL("$epgUrl/epg")
+            connection = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                setRequestProperty("Content-Type", "application/json")
+                connectTimeout = Constants.EPG_CONNECT_TIMEOUT_MS
+                readTimeout = Constants.EPG_READ_TIMEOUT_MS
+                doOutput = true
+            }
+
+            connection.outputStream.use { os -> os.write(body.toByteArray()) }
+
+            val code = connection.responseCode
+            if (code != 200) {
+                Timber.e("EPG single-channel HTTP error: $code")
+                return emptyList()
+            }
+
+            val response = connection.inputStream.bufferedReader().use { reader ->
+                parseEpgResponseStreaming(reader)
+            } ?: return emptyList()
+
+            val programs = response.epg[tvgId] ?: emptyList()
+            // Trim defensively to requested window
+            programs.filter { p ->
+                val start = p.startUtcMillis
+                val stop = p.stopUtcMillis
+                stop >= fromUtcMillis && start <= toUtcMillis
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to fetch single-channel EPG window")
+            emptyList()
+        } finally {
+            connection?.disconnect()
+        }
     }
 
     private fun trimEpgToWindow(

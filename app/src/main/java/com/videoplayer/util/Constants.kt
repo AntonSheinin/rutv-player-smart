@@ -27,11 +27,9 @@ object Constants {
     const val HTTP_READ_TIMEOUT_MS = 15_000
     const val DEFAULT_USER_AGENT = "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36"
 
-    // Player
-    const val VIDEO_ROTATION_0 = 0f
-    const val VIDEO_ROTATION_90 = 90f
-    const val VIDEO_ROTATION_180 = 180f
-    const val VIDEO_ROTATION_270 = 270f
+    // Player - Simple landscape/portrait toggle
+    const val VIDEO_ROTATION_0 = 0f        // Landscape (normal)
+    const val VIDEO_ROTATION_90 = 90f      // Portrait (rotated)
     const val SEEK_INCREMENT_MS = 10_000L
 
     // Buffer settings

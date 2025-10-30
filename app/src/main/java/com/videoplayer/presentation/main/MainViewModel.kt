@@ -705,40 +705,48 @@ class MainViewModel @Inject constructor(
      * Show EPG for channel
      */
     fun showEpgForChannel(tvgId: String) {
-        viewModelScope.launch {
-            when (val result = loadEpgForChannelUseCase(tvgId)) {
-                is Result.Success -> {
-                    val data = result.data
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val epgUrl = preferencesRepository.epgUrl.first().ifBlank { "" }
+                if (epgUrl.isBlank()) {
+                    appendDebugMessage(DebugMessage("EPG: URL not configured"))
+                    return@launch
+                }
 
+                val nowZoned = java.time.ZonedDateTime.now()
+                val dayStart = nowZoned.toLocalDate().atStartOfDay(nowZoned.zone).toInstant().toEpochMilli()
+                val dayEnd = nowZoned.toLocalDate().atTime(java.time.LocalTime.of(23, 59, 59)).atZone(nowZoned.zone).toInstant().toEpochMilli()
+
+                val programs = epgRepository.getWindowedProgramsForChannel(
+                    epgUrl = epgUrl,
+                    tvgId = tvgId,
+                    fromUtcMillis = dayStart,
+                    toUtcMillis = dayEnd
+                )
+                val current = programs.firstOrNull { it.isCurrent() }
+
+                withContext(Dispatchers.Main) {
                     _viewState.update { state ->
                         val updatedMap = state.currentProgramsMap.toMutableMap()
-                        updatedMap[tvgId] = data.currentProgram
+                        updatedMap[tvgId] = current
                         state.copy(currentProgramsMap = updatedMap)
                     }
-
                     appendDebugMessage(
-                        DebugMessage(
-                            "EPG: Showing ${data.programs.size} programs for $tvgId${data.currentProgram?.let { " (current: ${it.title})" } ?: ""}"
-                        )
+                        DebugMessage("EPG: Showing ${programs.size} programs for $tvgId${current?.let { " (current: ${it.title})" } ?: ""}")
                     )
-
                     _viewState.update {
                         it.copy(
-                            showEpgPanel = data.programs.isNotEmpty(),
+                            showEpgPanel = programs.isNotEmpty(),
                             epgChannelTvgId = tvgId,
-                            epgPrograms = data.programs,
-                            currentProgram = data.currentProgram
+                            epgPrograms = programs,
+                            currentProgram = current
                         )
                     }
                     postEpgNotification(EPG_LOADED_MESSAGE)
                 }
-                is Result.Error -> {
-                    Timber.e("Failed to load EPG for channel: ${result.message}")
-                    appendDebugMessage(DebugMessage("EPG: Failed to load for $tvgId - ${result.message}"))
-                }
-                is Result.Loading -> {
-                    // Should not happen
-                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to load EPG for channel $tvgId")
+                appendDebugMessage(DebugMessage("EPG: Failed to load for $tvgId - ${e.message}"))
             }
         }
     }
@@ -1006,15 +1014,14 @@ class MainViewModel @Inject constructor(
     }
 
     /**
-     * Cycle video rotation through 0° → 90° → 180° → 270° → 0°
+     * Toggle video rotation between landscape (0°) and portrait (90°)
      */
     fun toggleRotation() {
         val currentRotation = _viewState.value.videoRotation
-        val newRotation = when (currentRotation) {
-            Constants.VIDEO_ROTATION_0 -> Constants.VIDEO_ROTATION_90
-            Constants.VIDEO_ROTATION_90 -> Constants.VIDEO_ROTATION_180
-            Constants.VIDEO_ROTATION_180 -> Constants.VIDEO_ROTATION_270
-            else -> Constants.VIDEO_ROTATION_0  // Cycle back from 270°
+        val newRotation = if (currentRotation == Constants.VIDEO_ROTATION_0) {
+            Constants.VIDEO_ROTATION_90
+        } else {
+            Constants.VIDEO_ROTATION_0
         }
 
         _viewState.update { it.copy(videoRotation = newRotation) }
