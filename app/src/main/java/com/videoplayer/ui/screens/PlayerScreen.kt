@@ -465,12 +465,12 @@ private fun ChannelInfoOverlay(
                 }
                 if (isTimeshiftPlayback) {
                     Spacer(modifier = Modifier.height(8.dp))
-                        Row(
+                    Row(
                         modifier = Modifier.align(Alignment.CenterHorizontally),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        val btnHeight = 40.dp
+                        val btnHeight = 48.dp
                         Button(
                             onClick = onReturnToLive,
                             colors = ButtonDefaults.buttonColors(
@@ -702,15 +702,13 @@ private fun EpgPanel(
         }
     }
 
-    // Auto-scroll to current program when panel opens (center it in viewport)
+    // Auto-scroll only once on first open
+    var didInitialScroll by remember { mutableStateOf(false) }
     LaunchedEffect(scrollToIndex, items.size) {
-        if (scrollToIndex >= 0 && scrollToIndex < items.size) {
-            // Jump close to the current program immediately, then apply a small offset animation.
+        if (!didInitialScroll && scrollToIndex >= 0 && scrollToIndex < items.size) {
             listState.scrollToItem(scrollToIndex)
-            listState.animateScrollToItem(
-                scrollToIndex,
-                scrollOffset = -200
-            )
+            listState.animateScrollToItem(scrollToIndex, scrollOffset = -200)
+            didInitialScroll = true
         }
     }
 
