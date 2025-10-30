@@ -273,12 +273,12 @@ fun SettingsScreen(
             }
 
             item {
-                NumberInputSetting(
+                NumberInputDelayedSetting(
                     label = stringResource(R.string.settings_epg_page_days),
                     value = viewState.epgPageDays,
-                    onValueChange = onEpgPageDaysChanged,
                     minValue = 1,
-                    maxValue = 14
+                    maxValue = 14,
+                    onCommit = onEpgPageDaysChanged
                 )
             }
 
@@ -491,6 +491,64 @@ private fun NumberInputSetting(
             },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.fillMaxWidth(),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.ruTvColors.gold,
+                unfocusedBorderColor = MaterialTheme.ruTvColors.textDisabled,
+                focusedTextColor = MaterialTheme.ruTvColors.textPrimary,
+                unfocusedTextColor = MaterialTheme.ruTvColors.textPrimary
+            )
+        )
+    }
+}
+
+@Composable
+private fun NumberInputDelayedSetting(
+    label: String,
+    value: Int,
+    minValue: Int,
+    maxValue: Int,
+    onCommit: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var local by remember(value) { mutableStateOf(value.toString()) }
+    var isFocused by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isFocused) {
+        if (!isFocused) {
+            val parsed = local.toIntOrNull()
+            if (parsed != null) {
+                val clamped = parsed.coerceIn(minValue, maxValue)
+                if (clamped != value) onCommit(clamped)
+                local = clamped.toString()
+            } else {
+                // Revert to current value on invalid input
+                local = value.toString()
+            }
+        }
+    }
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.ruTvColors.textPrimary,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+        OutlinedTextField(
+            value = local,
+            onValueChange = { new ->
+                // Allow empty while typing; validation on blur
+                if (new.length <= 2) local = new.filter { it.isDigit() }
+            },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(
+                onDone = {
+                    isFocused = false
+                }
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .onFocusChanged { isFocused = it.isFocused },
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = MaterialTheme.ruTvColors.gold,
                 unfocusedBorderColor = MaterialTheme.ruTvColors.textDisabled,

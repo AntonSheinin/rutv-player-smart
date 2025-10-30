@@ -466,31 +466,39 @@ private fun ChannelInfoOverlay(
                 }
                 if (isTimeshiftPlayback) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    Row(
+                        Row(
                         modifier = Modifier.align(Alignment.CenterHorizontally),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                        val btnHeight = 40.dp
                         Button(
                             onClick = onReturnToLive,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.ruTvColors.gold,
                                 contentColor = MaterialTheme.ruTvColors.darkBackground
-                            )
+                            ),
+                            modifier = Modifier.height(btnHeight)
                         ) {
                             Text(text = stringResource(R.string.player_return_to_live))
                         }
                         currentProgram?.let { program ->
-                            IconButton(
-                                onClick = { onShowProgramInfo(program) },
-                                colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.ruTvColors.gold),
-                                modifier = Modifier.size(56.dp)
+                            Box(
+                                modifier = Modifier
+                                    .size(btnHeight)
+                                    .clip(RoundedCornerShape(btnHeight / 2))
+                                    .background(MaterialTheme.ruTvColors.darkBackground)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Info,
-                                    contentDescription = stringResource(R.string.player_program_info),
-                                    modifier = Modifier.size(32.dp)
-                                )
+                                IconButton(
+                                    onClick = { onShowProgramInfo(program) },
+                                    colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.ruTvColors.gold),
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Info,
+                                        contentDescription = stringResource(R.string.player_program_info)
+                                    )
+                                }
                             }
                         }
                     }
@@ -1126,7 +1134,7 @@ private fun CustomControlButtons(
                 ControlButtonData(
                     icon = Icons.Default.ScreenRotation,
                     description = R.string.cd_orientation_button,
-                    onClick = onRotationClick
+                    onClick = {}
                 ),
                 ControlButtonData(
                     icon = Icons.Default.Settings,
@@ -1161,9 +1169,11 @@ private fun ControlColumn(
             verticalArrangement = Arrangement.spacedBy(18.dp, Alignment.CenterVertically)
         ) {
             buttons.forEach { button ->
+                val isRotation = button.description == R.string.cd_orientation_button
+                val alpha = if (isRotation) DISABLED_CONTROL_ALPHA else 1f
                 IconButton(
-                    onClick = button.onClick,
-                    modifier = Modifier.size(56.dp)
+                    onClick = if (isRotation) ({}) else button.onClick,
+                    modifier = Modifier.size(56.dp).alpha(alpha)
                 ) {
                     Icon(
                         imageVector = button.icon,
