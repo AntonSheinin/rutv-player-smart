@@ -132,6 +132,8 @@ class MainActivity : ComponentActivity() {
             onArchivePromptContinue = { viewModel.continueArchiveFromPrompt() },
             onArchivePromptBackToLive = { viewModel.dismissArchivePrompt() },
             onCloseProgramDetails = { viewModel.closeProgramDetails() },
+            onLoadMoreEpgPast = { viewModel.loadMoreEpgPast() },
+            onLoadMoreEpgFuture = { viewModel.loadMoreEpgFuture() },
             epgNotificationMessage = viewState.epgNotificationMessage,
             onClearEpgNotification = { viewModel.clearEpgNotification() },
             modifier = Modifier.fillMaxSize()

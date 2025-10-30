@@ -84,6 +84,8 @@ fun PlayerScreen(
     onArchivePromptContinue: () -> Unit,
     onArchivePromptBackToLive: () -> Unit,
     onCloseProgramDetails: () -> Unit,
+    onLoadMoreEpgPast: () -> Unit,
+    onLoadMoreEpgFuture: () -> Unit,
     epgNotificationMessage: String?,
     onClearEpgNotification: () -> Unit,
     modifier: Modifier = Modifier
@@ -295,7 +297,9 @@ fun PlayerScreen(
                 channel = epgChannel,
                 onProgramClick = onShowProgramDetails,
                 onPlayArchive = onPlayArchiveProgram,
-                isArchivePlayback = viewState.isArchivePlayback,
+            isArchivePlayback = viewState.isArchivePlayback,
+            onLoadMorePast = onLoadMoreEpgPast,
+            onLoadMoreFuture = onLoadMoreEpgFuture,
                 modifier = Modifier.align(Alignment.CenterEnd)
             )
         }
@@ -638,6 +642,8 @@ private fun EpgPanel(
     onProgramClick: (EpgProgram) -> Unit,
     onPlayArchive: (EpgProgram) -> Unit,
     isArchivePlayback: Boolean,
+    onLoadMorePast: () -> Unit,
+    onLoadMoreFuture: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
@@ -698,6 +704,30 @@ private fun EpgPanel(
                 scrollOffset = -200
             )
         }
+    }
+
+    // Lazy paging triggers near list edges
+    LaunchedEffect(programs.size) {
+        // Reset edge request guards when list size changes
+        edgeRequestedPast = false
+        edgeRequestedFuture = false
+    }
+    var edgeRequestedPast by remember { mutableStateOf(false) }
+    var edgeRequestedFuture by remember { mutableStateOf(false) }
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.firstVisibleItemIndex to listState.layoutInfo.totalItemsCount }
+            .collect { (firstIndex, total) ->
+                if (total <= 0) return@collect
+                if (firstIndex <= 2 && !edgeRequestedPast) {
+                    edgeRequestedPast = true
+                    onLoadMorePast()
+                }
+                val lastVisible = listState.firstVisibleItemIndex + listState.layoutInfo.visibleItemsInfo.size
+                if (lastVisible >= total - 3 && !edgeRequestedFuture) {
+                    edgeRequestedFuture = true
+                    onLoadMoreFuture()
+                }
+            }
     }
 
     Card(

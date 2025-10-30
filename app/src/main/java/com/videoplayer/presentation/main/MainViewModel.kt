@@ -714,23 +714,15 @@ class MainViewModel @Inject constructor(
                 }
 
                 val channel = _viewState.value.channels.firstOrNull { it.tvgId == tvgId }
-                val epgDaysPast = preferencesRepository.epgDaysPast.first().coerceAtLeast(0)
-                val daysAhead = preferencesRepository.epgDaysAhead.first().coerceAtLeast(0)
-
                 val nowZoned = java.time.ZonedDateTime.now()
-                val fromZoned = nowZoned.toLocalDate()
-                    .minusDays(epgDaysPast.toLong())
-                    .atStartOfDay(nowZoned.zone)
-                val toZoned = nowZoned.toLocalDate()
-                    .plusDays(daysAhead.toLong())
-                    .atTime(java.time.LocalTime.of(23, 59, 59))
-                    .atZone(nowZoned.zone)
+                val todayStart = nowZoned.toLocalDate().atStartOfDay(nowZoned.zone)
+                val todayEnd = nowZoned.toLocalDate().atTime(java.time.LocalTime.of(23, 59, 59)).atZone(nowZoned.zone)
 
                 val programs = epgRepository.getWindowedProgramsForChannel(
                     epgUrl = epgUrl,
                     tvgId = tvgId,
-                    fromUtcMillis = fromZoned.toInstant().toEpochMilli(),
-                    toUtcMillis = toZoned.toInstant().toEpochMilli()
+                    fromUtcMillis = todayStart.toInstant().toEpochMilli(),
+                    toUtcMillis = todayEnd.toInstant().toEpochMilli()
                 )
                 val current = programs.firstOrNull { it.isCurrent() }
 
@@ -738,7 +730,11 @@ class MainViewModel @Inject constructor(
                     _viewState.update { state ->
                         val updatedMap = state.currentProgramsMap.toMutableMap()
                         updatedMap[tvgId] = current
-                        state.copy(currentProgramsMap = updatedMap)
+                        state.copy(
+                            currentProgramsMap = updatedMap,
+                            epgLoadedFromUtc = todayStart.toInstant().toEpochMilli(),
+                            epgLoadedToUtc = todayEnd.toInstant().toEpochMilli()
+                        )
                     }
                     appendDebugMessage(
                         DebugMessage("EPG: Showing ${programs.size} programs for $tvgId${current?.let { " (current: ${it.title})" } ?: ""}")
@@ -758,6 +754,103 @@ class MainViewModel @Inject constructor(
                 appendDebugMessage(DebugMessage("EPG: Failed to load for $tvgId - ${e.message}"))
             }
         }
+    }
+
+    fun loadMoreEpgPast() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val tvgId = _viewState.value.epgChannelTvgId.ifBlank { return@launch }
+            val epgUrl = preferencesRepository.epgUrl.first().ifBlank { return@launch }
+            val pastDays = preferencesRepository.epgDaysPast.first().coerceAtLeast(0)
+
+            val zone = java.time.ZonedDateTime.now().zone
+            val globalFrom = java.time.ZonedDateTime.now()
+                .toLocalDate()
+                .minusDays(pastDays.toLong())
+                .atStartOfDay(zone)
+                .toInstant().toEpochMilli()
+
+            val currentFrom = _viewState.value.epgLoadedFromUtc
+            if (currentFrom <= globalFrom) return@launch
+
+            val newFromZoned = java.time.Instant.ofEpochMilli(currentFrom)
+                .atZone(zone)
+                .toLocalDate()
+                .minusDays(1)
+                .atStartOfDay(zone)
+            val newFrom = maxOf(globalFrom, newFromZoned.toInstant().toEpochMilli())
+            val newTo = currentFrom - 1
+
+            val added = epgRepository.getWindowedProgramsForChannel(epgUrl, tvgId, newFrom, newTo)
+
+            withContext(Dispatchers.Main) {
+                if (added.isEmpty()) return@withContext
+                val merged = mergePrograms(_viewState.value.epgPrograms, added)
+                _viewState.update {
+                    it.copy(
+                        epgPrograms = merged,
+                        epgLoadedFromUtc = newFrom
+                    )
+                }
+            }
+        }
+    }
+
+    fun loadMoreEpgFuture() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val tvgId = _viewState.value.epgChannelTvgId.ifBlank { return@launch }
+            val epgUrl = preferencesRepository.epgUrl.first().ifBlank { return@launch }
+            val daysAhead = preferencesRepository.epgDaysAhead.first().coerceAtLeast(0)
+
+            val zone = java.time.ZonedDateTime.now().zone
+            val globalTo = java.time.ZonedDateTime.now()
+                .toLocalDate()
+                .plusDays(daysAhead.toLong())
+                .atTime(java.time.LocalTime.of(23, 59, 59))
+                .atZone(zone)
+                .toInstant().toEpochMilli()
+
+            val currentTo = _viewState.value.epgLoadedToUtc
+            if (currentTo >= globalTo) return@launch
+
+            val nextDayStart = java.time.Instant.ofEpochMilli(currentTo)
+                .atZone(zone)
+                .toLocalDate()
+                .plusDays(1)
+                .atStartOfDay(zone)
+                .toInstant().toEpochMilli()
+            val newFrom = nextDayStart
+            val newTo = globalTo.coerceAtMost(
+                java.time.Instant.ofEpochMilli(currentTo)
+                    .atZone(zone)
+                    .toLocalDate()
+                    .plusDays(1)
+                    .atTime(java.time.LocalTime.of(23, 59, 59))
+                    .atZone(zone)
+                    .toInstant().toEpochMilli()
+            )
+
+            val added = epgRepository.getWindowedProgramsForChannel(epgUrl, tvgId, newFrom, newTo)
+
+            withContext(Dispatchers.Main) {
+                if (added.isEmpty()) return@withContext
+                val merged = mergePrograms(_viewState.value.epgPrograms, added)
+                _viewState.update {
+                    it.copy(
+                        epgPrograms = merged,
+                        epgLoadedToUtc = maxOf(it.epgLoadedToUtc, newTo)
+                    )
+                }
+            }
+        }
+    }
+
+    private fun mergePrograms(existing: List<EpgProgram>, added: List<EpgProgram>): List<EpgProgram> {
+        if (added.isEmpty()) return existing
+        val map = LinkedHashMap<String, EpgProgram>()
+        fun key(p: EpgProgram): String = if (p.id.isNotBlank()) p.id else "${p.startTimeMillis}:${p.title}"
+        existing.forEach { map[key(it)] = it }
+        added.forEach { map[key(it)] = it }
+        return map.values.sortedBy { it.startTimeMillis }
     }
 
     fun returnToLive() {

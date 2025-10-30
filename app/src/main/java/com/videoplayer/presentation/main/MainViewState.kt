@@ -20,6 +20,8 @@ data class MainViewState(
     val showEpgPanel: Boolean = false,
     val epgChannelTvgId: String = "", // TVG ID of channel whose EPG is open
     val epgPrograms: List<EpgProgram> = emptyList(),
+    val epgLoadedFromUtc: Long = 0L,
+    val epgLoadedToUtc: Long = 0L,
     val currentProgram: EpgProgram? = null,
     val selectedProgramDetails: EpgProgram? = null, // Program selected for details view
     val currentProgramsMap: Map<String, EpgProgram?> = emptyMap(),
