@@ -210,10 +210,18 @@ fun PlayerScreen(
                         onResumePlayback = onResumePlayback
                     )
                     playerView.hideSettingsControls()
-                    playerView.updateVideoRotation(viewState.videoRotation)
                 },
                 modifier = Modifier.fillMaxSize()
             )
+        }
+
+        // Handle video rotation changes separately to avoid UI freezes
+        // LaunchedEffect ensures rotation is only applied when videoRotation actually changes,
+        // not on every recomposition from other state changes
+        LaunchedEffect(viewState.videoRotation, playerViewRef) {
+            playerViewRef?.let { playerView ->
+                playerView.updateVideoRotation(viewState.videoRotation)
+            }
         }
 
         // Custom Control Buttons Overlay (bottom) - synced with ExoPlayer controls
@@ -1195,8 +1203,17 @@ private fun String.truncateForOverlay(maxChars: Int = MAX_PROGRAM_TITLE_CHARS): 
     return if (trimmed.isEmpty()) "…" else "$trimmed…"
 }
 
+// Track the last applied rotation to avoid redundant updates
+private var lastAppliedRotation: Float = 0f
+
 private fun PlayerView.updateVideoRotation(rotationDegrees: Float) {
     val userRotation = ((rotationDegrees % 360f) + 360f) % 360f
+
+    // Skip if rotation hasn't changed
+    if (userRotation == lastAppliedRotation) {
+        return
+    }
+    lastAppliedRotation = userRotation
 
     val textureView = videoSurfaceView as? TextureView
     if (textureView == null) {
@@ -1232,7 +1249,7 @@ private fun PlayerView.updateVideoRotation(rotationDegrees: Float) {
 
         // Compute rotation needed so that total visual rotation equals userRotation
         var delta = userRotation - baseRotation
-        // Normalize to [-180, 180] friendly range for matrix application
+        // Normalize to [0, 360] range for matrix application
         delta = ((delta % 360f) + 360f) % 360f
         if (delta != 0f) {
             workingMatrix.postRotate(delta, pivotX, pivotY)

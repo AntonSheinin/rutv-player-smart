@@ -1006,14 +1006,15 @@ class MainViewModel @Inject constructor(
     }
 
     /**
-     * Toggle video rotation
+     * Cycle video rotation through 0° → 90° → 180° → 270° → 0°
      */
     fun toggleRotation() {
         val currentRotation = _viewState.value.videoRotation
-        val newRotation = if (currentRotation == Constants.VIDEO_ROTATION_0) {
-            Constants.VIDEO_ROTATION_90
-        } else {
-            Constants.VIDEO_ROTATION_0
+        val newRotation = when (currentRotation) {
+            Constants.VIDEO_ROTATION_0 -> Constants.VIDEO_ROTATION_90
+            Constants.VIDEO_ROTATION_90 -> Constants.VIDEO_ROTATION_180
+            Constants.VIDEO_ROTATION_180 -> Constants.VIDEO_ROTATION_270
+            else -> Constants.VIDEO_ROTATION_0  // Cycle back from 270°
         }
 
         _viewState.update { it.copy(videoRotation = newRotation) }

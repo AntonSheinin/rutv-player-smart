@@ -30,6 +30,8 @@ object Constants {
     // Player
     const val VIDEO_ROTATION_0 = 0f
     const val VIDEO_ROTATION_90 = 90f
+    const val VIDEO_ROTATION_180 = 180f
+    const val VIDEO_ROTATION_270 = 270f
     const val SEEK_INCREMENT_MS = 10_000L
 
     // Buffer settings
