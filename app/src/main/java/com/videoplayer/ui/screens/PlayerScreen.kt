@@ -1242,10 +1242,10 @@ private fun PlayerView.updateVideoRotation(rotationDegrees: Float) {
         val displayAspectRatio = viewWidth / viewHeight
         val videoAspectRatio = if (userRotation == 90f || userRotation == 270f) {
             // When rotated 90°, swap dimensions
-            (videoSize?.height ?: 1f) / (videoSize?.width ?: 1f) * (videoSize?.pixelWidthHeightRatio ?: 1f)
+            (videoSize?.height?.toFloat() ?: 1f) / (videoSize?.width?.toFloat() ?: 1f) * (videoSize?.pixelWidthHeightRatio ?: 1f)
         } else {
             // Normal orientation
-            (videoSize?.width ?: 1f) / (videoSize?.height ?: 1f) * (videoSize?.pixelWidthHeightRatio ?: 1f)
+            (videoSize?.width?.toFloat() ?: 1f) / (videoSize?.height?.toFloat() ?: 1f) * (videoSize?.pixelWidthHeightRatio ?: 1f)
         }
 
         val scale = if (videoAspectRatio > displayAspectRatio) {

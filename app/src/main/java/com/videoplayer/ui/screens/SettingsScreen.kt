@@ -49,7 +49,7 @@ fun SettingsScreen(
     val context = LocalContext.current
     var showUrlDialog by remember { mutableStateOf(false) }
     var showReloadDialog by remember { mutableStateOf(false) }
-    
+
     var showNoPlaylistDialog by remember { mutableStateOf(false) }
 
     // File picker launcher

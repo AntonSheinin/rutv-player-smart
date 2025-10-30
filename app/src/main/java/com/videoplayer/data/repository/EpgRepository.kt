@@ -12,6 +12,9 @@ import com.videoplayer.util.Constants
 import com.videoplayer.util.Result
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import timber.log.Timber
@@ -701,22 +704,18 @@ class EpgRepository @Inject constructor(
         tvgId: String,
         fromUtcMillis: Long,
         toUtcMillis: Long
-    ): List<EpgProgram> = withContext(Dispatchers.IO) {
+    ): List<EpgProgram> = coroutineScope {
         val key = WindowKey(epgUrl, tvgId, fromUtcMillis, toUtcMillis)
-        windowCache[key]?.let { return@withContext it }
+        windowCache[key]?.let { return@coroutineScope it }
 
-        windowInFlight[key]?.let { existing ->
-            return@withContext existing.await()
-        }
+        val deferred: Deferred<List<EpgProgram>> = windowInFlight[key]
+            ?: async(Dispatchers.IO) { fetchSingleChannelWindow(epgUrl, tvgId, fromUtcMillis, toUtcMillis) }
+                .also { windowInFlight[key] = it }
 
-        val deferred = kotlinx.coroutines.GlobalScope.async(Dispatchers.IO) {
-            fetchSingleChannelWindow(epgUrl, tvgId, fromUtcMillis, toUtcMillis)
-        }
-        windowInFlight[key] = deferred
         try {
             val result = deferred.await()
             windowCache[key] = result
-            return@withContext result
+            result
         } finally {
             windowInFlight.remove(key)
         }
