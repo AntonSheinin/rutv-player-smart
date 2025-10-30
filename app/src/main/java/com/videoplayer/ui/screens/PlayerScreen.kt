@@ -50,6 +50,7 @@ import com.videoplayer.ui.theme.ruTvColors
 import com.videoplayer.util.Constants
 import android.annotation.SuppressLint
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.snapshotFlow
 import kotlin.math.min
 import kotlin.math.min
 import java.text.SimpleDateFormat
@@ -707,13 +708,13 @@ private fun EpgPanel(
     }
 
     // Lazy paging triggers near list edges
+    var edgeRequestedPast by remember { mutableStateOf(false) }
+    var edgeRequestedFuture by remember { mutableStateOf(false) }
     LaunchedEffect(programs.size) {
         // Reset edge request guards when list size changes
         edgeRequestedPast = false
         edgeRequestedFuture = false
     }
-    var edgeRequestedPast by remember { mutableStateOf(false) }
-    var edgeRequestedFuture by remember { mutableStateOf(false) }
     LaunchedEffect(listState) {
         snapshotFlow { listState.firstVisibleItemIndex to listState.layoutInfo.totalItemsCount }
             .collect { (firstIndex, total) ->
