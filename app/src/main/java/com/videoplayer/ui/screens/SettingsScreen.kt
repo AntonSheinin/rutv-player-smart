@@ -44,6 +44,7 @@ fun SettingsScreen(
     onEpgUrlChanged: (String) -> Unit,
     onEpgDaysAheadChanged: (Int) -> Unit,
     onEpgDaysPastChanged: (Int) -> Unit,
+    onEpgPageDaysChanged: (Int) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -268,6 +269,16 @@ fun SettingsScreen(
                     onValueChange = onEpgDaysPastChanged,
                     minValue = 1,
                     maxValue = 60
+                )
+            }
+
+            item {
+                NumberInputSetting(
+                    label = stringResource(R.string.settings_epg_page_days),
+                    value = viewState.epgPageDays,
+                    onValueChange = onEpgPageDaysChanged,
+                    minValue = 1,
+                    maxValue = 14
                 )
             }
 

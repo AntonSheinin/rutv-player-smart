@@ -761,6 +761,7 @@ class MainViewModel @Inject constructor(
             val tvgId = _viewState.value.epgChannelTvgId.ifBlank { return@launch }
             val epgUrl = preferencesRepository.epgUrl.first().ifBlank { return@launch }
             val pastDays = preferencesRepository.epgDaysPast.first().coerceAtLeast(0)
+            val stepDays = preferencesRepository.epgPageDays.first().coerceAtLeast(1)
 
             val zone = java.time.ZonedDateTime.now().zone
             val globalFrom = java.time.ZonedDateTime.now()
@@ -775,7 +776,7 @@ class MainViewModel @Inject constructor(
             val newFromZoned = java.time.Instant.ofEpochMilli(currentFrom)
                 .atZone(zone)
                 .toLocalDate()
-                .minusDays(1)
+                .minusDays(stepDays.toLong())
                 .atStartOfDay(zone)
             val newFrom = maxOf(globalFrom, newFromZoned.toInstant().toEpochMilli())
             val newTo = currentFrom - 1
@@ -800,6 +801,7 @@ class MainViewModel @Inject constructor(
             val tvgId = _viewState.value.epgChannelTvgId.ifBlank { return@launch }
             val epgUrl = preferencesRepository.epgUrl.first().ifBlank { return@launch }
             val daysAhead = preferencesRepository.epgDaysAhead.first().coerceAtLeast(0)
+            val stepDays = preferencesRepository.epgPageDays.first().coerceAtLeast(1)
 
             val zone = java.time.ZonedDateTime.now().zone
             val globalTo = java.time.ZonedDateTime.now()
@@ -815,7 +817,7 @@ class MainViewModel @Inject constructor(
             val nextDayStart = java.time.Instant.ofEpochMilli(currentTo)
                 .atZone(zone)
                 .toLocalDate()
-                .plusDays(1)
+                .plusDays(stepDays.toLong())
                 .atStartOfDay(zone)
                 .toInstant().toEpochMilli()
             val newFrom = nextDayStart
@@ -823,7 +825,7 @@ class MainViewModel @Inject constructor(
                 java.time.Instant.ofEpochMilli(currentTo)
                     .atZone(zone)
                     .toLocalDate()
-                    .plusDays(1)
+                    .plusDays(stepDays.toLong())
                     .atTime(java.time.LocalTime.of(23, 59, 59))
                     .atZone(zone)
                     .toInstant().toEpochMilli()

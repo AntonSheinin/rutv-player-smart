@@ -69,6 +69,13 @@ class SettingsViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            // Load EPG page size (days per page)
+            preferencesRepository.epgPageDays.collect { days ->
+                _viewState.update { it.copy(epgPageDays = days) }
+            }
+        }
+
+        viewModelScope.launch {
             // Load player config
             preferencesRepository.playerConfig.collect { config ->
                 _viewState.update { it.copy(playerConfig = config) }
@@ -271,6 +278,21 @@ class SettingsViewModel @Inject constructor(
                 Timber.d("EPG days past saved: $clampedDays")
             } catch (e: Exception) {
                 Timber.e(e, "Failed to save EPG days past")
+            }
+        }
+    }
+
+    /**
+     * Update EPG page size (days per page)
+     */
+    fun setEpgPageDays(days: Int) {
+        viewModelScope.launch {
+            val clampedDays = days.coerceIn(1, 14)
+            try {
+                preferencesRepository.saveEpgPageDays(clampedDays)
+                Timber.d("EPG page days saved: $clampedDays")
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to save EPG page days")
             }
         }
     }

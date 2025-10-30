@@ -94,6 +94,9 @@ class SettingsActivity : ComponentActivity() {
                 },
                 onEpgDaysPastChanged = { days ->
                     viewModel.setEpgDaysPast(days)
+                },
+                onEpgPageDaysChanged = { days ->
+                    viewModel.setEpgPageDays(days)
             },
             onBack = { finish() },
             modifier = Modifier.fillMaxSize()

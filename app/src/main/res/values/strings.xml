@@ -44,6 +44,7 @@
     <string name="settings_epg_url">EPG XML URL</string>
     <string name="settings_epg_days_ahead">EPG Days Ahead</string>
     <string name="settings_epg_days_past">EPG Depth (past days)</string>
+    <string name="settings_epg_page_days">EPG Page Size (days per page)</string>
     <string name="settings_force_epg_fetch">Force EPG Fetch</string>
     <string name="settings_back">Back</string>
     <string name="settings_current_file">File</string>

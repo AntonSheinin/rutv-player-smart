@@ -11,6 +11,7 @@ data class SettingsViewState(
     val epgUrl: String = "",
     val epgDaysAhead: Int = 7,
     val epgDaysPast: Int = 14,
+    val epgPageDays: Int = 1,
     val playerConfig: PlayerConfig = PlayerConfig(),
     val isLoading: Boolean = false,
     val error: String? = null,

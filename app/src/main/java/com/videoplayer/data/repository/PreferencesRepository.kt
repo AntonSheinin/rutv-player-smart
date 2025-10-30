@@ -40,6 +40,7 @@ class PreferencesRepository @Inject constructor(
         val EPG_URL = stringPreferencesKey("epg_url")
         val EPG_DAYS_AHEAD = intPreferencesKey("epg_days_ahead")
         val EPG_DAYS_PAST = intPreferencesKey("epg_days_past")
+        val EPG_PAGE_DAYS = intPreferencesKey("epg_page_days")
 
         val USE_FFMPEG_AUDIO = booleanPreferencesKey("use_ffmpeg_audio")
         val USE_FFMPEG_VIDEO = booleanPreferencesKey("use_ffmpeg_video")
@@ -158,6 +159,22 @@ class PreferencesRepository @Inject constructor(
             preferences[PreferencesKeys.EPG_DAYS_PAST] = days
         }
         Timber.d("Saved EPG days past: $days")
+    }
+
+    /**
+     * EPG Page Size (days per page) for lazy paging
+     * Default: 1 day
+     */
+    val epgPageDays: Flow<Int> = dataStore.data
+        .map { preferences ->
+            preferences[PreferencesKeys.EPG_PAGE_DAYS] ?: 1
+        }
+
+    suspend fun saveEpgPageDays(days: Int) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.EPG_PAGE_DAYS] = days
+        }
+        Timber.d("Saved EPG page size (days): $days")
     }
 
     /**
