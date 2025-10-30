@@ -37,7 +37,6 @@ fun SettingsScreen(
     onLoadFile: (String, String?) -> Unit,
     onLoadUrl: (String) -> Unit,
     onReloadPlaylist: () -> Unit,
-    onForceEpgFetch: () -> Unit,
     onDebugLogChanged: (Boolean) -> Unit,
     onFfmpegAudioChanged: (Boolean) -> Unit,
     onFfmpegVideoChanged: (Boolean) -> Unit,
@@ -50,7 +49,7 @@ fun SettingsScreen(
     val context = LocalContext.current
     var showUrlDialog by remember { mutableStateOf(false) }
     var showReloadDialog by remember { mutableStateOf(false) }
-    var showForceEpgDialog by remember { mutableStateOf(false) }
+    
     var showNoPlaylistDialog by remember { mutableStateOf(false) }
 
     // File picker launcher

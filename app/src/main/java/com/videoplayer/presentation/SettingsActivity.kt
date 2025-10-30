@@ -74,9 +74,6 @@ class SettingsActivity : ComponentActivity() {
             onReloadPlaylist = {
                 viewModel.reloadPlaylist()
             },
-            onForceEpgFetch = {
-                viewModel.forceEpgFetch()
-            },
             onDebugLogChanged = { enabled ->
                 viewModel.setDebugLogEnabled(enabled)
             },
