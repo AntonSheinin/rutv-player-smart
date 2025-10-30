@@ -3,6 +3,7 @@
 
     <!-- Dialog Titles -->
     <string name="dialog_title_go_to_channel">Go to Channel</string>
+    <string name="dialog_title_search_channel">Search Channel</string>
     <string name="dialog_title_no_playlist">No Playlist Configured</string>
     <string name="dialog_title_load_playlist_url">Load Playlist from URL</string>
     <string name="dialog_title_no_playlist_loaded">No Playlist</string>
@@ -24,6 +25,7 @@
 
     <!-- Input Hints -->
     <string name="hint_channel_number">Enter channel number (1-%1$d)</string>
+    <string name="hint_search_channel">Enter channel name</string>
     <string name="hint_m3u_url">Enter M3U/M3U8 URL</string>
 
     <!-- Status -->
@@ -68,6 +70,7 @@
     <string name="cd_settings_button">Open settings</string>
     <string name="cd_go_to_channel_button">Go to channel number</string>
     <string name="cd_close_playlist">Close playlist</string>
+    <string name="cd_search_channel">Search channel</string>
     <string name="cd_aspect_ratio_button">Change aspect ratio</string>
     <string name="cd_orientation_button">Rotate video</string>
     <string name="cd_epg_archive_indicator">Available in archive</string>

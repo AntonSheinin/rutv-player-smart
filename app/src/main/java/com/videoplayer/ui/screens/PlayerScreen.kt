@@ -32,6 +32,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -470,22 +472,25 @@ private fun ChannelInfoOverlay(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        val btnHeight = 48.dp
+                        var buttonHeight by remember { mutableStateOf(48.dp) }
+                        val density = LocalDensity.current
                         Button(
                             onClick = onReturnToLive,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.ruTvColors.gold,
                                 contentColor = MaterialTheme.ruTvColors.darkBackground
                             ),
-                            modifier = Modifier.height(btnHeight)
+                            modifier = Modifier.onSizeChanged { size ->
+                                buttonHeight = with(density) { size.height.toDp() }
+                            }
                         ) {
                             Text(text = stringResource(R.string.player_return_to_live))
                         }
                         currentProgram?.let { program ->
                             Box(
                                 modifier = Modifier
-                                    .size(btnHeight)
-                                    .clip(RoundedCornerShape(btnHeight / 2))
+                                    .size(buttonHeight)
+                                    .clip(RoundedCornerShape(buttonHeight / 2))
                                     .background(MaterialTheme.ruTvColors.darkBackground)
                             ) {
                                 IconButton(
@@ -522,6 +527,8 @@ private fun PlaylistPanel(
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
+    var showSearchDialog by remember { mutableStateOf(false) }
+    var searchText by remember { mutableStateOf("") }
 
     // Auto-scroll to current channel when panel opens (center it in viewport)
     LaunchedEffect(currentChannelIndex, channels.size) {
@@ -552,11 +559,28 @@ private fun PlaylistPanel(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = playlistTitle,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.ruTvColors.gold
-                )
+                Row(
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = playlistTitle,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.ruTvColors.gold,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    IconButton(
+                        onClick = { showSearchDialog = true },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = stringResource(R.string.cd_search_channel),
+                            tint = MaterialTheme.ruTvColors.gold
+                        )
+                    }
+                }
                 IconButton(onClick = onClose) {
                     Icon(
                         imageVector = Icons.Default.Close,
@@ -637,6 +661,51 @@ private fun PlaylistPanel(
                         }
                     }
                 }
+            }
+
+            // Search Dialog
+            if (showSearchDialog) {
+                AlertDialog(
+                    onDismissRequest = {
+                        showSearchDialog = false
+                        searchText = ""
+                    },
+                    title = { Text(text = stringResource(R.string.dialog_title_search_channel)) },
+                    text = {
+                        OutlinedTextField(
+                            value = searchText,
+                            onValueChange = { searchText = it },
+                            label = { Text(stringResource(R.string.hint_search_channel)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            if (searchText.isNotBlank()) {
+                                val searchLower = searchText.lowercase()
+                                val matchingIndex = channels.indexOfFirst { channel ->
+                                    channel.title.lowercase().contains(searchLower)
+                                }
+                                if (matchingIndex >= 0) {
+                                    listState.animateScrollToItem(matchingIndex, scrollOffset = -160)
+                                }
+                                showSearchDialog = false
+                                searchText = ""
+                            }
+                        }) {
+                            Text(text = stringResource(R.string.button_ok))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = {
+                            showSearchDialog = false
+                            searchText = ""
+                        }) {
+                            Text(text = stringResource(R.string.button_cancel))
+                        }
+                    }
+                )
             }
         }
     }
@@ -756,10 +825,17 @@ private fun EpgPanel(
                 horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                val titleText = if (channel != null) {
+                    "${stringResource(R.string.epg_panel_title)} • ${channel.title}"
+                } else {
+                    stringResource(R.string.epg_panel_title)
+                }
                 Text(
-                    text = stringResource(R.string.epg_panel_title),
+                    text = titleText,
                     style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.ruTvColors.gold
+                    color = MaterialTheme.ruTvColors.gold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 
