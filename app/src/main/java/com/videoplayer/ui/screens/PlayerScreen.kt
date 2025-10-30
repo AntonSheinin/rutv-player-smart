@@ -71,7 +71,6 @@ fun PlayerScreen(
     onToggleFavorites: () -> Unit,
     onClosePlaylist: () -> Unit,
     onCycleAspectRatio: () -> Unit,
-    onToggleRotation: () -> Unit,
     onOpenSettings: () -> Unit,
     onGoToChannel: () -> Unit,
     onShowProgramDetails: (EpgProgram) -> Unit,

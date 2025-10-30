@@ -1117,19 +1117,7 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Toggle video rotation between landscape (0°) and portrait (90°)
-     */
-    fun toggleRotation() {
-        val currentRotation = _viewState.value.videoRotation
-        val newRotation = if (currentRotation == Constants.VIDEO_ROTATION_0) {
-            Constants.VIDEO_ROTATION_90
-        } else {
-            Constants.VIDEO_ROTATION_0
-        }
-
-        _viewState.update { it.copy(videoRotation = newRotation) }
-    }
+    // Rotation control removed (button UI is disabled/faded)
 
     /**
      * Get player instance

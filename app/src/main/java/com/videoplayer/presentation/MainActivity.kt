@@ -113,7 +113,6 @@ class MainActivity : ComponentActivity() {
             onToggleFavorites = { viewModel.toggleFavorites() },
             onClosePlaylist = { viewModel.closePlaylist() },
             onCycleAspectRatio = { viewModel.cycleAspectRatio() },
-            onToggleRotation = { viewModel.toggleRotation() },
             onOpenSettings = { settingsLauncher.launch(Intent(context, SettingsActivity::class.java)) },
             onGoToChannel = {
                 if (viewState.hasChannels) {
