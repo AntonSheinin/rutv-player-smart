@@ -399,11 +399,13 @@ private fun ChannelInfoOverlay(
                         }
                         IconButton(
                             onClick = { onShowProgramInfo(program) },
-                            colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.ruTvColors.gold)
+                            colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.ruTvColors.gold),
+                            modifier = Modifier.size(56.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Info,
-                                contentDescription = stringResource(R.string.player_program_info)
+                                contentDescription = stringResource(R.string.player_program_info),
+                                modifier = Modifier.size(32.dp)
                             )
                         }
                     }
@@ -437,11 +439,13 @@ private fun ChannelInfoOverlay(
                             )
                             IconButton(
                                 onClick = { onShowProgramInfo(program) },
-                                colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.ruTvColors.gold)
+                                colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.ruTvColors.gold),
+                                modifier = Modifier.size(56.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Info,
-                                    contentDescription = stringResource(R.string.player_program_info)
+                                    contentDescription = stringResource(R.string.player_program_info),
+                                    modifier = Modifier.size(32.dp)
                                 )
                             }
                         }
@@ -466,11 +470,13 @@ private fun ChannelInfoOverlay(
                         currentProgram?.let { program ->
                             IconButton(
                                 onClick = { onShowProgramInfo(program) },
-                                colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.ruTvColors.gold)
+                                colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.ruTvColors.gold),
+                                modifier = Modifier.size(56.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Info,
-                                    contentDescription = stringResource(R.string.player_program_info)
+                                    contentDescription = stringResource(R.string.player_program_info),
+                                    modifier = Modifier.size(32.dp)
                                 )
                             }
                         }
@@ -1228,7 +1234,6 @@ private fun PlayerView.updateVideoRotation(rotationDegrees: Float) {
         var delta = userRotation - baseRotation
         // Normalize to [-180, 180] friendly range for matrix application
         delta = ((delta % 360f) + 360f) % 360f
-        if (delta == 270f) delta = -90f
         if (delta != 0f) {
             workingMatrix.postRotate(delta, pivotX, pivotY)
         }

@@ -286,12 +286,15 @@ class MainViewModel @Inject constructor(
     }
 
     private fun flushPendingCurrentProgramsIfReady() {
-        val snapshot = pendingCurrentProgramsSnapshot ?: return
+        val pendingSnapshot = pendingCurrentProgramsSnapshot ?: return
         val timestamp = pendingEpgTimestamp ?: System.currentTimeMillis()
         viewModelScope.launch(Dispatchers.Main) {
             if (_viewState.value.channels.isEmpty()) return@launch
             pendingCurrentProgramsSnapshot = null
             pendingEpgTimestamp = null
+            // Refresh snapshot with latest data from repository to ensure current programs are up-to-date
+            val freshSnapshot = epgRepository.getCurrentProgramsSnapshot()
+            val snapshot = if (freshSnapshot.isNotEmpty()) freshSnapshot else pendingSnapshot
             _viewState.update {
                 val currentChannel = it.currentChannel
                 val updatedCurrentProgram = currentChannel?.tvgId?.let(snapshot::get)
@@ -1008,7 +1011,7 @@ class MainViewModel @Inject constructor(
     fun toggleRotation() {
         val currentRotation = _viewState.value.videoRotation
         val newRotation = if (currentRotation == Constants.VIDEO_ROTATION_0) {
-            Constants.VIDEO_ROTATION_270
+            Constants.VIDEO_ROTATION_90
         } else {
             Constants.VIDEO_ROTATION_0
         }
