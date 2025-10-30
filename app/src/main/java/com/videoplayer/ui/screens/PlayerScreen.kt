@@ -53,7 +53,9 @@ import com.videoplayer.ui.theme.ruTvColors
 import com.videoplayer.util.Constants
 import android.annotation.SuppressLint
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.rememberCoroutineScope
 import kotlin.math.min
 import kotlin.math.min
 import java.text.SimpleDateFormat
@@ -527,6 +529,7 @@ private fun PlaylistPanel(
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
     var showSearchDialog by remember { mutableStateOf(false) }
     var searchText by remember { mutableStateOf("") }
 
@@ -688,7 +691,9 @@ private fun PlaylistPanel(
                                     channel.title.lowercase().contains(searchLower)
                                 }
                                 if (matchingIndex >= 0) {
-                                    listState.animateScrollToItem(matchingIndex, scrollOffset = -160)
+                                    coroutineScope.launch {
+                                        listState.animateScrollToItem(matchingIndex, scrollOffset = -160)
+                                    }
                                 }
                                 showSearchDialog = false
                                 searchText = ""
