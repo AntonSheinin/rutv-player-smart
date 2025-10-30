@@ -50,7 +50,7 @@ import com.videoplayer.ui.theme.ruTvColors
 import com.videoplayer.util.Constants
 import android.annotation.SuppressLint
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.snapshotFlow
+import androidx.compose.runtime.snapshotFlow
 import kotlin.math.min
 import kotlin.math.min
 import java.text.SimpleDateFormat
