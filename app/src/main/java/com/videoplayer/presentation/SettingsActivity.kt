@@ -91,6 +91,9 @@ class SettingsActivity : ComponentActivity() {
             },
             onEpgDaysAheadChanged = { days ->
                 viewModel.setEpgDaysAhead(days)
+                },
+                onEpgDaysPastChanged = { days ->
+                    viewModel.setEpgDaysPast(days)
             },
             onBack = { finish() },
             modifier = Modifier.fillMaxSize()

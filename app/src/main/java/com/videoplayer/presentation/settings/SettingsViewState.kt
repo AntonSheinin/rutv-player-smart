@@ -10,6 +10,7 @@ data class SettingsViewState(
     val playlistSource: PlaylistSource = PlaylistSource.None,
     val epgUrl: String = "",
     val epgDaysAhead: Int = 7,
+    val epgDaysPast: Int = 14,
     val playerConfig: PlayerConfig = PlayerConfig(),
     val isLoading: Boolean = false,
     val error: String? = null,

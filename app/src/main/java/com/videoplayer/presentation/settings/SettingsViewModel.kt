@@ -62,6 +62,13 @@ class SettingsViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            // Load EPG days past (depth)
+            preferencesRepository.epgDaysPast.collect { days ->
+                _viewState.update { it.copy(epgDaysPast = days) }
+            }
+        }
+
+        viewModelScope.launch {
             // Load player config
             preferencesRepository.playerConfig.collect { config ->
                 _viewState.update { it.copy(playerConfig = config) }
@@ -249,6 +256,21 @@ class SettingsViewModel @Inject constructor(
                 Timber.d("EPG days ahead saved: $clampedDays")
             } catch (e: Exception) {
                 Timber.e(e, "Failed to save EPG days ahead")
+            }
+        }
+    }
+
+    /**
+     * Update EPG depth (past days)
+     */
+    fun setEpgDaysPast(days: Int) {
+        viewModelScope.launch {
+            val clampedDays = days.coerceIn(1, 60)
+            try {
+                preferencesRepository.saveEpgDaysPast(clampedDays)
+                Timber.d("EPG days past saved: $clampedDays")
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to save EPG days past")
             }
         }
     }

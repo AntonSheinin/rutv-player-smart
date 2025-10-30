@@ -713,15 +713,24 @@ class MainViewModel @Inject constructor(
                     return@launch
                 }
 
+                val channel = _viewState.value.channels.firstOrNull { it.tvgId == tvgId }
+                val epgDaysPast = preferencesRepository.epgDaysPast.first().coerceAtLeast(0)
+                val daysAhead = preferencesRepository.epgDaysAhead.first().coerceAtLeast(0)
+
                 val nowZoned = java.time.ZonedDateTime.now()
-                val dayStart = nowZoned.toLocalDate().atStartOfDay(nowZoned.zone).toInstant().toEpochMilli()
-                val dayEnd = nowZoned.toLocalDate().atTime(java.time.LocalTime.of(23, 59, 59)).atZone(nowZoned.zone).toInstant().toEpochMilli()
+                val fromZoned = nowZoned.toLocalDate()
+                    .minusDays(epgDaysPast.toLong())
+                    .atStartOfDay(nowZoned.zone)
+                val toZoned = nowZoned.toLocalDate()
+                    .plusDays(daysAhead.toLong())
+                    .atTime(java.time.LocalTime.of(23, 59, 59))
+                    .atZone(nowZoned.zone)
 
                 val programs = epgRepository.getWindowedProgramsForChannel(
                     epgUrl = epgUrl,
                     tvgId = tvgId,
-                    fromUtcMillis = dayStart,
-                    toUtcMillis = dayEnd
+                    fromUtcMillis = fromZoned.toInstant().toEpochMilli(),
+                    toUtcMillis = toZoned.toInstant().toEpochMilli()
                 )
                 val current = programs.firstOrNull { it.isCurrent() }
 

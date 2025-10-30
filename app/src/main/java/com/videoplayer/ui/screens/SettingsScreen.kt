@@ -43,6 +43,7 @@ fun SettingsScreen(
     onBufferSecondsChanged: (Int) -> Unit,
     onEpgUrlChanged: (String) -> Unit,
     onEpgDaysAheadChanged: (Int) -> Unit,
+    onEpgDaysPastChanged: (Int) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -257,6 +258,16 @@ fun SettingsScreen(
                     onValueChange = onEpgDaysAheadChanged,
                     minValue = 1,
                     maxValue = 30
+                )
+            }
+
+            item {
+                NumberInputSetting(
+                    label = stringResource(R.string.settings_epg_days_past),
+                    value = viewState.epgDaysPast,
+                    onValueChange = onEpgDaysPastChanged,
+                    minValue = 1,
+                    maxValue = 60
                 )
             }
 

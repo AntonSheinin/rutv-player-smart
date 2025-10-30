@@ -39,6 +39,7 @@ class PreferencesRepository @Inject constructor(
 
         val EPG_URL = stringPreferencesKey("epg_url")
         val EPG_DAYS_AHEAD = intPreferencesKey("epg_days_ahead")
+        val EPG_DAYS_PAST = intPreferencesKey("epg_days_past")
 
         val USE_FFMPEG_AUDIO = booleanPreferencesKey("use_ffmpeg_audio")
         val USE_FFMPEG_VIDEO = booleanPreferencesKey("use_ffmpeg_video")
@@ -141,6 +142,22 @@ class PreferencesRepository @Inject constructor(
             preferences[PreferencesKeys.EPG_DAYS_AHEAD] = days
         }
         Timber.d("Saved EPG days ahead: $days")
+    }
+
+    /**
+     * EPG Days Past (depth) - Maximum past days to show EPG for all channels
+     * Default: 14 days
+     */
+    val epgDaysPast: Flow<Int> = dataStore.data
+        .map { preferences ->
+            preferences[PreferencesKeys.EPG_DAYS_PAST] ?: 14
+        }
+
+    suspend fun saveEpgDaysPast(days: Int) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.EPG_DAYS_PAST] = days
+        }
+        Timber.d("Saved EPG days past: $days")
     }
 
     /**
