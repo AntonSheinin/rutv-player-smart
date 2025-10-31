@@ -55,6 +55,7 @@ import com.videoplayer.util.Constants
 import android.annotation.SuppressLint
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlin.math.min
@@ -234,6 +235,7 @@ fun PlayerScreen(
         }
 
         // Update progress bar times when program changes or controls become visible
+        // Use coroutine with Main dispatcher to avoid blocking UI
         LaunchedEffect(viewState.currentProgram, viewState.archiveProgram, viewState.isArchivePlayback, playerViewRef, showControls) {
             playerViewRef?.let { playerView ->
                 val program = if (viewState.isArchivePlayback) viewState.archiveProgram else viewState.currentProgram
@@ -242,7 +244,7 @@ fun PlayerScreen(
                     val startTimeText = timeFormat.format(Date(program.startTimeMillis))
                     val endTimeText = timeFormat.format(Date(program.stopTimeMillis))
 
-                    // Use post to ensure views are laid out
+                    // Update immediately when program changes
                     playerView.post {
                         playerView.findControlView("exo_position")?.let { view ->
                             if (view is TextView) {
@@ -256,28 +258,24 @@ fun PlayerScreen(
                         }
                     }
 
-                    // Periodically update in case ExoPlayer resets them - update more aggressively
+                    // Update periodically but less frequently to avoid UI blocking
+                    // Use yield() to allow other coroutines to run
                     while (showControls && playerViewRef == playerView) {
-                        delay(100) // Update every 100ms to prevent ExoPlayer from overwriting
-                        playerView.findControlView("exo_position")?.let { view ->
-                            if (view is TextView) {
-                                // Always set, don't check, as ExoPlayer might update it
-                                view.text = startTimeText
-                                // Also try to disable auto-updates if possible
-                                view.isEnabled = false
+                        delay(250) // Reduced frequency: 250ms instead of 100ms
+                        yield() // Yield to prevent blocking
+                        
+                        // Post updates on main thread
+                        playerView.post {
+                            playerView.findControlView("exo_position")?.let { view ->
+                                if (view is TextView) {
+                                    view.text = startTimeText
+                                }
                             }
-                        }
-                        playerView.findControlView("exo_duration")?.let { view ->
-                            if (view is TextView) {
-                                // Always set, don't check, as ExoPlayer might update it
-                                view.text = endTimeText
-                                // Also try to disable auto-updates if possible
-                                view.isEnabled = false
+                            playerView.findControlView("exo_duration")?.let { view ->
+                                if (view is TextView) {
+                                    view.text = endTimeText
+                                }
                             }
-                        }
-                        // Try to find and disable any TimeBar that might be updating these
-                        playerView.findControlView("exo_timebar")?.let { view ->
-                            view.isEnabled = false
                         }
                     }
                 }
@@ -1326,11 +1324,7 @@ private fun ControlColumn(
                     Icon(
                         imageVector = button.icon,
                         contentDescription = stringResource(button.description),
-                        tint = if (isRotation) {
-                            MaterialTheme.ruTvColors.gold.copy(alpha = DISABLED_CONTROL_ALPHA)
-                        } else {
-                            MaterialTheme.ruTvColors.gold
-                        },
+                        tint = MaterialTheme.ruTvColors.gold,
                         modifier = Modifier.size(32.dp)
                     )
                 }
@@ -1517,22 +1511,52 @@ private fun PlayerView.applyControlCustomizations(
         }
     }
 
-    // Make progress bar shorter to avoid interfering with custom control buttons
+    // Refactor progress bar: center it and position times on left/right sides
     val progressVerticalOffsetDp = 12f
-    val progressHorizontalOffsetDp = 120f // Increased from 72f to make it shorter
-    listOf("exo_progress", "exo_progress_placeholder", "exo_timebar").forEach { controlId ->
-        findControlView(controlId)?.apply {
-            setVerticalOffsetDp(progressVerticalOffsetDp)
-            setHorizontalOffsetDp(progressHorizontalOffsetDp)
-            // Reduce width by setting layout params
-            (layoutParams as? android.view.ViewGroup.MarginLayoutParams)?.apply {
-                val marginHorizontalDp = 120f
-                val marginPx = (marginHorizontalDp * resources.displayMetrics.density).toInt()
-                setMargins(marginPx, topMargin, marginPx, bottomMargin)
-            }
+    val horizontalMarginDp = 120f // Leave space for custom buttons on sides
+    val horizontalMarginPx = (horizontalMarginDp * resources.displayMetrics.density).toInt()
+    
+    // Find the bottom bar container that holds progress bar and times
+    val bottomBar = findControlView("exo_bottom_bar")
+    
+    // Find the TimeBar/progress bar view
+    val timeBar = findControlView("exo_timebar") ?: findControlView("exo_progress")
+    
+    // Center the progress bar by adjusting its layout margins (not translation)
+    timeBar?.let { bar ->
+        (bar.layoutParams as? android.view.ViewGroup.MarginLayoutParams)?.apply {
+            // Set horizontal margins to center the bar and leave space for side buttons
+            marginStart = horizontalMarginPx
+            marginEnd = horizontalMarginPx
+        }
+        setVerticalOffsetDp(progressVerticalOffsetDp)
+    }
+    
+    // Position time text views - they should already be in the layout on left/right
+    // Just ensure they're vertically aligned with the progress bar
+    val positionView = findControlView("exo_position")
+    val durationView = findControlView("exo_duration")
+    
+    positionView?.let { view ->
+        setVerticalOffsetDp(progressVerticalOffsetDp)
+    }
+    
+    durationView?.let { view ->
+        setVerticalOffsetDp(progressVerticalOffsetDp)
+    }
+    
+    // Also adjust bottom bar container padding if it exists to help with centering
+    bottomBar?.let { container ->
+        if (container is android.view.ViewGroup) {
+            container.setPadding(
+                container.paddingLeft,
+                container.paddingTop,
+                container.paddingRight,
+                container.paddingBottom
+            )
         }
     }
-
+    
     // Update time displays to show program start/end times
     val timeFormat = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
     if (currentProgram != null) {
