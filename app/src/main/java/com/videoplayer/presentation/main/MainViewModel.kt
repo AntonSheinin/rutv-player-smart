@@ -1,7 +1,9 @@
 @file:Suppress("unused")
+@file:SuppressLint("NewApi")
 
 package com.videoplayer.presentation.main
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
