@@ -88,8 +88,6 @@ class PlayerManager @Inject constructor(
     private var networkScope = newNetworkScope()
     private lateinit var httpDataSourceFactory: DefaultHttpDataSource.Factory
 
-    companion object {}
-
     private fun newNetworkScope(): CoroutineScope =
         CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
