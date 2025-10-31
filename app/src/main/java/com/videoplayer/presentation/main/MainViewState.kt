@@ -55,6 +55,7 @@ data class MainViewState(
         get() = channels.isNotEmpty()
 }
 
+@UnstableApi
 @Immutable
 data class ArchivePrompt(
     val channel: Channel,
