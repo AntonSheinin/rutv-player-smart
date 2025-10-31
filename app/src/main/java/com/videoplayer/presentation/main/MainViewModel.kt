@@ -25,6 +25,7 @@ import com.videoplayer.presentation.player.PlayerManager
 import com.videoplayer.presentation.player.PlayerState
 import com.videoplayer.util.Constants
 import com.videoplayer.util.Result
+import com.videoplayer.util.StringFormatter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -164,7 +165,7 @@ class MainViewModel @Inject constructor(
             if (cachedEpg != null) {
                 Timber.d("App Init: Cached EPG loaded (${cachedEpg.totalPrograms} programs)")
                 appendDebugMessage(
-                    DebugMessage("EPG: Loaded cached data (${cachedEpg.totalPrograms} programs for ${cachedEpg.channelsFound} channels)")
+                    DebugMessage(StringFormatter.formatEpgLoadedCached(cachedEpg.totalPrograms, cachedEpg.channelsFound))
                 )
 
                 val loadedAt = System.currentTimeMillis()
@@ -175,12 +176,12 @@ class MainViewModel @Inject constructor(
                 )
             } else {
                 Timber.d("App Init: No cached EPG found")
-                appendDebugMessage(DebugMessage("EPG: No cached data found"))
+                appendDebugMessage(DebugMessage(StringFormatter.formatEpgNoCached()))
             }
         } catch (e: Exception) {
             Timber.e(e, "App Init: Error loading cached EPG")
             appendDebugMessage(
-                DebugMessage("EPG: Failed to load cached data (${e.message ?: "unknown error"})")
+                DebugMessage(StringFormatter.formatEpgFailedLoad(e.message ?: StringFormatter.formatErrorUnknown()))
             )
         }
     }
@@ -210,11 +211,11 @@ class MainViewModel @Inject constructor(
                     if (channels.isNotEmpty()) {
                         val catchupSupported = channels.count { it.supportsCatchup() }
                         appendDebugMessage(
-                            DebugMessage("DVR: Playlist loaded (${channels.size} channels, catch-up: $catchupSupported)")
+                            DebugMessage(StringFormatter.formatEpgPlaylistLoaded(channels.size, catchupSupported.toString()))
                         )
                     } else {
                         Timber.d("App Init: No channels loaded")
-                        appendDebugMessage(DebugMessage("EPG: Playlist empty"))
+                        appendDebugMessage(DebugMessage(StringFormatter.formatEpgPlaylistEmpty()))
                     }
 
                     flushPendingCurrentProgramsIfReady()
@@ -230,13 +231,13 @@ class MainViewModel @Inject constructor(
                 is Result.Error -> {
                     Timber.e(result.exception, "App Init: Failed to load playlist")
                     appendDebugMessage(
-                        DebugMessage("EPG: Playlist load failed (${result.message ?: "unknown error"})")
+                        DebugMessage(StringFormatter.formatEpgPlaylistFailed(result.message ?: StringFormatter.formatErrorUnknown()))
                     )
                     withContext(Dispatchers.Main) {
                         _viewState.update {
                             it.copy(
                                 isLoading = false,
-                                error = result.message ?: "Failed to load playlist"
+                                error = result.message ?: StringFormatter.formatErrorFailedLoadPlaylist()
                             )
                         }
                     }
@@ -251,7 +252,7 @@ class MainViewModel @Inject constructor(
                 _viewState.update {
                     it.copy(
                         isLoading = false,
-                        error = "Initialization failed: ${e.message}"
+                                error = StringFormatter.formatErrorInitFailed(e.message ?: StringFormatter.formatErrorUnknown())
                     )
                 }
             }
@@ -376,7 +377,7 @@ class MainViewModel @Inject constructor(
 
                             } else {
                                 Timber.d("No channels loaded")
-                                appendDebugMessage(DebugMessage("EPG: Playlist empty"))
+                                appendDebugMessage(DebugMessage(StringFormatter.formatEpgPlaylistEmpty()))
                             }
                         }
 
@@ -410,13 +411,13 @@ class MainViewModel @Inject constructor(
                     is Result.Error -> {
                         Timber.e(result.exception, "Error loading playlist")
                         appendDebugMessage(
-                            DebugMessage("EPG: Playlist load failed (${result.message ?: "unknown error"})")
+                            DebugMessage(StringFormatter.formatEpgPlaylistFailed(result.message ?: StringFormatter.formatErrorUnknown()))
                         )
                         withContext(Dispatchers.Main) {
                             _viewState.update {
                                 it.copy(
                                     isLoading = false,
-                                    error = result.message ?: "Failed to load playlist"
+                                    error = result.message ?: StringFormatter.formatErrorFailedLoadPlaylist()
                                 )
                             }
                         }
@@ -467,13 +468,13 @@ class MainViewModel @Inject constructor(
             epgPreloadJob?.join()
             val channels = _viewState.value.channels
             if (channels.isEmpty()) {
-                appendDebugMessage(DebugMessage("EPG: No channels loaded yet, skipping fetch"))
+                appendDebugMessage(DebugMessage(StringFormatter.formatEpgNoChannels()))
                 return@launch
             }
 
             val channelsWithEpg = channels.filter { it.hasEpg }
             if (channelsWithEpg.isEmpty()) {
-                appendDebugMessage(DebugMessage("EPG: No channels with EPG support, skipping fetch"))
+                appendDebugMessage(DebugMessage(StringFormatter.formatEpgNoChannelsSupport()))
                 return@launch
             }
 
@@ -488,7 +489,7 @@ class MainViewModel @Inject constructor(
 
             if (cachedEpg != null && coverageSufficient && lastFetchTimestamp > 0 && hoursSinceLastFetch < 24) {
                 appendDebugMessage(
-                    DebugMessage("EPG: Using cached data (fetched ${hoursSinceLastFetch}h ago, ${cachedEpg.totalPrograms} programs)")
+                    DebugMessage(StringFormatter.formatEpgCachedCoveringWindow(hoursSinceLastFetch.toInt(), cachedEpg.totalPrograms))
                 )
                 Timber.d("EPG: Cached data covers desired window; skipping fetch")
 
@@ -499,11 +500,11 @@ class MainViewModel @Inject constructor(
             }
 
             if (!coverageSufficient) {
-                appendDebugMessage(DebugMessage("EPG: Cached data does not cover desired window, fetching missing data"))
+                appendDebugMessage(DebugMessage(StringFormatter.formatEpgWindowNotCovered()))
             } else if (cachedEpg == null) {
-                appendDebugMessage(DebugMessage("EPG: No cached data, fetching from service"))
+                appendDebugMessage(DebugMessage(StringFormatter.formatEpgNoCachedFetching()))
             } else {
-                appendDebugMessage(DebugMessage("EPG: Cached data is ${hoursSinceLastFetch}h old, refreshing"))
+                appendDebugMessage(DebugMessage(StringFormatter.formatEpgCachedOldRefresh(hoursSinceLastFetch.toInt())))
             }
 
             fetchEpg(forceUpdate = true)
@@ -516,9 +517,9 @@ class MainViewModel @Inject constructor(
     fun fetchEpg(forceUpdate: Boolean = false) {
         viewModelScope.launch(Dispatchers.IO) {
             if (!forceUpdate) {
-                appendDebugMessage(DebugMessage("EPG: Manual fetch requested"))
+                appendDebugMessage(DebugMessage(StringFormatter.formatEpgFetchManual()))
             }
-            appendDebugMessage(DebugMessage("EPG: Fetch started"))
+            appendDebugMessage(DebugMessage(StringFormatter.formatEpgFetchStarted()))
 
             val fetchResult: Result<EpgResponse> = try {
                 fetchEpgUseCase()
@@ -533,7 +534,7 @@ class MainViewModel @Inject constructor(
                     val response = fetchResult.data
                     appendDebugMessage(
                         DebugMessage(
-                            "EPG: Fetch complete (${response.totalPrograms} programs, ${response.channelsFound}/${response.channelsRequested} channels)"
+                            StringFormatter.formatEpgFetchComplete(response.totalPrograms, response.channelsFound, response.channelsRequested)
                         )
                     )
 
@@ -552,8 +553,8 @@ class MainViewModel @Inject constructor(
                 }
                 is Result.Error -> {
                     Timber.w("EPG fetch failed: ${fetchResult.message}")
-                    val message = fetchResult.message ?: fetchResult.exception.message ?: "unknown error"
-                    appendDebugMessage(DebugMessage("EPG: Fetch failed ($message)"))
+                    val message = fetchResult.message ?: fetchResult.exception.message ?: StringFormatter.formatErrorUnknown()
+                    appendDebugMessage(DebugMessage(StringFormatter.formatEpgFetchFailed(message)))
                 }
                 Result.Loading -> Unit
             }
@@ -570,7 +571,7 @@ class MainViewModel @Inject constructor(
             when (result) {
                 EpgRepository.TimeChangeResult.TIMEZONE_CHANGED -> {
                     Timber.i("System timezone change detected (action=$action); clearing EPG cache and refetching")
-                    appendDebugMessage(DebugMessage("EPG: System timezone changed, refreshing data"))
+                    appendDebugMessage(DebugMessage(StringFormatter.formatEpgTimezoneChanged()))
                     withContext(Dispatchers.IO) {
                         preferencesRepository.saveLastEpgFetchTimestamp(0L)
                     }
@@ -585,7 +586,7 @@ class MainViewModel @Inject constructor(
                 }
                 EpgRepository.TimeChangeResult.CLOCK_CHANGED -> {
                     Timber.i("System clock changed (action=$action); refreshing current program cache")
-                    appendDebugMessage(DebugMessage("EPG: System clock changed, refreshing current programs"))
+                    appendDebugMessage(DebugMessage(StringFormatter.formatEpgClockChanged()))
                     withContext(Dispatchers.Default) {
                         epgRepository.refreshCurrentProgramsCache()
                     }
@@ -709,7 +710,7 @@ class MainViewModel @Inject constructor(
             try {
                 val epgUrl = preferencesRepository.epgUrl.first().ifBlank { "" }
                 if (epgUrl.isBlank()) {
-                    appendDebugMessage(DebugMessage("EPG: URL not configured"))
+                    appendDebugMessage(DebugMessage(StringFormatter.formatEpgUrlNotConfigured()))
                     return@launch
                 }
 
@@ -737,7 +738,7 @@ class MainViewModel @Inject constructor(
                         )
                     }
                     appendDebugMessage(
-                        DebugMessage("EPG: Showing ${programs.size} programs for $tvgId${current?.let { " (current: ${it.title})" } ?: ""}")
+                        DebugMessage(StringFormatter.formatEpgShowingPrograms(programs.size, tvgId, current?.title))
                     )
                     _viewState.update {
                         it.copy(
@@ -751,7 +752,7 @@ class MainViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Failed to load EPG for channel $tvgId")
-                appendDebugMessage(DebugMessage("EPG: Failed to load for $tvgId - ${e.message}"))
+                appendDebugMessage(DebugMessage(StringFormatter.formatEpgLoadFailed(tvgId, e.message ?: StringFormatter.formatErrorUnknown())))
             }
         }
     }
@@ -880,7 +881,7 @@ class MainViewModel @Inject constructor(
             val currentProgram = state.currentProgram
 
             if (currentChannel == null || currentProgram == null) {
-                appendDebugMessage(DebugMessage("DVR: No current program to restart"))
+                appendDebugMessage(DebugMessage(StringFormatter.formatDvrNoCurrentProgram()))
                 return@launch
             }
 
@@ -888,11 +889,11 @@ class MainViewModel @Inject constructor(
             when (val result = watchFromBeginningUseCase(currentChannel, currentProgram)) {
                 is Result.Success -> {
                     val info = result.data
-                    appendDebugMessage(DebugMessage("DVR: Restarting ${currentProgram.title} from beginning"))
+                    appendDebugMessage(DebugMessage(StringFormatter.formatDvrRestarting(currentProgram.title)))
                     startArchivePlayback(info.channel, info.program)
                 }
                 is Result.Error -> {
-                    appendDebugMessage(DebugMessage("DVR: ${result.message}"))
+                    appendDebugMessage(DebugMessage(StringFormatter.formatDvrValidationFailed(result.message ?: StringFormatter.formatErrorUnknown())))
                     Timber.w("Timeshift validation failed: ${result.message}")
                 }
                 is Result.Loading -> {
@@ -947,7 +948,14 @@ class MainViewModel @Inject constructor(
         val ageMinutes = ((System.currentTimeMillis() - program.startTimeMillis) / 60000L).coerceAtLeast(0)
         appendDebugMessage(
             DebugMessage(
-                "DVR: Request ${channel.title} • ${program.title} (start=${program.startTime}, duration=${durationMinutes}m, age=${ageMinutes}m, template=${channel.catchupSource.ifBlank { "<default>" }})"
+                StringFormatter.formatDvrRequest(
+                    channel.title,
+                    program.title,
+                    program.startTime,
+                    durationMinutes.toInt(),
+                    ageMinutes.toInt(),
+                    channel.catchupSource.ifBlank { "<default>" }
+                )
             )
         )
         val started = playerManager.playArchive(channel, program)
@@ -974,7 +982,7 @@ class MainViewModel @Inject constructor(
             val state = _viewState.value
             val channel = state.channels.firstOrNull { it.tvgId == state.epgChannelTvgId }
             if (channel == null) {
-                appendDebugMessage(DebugMessage("DVR: Channel not found for program ${program.title}"))
+                appendDebugMessage(DebugMessage(StringFormatter.formatDvrChannelNotFound(program.title)))
                 return@launch
             }
 
@@ -985,7 +993,7 @@ class MainViewModel @Inject constructor(
                     startArchivePlayback(info.channel, info.program)
                 }
                 is Result.Error -> {
-                    appendDebugMessage(DebugMessage("DVR: ${result.message}"))
+                    appendDebugMessage(DebugMessage(StringFormatter.formatDvrValidationFailed(result.message ?: StringFormatter.formatErrorUnknown())))
                     Timber.w("Archive playback validation failed: ${result.message}")
                 }
                 is Result.Loading -> {

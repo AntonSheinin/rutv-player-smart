@@ -51,6 +51,8 @@ import com.videoplayer.ui.components.ChannelListItem
 import com.videoplayer.ui.components.EpgDateDelimiter
 import com.videoplayer.ui.components.EpgProgramItem
 import com.videoplayer.ui.theme.ruTvColors
+import com.videoplayer.ui.shared.presentation.TimeFormatter
+import com.videoplayer.ui.shared.presentation.LayoutConstants
 import com.videoplayer.util.Constants
 import android.annotation.SuppressLint
 import kotlinx.coroutines.delay
@@ -58,7 +60,6 @@ import kotlinx.coroutines.launch
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlin.math.min
-import java.text.SimpleDateFormat
 import java.util.*
 
 /**
@@ -154,7 +155,7 @@ fun PlayerScreen(
                         text = message,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.ruTvColors.gold,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        modifier = Modifier.padding(horizontal = LayoutConstants.NotificationHorizontalPadding, vertical = LayoutConstants.NotificationVerticalPadding)
                     )
                 }
             }
@@ -266,7 +267,7 @@ fun PlayerScreen(
                     archiveProgram = viewState.archiveProgram,
                     onReturnToLive = onReturnToLive,
                     onShowProgramInfo = onShowProgramDetails,
-                    modifier = Modifier.padding(16.dp)
+                    modifier = Modifier.padding(LayoutConstants.DefaultPadding)
                 )
             }
         }
@@ -564,8 +565,8 @@ private fun PlaylistPanel(
     Card(
         modifier = modifier
             .fillMaxHeight()
-            .width(400.dp)
-            .padding(16.dp),
+            .width(LayoutConstants.PlaylistPanelWidth)
+            .padding(LayoutConstants.DefaultPadding),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f)
         ),
@@ -576,8 +577,8 @@ private fun PlaylistPanel(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
-                    .padding(horizontal = 16.dp),
+                    .height(LayoutConstants.ToolbarHeight)
+                    .padding(horizontal = LayoutConstants.HeaderHorizontalPadding),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -777,7 +778,6 @@ private fun EpgPanel(
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
-    val dateFormat = SimpleDateFormat("EEEE, MMMM d", Locale.getDefault())
     val currentTime = System.currentTimeMillis()
 
     // Find current program index in original list
@@ -792,7 +792,7 @@ private fun EpgPanel(
         val itemsList = mutableListOf<Pair<String, Any>>() // Pair of key to item (delimiter or program)
         var lastDate = ""
         programs.forEachIndexed { index, program ->
-            val programDate = dateFormat.format(Date(program.startTimeMillis))
+            val programDate = TimeFormatter.formatEpgDate(Date(program.startTimeMillis))
             if (programDate != lastDate) {
                 itemsList.add("date_$programDate" to programDate)
                 lastDate = programDate
@@ -812,7 +812,7 @@ private fun EpgPanel(
             var delimitersBefore = 0
             var lastDate = ""
             for (i in 0 until currentProgramIndex) {
-                val programDate = dateFormat.format(Date(programs[i].startTimeMillis))
+                val programDate = TimeFormatter.formatEpgDate(Date(programs[i].startTimeMillis))
                 if (programDate != lastDate) {
                     delimitersBefore++
                     lastDate = programDate
@@ -861,8 +861,8 @@ private fun EpgPanel(
     Card(
         modifier = modifier
             .fillMaxHeight()
-            .width(400.dp)
-            .padding(16.dp),
+            .width(LayoutConstants.PlaylistPanelWidth)
+            .padding(LayoutConstants.DefaultPadding),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f)
         ),
@@ -873,8 +873,8 @@ private fun EpgPanel(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
-                    .padding(horizontal = 16.dp),
+                    .height(LayoutConstants.ToolbarHeight)
+                    .padding(horizontal = LayoutConstants.HeaderHorizontalPadding),
                 horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -986,16 +986,15 @@ private fun ProgramDetailsPanel(
     onClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val timeFormat = SimpleDateFormat("HH:mm, EEEE, MMMM d", Locale.getDefault())
     val startTimeFormatted = program.startTimeMillis.takeIf { it > 0L }?.let {
-        timeFormat.format(Date(it))
+        TimeFormatter.formatProgramDateTime(Date(it))
     } ?: "--"
 
     Card(
         modifier = modifier
-            .fillMaxHeight(0.8f)
-            .width(500.dp)
-            .padding(16.dp),
+            .fillMaxHeight(LayoutConstants.ProgramDetailsPanelMaxHeight)
+            .width(LayoutConstants.ProgramDetailsPanelWidth)
+            .padding(LayoutConstants.DefaultPadding),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f)
         ),
@@ -1007,8 +1006,8 @@ private fun ProgramDetailsPanel(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
-                    .padding(horizontal = 16.dp),
+                    .height(LayoutConstants.ToolbarHeight)
+                    .padding(horizontal = LayoutConstants.HeaderHorizontalPadding),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -1073,7 +1072,7 @@ private fun ProgramDetailsPanel(
                             // Description
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text(
-                                    text = "Description",
+                                    text = stringResource(R.string.program_details_description),
                                     style = MaterialTheme.typography.titleMedium,
                                     color = MaterialTheme.ruTvColors.textPrimary
                                 )
@@ -1167,7 +1166,7 @@ private fun DebugLogPanel(
 ) {
     Card(
         modifier = modifier
-            .width(400.dp)
+            .width(LayoutConstants.PlaylistPanelWidth)
             .height(200.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.9f)
@@ -1184,10 +1183,10 @@ private fun DebugLogPanel(
 
         Column(modifier = Modifier.fillMaxSize()) {
             Text(
-                text = "Debug Log",
+                text = stringResource(R.string.debug_log_title),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.ruTvColors.gold,
-                modifier = Modifier.padding(8.dp)
+                modifier = Modifier.padding(LayoutConstants.SmallPadding)
             )
             HorizontalDivider(color = MaterialTheme.ruTvColors.textDisabled)
 
@@ -1195,7 +1194,7 @@ private fun DebugLogPanel(
                 state = listState,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(8.dp)
+                    .padding(LayoutConstants.SmallPadding)
             ) {
                 items(messages.size) { index ->
                     Text(

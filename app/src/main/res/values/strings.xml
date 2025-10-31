@@ -83,5 +83,42 @@
     <string name="archive_prompt_continue">Play Next Program</string>
     <string name="epg_loaded_toast">EPG loaded</string>
     <string name="player_program_info">Program info</string>
+
+    <!-- Program Details -->
+    <string name="program_details_description">Description</string>
+
+    <!-- Debug & Logging -->
+    <string name="debug_log_title">Debug Log</string>
+    <string name="debug_epg_loaded_cached">EPG: Loaded cached data (%1$d programs for %2$d channels)</string>
+    <string name="debug_epg_no_cached">EPG: No cached data found</string>
+    <string name="debug_epg_failed_load">EPG: Failed to load cached data (%1$s)</string>
+    <string name="debug_epg_playlist_loaded">DVR: Playlist loaded (%1$d channels, catch-up: %2$s)</string>
+    <string name="debug_epg_playlist_empty">EPG: Playlist empty</string>
+    <string name="debug_epg_playlist_failed">EPG: Playlist load failed (%1$s)</string>
+    <string name="debug_epg_fetch_started">EPG: Fetch started</string>
+    <string name="debug_epg_fetch_manual">EPG: Manual fetch requested</string>
+    <string name="debug_epg_fetch_complete">EPG: Fetch complete (%1$d programs, %2$d/%3$d channels)</string>
+    <string name="debug_epg_fetch_failed">EPG: Fetch failed (%1$s)</string>
+    <string name="debug_epg_url_not_configured">EPG: URL not configured</string>
+    <string name="debug_epg_showing_programs">EPG: Showing %1$d programs for %2$s</string>
+    <string name="debug_epg_showing_programs_current">EPG: Showing %1$d programs for %2$s (current: %3$s)</string>
+    <string name="debug_epg_load_failed">EPG: Failed to load for %1$s - %2$s</string>
+    <string name="debug_epg_timezone_changed">EPG: System timezone changed, refreshing data</string>
+    <string name="debug_epg_clock_changed">EPG: System clock changed, refreshing current programs</string>
+    <string name="debug_epg_cached_covering_window">EPG: Using cached data (fetched %1$dh ago, %2$d programs)</string>
+    <string name="debug_epg_window_not_covered">EPG: Cached data does not cover desired window, fetching missing data</string>
+    <string name="debug_epg_no_cached_fetching">EPG: No cached data, fetching from service</string>
+    <string name="debug_epg_cached_old_refresh">EPG: Cached data is %1$dh old, refreshing</string>
+    <string name="debug_epg_no_channels">EPG: No channels loaded yet, skipping fetch</string>
+    <string name="debug_epg_no_channels_support">EPG: No channels with EPG support, skipping fetch</string>
+    <string name="debug_dvr_restarting">DVR: Restarting %1$s from beginning</string>
+    <string name="debug_dvr_no_current_program">DVR: No current program to restart</string>
+    <string name="debug_dvr_request">DVR: Request %1$s • %2$s (start=%3$s, duration=%4$dm, age=%5$dm, template=%6$s)</string>
+    <string name="debug_dvr_channel_not_found">DVR: Channel not found for program %1$s</string>
+    <string name="debug_dvr_validation_failed">DVR: %1$s</string>
+    <string name="error_unknown">unknown error</string>
+    <string name="error_failed_load_playlist">Failed to load playlist</string>
+    <string name="error_init_failed">Initialization failed: %1$s</string>
+    <string name="error_failed_load_playlist_with_msg">Failed to load playlist: %1$s</string>
 </resources>
 
