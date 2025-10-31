@@ -66,10 +66,10 @@ class MainViewModel @Inject constructor(
     private var pendingEpgTimestamp: Long? = null
     private var epgPreloadJob: Job? = null
 
-    private fun postEpgNotification(message: String) {
+    private fun postEpgNotification() {
         viewModelScope.launch(Dispatchers.Main) {
-            if (_viewState.value.epgNotificationMessage == message) return@launch
-            _viewState.update { it.copy(epgNotificationMessage = message) }
+            if (_viewState.value.epgNotificationMessage == EPG_LOADED_MESSAGE) return@launch
+            _viewState.update { it.copy(epgNotificationMessage = EPG_LOADED_MESSAGE) }
         }
     }
 
@@ -284,7 +284,7 @@ class MainViewModel @Inject constructor(
                     )
                 }
                 if (snapshot.isNotEmpty()) {
-                    postEpgNotification(EPG_LOADED_MESSAGE)
+                    postEpgNotification()
                 }
             }
         }
@@ -310,7 +310,7 @@ class MainViewModel @Inject constructor(
                 )
             }
             if (snapshot.isNotEmpty()) {
-                postEpgNotification(EPG_LOADED_MESSAGE)
+                postEpgNotification()
             }
         }
     }
@@ -370,7 +370,7 @@ class MainViewModel @Inject constructor(
                                 )
                             }
                             if (programsMapToUse.isNotEmpty()) {
-                                postEpgNotification(EPG_LOADED_MESSAGE)
+                                postEpgNotification()
                             }
 
                             if (channels.isNotEmpty()) {
@@ -751,7 +751,7 @@ class MainViewModel @Inject constructor(
                             currentProgram = current
                         )
                     }
-                    postEpgNotification(EPG_LOADED_MESSAGE)
+                    postEpgNotification()
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Failed to load EPG for channel $tvgId")
