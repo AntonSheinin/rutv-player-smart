@@ -7,6 +7,7 @@ import android.view.TextureView
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.TextView
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -210,6 +211,7 @@ fun PlayerScreen(
                     playerView.resizeMode = viewState.currentResizeMode
                     playerView.applyControlCustomizations(
                         isArchivePlayback = viewState.isArchivePlayback,
+                        currentProgram = if (viewState.isArchivePlayback) viewState.archiveProgram else viewState.currentProgram,
                         onRestartPlayback = onRestartPlayback,
                         onSeekBack = onSeekBack,
                         onSeekForward = onSeekForward,
@@ -228,6 +230,47 @@ fun PlayerScreen(
         LaunchedEffect(viewState.videoRotation, playerViewRef) {
             playerViewRef?.let { playerView ->
                 playerView.updateVideoRotation(viewState.videoRotation)
+            }
+        }
+
+        // Update progress bar times when program changes or controls become visible
+        LaunchedEffect(viewState.currentProgram, viewState.archiveProgram, viewState.isArchivePlayback, playerViewRef, showControls) {
+            playerViewRef?.let { playerView ->
+                val program = if (viewState.isArchivePlayback) viewState.archiveProgram else viewState.currentProgram
+                if (program != null && showControls) {
+                    val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+                    val startTimeText = timeFormat.format(Date(program.startTimeMillis))
+                    val endTimeText = timeFormat.format(Date(program.stopTimeMillis))
+
+                    // Use post to ensure views are laid out
+                    playerView.post {
+                        playerView.findControlView("exo_position")?.let { view ->
+                            if (view is TextView) {
+                                view.text = startTimeText
+                            }
+                        }
+                        playerView.findControlView("exo_duration")?.let { view ->
+                            if (view is TextView) {
+                                view.text = endTimeText
+                            }
+                        }
+                    }
+                    
+                    // Periodically update in case ExoPlayer resets them
+                    while (showControls && playerViewRef == playerView) {
+                        delay(500) // Update every 500ms
+                        playerView.findControlView("exo_position")?.let { view ->
+                            if (view is TextView && view.text != startTimeText) {
+                                view.text = startTimeText
+                            }
+                        }
+                        playerView.findControlView("exo_duration")?.let { view ->
+                            if (view is TextView && view.text != endTimeText) {
+                                view.text = endTimeText
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -489,22 +532,19 @@ private fun ChannelInfoOverlay(
                             Text(text = stringResource(R.string.player_return_to_live))
                         }
                         currentProgram?.let { program ->
-                            Box(
-                                modifier = Modifier
-                                    .size(buttonHeight)
-                                    .clip(RoundedCornerShape(buttonHeight / 2))
-                                    .background(MaterialTheme.ruTvColors.darkBackground)
+                            IconButton(
+                                onClick = { onShowProgramInfo(program) },
+                                colors = IconButtonDefaults.iconButtonColors(
+                                    contentColor = MaterialTheme.ruTvColors.gold,
+                                    containerColor = MaterialTheme.ruTvColors.darkBackground
+                                ),
+                                modifier = Modifier.size(buttonHeight)
                             ) {
-                                IconButton(
-                                    onClick = { onShowProgramInfo(program) },
-                                    colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.ruTvColors.gold),
-                                    modifier = Modifier.fillMaxSize()
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Info,
-                                        contentDescription = stringResource(R.string.player_program_info)
-                                    )
-                                }
+                                Icon(
+                                    imageVector = Icons.Default.Info,
+                                    contentDescription = stringResource(R.string.player_program_info),
+                                    modifier = Modifier.size(buttonHeight * 0.6f)
+                                )
                             }
                         }
                     }
@@ -1386,6 +1426,7 @@ private fun PlayerView.updateVideoRotation(rotationDegrees: Float) {
 
 private fun PlayerView.applyControlCustomizations(
     isArchivePlayback: Boolean,
+    currentProgram: EpgProgram?,
     onRestartPlayback: () -> Unit,
     onSeekBack: () -> Unit,
     onSeekForward: () -> Unit,
@@ -1441,12 +1482,38 @@ private fun PlayerView.applyControlCustomizations(
         }
     }
 
+    // Make progress bar shorter to avoid interfering with custom control buttons
     val progressVerticalOffsetDp = 12f
-    val progressHorizontalOffsetDp = 72f
+    val progressHorizontalOffsetDp = 120f // Increased from 72f to make it shorter
     listOf("exo_progress", "exo_progress_placeholder", "exo_timebar").forEach { controlId ->
         findControlView(controlId)?.apply {
             setVerticalOffsetDp(progressVerticalOffsetDp)
             setHorizontalOffsetDp(progressHorizontalOffsetDp)
+            // Reduce width by setting layout params
+            (layoutParams as? android.view.ViewGroup.MarginLayoutParams)?.apply {
+                val marginHorizontalDp = 120f
+                val marginPx = (marginHorizontalDp * resources.displayMetrics.density).toInt()
+                setMargins(marginPx, topMargin, marginPx, bottomMargin)
+            }
+        }
+    }
+
+    // Update time displays to show program start/end times
+    val timeFormat = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+    if (currentProgram != null) {
+        val startTimeText = timeFormat.format(java.util.Date(currentProgram.startTimeMillis))
+        val endTimeText = timeFormat.format(java.util.Date(currentProgram.stopTimeMillis))
+
+        // Update position (left) and duration (right) text views
+        findControlView("exo_position")?.let { view ->
+            if (view is android.widget.TextView) {
+                view.text = startTimeText
+            }
+        }
+        findControlView("exo_duration")?.let { view ->
+            if (view is android.widget.TextView) {
+                view.text = endTimeText
+            }
         }
     }
 }
