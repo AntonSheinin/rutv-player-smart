@@ -63,40 +63,40 @@ class SettingsActivity : ComponentActivity() {
 
         SettingsScreen(
             viewState = viewState,
-            onLoadFile = { content, displayName ->
+            onLoadFile = { content: String, displayName: String? ->
                 viewModel.savePlaylistFromFile(content, displayName)
                 finish()
             },
-            onLoadUrl = { url ->
+            onLoadUrl = { url: String ->
                 viewModel.savePlaylistFromUrl(url)
                 finish()
             },
             onReloadPlaylist = {
                 viewModel.reloadPlaylist()
             },
-            onDebugLogChanged = { enabled ->
+            onDebugLogChanged = { enabled: Boolean ->
                 viewModel.setDebugLogEnabled(enabled)
             },
-            onFfmpegAudioChanged = { enabled ->
+            onFfmpegAudioChanged = { enabled: Boolean ->
                 viewModel.setFfmpegAudioEnabled(enabled)
             },
-            onFfmpegVideoChanged = { enabled ->
+            onFfmpegVideoChanged = { enabled: Boolean ->
                 viewModel.setFfmpegVideoEnabled(enabled)
             },
-            onBufferSecondsChanged = { seconds ->
+            onBufferSecondsChanged = { seconds: Int ->
                 viewModel.setBufferSeconds(seconds)
             },
-            onEpgUrlChanged = { url ->
+            onEpgUrlChanged = { url: String ->
                 viewModel.saveEpgUrl(url)
             },
-            onEpgDaysAheadChanged = { days ->
+            onEpgDaysAheadChanged = { days: Int ->
                 viewModel.setEpgDaysAhead(days)
-                },
-                onEpgDaysPastChanged = { days ->
-                    viewModel.setEpgDaysPast(days)
-                },
-                onEpgPageDaysChanged = { days ->
-                    viewModel.setEpgPageDays(days)
+            },
+            onEpgDaysPastChanged = { days: Int ->
+                viewModel.setEpgDaysPast(days)
+            },
+            onEpgPageDaysChanged = { days: Int ->
+                viewModel.setEpgPageDays(days)
             },
             onBack = { finish() },
             modifier = Modifier.fillMaxSize()
