@@ -62,7 +62,7 @@ class EpgRepository @Inject constructor(
     // Keyed by (epgUrl, tvgId, from, to) to avoid cross-endpoint mix-ups
     private data class WindowKey(val epgUrl: String, val tvgId: String, val from: Long, val to: Long)
     private val windowCache = mutableMapOf<WindowKey, List<EpgProgram>>()
-    private val windowInFlight = mutableMapOf<WindowKey, kotlinx.coroutines.Deferred<List<EpgProgram>>>()
+    private val windowInFlight = mutableMapOf<WindowKey, Deferred<List<EpgProgram>>>()
 
     enum class TimeChangeTrigger {
         TIMEZONE,
