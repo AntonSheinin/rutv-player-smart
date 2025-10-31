@@ -50,6 +50,9 @@ import com.videoplayer.presentation.main.MainViewState
 import com.videoplayer.ui.components.ChannelListItem
 import com.videoplayer.ui.components.EpgDateDelimiter
 import com.videoplayer.ui.components.EpgProgramItem
+import com.videoplayer.ui.shared.components.ArchivePromptDialog
+import com.videoplayer.ui.shared.components.EpgNotificationToast
+import com.videoplayer.ui.shared.components.CustomControlButtons
 import com.videoplayer.ui.theme.ruTvColors
 import com.videoplayer.ui.shared.presentation.TimeFormatter
 import com.videoplayer.ui.shared.presentation.LayoutConstants
@@ -136,30 +139,12 @@ fun PlayerScreen(
             .fillMaxSize()
             .background(MaterialTheme.ruTvColors.darkBackground)
     ) {
-        epgNotificationMessage?.let { message ->
-            LaunchedEffect(message) {
-                delay(2000)
-                onClearEpgNotification()
-            }
-            AnimatedVisibility(
-                visible = true,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 32.dp)
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.9f)
-                ) {
-                    Text(
-                        text = message,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.ruTvColors.gold,
-                        modifier = Modifier.padding(horizontal = LayoutConstants.NotificationHorizontalPadding, vertical = LayoutConstants.NotificationVerticalPadding)
-                    )
-                }
-            }
-        }
+        // EPG Notification
+        EpgNotificationToast(
+            message = epgNotificationMessage,
+            onDismiss = onClearEpgNotification,
+            modifier = Modifier
+        )
 
         // ExoPlayer View
         player?.let {
@@ -330,30 +315,10 @@ fun PlayerScreen(
         }
 
         viewState.archivePrompt?.let { prompt ->
-            val hasNext = prompt.nextProgram != null
-            val message = if (hasNext) {
-                stringResource(R.string.archive_prompt_message, prompt.nextProgram.title)
-            } else {
-                stringResource(R.string.archive_prompt_message_no_next)
-            }
-
-            AlertDialog(
-                onDismissRequest = onArchivePromptBackToLive,
-                title = { Text(stringResource(R.string.archive_prompt_title)) },
-                text = { Text(message) },
-                confirmButton = {
-                    TextButton(
-                        onClick = onArchivePromptContinue,
-                        enabled = hasNext
-                    ) {
-                        Text(text = stringResource(R.string.archive_prompt_continue))
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = onArchivePromptBackToLive) {
-                        Text(text = stringResource(R.string.player_return_to_live))
-                    }
-                }
+            ArchivePromptDialog(
+                prompt = prompt,
+                onContinue = onArchivePromptContinue,
+                onBackToLive = onArchivePromptBackToLive
             )
         }
     }
@@ -1208,111 +1173,7 @@ private fun DebugLogPanel(
     }
 }
 
-/**
- * Custom control buttons overlay
- */
-@Composable
-private fun CustomControlButtons(
-    onPlaylistClick: () -> Unit,
-    onFavoritesClick: () -> Unit,
-    onGoToChannelClick: () -> Unit,
-    onAspectRatioClick: () -> Unit,
-    onSettingsClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(horizontal = 24.dp, vertical = 24.dp),
-        propagateMinConstraints = false
-    ) {
-        ControlColumn(
-            modifier = Modifier.align(Alignment.CenterStart),
-            buttons = listOf(
-                ControlButtonData(
-                    icon = Icons.AutoMirrored.Filled.List,
-                    description = R.string.cd_playlist_button,
-                    onClick = onPlaylistClick
-                ),
-                ControlButtonData(
-                    icon = Icons.Default.Star,
-                    description = R.string.cd_favorites_button,
-                    onClick = onFavoritesClick
-                ),
-                ControlButtonData(
-                    icon = Icons.Default.Numbers,
-                    description = R.string.cd_go_to_channel_button,
-                    onClick = onGoToChannelClick
-                )
-            )
-        )
-
-        ControlColumn(
-            modifier = Modifier.align(Alignment.CenterEnd),
-            buttons = listOf(
-                ControlButtonData(
-                    icon = Icons.Default.AspectRatio,
-                    description = R.string.cd_aspect_ratio_button,
-                    onClick = onAspectRatioClick
-                ),
-                ControlButtonData(
-                    icon = Icons.Default.ScreenRotation,
-                    description = R.string.cd_orientation_button,
-                    onClick = {}
-                ),
-                ControlButtonData(
-                    icon = Icons.Default.Settings,
-                    description = R.string.cd_settings_button,
-                    onClick = onSettingsClick
-                )
-            )
-        )
-    }
-}
-
-private data class ControlButtonData(
-    val icon: ImageVector,
-    @StringRes val description: Int,
-    val onClick: () -> Unit
-)
-
-@Composable
-private fun ControlColumn(
-    modifier: Modifier,
-    buttons: List<ControlButtonData>
-) {
-    Surface(
-        modifier = modifier,
-        color = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.55f),
-        shape = RoundedCornerShape(28.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .padding(horizontal = 12.dp, vertical = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(18.dp, Alignment.CenterVertically)
-        ) {
-            buttons.forEach { button ->
-                val isRotation = button.description == R.string.cd_orientation_button
-                val alpha = if (isRotation) DISABLED_CONTROL_ALPHA else 1f
-                IconButton(
-                    onClick = if (isRotation) ({}) else button.onClick,
-                    modifier = Modifier.size(56.dp).alpha(alpha)
-                ) {
-                    Icon(
-                        imageVector = button.icon,
-                        contentDescription = stringResource(button.description),
-                        tint = MaterialTheme.ruTvColors.gold,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
 private const val MEDIA3_UI_PACKAGE = "androidx.media3.ui"
-private const val DISABLED_CONTROL_ALPHA = 0.4f
 private const val MAX_PROGRAM_TITLE_CHARS = 48
 
 private fun View.enableControl() {
@@ -1321,7 +1182,7 @@ private fun View.enableControl() {
 }
 
 private fun View.disableControl() {
-    alpha = DISABLED_CONTROL_ALPHA
+    alpha = 0.4f
     isEnabled = false
 }
 
