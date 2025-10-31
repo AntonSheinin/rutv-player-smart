@@ -255,19 +255,29 @@ fun PlayerScreen(
                             }
                         }
                     }
-                    
-                    // Periodically update in case ExoPlayer resets them
+
+                    // Periodically update in case ExoPlayer resets them - update more aggressively
                     while (showControls && playerViewRef == playerView) {
-                        delay(500) // Update every 500ms
+                        delay(100) // Update every 100ms to prevent ExoPlayer from overwriting
                         playerView.findControlView("exo_position")?.let { view ->
-                            if (view is TextView && view.text != startTimeText) {
+                            if (view is TextView) {
+                                // Always set, don't check, as ExoPlayer might update it
                                 view.text = startTimeText
+                                // Also try to disable auto-updates if possible
+                                view.isEnabled = false
                             }
                         }
                         playerView.findControlView("exo_duration")?.let { view ->
-                            if (view is TextView && view.text != endTimeText) {
+                            if (view is TextView) {
+                                // Always set, don't check, as ExoPlayer might update it
                                 view.text = endTimeText
+                                // Also try to disable auto-updates if possible
+                                view.isEnabled = false
                             }
+                        }
+                        // Try to find and disable any TimeBar that might be updating these
+                        playerView.findControlView("exo_timebar")?.let { view ->
+                            view.isEnabled = false
                         }
                     }
                 }
@@ -447,24 +457,32 @@ private fun ChannelInfoOverlay(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                        var archiveButtonHeight by remember { mutableStateOf(48.dp) }
+                        val density = LocalDensity.current
                         Button(
                             onClick = onReturnToLive,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.ruTvColors.gold,
                                 contentColor = MaterialTheme.ruTvColors.darkBackground
-                            )
+                            ),
+                            modifier = Modifier.onSizeChanged { size ->
+                                archiveButtonHeight = with(density) { size.height.toDp() }
+                            }
                         ) {
                             Text(text = stringResource(R.string.player_return_to_live))
                         }
                         IconButton(
                             onClick = { onShowProgramInfo(program) },
-                            colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.ruTvColors.gold),
-                            modifier = Modifier.size(56.dp)
+                            colors = IconButtonDefaults.iconButtonColors(
+                                contentColor = MaterialTheme.ruTvColors.gold,
+                                containerColor = MaterialTheme.ruTvColors.darkBackground
+                            ),
+                            modifier = Modifier.size(archiveButtonHeight)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Info,
                                 contentDescription = stringResource(R.string.player_program_info),
-                                modifier = Modifier.size(32.dp)
+                                modifier = Modifier.size(archiveButtonHeight * 0.6f)
                             )
                         }
                     }
@@ -496,15 +514,28 @@ private fun ChannelInfoOverlay(
                                 overflow = TextOverflow.Ellipsis,
                                 textAlign = TextAlign.Center
                             )
+                            var nonArchiveButtonHeight by remember { mutableStateOf(56.dp) }
+                            val density = LocalDensity.current
+                            // Measure the Button that should be nearby, but since there's no Button in this section,
+                            // use a reasonable default that matches typical button heights
+                            val defaultButtonHeight = 48.dp
                             IconButton(
                                 onClick = { onShowProgramInfo(program) },
-                                colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.ruTvColors.gold),
-                                modifier = Modifier.size(56.dp)
+                                colors = IconButtonDefaults.iconButtonColors(
+                                    contentColor = MaterialTheme.ruTvColors.gold,
+                                    containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.0f)
+                                ),
+                                modifier = Modifier
+                                    .size(defaultButtonHeight)
+                                    .onSizeChanged { size ->
+                                        // This won't help measure another button, but keeps consistency
+                                        nonArchiveButtonHeight = with(density) { size.height.toDp() }
+                                    }
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Info,
                                     contentDescription = stringResource(R.string.player_program_info),
-                                    modifier = Modifier.size(32.dp)
+                                    modifier = Modifier.size(defaultButtonHeight * 0.6f)
                                 )
                             }
                         }
@@ -1295,7 +1326,11 @@ private fun ControlColumn(
                     Icon(
                         imageVector = button.icon,
                         contentDescription = stringResource(button.description),
-                        tint = MaterialTheme.ruTvColors.gold,
+                        tint = if (isRotation) {
+                            MaterialTheme.ruTvColors.gold.copy(alpha = DISABLED_CONTROL_ALPHA)
+                        } else {
+                            MaterialTheme.ruTvColors.gold
+                        },
                         modifier = Modifier.size(32.dp)
                     )
                 }
