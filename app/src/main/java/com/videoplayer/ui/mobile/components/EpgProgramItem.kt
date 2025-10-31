@@ -23,8 +23,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.videoplayer.R
 import com.videoplayer.data.model.EpgProgram
+import com.videoplayer.ui.shared.presentation.TimeFormatter
 import com.videoplayer.ui.theme.ruTvColors
-import java.text.SimpleDateFormat
 import java.util.*
 
 /**
