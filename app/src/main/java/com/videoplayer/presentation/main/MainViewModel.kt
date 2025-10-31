@@ -299,7 +299,7 @@ class MainViewModel @Inject constructor(
             pendingEpgTimestamp = null
             // Refresh snapshot with latest data from repository to ensure current programs are up-to-date
             val freshSnapshot = epgRepository.getCurrentProgramsSnapshot()
-            val snapshot = if (freshSnapshot.isNotEmpty()) freshSnapshot else pendingSnapshot
+            val snapshot = freshSnapshot.ifEmpty { pendingSnapshot }
             _viewState.update {
                 val currentChannel = it.currentChannel
                 val updatedCurrentProgram = currentChannel?.tvgId?.let(snapshot::get)
@@ -718,7 +718,6 @@ class MainViewModel @Inject constructor(
                     return@launch
                 }
 
-                val channel = _viewState.value.channels.firstOrNull { it.tvgId == tvgId }
                 val nowZoned = java.time.ZonedDateTime.now()
                 val todayStart = nowZoned.toLocalDate().atStartOfDay(nowZoned.zone)
                 val todayEnd = nowZoned.toLocalDate().atTime(java.time.LocalTime.of(23, 59, 59)).atZone(nowZoned.zone)
@@ -854,7 +853,7 @@ class MainViewModel @Inject constructor(
     private fun mergePrograms(existing: List<EpgProgram>, added: List<EpgProgram>): List<EpgProgram> {
         if (added.isEmpty()) return existing
         val map = LinkedHashMap<String, EpgProgram>()
-        fun key(p: EpgProgram): String = if (p.id.isNotBlank()) p.id else "${p.startTimeMillis}:${p.title}"
+        fun key(p: EpgProgram): String = p.id.ifBlank { "${p.startTimeMillis}:${p.title}" }
         existing.forEach { map[key(it)] = it }
         added.forEach { map[key(it)] = it }
         return map.values.sortedBy { it.startTimeMillis }
