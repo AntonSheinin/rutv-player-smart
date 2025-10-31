@@ -20,7 +20,12 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.unit.dp
+import com.videoplayer.ui.theme.ruTvColors
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -160,12 +165,29 @@ class MainActivity : ComponentActivity() {
         if (showChannelDialog) {
             AlertDialog(
                 onDismissRequest = { showChannelDialog = false },
-                title = { Text(text = getString(R.string.dialog_title_go_to_channel)) },
+                containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f),
+                title = {
+                    Text(
+                        text = getString(R.string.dialog_title_go_to_channel),
+                        color = MaterialTheme.ruTvColors.gold,
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                },
                 text = {
                     OutlinedTextField(
                         value = channelInput,
                         onValueChange = { new -> channelInput = new.filter { it.isDigit() }.take(4) },
-                        label = { Text(getString(R.string.hint_channel_number, viewState.channels.size)) }
+                        label = { Text(getString(R.string.hint_channel_number, viewState.channels.size)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.ruTvColors.gold,
+                            unfocusedBorderColor = MaterialTheme.ruTvColors.textDisabled,
+                            focusedTextColor = MaterialTheme.ruTvColors.textPrimary,
+                            unfocusedTextColor = MaterialTheme.ruTvColors.textPrimary,
+                            focusedLabelColor = MaterialTheme.ruTvColors.gold,
+                            unfocusedLabelColor = MaterialTheme.ruTvColors.textSecondary
+                        )
                     )
                 },
                 confirmButton = {
@@ -176,11 +198,27 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                         showChannelDialog = false
-                    }) { Text(text = getString(R.string.button_ok)) }
+                    }) {
+                        Text(
+                            text = getString(R.string.button_ok),
+                            color = MaterialTheme.ruTvColors.gold
+                        )
+                    }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showChannelDialog = false }) { Text(text = getString(R.string.button_cancel)) }
-                }
+                    TextButton(onClick = { showChannelDialog = false }) {
+                        Text(
+                            text = getString(R.string.button_cancel),
+                            color = MaterialTheme.ruTvColors.textPrimary
+                        )
+                    }
+                },
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.border(
+                    2.dp,
+                    MaterialTheme.ruTvColors.gold.copy(alpha = 0.7f),
+                    RoundedCornerShape(16.dp)
+                )
             )
         }
     }

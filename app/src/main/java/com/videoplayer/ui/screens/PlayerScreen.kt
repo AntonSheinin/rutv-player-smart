@@ -691,14 +691,29 @@ private fun PlaylistPanel(
                         showSearchDialog = false
                         searchText = ""
                     },
-                    title = { Text(text = stringResource(R.string.dialog_title_search_channel)) },
+                    containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f),
+                    title = {
+                        Text(
+                            text = stringResource(R.string.dialog_title_search_channel),
+                            color = MaterialTheme.ruTvColors.gold,
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                    },
                     text = {
                         OutlinedTextField(
                             value = searchText,
                             onValueChange = { searchText = it },
                             label = { Text(stringResource(R.string.hint_search_channel)) },
                             singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.ruTvColors.gold,
+                                unfocusedBorderColor = MaterialTheme.ruTvColors.textDisabled,
+                                focusedTextColor = MaterialTheme.ruTvColors.textPrimary,
+                                unfocusedTextColor = MaterialTheme.ruTvColors.textPrimary,
+                                focusedLabelColor = MaterialTheme.ruTvColors.gold,
+                                unfocusedLabelColor = MaterialTheme.ruTvColors.textSecondary
+                            )
                         )
                     },
                     confirmButton = {
@@ -719,7 +734,10 @@ private fun PlaylistPanel(
                                 searchText = ""
                             }
                         }) {
-                            Text(text = stringResource(R.string.button_ok))
+                            Text(
+                                text = stringResource(R.string.button_ok),
+                                color = MaterialTheme.ruTvColors.gold
+                            )
                         }
                     },
                     dismissButton = {
@@ -727,9 +745,18 @@ private fun PlaylistPanel(
                             showSearchDialog = false
                             searchText = ""
                         }) {
-                            Text(text = stringResource(R.string.button_cancel))
+                            Text(
+                                text = stringResource(R.string.button_cancel),
+                                color = MaterialTheme.ruTvColors.textPrimary
+                            )
                         }
-                    }
+                    },
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.border(
+                        2.dp,
+                        MaterialTheme.ruTvColors.gold.copy(alpha = 0.7f),
+                        RoundedCornerShape(16.dp)
+                    )
                 )
             }
         }
