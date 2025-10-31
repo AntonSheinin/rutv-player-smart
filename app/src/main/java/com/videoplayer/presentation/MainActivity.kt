@@ -31,10 +31,10 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import androidx.core.graphics.toColorInt
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.util.UnstableApi
 import com.videoplayer.R
+import com.videoplayer.data.model.EpgProgram
 import com.videoplayer.presentation.main.MainViewModel
 import com.videoplayer.ui.mobile.screens.PlayerScreen
 import com.videoplayer.ui.theme.RuTvTheme
@@ -112,9 +112,9 @@ class MainActivity : ComponentActivity() {
         PlayerScreen(
             viewState = viewState,
             player = viewModel.getPlayer(),
-            onPlayChannel = { index -> viewModel.playChannel(index) },
-            onToggleFavorite = { url -> viewModel.toggleFavorite(url) },
-            onShowEpgForChannel = { tvgId -> viewModel.showEpgForChannel(tvgId) },
+            onPlayChannel = { index: Int -> viewModel.playChannel(index) },
+            onToggleFavorite = { url: String -> viewModel.toggleFavorite(url) },
+            onShowEpgForChannel = { tvgId: String -> viewModel.showEpgForChannel(tvgId) },
             onTogglePlaylist = { viewModel.togglePlaylist() },
             onToggleFavorites = { viewModel.toggleFavorites() },
             onClosePlaylist = { viewModel.closePlaylist() },
@@ -126,8 +126,8 @@ class MainActivity : ComponentActivity() {
                     showChannelDialog = true
                 }
             },
-            onShowProgramDetails = { program -> viewModel.showProgramDetails(program) },
-            onPlayArchiveProgram = { program -> viewModel.playArchiveProgram(program) },
+            onShowProgramDetails = { program: EpgProgram -> viewModel.showProgramDetails(program) },
+            onPlayArchiveProgram = { program: EpgProgram -> viewModel.playArchiveProgram(program) },
             onReturnToLive = { viewModel.returnToLive() },
             onRestartPlayback = { viewModel.restartCurrentPlayback() },
             onSeekBack = { viewModel.seekBackTenSeconds() },
@@ -235,15 +235,6 @@ class MainActivity : ComponentActivity() {
         viewModel.loadPlaylist(forceReload = false)
     }
 
-    /**
-     * Show channel number dialog
-     */
-    private fun showChannelNumberDialog() { /* migrated to Compose */ }
-
-    /**
-     * Show dialog when no playlist is configured
-     */
-    private fun showNoPlaylistDialog() { /* migrated to Compose */ }
 
     private fun registerTimeChangeReceiver() {
         if (timeChangeReceiver != null) return
