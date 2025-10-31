@@ -1,7 +1,6 @@
 package com.videoplayer.ui.screens
 
 import android.graphics.Matrix
-import android.graphics.RectF
 import android.view.LayoutInflater
 import android.view.TextureView
 import android.view.View
@@ -57,7 +56,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.rememberCoroutineScope
-import kotlin.math.min
 import kotlin.math.min
 import java.text.SimpleDateFormat
 import java.util.*
@@ -1469,9 +1467,6 @@ private fun PlayerView.applyControlCustomizations(
     val horizontalMarginDp = 120f // Leave space for custom buttons on sides
     val horizontalMarginPx = (horizontalMarginDp * resources.displayMetrics.density).toInt()
 
-    // Find the bottom bar container that holds progress bar and times
-    val bottomBar = findControlView("exo_bottom_bar")
-
     // Find the TimeBar/progress bar view
     val timeBar = findControlView("exo_timebar") ?: findControlView("exo_progress")
 
@@ -1497,27 +1492,10 @@ private fun PlayerView.applyControlCustomizations(
     durationView?.let { view ->
         setVerticalOffsetDp(progressVerticalOffsetDp)
     }
-
-    // Also adjust bottom bar container padding if it exists to help with centering
-    bottomBar?.let { container ->
-        if (container is android.view.ViewGroup) {
-            container.setPadding(
-                container.paddingLeft,
-                container.paddingTop,
-                container.paddingRight,
-                container.paddingBottom
-            )
-        }
-    }
-
 }
 
 private fun View.setVerticalOffsetDp(offsetDp: Float) {
     translationY = offsetDp * resources.displayMetrics.density
-}
-
-private fun View.setHorizontalOffsetDp(offsetDp: Float) {
-    translationX = offsetDp * resources.displayMetrics.density
 }
 
 
