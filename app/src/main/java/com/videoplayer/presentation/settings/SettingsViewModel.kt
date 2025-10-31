@@ -8,6 +8,7 @@ import com.videoplayer.data.repository.ChannelRepository
 import com.videoplayer.data.repository.PreferencesRepository
 import com.videoplayer.domain.usecase.FetchEpgUseCase
 import com.videoplayer.domain.usecase.LoadPlaylistUseCase
+import com.videoplayer.util.Constants
 import com.videoplayer.util.PlayerConstants
 import com.videoplayer.util.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -88,7 +89,7 @@ class SettingsViewModel @Inject constructor(
      */
     fun savePlaylistFromFile(content: String, displayName: String?) {
         viewModelScope.launch {
-            if (content.length > Constants.MAX_PLAYLIST_SIZE_BYTES) {
+            if (content.length.toLong() > Constants.MAX_PLAYLIST_SIZE_BYTES) {
                 _viewState.update {
                     it.copy(error = "Playlist too large: ${content.length} bytes")
                 }

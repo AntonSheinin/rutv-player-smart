@@ -844,12 +844,10 @@ private fun EpgPanel(
                 horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val titleText = remember(channel) {
-                    if (channel != null) {
-                        "${stringResource(R.string.epg_panel_title)} • ${channel.title}"
-                    } else {
-                        stringResource(R.string.epg_panel_title)
-                    }
+                val titleText = if (channel != null) {
+                    "${stringResource(R.string.epg_panel_title)} • ${channel.title}"
+                } else {
+                    stringResource(R.string.epg_panel_title)
                 }
                 Text(
                     text = titleText,

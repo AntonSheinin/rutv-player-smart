@@ -24,6 +24,7 @@ import com.videoplayer.R
 import com.videoplayer.data.model.Channel
 import com.videoplayer.data.model.EpgProgram
 import com.videoplayer.ui.theme.ruTvColors
+import com.videoplayer.util.Constants
 import com.videoplayer.util.PlayerConstants
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -90,11 +91,11 @@ fun ChannelListItem(
         ) {
             // Channel Logo
             val context = LocalContext.current
-            val sizePx = with(LocalDensity.current) { ChannelLogoSize.roundToPx() }
+            val sizePx = with(LocalDensity.current) { ChannelLogoSize.toPx().toInt() }
             val logoRequest = remember(channel.logo, sizePx) {
                 ImageRequest.Builder(context)
                     .data(channel.logo.takeIf { it.isNotBlank() })
-                    .size(sizePx, sizePx)
+                    .size(sizePx)
                     .scale(Scale.FIT)
                     .precision(Precision.EXACT)
                     .allowHardware(true)
@@ -110,7 +111,7 @@ fun ChannelListItem(
                 error = painterResource(R.drawable.ic_channel_placeholder),
                 contentScale = ContentScale.Fit,
                 modifier = Modifier
-                    .size(ChannelLogoSize)
+                    .size(size = ChannelLogoSize)
                     .padding(end = 12.dp)
             )
 

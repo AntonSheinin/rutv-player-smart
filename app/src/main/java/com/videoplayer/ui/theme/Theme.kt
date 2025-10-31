@@ -15,50 +15,39 @@ object RuTvColors {
         return DarkThemeProvider.customColors
     }
 
-    // For backward compatibility
-    @Composable
+    // For backward compatibility - these can be called from @Composable context
     val gold: androidx.compose.ui.graphics.Color
-        get() = getColors().gold
+        @Composable get() = getColors().gold
 
-    @Composable
     val goldAlpha50: androidx.compose.ui.graphics.Color
-        get() = getColors().goldAlpha50
+        @Composable get() = getColors().goldAlpha50
 
-    @Composable
     val darkBackground: androidx.compose.ui.graphics.Color
-        get() = getColors().darkBackground
+        @Composable get() = getColors().darkBackground
 
-    @Composable
     val cardBackground: androidx.compose.ui.graphics.Color
-        get() = getColors().cardBackground
+        @Composable get() = getColors().cardBackground
 
-    @Composable
     val selectedBackground: androidx.compose.ui.graphics.Color
-        get() = getColors().selectedBackground
+        @Composable get() = getColors().selectedBackground
 
-    @Composable
     val epgOpenBackground: androidx.compose.ui.graphics.Color
-        get() = getColors().epgOpenBackground
+        @Composable get() = getColors().epgOpenBackground
 
-    @Composable
     val textPrimary: androidx.compose.ui.graphics.Color
-        get() = getColors().textPrimary
+        @Composable get() = getColors().textPrimary
 
-    @Composable
     val textSecondary: androidx.compose.ui.graphics.Color
-        get() = getColors().textSecondary
+        @Composable get() = getColors().textSecondary
 
-    @Composable
     val textHint: androidx.compose.ui.graphics.Color
-        get() = getColors().textHint
+        @Composable get() = getColors().textHint
 
-    @Composable
     val textDisabled: androidx.compose.ui.graphics.Color
-        get() = getColors().textDisabled
+        @Composable get() = getColors().textDisabled
 
-    @Composable
     val statusPlaying: androidx.compose.ui.graphics.Color
-        get() = getColors().statusPlaying
+        @Composable get() = getColors().statusPlaying
 }
 
 /**

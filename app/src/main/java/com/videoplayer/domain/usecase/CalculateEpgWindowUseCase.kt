@@ -1,8 +1,8 @@
 package com.videoplayer.domain.usecase
 
 import com.videoplayer.data.model.Channel
-import com.videoplayer.data.model.EpgWindow
 import com.videoplayer.data.repository.EpgRepository
+import com.videoplayer.data.repository.EpgWindow
 import java.time.Instant
 import javax.inject.Inject
 
