@@ -36,7 +36,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.util.UnstableApi
 import com.videoplayer.R
 import com.videoplayer.presentation.main.MainViewModel
-import com.videoplayer.ui.screens.PlayerScreen
+import com.videoplayer.ui.mobile.screens.PlayerScreen
 import com.videoplayer.ui.theme.RuTvTheme
 import dagger.hilt.android.AndroidEntryPoint
 import timber.log.Timber

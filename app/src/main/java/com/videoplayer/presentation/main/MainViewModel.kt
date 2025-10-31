@@ -13,7 +13,9 @@ import com.videoplayer.data.model.EpgResponse
 import com.videoplayer.data.repository.ChannelRepository
 import com.videoplayer.data.repository.EpgRepository
 import com.videoplayer.data.repository.PreferencesRepository
+import com.videoplayer.domain.usecase.CalculateEpgWindowUseCase
 import com.videoplayer.domain.usecase.FetchEpgUseCase
+import com.videoplayer.domain.usecase.FilterChannelsUseCase
 import com.videoplayer.domain.usecase.LoadEpgForChannelUseCase
 import com.videoplayer.domain.usecase.LoadPlaylistUseCase
 import com.videoplayer.domain.usecase.PlayArchiveProgramUseCase
@@ -23,7 +25,7 @@ import com.videoplayer.domain.usecase.WatchFromBeginningUseCase
 import com.videoplayer.presentation.player.DebugMessage
 import com.videoplayer.presentation.player.PlayerManager
 import com.videoplayer.presentation.player.PlayerState
-import com.videoplayer.util.Constants
+import com.videoplayer.util.PlayerConstants
 import com.videoplayer.util.Result
 import com.videoplayer.util.StringFormatter
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -50,7 +52,9 @@ class MainViewModel @Inject constructor(
     private val updateAspectRatioUseCase: UpdateAspectRatioUseCase,
     private val playArchiveProgramUseCase: PlayArchiveProgramUseCase,
     private val watchFromBeginningUseCase: WatchFromBeginningUseCase,
-    private val loadEpgForChannelUseCase: LoadEpgForChannelUseCase
+    private val loadEpgForChannelUseCase: LoadEpgForChannelUseCase,
+    private val calculateEpgWindowUseCase: CalculateEpgWindowUseCase,
+    private val filterChannelsUseCase: FilterChannelsUseCase
 ) : ViewModel() {
 
     private val _viewState = MutableStateFlow(MainViewState())
@@ -479,7 +483,7 @@ class MainViewModel @Inject constructor(
             }
 
             val epgDaysAhead = preferencesRepository.epgDaysAhead.first()
-            val window = epgRepository.calculateWindow(channelsWithEpg, epgDaysAhead)
+            val window = calculateEpgWindowUseCase(channelsWithEpg, epgDaysAhead)
 
             val cachedEpg = epgRepository.loadEpgData()
             val lastFetchTimestamp = preferencesRepository.lastEpgFetchTimestamp.first()
@@ -913,7 +917,7 @@ class MainViewModel @Inject constructor(
 
     fun seekBackTenSeconds() {
         val wasArchive = _viewState.value.isArchivePlayback
-        if (playerManager.seekBy(-Constants.SEEK_INCREMENT_MS)) {
+        if (playerManager.seekBy(-PlayerConstants.SEEK_INCREMENT_MS)) {
             if (!wasArchive) {
                 _viewState.update { it.copy(isTimeshiftPlayback = true) }
             }
@@ -922,7 +926,7 @@ class MainViewModel @Inject constructor(
 
     fun seekForwardTenSeconds() {
         val wasArchive = _viewState.value.isArchivePlayback
-        if (playerManager.seekBy(Constants.SEEK_INCREMENT_MS)) {
+        if (playerManager.seekBy(PlayerConstants.SEEK_INCREMENT_MS)) {
             if (!wasArchive) {
                 _viewState.update { it.copy(isTimeshiftPlayback = true) }
             }

@@ -12,7 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.videoplayer.presentation.settings.SettingsViewModel
-import com.videoplayer.ui.screens.SettingsScreen
+import com.videoplayer.ui.mobile.screens.SettingsScreen
 import com.videoplayer.ui.theme.RuTvTheme
 import dagger.hilt.android.AndroidEntryPoint
 import timber.log.Timber

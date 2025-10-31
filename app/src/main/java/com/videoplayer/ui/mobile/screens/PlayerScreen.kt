@@ -1,4 +1,4 @@
-package com.videoplayer.ui.screens
+package com.videoplayer.ui.mobile.screens
 
 import android.graphics.Matrix
 import android.view.LayoutInflater
@@ -47,16 +47,16 @@ import com.videoplayer.R
 import com.videoplayer.data.model.Channel
 import com.videoplayer.data.model.EpgProgram
 import com.videoplayer.presentation.main.MainViewState
-import com.videoplayer.ui.components.ChannelListItem
-import com.videoplayer.ui.components.EpgDateDelimiter
-import com.videoplayer.ui.components.EpgProgramItem
+import com.videoplayer.ui.mobile.components.ChannelListItem
+import com.videoplayer.ui.mobile.components.EpgDateDelimiter
+import com.videoplayer.ui.mobile.components.EpgProgramItem
 import com.videoplayer.ui.shared.components.ArchivePromptDialog
 import com.videoplayer.ui.shared.components.EpgNotificationToast
 import com.videoplayer.ui.shared.components.CustomControlButtons
 import com.videoplayer.ui.theme.ruTvColors
 import com.videoplayer.ui.shared.presentation.TimeFormatter
 import com.videoplayer.ui.shared.presentation.LayoutConstants
-import com.videoplayer.util.Constants
+import com.videoplayer.util.PlayerConstants
 import android.annotation.SuppressLint
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -127,7 +127,7 @@ fun PlayerScreen(
     LaunchedEffect(showControls, playerViewRef) {
        if (!showControls) return@LaunchedEffect
        val playerView = playerViewRef ?: return@LaunchedEffect
-        val timeoutMs = Constants.CONTROLLER_AUTO_HIDE_TIMEOUT_MS.toLong()
+        val timeoutMs = PlayerConstants.CONTROLLER_AUTO_HIDE_TIMEOUT_MS.toLong()
         delay(timeoutMs)
         if (showControls) {
             playerView.hideController()
@@ -160,7 +160,7 @@ fun PlayerScreen(
                         )
                         playerView.player = it
                         playerView.useController = true
-                        playerView.controllerShowTimeoutMs = Constants.CONTROLLER_AUTO_HIDE_TIMEOUT_MS // Auto-hide controls
+                        playerView.controllerShowTimeoutMs = PlayerConstants.CONTROLLER_AUTO_HIDE_TIMEOUT_MS // Auto-hide controls
                         playerView.controllerHideOnTouch = true
                         playerView.resizeMode = viewState.currentResizeMode
                         playerView.setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
@@ -279,10 +279,11 @@ fun PlayerScreen(
         }
 
         // EPG Panel
-        if (viewState.showEpgPanel && viewState.epgPrograms.isNotEmpty()) {
-            val epgChannel = viewState.channels.firstOrNull { it.tvgId == viewState.epgChannelTvgId }
+        val epgChannel = remember(viewState.epgChannelTvgId, viewState.channels, viewState.currentChannel) {
+            viewState.channels.firstOrNull { it.tvgId == viewState.epgChannelTvgId }
                 ?: viewState.currentChannel
-
+        }
+        if (viewState.showEpgPanel && viewState.epgPrograms.isNotEmpty()) {
             EpgPanel(
                 programs = viewState.epgPrograms,
                 channel = epgChannel,
@@ -843,10 +844,12 @@ private fun EpgPanel(
                 horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val titleText = if (channel != null) {
-                    "${stringResource(R.string.epg_panel_title)} • ${channel.title}"
-                } else {
-                    stringResource(R.string.epg_panel_title)
+                val titleText = remember(channel) {
+                    if (channel != null) {
+                        "${stringResource(R.string.epg_panel_title)} • ${channel.title}"
+                    } else {
+                        stringResource(R.string.epg_panel_title)
+                    }
                 }
                 Text(
                     text = titleText,

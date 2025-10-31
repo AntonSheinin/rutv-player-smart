@@ -6,7 +6,7 @@ import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import com.videoplayer.data.model.PlayerConfig
 import com.videoplayer.data.model.PlaylistSource
-import com.videoplayer.util.Constants
+import com.videoplayer.util.PlayerConstants
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -185,7 +185,7 @@ class PreferencesRepository @Inject constructor(
             PlayerConfig(
                 useFfmpegAudio = preferences[PreferencesKeys.USE_FFMPEG_AUDIO] ?: false,
                 useFfmpegVideo = preferences[PreferencesKeys.USE_FFMPEG_VIDEO] ?: false,
-                bufferSeconds = preferences[PreferencesKeys.BUFFER_SECONDS] ?: Constants.DEFAULT_BUFFER_SECONDS,
+                bufferSeconds = preferences[PreferencesKeys.BUFFER_SECONDS] ?: PlayerConstants.DEFAULT_BUFFER_SECONDS,
                 showDebugLog = preferences[PreferencesKeys.SHOW_DEBUG_LOG] ?: false
             )
         }

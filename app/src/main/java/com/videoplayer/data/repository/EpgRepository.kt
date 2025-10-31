@@ -8,7 +8,7 @@ import com.google.gson.Gson
 import com.google.gson.stream.JsonReader
 import com.google.gson.stream.JsonToken
 import com.videoplayer.data.model.*
-import com.videoplayer.util.Constants
+import com.videoplayer.util.EpgConstants
 import com.videoplayer.util.Result
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -86,8 +86,8 @@ class EpgRepository @Inject constructor(
             val healthUrl = URL("$epgUrl/health")
             val connection = healthUrl.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
-            connection.connectTimeout = Constants.EPG_HEALTH_TIMEOUT_MS
-            connection.readTimeout = Constants.EPG_HEALTH_TIMEOUT_MS
+            connection.connectTimeout = EpgConstants.EPG_HEALTH_TIMEOUT_MS
+            connection.readTimeout = EpgConstants.EPG_HEALTH_TIMEOUT_MS
 
             val responseCode = connection.responseCode
             if (responseCode == 200) {
@@ -127,7 +127,7 @@ class EpgRepository @Inject constructor(
             return@withContext Result.Error(Exception("No channels with EPG identifiers"))
         }
 
-        val batchSize = max(1, Constants.EPG_FETCH_BATCH_SIZE)
+        val batchSize = max(1, EpgConstants.EPG_FETCH_BATCH_SIZE)
         val totalBatches = (channelsWithEpg.size + batchSize - 1) / batchSize
         Timber.d("Fetching EPG for ${channelsWithEpg.size} channels in $totalBatches batch(es)")
 
@@ -221,8 +221,8 @@ class EpgRepository @Inject constructor(
             connection = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
                 setRequestProperty("Content-Type", "application/json")
-                connectTimeout = Constants.EPG_CONNECT_TIMEOUT_MS
-                readTimeout = Constants.EPG_READ_TIMEOUT_MS
+                connectTimeout = EpgConstants.EPG_CONNECT_TIMEOUT_MS
+                readTimeout = EpgConstants.EPG_READ_TIMEOUT_MS
                 doOutput = true
             }
 
@@ -745,8 +745,8 @@ class EpgRepository @Inject constructor(
             connection = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
                 setRequestProperty("Content-Type", "application/json")
-                connectTimeout = Constants.EPG_CONNECT_TIMEOUT_MS
-                readTimeout = Constants.EPG_READ_TIMEOUT_MS
+                connectTimeout = EpgConstants.EPG_CONNECT_TIMEOUT_MS
+                readTimeout = EpgConstants.EPG_READ_TIMEOUT_MS
                 doOutput = true
             }
 

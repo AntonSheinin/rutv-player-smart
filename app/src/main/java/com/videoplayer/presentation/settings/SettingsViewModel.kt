@@ -8,7 +8,7 @@ import com.videoplayer.data.repository.ChannelRepository
 import com.videoplayer.data.repository.PreferencesRepository
 import com.videoplayer.domain.usecase.FetchEpgUseCase
 import com.videoplayer.domain.usecase.LoadPlaylistUseCase
-import com.videoplayer.util.Constants
+import com.videoplayer.util.PlayerConstants
 import com.videoplayer.util.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -243,8 +243,8 @@ class SettingsViewModel @Inject constructor(
     fun setBufferSeconds(seconds: Int) {
         viewModelScope.launch {
             val clampedSeconds = seconds.coerceIn(
-                Constants.MIN_BUFFER_SECONDS,
-                Constants.MAX_BUFFER_SECONDS
+                PlayerConstants.MIN_BUFFER_SECONDS,
+                PlayerConstants.MAX_BUFFER_SECONDS
             )
             val currentConfig = _viewState.value.playerConfig
             val newConfig = currentConfig.copy(bufferSeconds = clampedSeconds)

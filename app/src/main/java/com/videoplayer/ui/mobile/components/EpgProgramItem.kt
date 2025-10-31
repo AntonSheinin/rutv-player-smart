@@ -1,4 +1,4 @@
-package com.videoplayer.ui.components
+package com.videoplayer.ui.mobile.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background

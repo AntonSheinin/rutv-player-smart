@@ -30,7 +30,7 @@ import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
 import com.videoplayer.data.model.Channel
 import com.videoplayer.data.model.EpgProgram
 import com.videoplayer.data.model.PlayerConfig
-import com.videoplayer.util.Constants
+import com.videoplayer.util.PlayerConstants
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory
 import kotlinx.coroutines.CoroutineScope
@@ -182,15 +182,15 @@ class PlayerManager @Inject constructor(
 
             // Calculate buffer durations
             val bufferMs = config.bufferSeconds * 1000
-            val minBufferMs = maxOf(Constants.MIN_BUFFER_MS, bufferMs)
-            val maxBufferMs = maxOf(Constants.MAX_BUFFER_MS, bufferMs)
+            val minBufferMs = maxOf(PlayerConstants.MIN_BUFFER_MS, bufferMs)
+            val maxBufferMs = maxOf(PlayerConstants.MAX_BUFFER_MS, bufferMs)
 
             val loadControl = DefaultLoadControl.Builder()
                 .setBufferDurationsMs(
                     minBufferMs,
                     maxBufferMs,
-                    Constants.BUFFER_FOR_PLAYBACK_MS,
-                    Constants.BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS
+                    PlayerConstants.BUFFER_FOR_PLAYBACK_MS,
+                    PlayerConstants.BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS
                 )
                 .setPrioritizeTimeOverSizeThresholds(true)
                 .build()
@@ -226,8 +226,8 @@ class PlayerManager @Inject constructor(
                 .setLoadControl(loadControl)
                 .setMediaSourceFactory(hlsMediaSourceFactory)
                 .setTrackSelector(trackSelector)
-                .setSeekBackIncrementMs(Constants.SEEK_INCREMENT_MS)
-                .setSeekForwardIncrementMs(Constants.SEEK_INCREMENT_MS)
+                .setSeekBackIncrementMs(PlayerConstants.SEEK_INCREMENT_MS)
+                .setSeekForwardIncrementMs(PlayerConstants.SEEK_INCREMENT_MS)
                 .setVideoScalingMode(C.VIDEO_SCALING_MODE_SCALE_TO_FIT)
                 .setVideoChangeFrameRateStrategy(C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF)
                 .build()
@@ -783,7 +783,7 @@ class PlayerManager @Inject constructor(
                 player?.let { p ->
                     if (p.playbackState == Player.STATE_BUFFERING && bufferingStartTime > 0) {
                         val bufferingDuration = System.currentTimeMillis() - bufferingStartTime
-                        if (bufferingDuration > Constants.BUFFERING_TIMEOUT_MS) {
+                        if (bufferingDuration > PlayerConstants.BUFFERING_TIMEOUT_MS) {
                             addDebugMessage("⚠ Buffering timeout (${bufferingDuration/1000}s)")
                             _playerEvents.tryEmit(PlayerEvent.BufferingTimeout(bufferingDuration))
                             stopBufferingCheck()

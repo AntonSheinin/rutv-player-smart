@@ -1,5 +1,6 @@
 package com.videoplayer.presentation.main
 
+import androidx.compose.runtime.Immutable
 import androidx.media3.common.util.UnstableApi
 import com.videoplayer.data.model.Channel
 import com.videoplayer.data.model.EpgProgram
@@ -8,8 +9,10 @@ import com.videoplayer.presentation.player.PlayerState
 
 /**
  * UI State for MainActivity
+ * Marked as Immutable to optimize recomposition - all properties are read-only
  */
 @UnstableApi
+@Immutable
 data class MainViewState(
     val channels: List<Channel> = emptyList(),
     val currentChannel: Channel? = null,
@@ -52,6 +55,7 @@ data class MainViewState(
         get() = channels.isNotEmpty()
 }
 
+@Immutable
 data class ArchivePrompt(
     val channel: Channel,
     val currentProgram: EpgProgram,

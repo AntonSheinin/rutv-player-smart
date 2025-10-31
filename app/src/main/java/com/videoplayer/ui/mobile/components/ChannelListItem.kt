@@ -1,4 +1,4 @@
-package com.videoplayer.ui.components
+package com.videoplayer.ui.mobile.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -24,7 +24,7 @@ import com.videoplayer.R
 import com.videoplayer.data.model.Channel
 import com.videoplayer.data.model.EpgProgram
 import com.videoplayer.ui.theme.ruTvColors
-import com.videoplayer.util.Constants
+import com.videoplayer.util.PlayerConstants
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -65,7 +65,7 @@ fun ChannelListItem(
                 // Cancel pending single tap
                 clickJob?.cancel()
 
-                if (timeSinceLastClick < Constants.DOUBLE_TAP_DELAY_MS) {
+                if (timeSinceLastClick < PlayerConstants.DOUBLE_TAP_DELAY_MS) {
                     // Double tap - play channel
                     lastClickTime = 0
                     onChannelClick()
@@ -73,7 +73,7 @@ fun ChannelListItem(
                     // Single tap - schedule EPG show
                     lastClickTime = currentTime
                     clickJob = coroutineScope.launch {
-                        delay(Constants.DOUBLE_TAP_DELAY_MS)
+                        delay(PlayerConstants.DOUBLE_TAP_DELAY_MS)
                         if (channel.hasEpg) {
                             onShowPrograms()
                         }
