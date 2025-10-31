@@ -40,8 +40,9 @@ fun EpgProgramItem(
     modifier: Modifier = Modifier,
     onPlayArchive: (() -> Unit)? = null
 ) {
-    val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-    val startTime = program.startTimeMillis.takeIf { it > 0L }?.let { timeFormat.format(Date(it)) } ?: "--:--"
+    val startTime = program.startTimeMillis.takeIf { it > 0L }?.let {
+        TimeFormatter.formatTime(Date(it))
+    } ?: "--:--"
 
     val backgroundColor = if (isCurrent) {
         MaterialTheme.ruTvColors.selectedBackground
