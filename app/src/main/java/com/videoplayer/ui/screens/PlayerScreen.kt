@@ -55,7 +55,6 @@ import com.videoplayer.util.Constants
 import android.annotation.SuppressLint
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.yield
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlin.math.min
@@ -231,54 +230,6 @@ fun PlayerScreen(
         LaunchedEffect(viewState.videoRotation, playerViewRef) {
             playerViewRef?.let { playerView ->
                 playerView.updateVideoRotation(viewState.videoRotation)
-            }
-        }
-
-        // Update progress bar times when program changes or controls become visible
-        // Use coroutine with Main dispatcher to avoid blocking UI
-        LaunchedEffect(viewState.currentProgram, viewState.archiveProgram, viewState.isArchivePlayback, playerViewRef, showControls) {
-            playerViewRef?.let { playerView ->
-                val program = if (viewState.isArchivePlayback) viewState.archiveProgram else viewState.currentProgram
-                if (program != null && showControls) {
-                    val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-                    val startTimeText = timeFormat.format(Date(program.startTimeMillis))
-                    val endTimeText = timeFormat.format(Date(program.stopTimeMillis))
-
-                    // Update immediately when program changes
-                    playerView.post {
-                        playerView.findControlView("exo_position")?.let { view ->
-                            if (view is TextView) {
-                                view.text = startTimeText
-                            }
-                        }
-                        playerView.findControlView("exo_duration")?.let { view ->
-                            if (view is TextView) {
-                                view.text = endTimeText
-                            }
-                        }
-                    }
-
-                    // Update periodically but less frequently to avoid UI blocking
-                    // Use yield() to allow other coroutines to run
-                    while (showControls && playerViewRef == playerView) {
-                        delay(250) // Reduced frequency: 250ms instead of 100ms
-                        yield() // Yield to prevent blocking
-                        
-                        // Post updates on main thread
-                        playerView.post {
-                            playerView.findControlView("exo_position")?.let { view ->
-                                if (view is TextView) {
-                                    view.text = startTimeText
-                                }
-                            }
-                            playerView.findControlView("exo_duration")?.let { view ->
-                                if (view is TextView) {
-                                    view.text = endTimeText
-                                }
-                            }
-                        }
-                    }
-                }
             }
         }
 
@@ -761,6 +712,8 @@ private fun PlaylistPanel(
                                 }
                                 if (matchingIndex >= 0) {
                                     coroutineScope.launch {
+                                        // Use scrollToItem for instant jump, then quick animate for smooth positioning
+                                        listState.scrollToItem(matchingIndex)
                                         listState.animateScrollToItem(matchingIndex, scrollOffset = -160)
                                     }
                                 }
@@ -1515,13 +1468,13 @@ private fun PlayerView.applyControlCustomizations(
     val progressVerticalOffsetDp = 12f
     val horizontalMarginDp = 120f // Leave space for custom buttons on sides
     val horizontalMarginPx = (horizontalMarginDp * resources.displayMetrics.density).toInt()
-    
+
     // Find the bottom bar container that holds progress bar and times
     val bottomBar = findControlView("exo_bottom_bar")
-    
+
     // Find the TimeBar/progress bar view
     val timeBar = findControlView("exo_timebar") ?: findControlView("exo_progress")
-    
+
     // Center the progress bar by adjusting its layout margins (not translation)
     timeBar?.let { bar ->
         (bar.layoutParams as? android.view.ViewGroup.MarginLayoutParams)?.apply {
@@ -1531,20 +1484,20 @@ private fun PlayerView.applyControlCustomizations(
         }
         setVerticalOffsetDp(progressVerticalOffsetDp)
     }
-    
+
     // Position time text views - they should already be in the layout on left/right
     // Just ensure they're vertically aligned with the progress bar
     val positionView = findControlView("exo_position")
     val durationView = findControlView("exo_duration")
-    
+
     positionView?.let { view ->
         setVerticalOffsetDp(progressVerticalOffsetDp)
     }
-    
+
     durationView?.let { view ->
         setVerticalOffsetDp(progressVerticalOffsetDp)
     }
-    
+
     // Also adjust bottom bar container padding if it exists to help with centering
     bottomBar?.let { container ->
         if (container is android.view.ViewGroup) {
@@ -1556,25 +1509,7 @@ private fun PlayerView.applyControlCustomizations(
             )
         }
     }
-    
-    // Update time displays to show program start/end times
-    val timeFormat = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
-    if (currentProgram != null) {
-        val startTimeText = timeFormat.format(java.util.Date(currentProgram.startTimeMillis))
-        val endTimeText = timeFormat.format(java.util.Date(currentProgram.stopTimeMillis))
 
-        // Update position (left) and duration (right) text views
-        findControlView("exo_position")?.let { view ->
-            if (view is android.widget.TextView) {
-                view.text = startTimeText
-            }
-        }
-        findControlView("exo_duration")?.let { view ->
-            if (view is android.widget.TextView) {
-                view.text = endTimeText
-            }
-        }
-    }
 }
 
 private fun View.setVerticalOffsetDp(offsetDp: Float) {
