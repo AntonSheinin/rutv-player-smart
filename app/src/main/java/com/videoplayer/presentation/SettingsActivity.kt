@@ -113,6 +113,7 @@ class SettingsActivity : ComponentActivity() {
                 // Set result to indicate language changed
                 setResult(android.app.Activity.RESULT_OK, Intent().putExtra("language_changed", true))
                 // Recreate activity to apply new locale
+                // Note: recreate() will trigger finish() internally, so result is set before that
                 recreate()
             },
             onBack = { finish() },
