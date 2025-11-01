@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.videoplayer.ui.theme.ruTvColors
 import com.videoplayer.util.DeviceHelper
 
 /**
@@ -28,7 +29,7 @@ fun focusIndicatorModifier(
     shape: RoundedCornerShape = RoundedCornerShape(8.dp)
 ): Modifier {
     val isRemoteMode = DeviceHelper.isRemoteInputActive()
-    val actualBorderColor = borderColor ?: MaterialTheme.ruTvColors.gold
+    val actualBorderColor = borderColor ?: ruTvColors.gold
 
     // Only show focus indicator in remote mode
     if (!isRemoteMode || !isFocused) {
