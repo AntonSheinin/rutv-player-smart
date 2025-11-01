@@ -7,11 +7,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.videoplayer.ui.theme.ruTvColors
 import com.videoplayer.util.DeviceHelper
 
 /**
@@ -24,7 +24,7 @@ fun focusIndicatorModifier(
     isFocused: Boolean,
     borderWidth: Float = 4f,
     scaleAmount: Float = 1.02f,
-    borderColor: Color = ruTvColors.gold,
+    borderColor: Color = MaterialTheme.ruTvColors.gold,
     shape: RoundedCornerShape = RoundedCornerShape(8.dp)
 ): Modifier {
     val isRemoteMode = DeviceHelper.isRemoteInputActive()

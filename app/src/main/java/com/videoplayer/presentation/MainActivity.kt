@@ -389,11 +389,11 @@ class MainActivity : ComponentActivity() {
             when (keyCode) {
                 // Channel navigation (direct, bypasses focus)
                 KeyEvent.KEYCODE_CHANNEL_UP -> {
-                    viewModel.switchChannelUp()
+                    switchChannelUp()
                     return true
                 }
                 KeyEvent.KEYCODE_CHANNEL_DOWN -> {
-                    viewModel.switchChannelDown()
+                    switchChannelDown()
                     return true
                 }
                 // Menu button - context dependent

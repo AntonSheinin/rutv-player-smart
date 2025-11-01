@@ -39,10 +39,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.annotation.StringRes
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.focusable
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.foundation.focusable
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import com.videoplayer.util.DeviceHelper
@@ -583,10 +584,14 @@ private fun PlaylistPanel(
                             .focusRequester(searchButtonFocus)
                             .then(focusIndicatorModifier(isFocused = false))
                             .onKeyEvent { event ->
-                                if (event.type == KeyEventType.KeyDown &&
-                                    (event.key == Key.DirectionCenter || event.key == Key.Enter)) {
-                                    showSearchDialog = true
-                                    true
+                                if (event.type == KeyEventType.KeyDown) {
+                                    when (event.key) {
+                                        Key.DirectionCenter, Key.Enter -> {
+                                            showSearchDialog = true
+                                            true
+                                        }
+                                        else -> false
+                                    }
                                 } else false
                             }
                     ) {
@@ -604,10 +609,14 @@ private fun PlaylistPanel(
                         .focusRequester(closeButtonFocus)
                         .then(focusIndicatorModifier(isFocused = false))
                         .onKeyEvent { event ->
-                            if (event.type == KeyEventType.KeyDown &&
-                                (event.key == Key.DirectionCenter || event.key == Key.Enter)) {
-                                onClose()
-                                true
+                            if (event.type == KeyEventType.KeyDown) {
+                                when (event.key) {
+                                    Key.DirectionCenter, Key.Enter -> {
+                                        onClose()
+                                        true
+                                    }
+                                    else -> false
+                                }
                             } else false
                         }
                 ) {
@@ -1084,12 +1093,14 @@ private fun ProgramDetailsPanel(
                         .focusRequester(closeButtonFocus)
                         .then(focusIndicatorModifier(isFocused = false))
                         .onKeyEvent { event ->
-                            if (event.type == KeyEventType.KeyDown &&
-                                (event.key == Key.DirectionCenter ||
-                                 event.key == Key.Enter ||
-                                 event.key == Key.Back)) {
-                                onClose()
-                                true
+                            if (event.type == KeyEventType.KeyDown) {
+                                when (event.key) {
+                                    Key.DirectionCenter, Key.Enter, Key.Back -> {
+                                        onClose()
+                                        true
+                                    }
+                                    else -> false
+                                }
                             } else false
                         }
                 ) {

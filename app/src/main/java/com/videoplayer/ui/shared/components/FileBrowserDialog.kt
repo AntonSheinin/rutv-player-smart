@@ -18,6 +18,7 @@ import androidx.compose.ui.focus.focusable
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.res.stringResource
@@ -28,7 +29,7 @@ import com.videoplayer.ui.theme.ruTvColors
 import com.videoplayer.util.DeviceHelper
 import java.io.File
 import kotlinx.coroutines.launch
-import androidx.compose.animation.core.animateScrollToItem
+import androidx.compose.foundation.lazy.animateScrollToItem
 
 /**
  * File browser dialog for remote file selection
@@ -107,10 +108,14 @@ fun FileBrowserDialog(
                         .focusRequester(cancelButtonFocus)
                         .then(focusIndicatorModifier(isFocused = false))
                         .onKeyEvent { event ->
-                            if (event.type == KeyEventType.KeyDown &&
-                                (event.key == Key.DirectionCenter || event.key == Key.Enter)) {
-                                onDismiss()
-                                true
+                            if (event.type == KeyEventType.KeyDown) {
+                                when (event.key) {
+                                    Key.DirectionCenter, Key.Enter -> {
+                                        onDismiss()
+                                        true
+                                    }
+                                    else -> false
+                                }
                             } else false
                         }
                 ) {
@@ -215,10 +220,14 @@ fun FileBrowserDialog(
                             .focusRequester(upButtonFocus)
                             .then(focusIndicatorModifier(isFocused = false))
                             .onKeyEvent { event ->
-                                if (event.type == KeyEventType.KeyDown &&
-                                    (event.key == Key.DirectionCenter || event.key == Key.Enter)) {
-                                    currentDirectory = currentDirectory.parentFile
-                                    true
+                                if (event.type == KeyEventType.KeyDown) {
+                                    when (event.key) {
+                                        Key.DirectionCenter, Key.Enter -> {
+                                            currentDirectory = currentDirectory.parentFile
+                                            true
+                                        }
+                                        else -> false
+                                    }
                                 } else false
                             },
                         colors = ButtonDefaults.buttonColors(
