@@ -29,9 +29,9 @@ class SettingsActivity : ComponentActivity() {
     private val viewModel: SettingsViewModel by viewModels()
 
     override fun attachBaseContext(newBase: Context) {
-        // Default to English during initialization
-        // Actual language will be loaded and applied after app startup via PreferencesRepository
-        val context = LocaleHelper.setLocale(newBase, "en")
+        // Load saved language from SharedPreferences (synchronous, safe)
+        val localeCode = LocaleHelper.getSavedLanguage(newBase)
+        val context = LocaleHelper.setLocale(newBase, localeCode)
         super.attachBaseContext(context)
     }
 

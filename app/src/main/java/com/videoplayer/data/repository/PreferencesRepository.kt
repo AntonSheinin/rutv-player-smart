@@ -1,6 +1,7 @@
 package com.videoplayer.data.repository
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
@@ -28,6 +29,10 @@ class PreferencesRepository @Inject constructor(
 ) {
 
     private val dataStore = context.dataStore
+    
+    // SharedPreferences for language setting (synchronous access in attachBaseContext)
+    private val sharedPrefs: SharedPreferences = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+    private val LANGUAGE_KEY = "app_language"
 
     // Keys
     private object PreferencesKeys {
@@ -244,13 +249,27 @@ class PreferencesRepository @Inject constructor(
     /**
      * App language preference
      * Default: "en" (English)
+     * 
+     * Also stored in SharedPreferences for synchronous access in attachBaseContext
      */
     val appLanguage: Flow<String> = dataStore.data
         .map { preferences ->
             preferences[PreferencesKeys.APP_LANGUAGE] ?: "en"
         }
 
+    /**
+     * Get app language synchronously (for use in attachBaseContext)
+     * Reads from SharedPreferences for immediate access
+     */
+    fun getAppLanguageSync(): String {
+        return sharedPrefs.getString(LANGUAGE_KEY, "en") ?: "en"
+    }
+
     suspend fun saveAppLanguage(localeCode: String) {
+        // Save to SharedPreferences first (synchronous, for attachBaseContext)
+        sharedPrefs.edit().putString(LANGUAGE_KEY, localeCode).apply()
+        
+        // Also save to DataStore (for Flow-based observation)
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.APP_LANGUAGE] = localeCode
         }

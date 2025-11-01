@@ -1,6 +1,7 @@
 package com.videoplayer.util
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.os.Build
 import java.util.Locale
@@ -10,7 +11,7 @@ import java.util.Locale
  * Allows dynamic language switching independent of system locale
  */
 object LocaleHelper {
-
+    
     /**
      * Set locale for the given context
      * Returns a context wrapped with the specified locale
@@ -22,6 +23,15 @@ object LocaleHelper {
             else -> Locale("en") // Default to English
         }
         return updateLocale(context, locale)
+    }
+    
+    /**
+     * Get saved language from SharedPreferences (synchronous)
+     * For use in attachBaseContext where DataStore cannot be accessed
+     */
+    fun getSavedLanguage(context: Context): String {
+        val prefs: SharedPreferences = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+        return prefs.getString("app_language", "en") ?: "en"
     }
 
     /**
