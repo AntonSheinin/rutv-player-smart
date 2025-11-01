@@ -642,6 +642,7 @@ private fun ConfirmationDialog(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LanguageSelectorSetting(
     selectedLanguage: String,
