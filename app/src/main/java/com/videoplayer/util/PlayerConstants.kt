@@ -22,9 +22,7 @@ object PlayerConstants {
     const val DOUBLE_TAP_DELAY_MS = 300L
     const val CONTROLLER_AUTO_HIDE_TIMEOUT_MS = 2_000
 
-    // Player - Simple landscape/portrait toggle
-    const val VIDEO_ROTATION_0 = 0f        // Landscape (normal)
-    const val VIDEO_ROTATION_90 = 90f      // Portrait (rotated)
+    // Player
     const val SEEK_INCREMENT_MS = 10_000L
 
     // Aspect Ratio

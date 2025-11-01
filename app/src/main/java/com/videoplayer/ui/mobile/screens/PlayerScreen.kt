@@ -1,8 +1,6 @@
 package com.videoplayer.ui.mobile.screens
 
-import android.graphics.Matrix
 import android.view.LayoutInflater
-import android.view.TextureView
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -209,14 +207,6 @@ fun PlayerScreen(
             )
         }
 
-        // Handle video rotation changes separately to avoid UI freezes
-        // LaunchedEffect ensures rotation is only applied when videoRotation actually changes,
-        // not on every recomposition from other state changes
-        LaunchedEffect(viewState.videoRotation, playerViewRef) {
-            playerViewRef?.let { playerView ->
-                playerView.updateVideoRotation(viewState.videoRotation)
-            }
-        }
 
         // Custom Control Buttons Overlay (bottom) - synced with ExoPlayer controls
         AnimatedVisibility(
@@ -1230,68 +1220,6 @@ private fun String.truncateForOverlay(maxChars: Int = MAX_PROGRAM_TITLE_CHARS): 
     return if (trimmed.isEmpty()) "…" else "$trimmed…"
 }
 
-// Track the last applied rotation to avoid redundant updates
-private var lastAppliedRotation: Float = 0f
-
-private fun PlayerView.updateVideoRotation(rotationDegrees: Float) {
-    val userRotation = ((rotationDegrees % 360f) + 360f) % 360f
-
-    // Skip if rotation hasn't changed
-    if (userRotation == lastAppliedRotation) {
-        return
-    }
-    lastAppliedRotation = userRotation
-
-    val textureView = videoSurfaceView as? TextureView
-    if (textureView == null) {
-        rotation = userRotation
-        return
-    }
-
-    textureView.post {
-        val viewWidth = textureView.width.toFloat()
-        val viewHeight = textureView.height.toFloat()
-
-        if (viewWidth <= 0f || viewHeight <= 0f) {
-            textureView.setTransform(Matrix())
-            return@post
-        }
-
-        val centerX = viewWidth / 2f
-        val centerY = viewHeight / 2f
-        val matrix = Matrix()
-
-        // Simply rotate around the center of the view
-        matrix.postRotate(userRotation, centerX, centerY)
-
-        // Scale to fit the view while maintaining aspect ratio
-        val videoSize = player?.videoSize
-        val displayAspectRatio = viewWidth / viewHeight
-        val videoAspectRatio = if (userRotation == 90f || userRotation == 270f) {
-            // When rotated 90°, swap dimensions
-            (videoSize?.height?.toFloat() ?: 1f) / (videoSize?.width?.toFloat() ?: 1f) * (videoSize?.pixelWidthHeightRatio ?: 1f)
-        } else {
-            // Normal orientation
-            (videoSize?.width?.toFloat() ?: 1f) / (videoSize?.height?.toFloat() ?: 1f) * (videoSize?.pixelWidthHeightRatio ?: 1f)
-        }
-
-        val scale = if (videoAspectRatio > displayAspectRatio) {
-            viewWidth / (videoSize?.width?.toFloat() ?: viewWidth)
-        } else {
-            viewHeight / (videoSize?.height?.toFloat() ?: viewHeight)
-        }
-
-        matrix.postScale(scale, scale, centerX, centerY)
-        textureView.setTransform(matrix)
-    }
-
-    // Also rotate controller UI
-    findViewById<View?>(Media3UiR.id.exo_controller)?.post {
-        rotation = userRotation
-        pivotX = width / 2f
-        pivotY = height / 2f
-    }
-}
 
 private fun PlayerView.applyControlCustomizations(
     isArchivePlayback: Boolean,

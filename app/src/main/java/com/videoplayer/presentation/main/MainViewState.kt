@@ -35,7 +35,6 @@ data class MainViewState(
     val debugMessages: List<DebugMessage> = emptyList(),
     val showDebugLog: Boolean = false,
     val currentResizeMode: Int = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT,
-    val videoRotation: Float = 0f,
     val isLoading: Boolean = false,
     val error: String? = null,
     val epgNotificationMessage: String? = null,
