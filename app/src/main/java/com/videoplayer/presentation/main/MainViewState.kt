@@ -1,7 +1,9 @@
 package com.videoplayer.presentation.main
 
+import androidx.annotation.StringRes
 import androidx.compose.runtime.Immutable
 import androidx.media3.common.util.UnstableApi
+import com.videoplayer.R
 import com.videoplayer.data.model.Channel
 import com.videoplayer.data.model.EpgProgram
 import com.videoplayer.presentation.player.DebugMessage
@@ -47,8 +49,9 @@ data class MainViewState(
             channels
         }
 
-    val playlistTitle: String
-        get() = if (showFavoritesOnly) "Favorites" else "Channels"
+    @StringRes
+    val playlistTitleResId: Int
+        get() = if (showFavoritesOnly) R.string.playlist_title_favorites else R.string.playlist_title_channels
 
     val hasChannels: Boolean
         get() = channels.isNotEmpty()

@@ -62,6 +62,8 @@
     <string name="time_placeholder_colon">--:--</string>
 
     <!-- Channel Info -->
+    <string name="playlist_title_channels">Каналы</string>
+    <string name="playlist_title_favorites">Избранное</string>
     <string name="epg_panel_title">Программа передач</string>
     <string name="program_details_title">Детали программы</string>
     <string name="channel_info_format">#%1$d &#8226; %2$s</string>

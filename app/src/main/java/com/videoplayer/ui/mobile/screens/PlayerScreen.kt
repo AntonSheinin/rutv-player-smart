@@ -251,7 +251,7 @@ fun PlayerScreen(
         if (viewState.showPlaylist) {
             PlaylistPanel(
                 channels = viewState.filteredChannels,
-                playlistTitle = viewState.playlistTitle,
+                playlistTitleResId = viewState.playlistTitleResId,
                 currentChannelIndex = viewState.currentChannelIndex,
                 epgOpenIndex = if (viewState.showEpgPanel) {
                     // Find the index of the channel whose EPG is open
@@ -494,7 +494,7 @@ private fun ChannelInfoOverlay(
 @Composable
 private fun PlaylistPanel(
     channels: List<Channel>,
-    playlistTitle: String,
+    playlistTitleResId: Int,
     currentChannelIndex: Int,
     epgOpenIndex: Int,
     currentProgramsMap: Map<String, EpgProgram?>,
@@ -544,7 +544,7 @@ private fun PlaylistPanel(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = playlistTitle,
+                        text = stringResource(playlistTitleResId),
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.ruTvColors.gold,
                         modifier = Modifier.weight(1f, fill = false)
