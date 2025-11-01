@@ -24,10 +24,11 @@ fun focusIndicatorModifier(
     isFocused: Boolean,
     borderWidth: Float = 4f,
     scaleAmount: Float = 1.02f,
-    borderColor: Color = MaterialTheme.ruTvColors.gold,
+    borderColor: Color? = null,
     shape: RoundedCornerShape = RoundedCornerShape(8.dp)
 ): Modifier {
     val isRemoteMode = DeviceHelper.isRemoteInputActive()
+    val actualBorderColor = borderColor ?: MaterialTheme.ruTvColors.gold
 
     // Only show focus indicator in remote mode
     if (!isRemoteMode || !isFocused) {
@@ -46,7 +47,7 @@ fun focusIndicatorModifier(
         .scale(scale)
         .then(
             if (actualBorderWidth > 0.dp && isFocused) {
-                Modifier.border(actualBorderWidth, borderColor, shape)
+                Modifier.border(actualBorderWidth, actualBorderColor, shape)
             } else {
                 Modifier
             }
