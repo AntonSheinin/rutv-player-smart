@@ -1,0 +1,30 @@
+[33mcommit 73253483846f73fefa3d4f7759a9c1adeaf154cc[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m
+Author: Codex Agent <codex@example.com>
+Date:   Sat Nov 1 23:18:53 2025 +0200
+
+    Implement comprehensive remote control support for TV/STB devices
+    
+    - Add DeviceHelper utility for generic remote detection and input tracking
+    - Add FocusManager and FocusIndicator for focus state management
+    - Add VirtualKeyboard composable for remote text input (QWERTY layout)
+    - Add FileBrowserDialog for remote file selection
+    - Add RemoteDialog wrapper for enhanced dialog focus support
+    - Update MainActivity with remote key handling (CHANNEL_UP/DOWN, INFO, MENU, number pad)
+    - Add focus support to ChannelListItem (DPAD_CENTER=play, DPAD_RIGHT=EPG)
+    - Add focus support to EpgProgramItem (DPAD_CENTER=details, DPAD_RIGHT=archive)
+    - Add focus support to PlaylistPanel and EpgPanel with auto-scroll
+    - Add focus support to CustomControlButtons and ProgramDetailsPanel
+    - Update SettingsScreen with remote navigation support
+    - Update all dialogs (channel, search, URL input, confirmation) with RemoteDialog
+    - Add Russian translations for keyboard and file browser strings
+    - Fix compilation errors: Key comparisons, imports, focusable modifiers
+    - All UI elements now accessible via D-pad navigation without touch screen
+
+M	app/src/main/java/com/videoplayer/presentation/MainActivity.kt
+M	app/src/main/java/com/videoplayer/ui/mobile/components/EpgProgramItem.kt
+M	app/src/main/java/com/videoplayer/ui/mobile/screens/PlayerScreen.kt
+M	app/src/main/java/com/videoplayer/ui/mobile/screens/SettingsScreen.kt
+M	app/src/main/java/com/videoplayer/ui/shared/components/CustomControlButtons.kt
+M	app/src/main/java/com/videoplayer/ui/shared/components/FileBrowserDialog.kt
+M	app/src/main/java/com/videoplayer/ui/shared/components/FocusIndicator.kt
+M	app/src/main/java/com/videoplayer/ui/shared/components/RemoteDialog.kt

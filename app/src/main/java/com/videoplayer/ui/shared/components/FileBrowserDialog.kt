@@ -12,9 +12,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.focusable
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.focusable
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -29,7 +29,6 @@ import com.videoplayer.ui.theme.ruTvColors
 import com.videoplayer.util.DeviceHelper
 import java.io.File
 import kotlinx.coroutines.launch
-import androidx.compose.foundation.lazy.animateScrollToItem
 
 /**
  * File browser dialog for remote file selection

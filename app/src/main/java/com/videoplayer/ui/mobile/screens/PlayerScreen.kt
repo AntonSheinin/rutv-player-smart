@@ -1056,6 +1056,16 @@ private fun ProgramDetailsPanel(
     onClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isRemoteMode = DeviceHelper.isRemoteInputActive()
+    val closeButtonFocus = remember { FocusRequester() }
+
+    // Request focus on close button when panel opens in remote mode
+    LaunchedEffect(isRemoteMode) {
+        if (isRemoteMode) {
+            closeButtonFocus.requestFocus()
+        }
+    }
+
     val startTimeFormatted = program.startTimeMillis.takeIf { it > 0L }?.let {
         TimeFormatter.formatProgramDateTime(Date(it))
     } ?: stringResource(R.string.time_placeholder)
