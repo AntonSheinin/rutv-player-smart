@@ -49,6 +49,8 @@ class PreferencesRepository @Inject constructor(
 
         val LAST_PLAYED_INDEX = intPreferencesKey("last_played_index")
         val LAST_EPG_FETCH_TIMESTAMP = longPreferencesKey("last_epg_fetch_timestamp")
+
+        val APP_LANGUAGE = stringPreferencesKey("app_language")
     }
 
     /**
@@ -237,5 +239,21 @@ class PreferencesRepository @Inject constructor(
             preferences.remove(PreferencesKeys.PLAYLIST_HASH)
         }
         Timber.d("Cleared playlist cache")
+    }
+
+    /**
+     * App language preference
+     * Default: "en" (English)
+     */
+    val appLanguage: Flow<String> = dataStore.data
+        .map { preferences ->
+            preferences[PreferencesKeys.APP_LANGUAGE] ?: "en"
+        }
+
+    suspend fun saveAppLanguage(localeCode: String) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.APP_LANGUAGE] = localeCode
+        }
+        Timber.d("Saved app language: $localeCode")
     }
 }

@@ -1,5 +1,6 @@
 package com.videoplayer.presentation
 
+import android.content.Context
 import android.content.pm.ActivityInfo
 import android.os.Build
 import android.os.Bundle
@@ -10,12 +11,21 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.videoplayer.presentation.settings.SettingsViewModel
 import com.videoplayer.ui.mobile.screens.SettingsScreen
 import com.videoplayer.ui.theme.RuTvTheme
+import com.videoplayer.util.LocaleHelper
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import timber.log.Timber
+
+private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
 /**
  * Settings Activity - Refactored to use Jetpack Compose
@@ -25,6 +35,22 @@ import timber.log.Timber
 class SettingsActivity : ComponentActivity() {
 
     private val viewModel: SettingsViewModel by viewModels()
+
+    override fun attachBaseContext(newBase: Context) {
+        // Apply locale from preferences
+        val localeCode = try {
+            runBlocking {
+                newBase.dataStore.data.first().let { preferences ->
+                    preferences[stringPreferencesKey("app_language")] ?: "en"
+                }
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to load language preference, defaulting to English")
+            "en"
+        }
+        val context = LocaleHelper.setLocale(newBase, localeCode)
+        super.attachBaseContext(context)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -97,6 +123,11 @@ class SettingsActivity : ComponentActivity() {
             },
             onEpgPageDaysChanged = { days: Int ->
                 viewModel.setEpgPageDays(days)
+            },
+            onLanguageChanged = { localeCode: String ->
+                viewModel.setAppLanguage(localeCode)
+                // Recreate activity to apply new locale
+                recreate()
             },
             onBack = { finish() },
             modifier = Modifier.fillMaxSize()

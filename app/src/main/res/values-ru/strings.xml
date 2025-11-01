@@ -1,0 +1,127 @@
+<resources>
+    <string name="app_name">RuTV</string>
+
+    <!-- Dialog Titles -->
+    <string name="dialog_title_go_to_channel">Перейти к каналу</string>
+    <string name="dialog_title_search_channel">Поиск канала</string>
+    <string name="dialog_title_no_playlist">Плейлист не настроен</string>
+    <string name="dialog_title_load_playlist_url">Загрузить плейлист по URL</string>
+    <string name="dialog_title_no_playlist_loaded">Нет плейлиста</string>
+    <string name="dialog_title_reload_playlist">Перезагрузить плейлист?</string>
+    <string name="dialog_title_force_epg_fetch">Принудительно загрузить EPG?</string>
+
+    <!-- Dialog Messages -->
+    <string name="dialog_message_no_playlist">Пожалуйста, перейдите в Настройки для настройки источника плейлиста (URL или файл), чтобы начать просмотр каналов.</string>
+    <string name="dialog_message_no_playlist_loaded">Плейлист не загружен. Пожалуйста, сначала загрузите плейлист.</string>
+    <string name="dialog_message_reload_playlist">Это перезагрузит плейлист из исходного источника и обновит все данные EPG (tvg-id, catchup-days и т.д.).</string>
+    <string name="dialog_message_force_epg_fetch">Это удалит все кэшированные данные EPG и загрузит свежие данные из службы EPG. Это может занять некоторое время.</string>
+
+    <!-- Buttons -->
+    <string name="button_ok">ОК</string>
+    <string name="button_cancel">Отмена</string>
+    <string name="button_open_settings">Открыть настройки</string>
+    <string name="button_later">Позже</string>
+    <string name="button_save">Сохранить</string>
+
+    <!-- Input Hints -->
+    <string name="hint_channel_number">Введите номер канала (1-%1$d)</string>
+    <string name="hint_search_channel">Введите название канала</string>
+    <string name="hint_m3u_url">Введите M3U/M3U8 URL</string>
+
+    <!-- Status -->
+    <string name="status_playing">&#x25B6; Играет</string>
+    <string name="status_file">Файл</string>
+
+    <!-- Playlist / Settings -->
+    <string name="settings_playlist_source">Источник плейлиста</string>
+    <string name="settings_load_from_file">Загрузить из файла</string>
+    <string name="settings_load_from_url">Загрузить по URL</string>
+    <string name="settings_reload_playlist">Перезагрузить плейлист</string>
+    <string name="settings_player_config">Настройки плеера</string>
+    <string name="settings_debug_log">Показать отладочный лог</string>
+    <string name="settings_ffmpeg_audio">Использовать FFmpeg для аудио</string>
+    <string name="settings_ffmpeg_video">Использовать FFmpeg для видео</string>
+    <string name="settings_buffer_seconds">Длительность буфера (секунды)</string>
+    <string name="settings_epg_config">Настройки EPG</string>
+    <string name="settings_epg_url">EPG XML URL</string>
+    <string name="settings_epg_days_ahead">Дни EPG вперед</string>
+    <string name="settings_epg_days_past">Глубина EPG (прошедшие дни)</string>
+    <string name="settings_epg_page_days">Размер страницы EPG (дней на странице)</string>
+    <string name="settings_force_epg_fetch">Принудительно загрузить EPG</string>
+    <string name="settings_back">Назад</string>
+    <string name="settings_current_file">Файл</string>
+    <string name="settings_current_url">URL</string>
+    <string name="settings_unknown_file">Неизвестный файл</string>
+    <string name="settings_language">Язык</string>
+    <string name="settings_language_english">English</string>
+    <string name="settings_language_russian">Русский</string>
+
+    <!-- Channel Info -->
+    <string name="epg_panel_title">Программа передач</string>
+    <string name="program_details_title">Детали программы</string>
+    <string name="channel_info_format">#%1$d &#8226; %2$s</string>
+    <string name="epg_archive_label">Архив</string>
+
+    <!-- Favorites -->
+    <string name="favorite_filled">&#9733;</string>
+    <string name="favorite_empty">&#9734;</string>
+
+    <!-- Accessibility -->
+    <string name="cd_channel_logo">Логотип канала</string>
+    <string name="cd_favorites_button">Показать избранное</string>
+    <string name="cd_playlist_button">Показать плейлист</string>
+    <string name="cd_settings_button">Открыть настройки</string>
+    <string name="cd_go_to_channel_button">Перейти к номеру канала</string>
+    <string name="cd_close_playlist">Закрыть плейлист</string>
+    <string name="cd_search_channel">Поиск канала</string>
+    <string name="cd_aspect_ratio_button">Изменить соотношение сторон</string>
+    <string name="cd_orientation_button">Повернуть видео</string>
+    <string name="cd_epg_archive_indicator">Доступно в архиве</string>
+    <string name="player_return_to_live">Вернуться к эфиру</string>
+    <string name="player_watch_from_beginning">Смотреть с начала</string>
+    <string name="player_archive_label">DVR &#8226; %1$s</string>
+    <string name="archive_prompt_title">Воспроизведение завершено</string>
+    <string name="archive_prompt_message">Продолжить с &quot;%1$s&quot;?</string>
+    <string name="archive_prompt_message_no_next">Воспроизведение архива завершено.</string>
+    <string name="archive_prompt_continue">Воспроизвести следующую программу</string>
+    <string name="epg_loaded_toast">EPG загружен</string>
+    <string name="player_program_info">Информация о программе</string>
+
+    <!-- Program Details -->
+    <string name="program_details_description">Описание</string>
+
+    <!-- Debug & Logging -->
+    <string name="debug_log_title">Отладочный лог</string>
+    <string name="debug_epg_loaded_cached">EPG: Загружены кэшированные данные (%1$d программ для %2$d каналов)</string>
+    <string name="debug_epg_no_cached">EPG: Кэшированные данные не найдены</string>
+    <string name="debug_epg_failed_load">EPG: Не удалось загрузить кэшированные данные (%1$s)</string>
+    <string name="debug_epg_playlist_loaded">DVR: Плейлист загружен (%1$d каналов, catch-up: %2$s)</string>
+    <string name="debug_epg_playlist_empty">EPG: Плейлист пуст</string>
+    <string name="debug_epg_playlist_failed">EPG: Не удалось загрузить плейлист (%1$s)</string>
+    <string name="debug_epg_fetch_started">EPG: Начата загрузка</string>
+    <string name="debug_epg_fetch_manual">EPG: Запрошена ручная загрузка</string>
+    <string name="debug_epg_fetch_complete">EPG: Загрузка завершена (%1$d программ, %2$d/%3$d каналов)</string>
+    <string name="debug_epg_fetch_failed">EPG: Загрузка не удалась (%1$s)</string>
+    <string name="debug_epg_url_not_configured">EPG: URL не настроен</string>
+    <string name="debug_epg_showing_programs">EPG: Показано %1$d программ для %2$s</string>
+    <string name="debug_epg_showing_programs_current">EPG: Показано %1$d программ для %2$s (текущая: %3$s)</string>
+    <string name="debug_epg_load_failed">EPG: Не удалось загрузить для %1$s - %2$s</string>
+    <string name="debug_epg_timezone_changed">EPG: Часовой пояс системы изменен, обновление данных</string>
+    <string name="debug_epg_clock_changed">EPG: Часы системы изменены, обновление текущих программ</string>
+    <string name="debug_epg_cached_covering_window">EPG: Используются кэшированные данные (загружены %1$dч назад, %2$d программ)</string>
+    <string name="debug_epg_window_not_covered">EPG: Кэшированные данные не покрывают нужное окно, загрузка недостающих данных</string>
+    <string name="debug_epg_no_cached_fetching">EPG: Нет кэшированных данных, загрузка из службы</string>
+    <string name="debug_epg_cached_old_refresh">EPG: Кэшированные данные устарели на %1$dч, обновление</string>
+    <string name="debug_epg_no_channels">EPG: Каналы еще не загружены, пропуск загрузки</string>
+    <string name="debug_epg_no_channels_support">EPG: Нет каналов с поддержкой EPG, пропуск загрузки</string>
+    <string name="debug_dvr_restarting">DVR: Перезапуск %1$s с начала</string>
+    <string name="debug_dvr_no_current_program">DVR: Нет текущей программы для перезапуска</string>
+    <string name="debug_dvr_request">DVR: Запрос %1$s • %2$s (начало=%3$s, длительность=%4$dм, возраст=%5$dм, шаблон=%6$s)</string>
+    <string name="debug_dvr_channel_not_found">DVR: Канал не найден для программы %1$s</string>
+    <string name="debug_dvr_validation_failed">DVR: %1$s</string>
+    <string name="error_unknown">неизвестная ошибка</string>
+    <string name="error_failed_load_playlist">Не удалось загрузить плейлист</string>
+    <string name="error_init_failed">Ошибка инициализации: %1$s</string>
+    <string name="error_failed_load_playlist_with_msg">Не удалось загрузить плейлист: %1$s</string>
+</resources>
+

@@ -11,6 +11,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,6 +47,7 @@ fun SettingsScreen(
     onEpgDaysAheadChanged: (Int) -> Unit,
     onEpgDaysPastChanged: (Int) -> Unit,
     onEpgPageDaysChanged: (Int) -> Unit,
+    onLanguageChanged: (String) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -280,6 +282,20 @@ fun SettingsScreen(
                     minValue = 1,
                     maxValue = 14,
                     onCommit = onEpgPageDaysChanged
+                )
+            }
+
+            item { Spacer(modifier = Modifier.height(24.dp)) }
+
+            // Language Selection Section
+            item {
+                SettingsSectionHeader(stringResource(R.string.settings_language))
+            }
+
+            item {
+                LanguageSelectorSetting(
+                    selectedLanguage = viewState.selectedLanguage,
+                    onLanguageSelected = onLanguageChanged
                 )
             }
 
@@ -624,4 +640,66 @@ private fun ConfirmationDialog(
             }
         }
     )
+}
+
+@Composable
+private fun LanguageSelectorSetting(
+    selectedLanguage: String,
+    onLanguageSelected: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val languages = listOf(
+        "en" to stringResource(R.string.settings_language_english),
+        "ru" to stringResource(R.string.settings_language_russian)
+    )
+
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        Text(
+            text = stringResource(R.string.settings_language),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.ruTvColors.textPrimary,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = !expanded },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            OutlinedTextField(
+                value = languages.find { it.first == selectedLanguage }?.second ?: "",
+                onValueChange = { },
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier
+                    .menuAnchor()
+                    .fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.ruTvColors.gold,
+                    unfocusedBorderColor = MaterialTheme.ruTvColors.textDisabled,
+                    focusedTextColor = MaterialTheme.ruTvColors.textPrimary,
+                    unfocusedTextColor = MaterialTheme.ruTvColors.textPrimary
+                )
+            )
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                languages.forEach { (code, displayName) ->
+                    DropdownMenuItem(
+                        text = { Text(displayName) },
+                        onClick = {
+                            onLanguageSelected(code)
+                            expanded = false
+                        },
+                        colors = MenuDefaults.itemColors(
+                            textColor = MaterialTheme.ruTvColors.textPrimary
+                        )
+                    )
+                }
+            }
+        }
+    }
 }

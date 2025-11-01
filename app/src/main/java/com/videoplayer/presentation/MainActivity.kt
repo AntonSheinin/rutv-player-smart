@@ -32,14 +32,23 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
 import androidx.media3.common.util.UnstableApi
 import com.videoplayer.R
 import com.videoplayer.data.model.EpgProgram
 import com.videoplayer.presentation.main.MainViewModel
 import com.videoplayer.ui.mobile.screens.PlayerScreen
 import com.videoplayer.ui.theme.RuTvTheme
+import com.videoplayer.util.LocaleHelper
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import timber.log.Timber
+
+private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
 /**
  * Main Activity - Refactored to use Jetpack Compose
@@ -54,6 +63,22 @@ class MainActivity : ComponentActivity() {
     // Track if we've shown the no-playlist prompt
     private var hasShownNoPlaylistPrompt = false
     private var timeChangeReceiver: BroadcastReceiver? = null
+
+    override fun attachBaseContext(newBase: Context) {
+        // Apply locale from preferences
+        val localeCode = try {
+            runBlocking {
+                newBase.dataStore.data.first().let { preferences ->
+                    preferences[stringPreferencesKey("app_language")] ?: "en"
+                }
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to load language preference, defaulting to English")
+            "en"
+        }
+        val context = LocaleHelper.setLocale(newBase, localeCode)
+        super.attachBaseContext(context)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

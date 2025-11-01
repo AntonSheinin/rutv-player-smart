@@ -82,6 +82,13 @@ class SettingsViewModel @Inject constructor(
                 _viewState.update { it.copy(playerConfig = config) }
             }
         }
+
+        viewModelScope.launch {
+            // Load app language
+            preferencesRepository.appLanguage.collect { language ->
+                _viewState.update { it.copy(selectedLanguage = language) }
+            }
+        }
     }
 
     /**
@@ -310,5 +317,20 @@ class SettingsViewModel @Inject constructor(
      */
     fun clearSuccess() {
         _viewState.update { it.copy(successMessage = null) }
+    }
+
+    /**
+     * Set app language
+     */
+    fun setAppLanguage(localeCode: String) {
+        viewModelScope.launch {
+            try {
+                preferencesRepository.saveAppLanguage(localeCode)
+                Timber.d("App language saved: $localeCode")
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to save app language")
+                _viewState.update { it.copy(error = "Failed to save language preference: ${e.message}") }
+            }
+        }
     }
 }
