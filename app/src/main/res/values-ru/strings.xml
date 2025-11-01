@@ -28,6 +28,20 @@
     <string name="hint_search_channel">Введите название канала</string>
     <string name="hint_m3u_url">Введите M3U/M3U8 URL</string>
 
+    <!-- Virtual Keyboard -->
+    <string name="keyboard_backspace">Удалить</string>
+    <string name="keyboard_enter">Ввод</string>
+    <string name="keyboard_close">Закрыть</string>
+    <string name="keyboard_space">Пробел</string>
+
+    <!-- File Browser -->
+    <string name="file_browser_title">Выберите файл</string>
+    <string name="file_browser_parent">.. (Родительская директория)</string>
+    <string name="file_browser_no_files">В этой директории нет файлов</string>
+    <string name="file_browser_select">Выбрать</string>
+    <string name="file_browser_cancel">Отмена</string>
+    <string name="file_browser_up">Вверх</string>
+
     <!-- Status -->
     <string name="status_playing">&#x25B6; Играет</string>
     <string name="status_file">Файл</string>

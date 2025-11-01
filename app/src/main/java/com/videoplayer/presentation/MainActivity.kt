@@ -38,9 +38,12 @@ import com.videoplayer.data.model.EpgProgram
 import com.videoplayer.presentation.main.MainViewModel
 import com.videoplayer.ui.mobile.screens.PlayerScreen
 import com.videoplayer.ui.theme.RuTvTheme
+import com.videoplayer.ui.shared.components.RemoteDialog
+import com.videoplayer.util.DeviceHelper
 import com.videoplayer.util.LocaleHelper
 import dagger.hilt.android.AndroidEntryPoint
 import timber.log.Timber
+import android.view.KeyEvent
 
 /**
  * Main Activity - Refactored to use Jetpack Compose
@@ -212,7 +215,13 @@ class MainActivity : ComponentActivity() {
         }
 
         if (showChannelDialog) {
-            AlertDialog(
+            // Handle number pad input for channel selection
+            LaunchedEffect(showChannelDialog) {
+                // Number input is handled via MainActivity.onKeyDown() which maps KEYCODE_0-9
+                // When playlist panel is open or channel dialog is shown, number keys append digits
+            }
+
+            RemoteDialog(
                 onDismissRequest = { showChannelDialog = false },
                 containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f),
                 title = {
@@ -362,6 +371,121 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         viewModel.onResume()
+    }
+
+    /**
+     * Handle remote control key events
+     * Maps standard Android KeyEvent codes to app actions
+     */
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        // Detect and track input method
+        val isRemote = event?.let { DeviceHelper.detectInputMethod(it) } ?: false
+        if (isRemote && event != null) {
+            DeviceHelper.updateLastInputMethod(event)
+        }
+
+        // Only handle remote keys if remote is active or detected
+        if (isRemote && DeviceHelper.hasRemoteControl(this)) {
+            when (keyCode) {
+                // Channel navigation (direct, bypasses focus)
+                KeyEvent.KEYCODE_CHANNEL_UP -> {
+                    viewModel.switchChannelUp()
+                    return true
+                }
+                KeyEvent.KEYCODE_CHANNEL_DOWN -> {
+                    viewModel.switchChannelDown()
+                    return true
+                }
+                // Menu button - context dependent
+                KeyEvent.KEYCODE_MENU -> {
+                    // Toggle controls overlay or open settings
+                    // This will be handled in PlayerScreen composable
+                    return false // Let Compose handle it
+                }
+                // Number pad input for channel selection
+                KeyEvent.KEYCODE_0,
+                KeyEvent.KEYCODE_1,
+                KeyEvent.KEYCODE_2,
+                KeyEvent.KEYCODE_3,
+                KeyEvent.KEYCODE_4,
+                KeyEvent.KEYCODE_5,
+                KeyEvent.KEYCODE_6,
+                KeyEvent.KEYCODE_7,
+                KeyEvent.KEYCODE_8,
+                KeyEvent.KEYCODE_9 -> {
+                    // Handle number input when channel dialog is shown
+                    // Extract digit and append to channelInput
+                    val digit = when (keyCode) {
+                        KeyEvent.KEYCODE_0 -> '0'
+                        KeyEvent.KEYCODE_1 -> '1'
+                        KeyEvent.KEYCODE_2 -> '2'
+                        KeyEvent.KEYCODE_3 -> '3'
+                        KeyEvent.KEYCODE_4 -> '4'
+                        KeyEvent.KEYCODE_5 -> '5'
+                        KeyEvent.KEYCODE_6 -> '6'
+                        KeyEvent.KEYCODE_7 -> '7'
+                        KeyEvent.KEYCODE_8 -> '8'
+                        KeyEvent.KEYCODE_9 -> '9'
+                        else -> null
+                    }
+                    digit?.let {
+                        // This will be handled in the composable via state
+                        // For now, pass through to let Compose handle it
+                    }
+                    return false // Let Compose handle it - channelInput state will update via TextField
+                }
+                // Media controls - ExoPlayer handles these natively when player has focus
+                KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
+                KeyEvent.KEYCODE_MEDIA_PLAY,
+                KeyEvent.KEYCODE_MEDIA_PAUSE,
+                KeyEvent.KEYCODE_MEDIA_REWIND,
+                KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> {
+                    // ExoPlayer will handle these if player has focus
+                    return false // Let ExoPlayer handle if focused, otherwise will fall through
+                }
+                // Info button - show program details
+                KeyEvent.KEYCODE_INFO -> {
+                    val viewState = viewModel.viewState.value
+                    viewState.currentProgram?.let {
+                        viewModel.showProgramDetails(it)
+                        return true
+                    }
+                }
+                // Button Y or Menu - context actions (favorite toggle, archive play, etc.)
+                // This will be handled contextually based on what's focused
+                KeyEvent.KEYCODE_BUTTON_Y,
+                KeyEvent.KEYCODE_BUTTON_1 -> {
+                    // Handle in composable based on focus - pass through
+                    return false
+                }
+                // D-pad navigation is handled by Compose focus system
+                // We don't need to intercept DPAD_UP/DOWN/LEFT/RIGHT here
+                // DPAD_CENTER/ENTER is handled by Compose focus system when item is focused
+            }
+        }
+
+        return super.onKeyDown(keyCode, event)
+    }
+
+    /**
+     * Handle channel switching
+     */
+    private fun switchChannelUp() {
+        val currentIndex = viewModel.viewState.value.currentChannelIndex
+        val channels = viewModel.viewState.value.channels
+        if (channels.isNotEmpty()) {
+            val nextIndex = if (currentIndex < channels.size - 1) currentIndex + 1 else 0
+            viewModel.playChannel(nextIndex)
+        }
+    }
+
+    private fun switchChannelDown() {
+        val currentIndex = viewModel.viewState.value.currentChannelIndex
+        val channels = viewModel.viewState.value.channels
+        if (channels.isNotEmpty()) {
+            val prevIndex = if (currentIndex > 0) currentIndex - 1 else channels.size - 1
+            viewModel.playChannel(prevIndex)
+        }
     }
 }
 

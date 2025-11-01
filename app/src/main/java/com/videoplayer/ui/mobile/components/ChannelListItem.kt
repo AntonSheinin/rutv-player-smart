@@ -1,6 +1,7 @@
 package com.videoplayer.ui.mobile.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -9,6 +10,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -23,8 +32,10 @@ import coil.size.Scale
 import com.videoplayer.R
 import com.videoplayer.data.model.Channel
 import com.videoplayer.data.model.EpgProgram
+import com.videoplayer.ui.shared.components.focusIndicatorModifier
 import com.videoplayer.ui.theme.ruTvColors
 import com.videoplayer.util.Constants
+import com.videoplayer.util.DeviceHelper
 import com.videoplayer.util.PlayerConstants
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -32,7 +43,7 @@ import kotlinx.coroutines.launch
 private val ChannelLogoSize = Constants.CHANNEL_LOGO_SIZE_DP.dp
 
 /**
- * Channel list item composable with double-tap support
+ * Channel list item composable with double-tap support and remote control focus
  */
 @Composable
 fun ChannelListItem(
@@ -44,11 +55,14 @@ fun ChannelListItem(
     onChannelClick: () -> Unit,
     onFavoriteClick: () -> Unit,
     onShowPrograms: () -> Unit,
+    focusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier
 ) {
     var lastClickTime by remember { mutableLongStateOf(0L) }
     var clickJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    var isFocused by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+    val isRemoteMode = DeviceHelper.isRemoteInputActive()
 
     val backgroundColor = when {
         isEpgOpen -> MaterialTheme.ruTvColors.epgOpenBackground // EPG panel is open (yellow) - takes priority
@@ -56,10 +70,45 @@ fun ChannelListItem(
         else -> MaterialTheme.ruTvColors.cardBackground
     }
 
+    // Handle remote key events
+    val onRemoteKeyEvent: (androidx.compose.ui.input.key.KeyEvent) -> Boolean = { event ->
+        if (event.type == KeyEventType.KeyDown && isFocused && isRemoteMode) {
+            when (event.key) {
+                Key.DirectionCenter, // DPAD_CENTER
+                Key.Enter -> {
+                    onChannelClick()
+                    true
+                }
+                Key.DirectionRight -> {
+                    // DPAD_RIGHT: Show EPG for channel (if available)
+                    // Note: If EPG panel is on the right, this will navigate to EPG
+                    // Otherwise, this opens EPG for the focused channel
+                    if (channel.hasEpg) {
+                        onShowPrograms()
+                    }
+                    true
+                }
+                // Favorite toggle - handled via KEYCODE_BUTTON_Y or KEYCODE_MENU in MainActivity
+                // when item is focused and button is pressed
+                else -> false
+            }
+        } else {
+            false
+        }
+    }
+
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clickable {
+            .focusable(enabled = true)
+            .then(focusRequester?.let { Modifier.focusRequester(it) } ?: Modifier)
+            .onFocusChanged {
+                isFocused = it.isFocused
+            }
+            .onKeyEvent(onRemoteKeyEvent)
+            .then(focusIndicatorModifier(isFocused = isFocused))
+            .clickable(enabled = !isRemoteMode) {
+                // Touch-only clickable behavior (double-tap/single-tap)
                 val currentTime = System.currentTimeMillis()
                 val timeSinceLastClick = currentTime - lastClickTime
 
@@ -184,7 +233,19 @@ fun ChannelListItem(
                 else
                     MaterialTheme.ruTvColors.textDisabled,
                 modifier = Modifier
-                    .clickable(onClick = onFavoriteClick)
+                    .clickable(enabled = !isRemoteMode, onClick = onFavoriteClick)
+                    .then(
+                        // In remote mode, favorite is toggled via context menu or button Y
+                        if (isRemoteMode && isFocused) {
+                            Modifier.onKeyEvent { event ->
+                                if (event.type == KeyEventType.KeyDown) {
+                                    // KEYCODE_BUTTON_Y or KEYCODE_MENU when focused
+                                    // This will be handled in MainActivity onKeyDown
+                                    false // Let Activity handle it
+                                } else false
+                            }
+                        } else Modifier
+                    )
                     .padding(8.dp)
             )
         }

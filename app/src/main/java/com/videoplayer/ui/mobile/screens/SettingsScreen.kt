@@ -24,10 +24,21 @@ import androidx.compose.ui.unit.dp
 import com.videoplayer.R
 import com.videoplayer.data.model.PlaylistSource
 import com.videoplayer.presentation.settings.SettingsViewState
+import com.videoplayer.ui.shared.components.RemoteDialog
+import com.videoplayer.ui.shared.components.focusIndicatorModifier
 import com.videoplayer.ui.theme.ruTvColors
 import com.videoplayer.util.Constants
+import com.videoplayer.util.DeviceHelper
 import com.videoplayer.util.PlayerConstants
 import timber.log.Timber
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 
 /**
  * Settings Screen with Compose UI
@@ -152,13 +163,39 @@ fun SettingsScreen(
             item { Spacer(modifier = Modifier.height(8.dp)) }
 
             item {
+                val isRemoteMode = DeviceHelper.isRemoteInputActive()
+                val fileButtonFocus = remember { FocusRequester() }
+                val urlButtonFocus = remember { FocusRequester() }
+                var fileButtonFocused by remember { mutableStateOf(false) }
+                var urlButtonFocused by remember { mutableStateOf(false) }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Button(
                         onClick = { filePickerLauncher.launch("*/*") },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .focusable(enabled = isRemoteMode)
+                            .focusRequester(fileButtonFocus)
+                            .onFocusChanged { fileButtonFocused = it.isFocused }
+                            .then(if (isRemoteMode) focusIndicatorModifier(isFocused = fileButtonFocused) else Modifier)
+                            .onKeyEvent { event ->
+                                if (event.type == KeyEventType.KeyDown && fileButtonFocused && isRemoteMode) {
+                                    when (event.key) {
+                                        Key.DirectionCenter, Key.Enter -> {
+                                            filePickerLauncher.launch("*/*")
+                                            true
+                                        }
+                                        Key.DirectionRight -> {
+                                            urlButtonFocus.requestFocus()
+                                            true
+                                        }
+                                        else -> false
+                                    }
+                                } else false
+                            },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.ruTvColors.gold,
                             contentColor = MaterialTheme.ruTvColors.darkBackground
@@ -169,7 +206,27 @@ fun SettingsScreen(
 
                     Button(
                         onClick = { showUrlDialog = true },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .focusable(enabled = isRemoteMode)
+                            .focusRequester(urlButtonFocus)
+                            .onFocusChanged { urlButtonFocused = it.isFocused }
+                            .then(if (isRemoteMode) focusIndicatorModifier(isFocused = urlButtonFocused) else Modifier)
+                            .onKeyEvent { event ->
+                                if (event.type == KeyEventType.KeyDown && urlButtonFocused && isRemoteMode) {
+                                    when (event.key) {
+                                        Key.DirectionCenter, Key.Enter -> {
+                                            showUrlDialog = true
+                                            true
+                                        }
+                                        Key.DirectionLeft -> {
+                                            fileButtonFocus.requestFocus()
+                                            true
+                                        }
+                                        else -> false
+                                    }
+                                } else false
+                            },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.ruTvColors.gold,
                             contentColor = MaterialTheme.ruTvColors.darkBackground
@@ -584,7 +641,7 @@ private fun UrlInputDialog(
 ) {
     var url by remember { mutableStateOf(currentUrl) }
 
-    AlertDialog(
+    RemoteDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.dialog_title_load_playlist_url)) },
         text = {
@@ -625,7 +682,7 @@ private fun ConfirmationDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {
-    AlertDialog(
+    RemoteDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = { Text(message) },

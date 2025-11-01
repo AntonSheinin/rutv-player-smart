@@ -24,11 +24,25 @@ import androidx.compose.ui.unit.dp
 import com.videoplayer.R
 import com.videoplayer.data.model.EpgProgram
 import com.videoplayer.ui.shared.presentation.TimeFormatter
+import com.videoplayer.ui.shared.components.focusIndicatorModifier
 import com.videoplayer.ui.theme.ruTvColors
+import com.videoplayer.util.DeviceHelper
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import java.util.*
 
 /**
- * EPG program item composable
+ * EPG program item composable with remote control focus support
  */
 @Composable
 fun EpgProgramItem(
@@ -38,8 +52,12 @@ fun EpgProgramItem(
     showArchiveIndicator: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    onPlayArchive: (() -> Unit)? = null
+    onPlayArchive: (() -> Unit)? = null,
+    focusRequester: FocusRequester? = null
 ) {
+    var isFocused by remember { mutableStateOf(false) }
+    val isRemoteMode = DeviceHelper.isRemoteInputActive()
+
     val startTime = program.startTimeMillis.takeIf { it > 0L }?.let {
         TimeFormatter.formatTime(Date(it))
     } ?: stringResource(R.string.time_placeholder_colon)
@@ -51,17 +69,47 @@ fun EpgProgramItem(
     }
     val contentAlpha = if (isPast && !isCurrent) 0.5f else 1f
 
+    // Handle remote key events
+    val onRemoteKeyEvent: (androidx.compose.ui.input.key.KeyEvent) -> Boolean = { event ->
+        if (event.type == KeyEventType.KeyDown && isFocused && isRemoteMode) {
+            when (event.key) {
+                Key.DirectionCenter, // DPAD_CENTER
+                Key.Enter -> {
+                    onClick()
+                    true
+                }
+                Key.DirectionRight -> {
+                    // DPAD_RIGHT or KEYCODE_BUTTON_Y: Play archive if available
+                    onPlayArchive?.invoke()
+                    true
+                }
+                else -> false
+            }
+        } else {
+            false
+        }
+    }
+
     Row(
         modifier = modifier
             .fillMaxWidth()
             .background(backgroundColor)
             .alpha(contentAlpha)
-            .pointerInput(onClick, onPlayArchive) {
-                detectTapGestures(
-                    onTap = { onClick() },
-                    onDoubleTap = { onPlayArchive?.invoke() }
-                )
-            }
+            .focusable(enabled = true)
+            .then(focusRequester?.let { Modifier.focusRequester(it) } ?: Modifier)
+            .onFocusChanged { isFocused = it.isFocused }
+            .onKeyEvent(onRemoteKeyEvent)
+            .then(focusIndicatorModifier(isFocused = isFocused))
+            .then(
+                if (!isRemoteMode) {
+                    Modifier.pointerInput(onClick, onPlayArchive) {
+                        detectTapGestures(
+                            onTap = { onClick() },
+                            onDoubleTap = { onPlayArchive?.invoke() }
+                        )
+                    }
+                } else Modifier
+            )
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

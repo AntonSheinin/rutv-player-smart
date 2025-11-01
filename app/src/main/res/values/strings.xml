@@ -28,6 +28,20 @@
     <string name="hint_search_channel">Enter channel name</string>
     <string name="hint_m3u_url">Enter M3U/M3U8 URL</string>
 
+    <!-- Virtual Keyboard -->
+    <string name="keyboard_backspace">Backspace</string>
+    <string name="keyboard_enter">Enter</string>
+    <string name="keyboard_close">Close</string>
+    <string name="keyboard_space">Space</string>
+
+    <!-- File Browser -->
+    <string name="file_browser_title">Select File</string>
+    <string name="file_browser_parent">.. (Parent Directory)</string>
+    <string name="file_browser_no_files">No files in this directory</string>
+    <string name="file_browser_select">Select</string>
+    <string name="file_browser_cancel">Cancel</string>
+    <string name="file_browser_up">Up</string>
+
     <!-- Status -->
     <string name="status_playing">&#x25B6; Playing</string>
     <string name="status_file">File</string>

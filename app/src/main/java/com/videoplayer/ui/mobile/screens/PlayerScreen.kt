@@ -37,6 +37,17 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.annotation.StringRes
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusable
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
+import com.videoplayer.util.DeviceHelper
+import com.videoplayer.ui.shared.components.focusIndicatorModifier
+import com.videoplayer.ui.shared.components.RemoteDialog
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
@@ -508,6 +519,16 @@ private fun PlaylistPanel(
     val coroutineScope = rememberCoroutineScope()
     var showSearchDialog by remember { mutableStateOf(false) }
     var searchText by remember { mutableStateOf("") }
+    val isRemoteMode = DeviceHelper.isRemoteInputActive()
+
+    // Create focus requesters for each channel item
+    val focusRequesters = remember(channels.size) {
+        List(channels.size) { FocusRequester() }
+    }
+
+    // Focus requesters for header buttons
+    val searchButtonFocus = remember { FocusRequester() }
+    val closeButtonFocus = remember { FocusRequester() }
 
     // Auto-scroll to current channel when panel opens (center it in viewport)
     LaunchedEffect(currentChannelIndex, channels.size) {
@@ -515,6 +536,11 @@ private fun PlaylistPanel(
             // Jump instantly, then apply a small animated offset for a snappier feel
             listState.scrollToItem(currentChannelIndex)
             listState.animateScrollToItem(currentChannelIndex, scrollOffset = -160)
+
+            // Request focus on current channel in remote mode
+            if (isRemoteMode) {
+                focusRequesters[currentChannelIndex].requestFocus()
+            }
         }
     }
 
@@ -551,7 +577,18 @@ private fun PlaylistPanel(
                     )
                     IconButton(
                         onClick = { showSearchDialog = true },
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier
+                            .size(40.dp)
+                            .focusable(enabled = isRemoteMode)
+                            .focusRequester(searchButtonFocus)
+                            .then(focusIndicatorModifier(isFocused = false))
+                            .onKeyEvent { event ->
+                                if (event.type == KeyEventType.KeyDown &&
+                                    (event.key == Key.DirectionCenter || event.key == Key.Enter)) {
+                                    showSearchDialog = true
+                                    true
+                                } else false
+                            }
                     ) {
                         Icon(
                             imageVector = Icons.Default.Search,
@@ -560,7 +597,20 @@ private fun PlaylistPanel(
                         )
                     }
                 }
-                IconButton(onClick = onClose) {
+                IconButton(
+                    onClick = onClose,
+                    modifier = Modifier
+                        .focusable(enabled = isRemoteMode)
+                        .focusRequester(closeButtonFocus)
+                        .then(focusIndicatorModifier(isFocused = false))
+                        .onKeyEvent { event ->
+                            if (event.type == KeyEventType.KeyDown &&
+                                (event.key == Key.DirectionCenter || event.key == Key.Enter)) {
+                                onClose()
+                                true
+                            } else false
+                        }
+                ) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = stringResource(R.string.cd_close_playlist),
@@ -582,6 +632,17 @@ private fun PlaylistPanel(
                         items = channels,
                         key = { _, channel -> channel.url }
                     ) { index, channel ->
+                        var isItemFocused by remember { mutableStateOf(false) }
+
+                        // Auto-scroll when item gets focus
+                        LaunchedEffect(isItemFocused) {
+                            if (isItemFocused && isRemoteMode) {
+                                coroutineScope.launch {
+                                    listState.animateScrollToItem(index, scrollOffset = -160)
+                                }
+                            }
+                        }
+
                         ChannelListItem(
                             channel = channel,
                             channelNumber = index + 1,
@@ -591,7 +652,10 @@ private fun PlaylistPanel(
                             onChannelClick = { onChannelClick(index) },
                             onFavoriteClick = { onFavoriteClick(channel.url) },
                             onShowPrograms = { onShowPrograms(channel.tvgId) },
-                            modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp)
+                            focusRequester = focusRequesters[index],
+                            modifier = Modifier
+                                .padding(vertical = 4.dp, horizontal = 8.dp)
+                                .onFocusChanged { isItemFocused = it.isFocused }
                         )
                     }
                 }
@@ -644,7 +708,7 @@ private fun PlaylistPanel(
 
             // Search Dialog
             if (showSearchDialog) {
-                AlertDialog(
+                RemoteDialog(
                     onDismissRequest = {
                         showSearchDialog = false
                         searchText = ""
@@ -734,7 +798,14 @@ private fun EpgPanel(
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
     val currentTime = System.currentTimeMillis()
+    val isRemoteMode = DeviceHelper.isRemoteInputActive()
+
+    // Create focus requesters for each program item
+    val focusRequesters = remember(programs.size) {
+        List(programs.size) { FocusRequester() }
+    }
 
     // Find current program index in original list
     val currentProgramIndex = programs.indexOfFirst { program ->
@@ -787,6 +858,11 @@ private fun EpgPanel(
             listState.scrollToItem(scrollToIndex)
             listState.animateScrollToItem(scrollToIndex, scrollOffset = -200)
             didInitialScroll = true
+
+            // Request focus on current program in remote mode
+            if (isRemoteMode && currentProgramIndex >= 0 && currentProgramIndex < focusRequesters.size) {
+                focusRequesters[currentProgramIndex].requestFocus()
+            }
         }
     }
 
@@ -861,6 +937,7 @@ private fun EpgPanel(
                         val item = items[index]
                         when (val data = item.second) {
                             is String -> {
+                                // Date delimiters are not focusable - they're skipped automatically
                                 EpgDateDelimiter(date = data)
                             }
                             is EpgProgram -> {
@@ -874,13 +951,41 @@ private fun EpgPanel(
                                     data.startTimeMillis > 0 &&
                                     currentTime - data.startTimeMillis <= catchupWindowMillis
                                 val canPlayArchive = isArchiveCandidate && !isArchivePlayback
+
+                                var isItemFocused by remember { mutableStateOf(false) }
+
+                                // Auto-scroll when item gets focus
+                                LaunchedEffect(isItemFocused) {
+                                    if (isItemFocused && isRemoteMode) {
+                                        coroutineScope.launch {
+                                            listState.animateScrollToItem(index, scrollOffset = -200)
+                                        }
+
+                                        // Auto-load more EPG when near edges
+                                        val visibleItemCount = listState.layoutInfo.visibleItemsInfo.size
+                                        val firstVisible = listState.firstVisibleItemIndex
+                                        val lastVisible = firstVisible + visibleItemCount
+
+                                        if (index <= firstVisible + 3 && programIndex <= 2) {
+                                            onLoadMorePast()
+                                        }
+                                        if (index >= lastVisible - 3 && programIndex >= programs.size - 3) {
+                                            onLoadMoreFuture()
+                                        }
+                                    }
+                                }
+
                                 EpgProgramItem(
                                     program = data,
                                     isCurrent = programIndex == currentProgramIndex,
                                     isPast = isPast,
                                     showArchiveIndicator = isArchiveCandidate,
                                     onClick = { onProgramClick(data) },
-                                    onPlayArchive = if (canPlayArchive) { { onPlayArchive(data) } } else null
+                                    onPlayArchive = if (canPlayArchive) { { onPlayArchive(data) } } else null,
+                                    focusRequester = if (programIndex >= 0 && programIndex < focusRequesters.size) {
+                                        focusRequesters[programIndex]
+                                    } else null,
+                                    modifier = Modifier.onFocusChanged { isItemFocused = it.isFocused }
                                 )
                             }
                         }
@@ -972,7 +1077,22 @@ private fun ProgramDetailsPanel(
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.ruTvColors.gold
                 )
-                IconButton(onClick = onClose) {
+                IconButton(
+                    onClick = onClose,
+                    modifier = Modifier
+                        .focusable(enabled = isRemoteMode)
+                        .focusRequester(closeButtonFocus)
+                        .then(focusIndicatorModifier(isFocused = false))
+                        .onKeyEvent { event ->
+                            if (event.type == KeyEventType.KeyDown &&
+                                (event.key == Key.DirectionCenter ||
+                                 event.key == Key.Enter ||
+                                 event.key == Key.Back)) {
+                                onClose()
+                                true
+                            } else false
+                        }
+                ) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = stringResource(R.string.cd_close_playlist),
