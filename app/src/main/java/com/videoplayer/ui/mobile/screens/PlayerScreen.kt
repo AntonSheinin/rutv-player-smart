@@ -944,7 +944,7 @@ private fun ProgramDetailsPanel(
 ) {
     val startTimeFormatted = program.startTimeMillis.takeIf { it > 0L }?.let {
         TimeFormatter.formatProgramDateTime(Date(it))
-    } ?: "--"
+    } ?: stringResource(R.string.time_placeholder)
 
     Card(
         modifier = modifier

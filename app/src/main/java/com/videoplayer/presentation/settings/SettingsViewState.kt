@@ -1,5 +1,8 @@
 package com.videoplayer.presentation.settings
 
+import android.content.Context
+import androidx.annotation.StringRes
+import com.videoplayer.R
 import com.videoplayer.data.model.PlayerConfig
 import com.videoplayer.data.model.PlaylistSource
 
@@ -18,11 +21,12 @@ data class SettingsViewState(
     val error: String? = null,
     val successMessage: String? = null
 ) {
-    val playlistInfo: String
+    @StringRes
+    val playlistInfoResId: Int
         get() = when (playlistSource) {
-            is PlaylistSource.File -> "Loaded from file (stored locally)"
-            is PlaylistSource.Url -> "Loaded from URL"
-            is PlaylistSource.None -> "No playlist loaded"
+            is PlaylistSource.File -> R.string.settings_playlist_info_file
+            is PlaylistSource.Url -> R.string.settings_playlist_info_url
+            is PlaylistSource.None -> R.string.settings_playlist_info_none
         }
 
     val playlistUrl: String?

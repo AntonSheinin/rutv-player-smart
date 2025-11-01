@@ -142,7 +142,7 @@ fun SettingsScreen(
             item {
                     PlaylistInfoCard(
                         playlistSource = viewState.playlistSource,
-                        playlistInfo = viewState.playlistInfo,
+                        playlistInfoResId = viewState.playlistInfoResId,
                         playlistUrl = viewState.playlistUrl.orEmpty(),
                         urlName = viewState.urlName,
                         fileName = viewState.fileName
@@ -354,7 +354,7 @@ private fun SettingsSectionHeader(text: String) {
 @Composable
 private fun PlaylistInfoCard(
     playlistSource: PlaylistSource,
-    playlistInfo: String,
+    playlistInfoResId: Int,
     playlistUrl: String,
     urlName: String,
     fileName: String?
@@ -367,7 +367,7 @@ private fun PlaylistInfoCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = playlistInfo,
+                text = stringResource(playlistInfoResId),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.ruTvColors.textPrimary
             )

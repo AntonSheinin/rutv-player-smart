@@ -42,7 +42,7 @@ fun EpgProgramItem(
 ) {
     val startTime = program.startTimeMillis.takeIf { it > 0L }?.let {
         TimeFormatter.formatTime(Date(it))
-    } ?: "--:--"
+    } ?: stringResource(R.string.time_placeholder_colon)
 
     val backgroundColor = if (isCurrent) {
         MaterialTheme.ruTvColors.selectedBackground

@@ -55,6 +55,11 @@
     <string name="settings_language">Language</string>
     <string name="settings_language_english">English</string>
     <string name="settings_language_russian">Русский</string>
+    <string name="settings_playlist_info_file">Loaded from file (stored locally)</string>
+    <string name="settings_playlist_info_url">Loaded from URL</string>
+    <string name="settings_playlist_info_none">No playlist loaded</string>
+    <string name="time_placeholder">--</string>
+    <string name="time_placeholder_colon">--:--</string>
 
     <!-- Channel Info -->
     <string name="epg_panel_title">Programs guide</string>

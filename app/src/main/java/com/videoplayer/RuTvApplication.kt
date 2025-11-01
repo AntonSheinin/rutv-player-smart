@@ -47,7 +47,7 @@ class RuTvApplication : Application(), ImageLoaderFactory {
 
         Timber.d("RuTV Application started")
     }
-    
+
     private fun migrateLanguagePreference() {
         // Run in background to avoid blocking startup
         Thread {

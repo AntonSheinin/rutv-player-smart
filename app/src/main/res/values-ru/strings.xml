@@ -55,6 +55,11 @@
     <string name="settings_language">Язык</string>
     <string name="settings_language_english">English</string>
     <string name="settings_language_russian">Русский</string>
+    <string name="settings_playlist_info_file">Загружено из файла (хранится локально)</string>
+    <string name="settings_playlist_info_url">Загружено по URL</string>
+    <string name="settings_playlist_info_none">Плейлист не загружен</string>
+    <string name="time_placeholder">--</string>
+    <string name="time_placeholder_colon">--:--</string>
 
     <!-- Channel Info -->
     <string name="epg_panel_title">Программа передач</string>
