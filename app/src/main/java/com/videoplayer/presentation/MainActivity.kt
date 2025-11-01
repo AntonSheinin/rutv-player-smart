@@ -237,7 +237,14 @@ class MainActivity : ComponentActivity() {
      */
     private val settingsLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
-    ) { _ ->
+    ) { result ->
+        // Check if language was changed
+        val languageChanged = result.data?.getBooleanExtra("language_changed", false) ?: false
+        if (languageChanged) {
+            // Language changed, recreate MainActivity to apply new locale
+            recreate()
+            return@registerForActivityResult
+        }
         // Settings changed, reload playlist
         hasShownNoPlaylistPrompt = false // Reset flag to show prompt again if still no playlist
         viewModel.loadPlaylist(forceReload = false)

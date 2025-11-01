@@ -1,6 +1,7 @@
 package com.videoplayer.presentation
 
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.os.Build
 import android.os.Bundle
@@ -109,6 +110,8 @@ class SettingsActivity : ComponentActivity() {
             },
             onLanguageChanged = { localeCode: String ->
                 viewModel.setAppLanguage(localeCode)
+                // Set result to indicate language changed
+                setResult(android.app.Activity.RESULT_OK, Intent().putExtra("language_changed", true))
                 // Recreate activity to apply new locale
                 recreate()
             },
