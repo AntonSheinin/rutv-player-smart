@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.runBlocking
 import com.videoplayer.presentation.settings.SettingsViewModel
 import com.videoplayer.ui.mobile.screens.SettingsScreen
 import com.videoplayer.ui.theme.RuTvTheme
@@ -109,11 +110,13 @@ class SettingsActivity : ComponentActivity() {
                 viewModel.setEpgPageDays(days)
             },
             onLanguageChanged = { localeCode: String ->
-                viewModel.setAppLanguage(localeCode)
+                // Wait for language to be saved synchronously before recreating
+                runBlocking {
+                    viewModel.setAppLanguage(localeCode)
+                }
                 // Set result to indicate language changed
                 setResult(android.app.Activity.RESULT_OK, Intent().putExtra("language_changed", true))
                 // Recreate activity to apply new locale
-                // Note: recreate() will trigger finish() internally, so result is set before that
                 recreate()
             },
             onBack = { finish() },

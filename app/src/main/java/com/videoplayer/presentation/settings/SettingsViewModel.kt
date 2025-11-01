@@ -321,16 +321,15 @@ class SettingsViewModel @Inject constructor(
 
     /**
      * Set app language
+     * This method can be called from runBlocking to ensure it completes synchronously
      */
-    fun setAppLanguage(localeCode: String) {
-        viewModelScope.launch {
-            try {
-                preferencesRepository.saveAppLanguage(localeCode)
-                Timber.d("App language saved: $localeCode")
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to save app language")
-                _viewState.update { it.copy(error = "Failed to save language preference: ${e.message}") }
-            }
+    suspend fun setAppLanguage(localeCode: String) {
+        try {
+            preferencesRepository.saveAppLanguage(localeCode)
+            Timber.d("App language saved: $localeCode")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to save app language")
+            _viewState.update { it.copy(error = "Failed to save language preference: ${e.message}") }
         }
     }
 }
