@@ -32,10 +32,6 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import androidx.media3.common.util.UnstableApi
 import com.videoplayer.R
 import com.videoplayer.data.model.EpgProgram
@@ -44,11 +40,7 @@ import com.videoplayer.ui.mobile.screens.PlayerScreen
 import com.videoplayer.ui.theme.RuTvTheme
 import com.videoplayer.util.LocaleHelper
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
 import timber.log.Timber
-
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
 /**
  * Main Activity - Refactored to use Jetpack Compose
@@ -65,23 +57,9 @@ class MainActivity : ComponentActivity() {
     private var timeChangeReceiver: BroadcastReceiver? = null
 
     override fun attachBaseContext(newBase: Context) {
-        // Apply locale from preferences with safe error handling
-        val localeCode = try {
-            runBlocking {
-                try {
-                    newBase.dataStore.data.first().let { preferences ->
-                        preferences[stringPreferencesKey("app_language")] ?: "en"
-                    }
-                } catch (e: Exception) {
-                    // DataStore might not be initialized yet, default to English
-                    "en"
-                }
-            }
-        } catch (e: Throwable) {
-            // Catch all exceptions including cancellation, default to English
-            "en"
-        }
-        val context = LocaleHelper.setLocale(newBase, localeCode)
+        // Default to English during initialization
+        // Actual language will be loaded and applied after app startup via PreferencesRepository
+        val context = LocaleHelper.setLocale(newBase, "en")
         super.attachBaseContext(context)
     }
 

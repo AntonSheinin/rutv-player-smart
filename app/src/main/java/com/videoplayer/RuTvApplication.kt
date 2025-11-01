@@ -4,10 +4,6 @@ import android.app.Application
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.os.Build
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.decode.ImageDecoderDecoder
@@ -15,11 +11,7 @@ import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import com.videoplayer.util.LocaleHelper
 import dagger.hilt.android.HiltAndroidApp
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
 import timber.log.Timber
-
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
 /**
  * Application class for RuTV IPTV Player
@@ -28,25 +20,9 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 class RuTvApplication : Application(), ImageLoaderFactory {
 
     override fun attachBaseContext(base: Context) {
-        // Load saved language preference synchronously with safe error handling
-        // Default to English if anything goes wrong during initialization
-        val localeCode = try {
-            runBlocking {
-                try {
-                    base.dataStore.data.first().let { preferences ->
-                        preferences[stringPreferencesKey("app_language")] ?: "en"
-                    }
-                } catch (e: Exception) {
-                    // DataStore might not be initialized yet, default to English
-                    "en"
-                }
-            }
-        } catch (e: Throwable) {
-            // Catch all exceptions including cancellation, default to English
-            "en"
-        }
-
-        val context = LocaleHelper.setLocale(base, localeCode)
+        // Default to English during initialization
+        // Actual language will be loaded and applied after app startup via PreferencesRepository
+        val context = LocaleHelper.setLocale(base, "en")
         super.attachBaseContext(context)
     }
 

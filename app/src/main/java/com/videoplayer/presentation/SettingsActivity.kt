@@ -11,21 +11,13 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.videoplayer.presentation.settings.SettingsViewModel
 import com.videoplayer.ui.mobile.screens.SettingsScreen
 import com.videoplayer.ui.theme.RuTvTheme
 import com.videoplayer.util.LocaleHelper
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
 import timber.log.Timber
-
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
 /**
  * Settings Activity - Refactored to use Jetpack Compose
@@ -37,23 +29,9 @@ class SettingsActivity : ComponentActivity() {
     private val viewModel: SettingsViewModel by viewModels()
 
     override fun attachBaseContext(newBase: Context) {
-        // Apply locale from preferences with safe error handling
-        val localeCode = try {
-            runBlocking {
-                try {
-                    newBase.dataStore.data.first().let { preferences ->
-                        preferences[stringPreferencesKey("app_language")] ?: "en"
-                    }
-                } catch (e: Exception) {
-                    // DataStore might not be initialized yet, default to English
-                    "en"
-                }
-            }
-        } catch (e: Throwable) {
-            // Catch all exceptions including cancellation, default to English
-            "en"
-        }
-        val context = LocaleHelper.setLocale(newBase, localeCode)
+        // Default to English during initialization
+        // Actual language will be loaded and applied after app startup via PreferencesRepository
+        val context = LocaleHelper.setLocale(newBase, "en")
         super.attachBaseContext(context)
     }
 
