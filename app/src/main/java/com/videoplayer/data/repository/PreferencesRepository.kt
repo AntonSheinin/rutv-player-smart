@@ -267,12 +267,16 @@ class PreferencesRepository @Inject constructor(
 
     suspend fun saveAppLanguage(localeCode: String) {
         // Save to SharedPreferences first (synchronous, for attachBaseContext)
-        sharedPrefs.edit().putString(LANGUAGE_KEY, localeCode).apply()
+        // Use commit() instead of apply() to ensure it's written immediately
+        val success = sharedPrefs.edit().putString(LANGUAGE_KEY, localeCode).commit()
+        if (!success) {
+            Timber.w("Failed to commit language preference to SharedPreferences")
+        }
 
         // Also save to DataStore (for Flow-based observation)
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.APP_LANGUAGE] = localeCode
         }
-        Timber.d("Saved app language: $localeCode")
+        Timber.d("Saved app language: $localeCode (commit success: $success)")
     }
 }

@@ -128,10 +128,10 @@ class MainActivity : ComponentActivity() {
             onToggleFavorites = { viewModel.toggleFavorites() },
             onClosePlaylist = { viewModel.closePlaylist() },
             onCycleAspectRatio = { viewModel.cycleAspectRatio() },
-            onOpenSettings = { 
+            onOpenSettings = {
                 // Save current language before opening settings
                 languageBeforeSettings = LocaleHelper.getSavedLanguage(this@MainActivity)
-                settingsLauncher.launch(Intent(context, SettingsActivity::class.java)) 
+                settingsLauncher.launch(Intent(context, SettingsActivity::class.java))
             },
             onGoToChannel = {
                 if (viewState.hasChannels) {
@@ -241,16 +241,16 @@ class MainActivity : ComponentActivity() {
      * Settings launcher
      */
     private var languageBeforeSettings: String = "en"
-    
+
     private val settingsLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         // Check if language was changed by comparing saved language
         val languageAfterSettings = LocaleHelper.getSavedLanguage(this)
         val languageChanged = languageBeforeSettings != languageAfterSettings
-        
+
         Timber.d("Language check: before=$languageBeforeSettings, after=$languageAfterSettings, changed=$languageChanged")
-        
+
         if (languageChanged) {
             // Language changed, recreate MainActivity to apply new locale
             Timber.d("Language changed, recreating MainActivity")
