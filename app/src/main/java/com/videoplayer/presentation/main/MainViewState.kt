@@ -1,6 +1,5 @@
 package com.videoplayer.presentation.main
 
-import androidx.annotation.StringRes
 import androidx.compose.runtime.Immutable
 import androidx.media3.common.util.UnstableApi
 import com.videoplayer.R
@@ -49,7 +48,6 @@ data class MainViewState(
             channels
         }
 
-    @StringRes
     val playlistTitleResId: Int
         get() = if (showFavoritesOnly) R.string.playlist_title_favorites else R.string.playlist_title_channels
 

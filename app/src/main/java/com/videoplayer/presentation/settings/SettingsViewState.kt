@@ -1,7 +1,5 @@
 package com.videoplayer.presentation.settings
 
-import android.content.Context
-import androidx.annotation.StringRes
 import com.videoplayer.R
 import com.videoplayer.data.model.PlayerConfig
 import com.videoplayer.data.model.PlaylistSource
@@ -21,7 +19,6 @@ data class SettingsViewState(
     val error: String? = null,
     val successMessage: String? = null
 ) {
-    @StringRes
     val playlistInfoResId: Int
         get() = when (playlistSource) {
             is PlaylistSource.File -> R.string.settings_playlist_info_file
