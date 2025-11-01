@@ -28,15 +28,21 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 class RuTvApplication : Application(), ImageLoaderFactory {
 
     override fun attachBaseContext(base: Context) {
-        // Load saved language preference synchronously
+        // Load saved language preference synchronously with safe error handling
+        // Default to English if anything goes wrong during initialization
         val localeCode = try {
             runBlocking {
-                base.dataStore.data.first().let { preferences ->
-                    preferences[stringPreferencesKey("app_language")] ?: "en"
+                try {
+                    base.dataStore.data.first().let { preferences ->
+                        preferences[stringPreferencesKey("app_language")] ?: "en"
+                    }
+                } catch (e: Exception) {
+                    // DataStore might not be initialized yet, default to English
+                    "en"
                 }
             }
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to load language preference, defaulting to English")
+        } catch (e: Throwable) {
+            // Catch all exceptions including cancellation, default to English
             "en"
         }
 

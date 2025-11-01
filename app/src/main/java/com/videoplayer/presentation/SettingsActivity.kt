@@ -37,15 +37,20 @@ class SettingsActivity : ComponentActivity() {
     private val viewModel: SettingsViewModel by viewModels()
 
     override fun attachBaseContext(newBase: Context) {
-        // Apply locale from preferences
+        // Apply locale from preferences with safe error handling
         val localeCode = try {
             runBlocking {
-                newBase.dataStore.data.first().let { preferences ->
-                    preferences[stringPreferencesKey("app_language")] ?: "en"
+                try {
+                    newBase.dataStore.data.first().let { preferences ->
+                        preferences[stringPreferencesKey("app_language")] ?: "en"
+                    }
+                } catch (e: Exception) {
+                    // DataStore might not be initialized yet, default to English
+                    "en"
                 }
             }
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to load language preference, defaulting to English")
+        } catch (e: Throwable) {
+            // Catch all exceptions including cancellation, default to English
             "en"
         }
         val context = LocaleHelper.setLocale(newBase, localeCode)
