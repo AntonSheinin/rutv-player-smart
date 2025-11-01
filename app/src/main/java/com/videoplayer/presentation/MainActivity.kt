@@ -105,13 +105,19 @@ class MainActivity : ComponentActivity() {
         var channelInput by remember { mutableStateOf("") }
 
         // Show no-playlist dialog if needed
+        // Only show if there's no playlist source configured (not just if loading failed)
         var playlistCheckStarted by remember { mutableStateOf(false) }
 
-        LaunchedEffect(viewState.hasChannels, viewState.isLoading) {
+        LaunchedEffect(viewState.hasChannels, viewState.isLoading, viewState.hasPlaylistSource) {
             if (viewState.isLoading) {
                 playlistCheckStarted = true
             }
-            if (playlistCheckStarted && !viewState.isLoading && !viewState.hasChannels && !hasShownNoPlaylistPrompt) {
+            // Only show dialog if:
+            // 1. Loading has started and finished
+            // 2. No channels loaded
+            // 3. No playlist source is configured (prevents showing dialog when URL is configured but loading fails)
+            // 4. Haven't shown the prompt yet
+            if (playlistCheckStarted && !viewState.isLoading && !viewState.hasChannels && !viewState.hasPlaylistSource && !hasShownNoPlaylistPrompt) {
                 hasShownNoPlaylistPrompt = true
                 showNoPlaylistDialog = true
             }
@@ -160,19 +166,48 @@ class MainActivity : ComponentActivity() {
         if (showNoPlaylistDialog) {
             AlertDialog(
                 onDismissRequest = { showNoPlaylistDialog = false },
-                title = { Text(text = getString(R.string.dialog_title_no_playlist)) },
-                text = { Text(text = getString(R.string.dialog_message_no_playlist)) },
+                title = {
+                    Text(
+                        text = getString(R.string.dialog_title_no_playlist),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.ruTvColors.gold
+                    )
+                },
+                text = {
+                    Text(
+                        text = getString(R.string.dialog_message_no_playlist),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.ruTvColors.textPrimary
+                    )
+                },
                 confirmButton = {
-                    TextButton(onClick = {
-                        showNoPlaylistDialog = false
-                        settingsLauncher.launch(Intent(context, SettingsActivity::class.java))
-                    }) { Text(text = getString(R.string.button_open_settings)) }
+                    TextButton(
+                        onClick = {
+                            showNoPlaylistDialog = false
+                            settingsLauncher.launch(Intent(context, SettingsActivity::class.java))
+                        }
+                    ) {
+                        Text(
+                            text = getString(R.string.button_open_settings),
+                            color = MaterialTheme.ruTvColors.gold
+                        )
+                    }
                 },
                 dismissButton = {
                     TextButton(onClick = { showNoPlaylistDialog = false }) {
-                        Text(text = getString(R.string.button_later))
+                        Text(
+                            text = getString(R.string.button_later),
+                            color = MaterialTheme.ruTvColors.textPrimary
+                        )
                     }
-                }
+                },
+                containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.border(
+                    2.dp,
+                    MaterialTheme.ruTvColors.gold.copy(alpha = 0.7f),
+                    RoundedCornerShape(16.dp)
+                )
             )
         }
 

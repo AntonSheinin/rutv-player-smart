@@ -143,6 +143,13 @@ class MainViewModel @Inject constructor(
             }
         }
 
+        // Collect playlist source
+        viewModelScope.launch {
+            preferencesRepository.playlistSource.collect { source ->
+                _viewState.update { it.copy(playlistSource = source) }
+            }
+        }
+
         // Initialize app: load EPG cache FIRST, then playlist
         // This ensures EPG data is ready before player starts
         initializeApp()

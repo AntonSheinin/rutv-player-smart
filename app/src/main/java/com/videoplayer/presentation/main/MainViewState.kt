@@ -5,6 +5,7 @@ import androidx.media3.common.util.UnstableApi
 import com.videoplayer.R
 import com.videoplayer.data.model.Channel
 import com.videoplayer.data.model.EpgProgram
+import com.videoplayer.data.model.PlaylistSource
 import com.videoplayer.presentation.player.DebugMessage
 import com.videoplayer.presentation.player.PlayerState
 
@@ -39,7 +40,8 @@ data class MainViewState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val epgNotificationMessage: String? = null,
-    val epgLoadedTimestamp: Long = 0L // Timestamp when EPG was last loaded, used to trigger adapter refresh
+    val epgLoadedTimestamp: Long = 0L, // Timestamp when EPG was last loaded, used to trigger adapter refresh
+    val playlistSource: PlaylistSource = PlaylistSource.None
 ) {
     val filteredChannels: List<Channel>
         get() = if (showFavoritesOnly) {
@@ -53,6 +55,9 @@ data class MainViewState(
 
     val hasChannels: Boolean
         get() = channels.isNotEmpty()
+
+    val hasPlaylistSource: Boolean
+        get() = playlistSource !is PlaylistSource.None
 }
 
 @UnstableApi
