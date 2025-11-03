@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "VideoPlayer"
+rootProject.name = "RuTV"
 include ':app'

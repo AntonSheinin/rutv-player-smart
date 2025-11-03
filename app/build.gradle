@@ -7,11 +7,11 @@ plugins {
 }
 
 android {
-    namespace 'com.videoplayer'
+    namespace 'com.rutv'
     compileSdk 35
 
     defaultConfig {
-        applicationId "com.videoplayer"
+        applicationId "com.rutv"
         minSdk 24
         targetSdk 35
         versionCode 5
