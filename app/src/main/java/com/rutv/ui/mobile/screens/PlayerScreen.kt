@@ -268,8 +268,11 @@ fun PlayerScreen(
                 playerViewRef?.post {
                     playerViewRef?.focusOnControl(
                         "exo_prev",
+                        "exo_rew",
+                        "exo_rew_with_amount",
                         "exo_play_pause",
-                        "exo_play"
+                        "exo_play",
+                        "exo_pause"
                     )
                 }
             }
@@ -278,7 +281,10 @@ fun PlayerScreen(
                     playerViewRef?.focusOnControl(
                         "exo_ffwd",
                         "exo_ffwd_with_amount",
-                        "exo_next"
+                        "exo_next",
+                        "exo_play_pause",
+                        "exo_play",
+                        "exo_pause"
                     )
                 }
             }
@@ -605,10 +611,12 @@ private fun PlaylistPanel(
             listState.scrollToItem(currentChannelIndex)
             listState.animateScrollToItem(currentChannelIndex, scrollOffset = -160)
 
-            // Request focus on current channel in remote mode
-            if (isRemoteMode) {
-                focusRequesters[currentChannelIndex].requestFocus()
-            }
+            // Request focus on current channel after the list settles
+            delay(60)
+            focusRequesters[currentChannelIndex].requestFocus()
+        } else if (channels.isNotEmpty()) {
+            delay(60)
+            focusRequesters.firstOrNull()?.requestFocus()
         }
     }
 
@@ -959,8 +967,9 @@ private fun EpgPanel(
             lastEpgChannelTvgId = channel?.tvgId
             didInitialScroll = true
 
-            // Request focus on current program in remote mode to move focus from channel list
-            if (isRemoteMode && currentProgramIndex >= 0 && currentProgramIndex < focusRequesters.size) {
+            // Request focus on current program to move focus from channel list
+            if (currentProgramIndex >= 0 && currentProgramIndex < focusRequesters.size) {
+                delay(60)
                 focusRequesters[currentProgramIndex].requestFocus()
             }
         }
@@ -1497,6 +1506,17 @@ private fun PlayerView.applyControlCustomizations(
         // Make focusable so OK can activate it (even though disabled, for navigation)
         isFocusable = true
         isFocusableInTouchMode = false
+        setOnKeyListener { _, keyCode, event ->
+            if (event.action == android.view.KeyEvent.ACTION_DOWN &&
+                keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT &&
+                hasFocus()
+            ) {
+                post { onNavigateRightToRotate?.invoke() }
+                true
+            } else {
+                false
+            }
+        }
     }
 
     listOf("exo_rew", "exo_rew_with_amount").forEach { controlId ->
@@ -1507,6 +1527,17 @@ private fun PlayerView.applyControlCustomizations(
             // Make focusable so OK can activate it
             isFocusable = true
             isFocusableInTouchMode = false
+            setOnKeyListener { _, keyCode, event ->
+                if (event.action == android.view.KeyEvent.ACTION_DOWN &&
+                    keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT &&
+                    hasFocus()
+                ) {
+                    post { onNavigateLeftToFavorites?.invoke() }
+                    true
+                } else {
+                    false
+                }
+            }
         }
     }
 
@@ -1618,17 +1649,17 @@ private fun setupExoPlayerNavigationToCustomControls(
 }
 
 private fun PlayerView.focusOnControl(vararg controlNames: String) {
+    showController()
     controlNames.asSequence()
         .mapNotNull { findControlView(it) }
         .firstOrNull { view ->
-            view.visibility == View.VISIBLE && view.isFocusable
-        }?.requestFocus()
+            view.visibility == View.VISIBLE && view.isFocusable && view.isShown
+        }?.let { target ->
+            target.requestFocus()
+            (target.parent as? ViewGroup)?.requestChildFocus(target, target)
+        }
 }
 
 private fun View.setVerticalOffsetDp(offsetDp: Float) {
     translationY = offsetDp * resources.displayMetrics.density
 }
-
-
-
-

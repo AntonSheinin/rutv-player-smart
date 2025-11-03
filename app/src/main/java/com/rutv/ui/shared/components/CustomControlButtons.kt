@@ -45,6 +45,7 @@ import com.rutv.R
 import com.rutv.ui.shared.presentation.LayoutConstants
 import com.rutv.ui.theme.ruTvColors
 import com.rutv.util.DeviceHelper
+import com.rutv.ui.shared.components.focusIndicatorModifier
 
 private const val DISABLED_CONTROL_ALPHA = 0.4f
 
