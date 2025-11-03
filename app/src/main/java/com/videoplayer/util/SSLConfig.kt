@@ -116,10 +116,7 @@ object SSLConfig {
             val sslSocketFactory = createSSLSocketFactory()
             HttpsURLConnection.setDefaultSSLSocketFactory(sslSocketFactory)
 
-            // Set default hostname verifier
-            HttpsURLConnection.setDefaultHostnameVerifier { hostname, session ->
-                HostnameVerifier.getDefault().verify(hostname, session)
-            }
+            // Hostname verifier is already set to default by the system, no need to change it
 
             Timber.d("Default SSL Socket Factory initialized")
         } catch (e: Exception) {
