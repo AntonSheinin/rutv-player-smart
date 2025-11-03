@@ -59,6 +59,9 @@ class MainActivity : ComponentActivity() {
     private var hasShownNoPlaylistPrompt = false
     private var timeChangeReceiver: BroadcastReceiver? = null
 
+    // State holder for PlayerScreen controls toggle
+    private var toggleControlsCallback: (() -> Unit)? = null
+
     override fun attachBaseContext(newBase: Context) {
         // Load saved language from SharedPreferences (synchronous, safe)
         val localeCode = LocaleHelper.getSavedLanguage(newBase)
@@ -139,6 +142,10 @@ class MainActivity : ComponentActivity() {
         }
 
         // Coil will automatically use the ImageLoader from RuTvApplication's ImageLoaderFactory
+        // Store toggle controls callback
+        var toggleControlsCallbackState by remember { mutableStateOf<(() -> Unit)?>(null) }
+        toggleControlsCallback = toggleControlsCallbackState
+
         PlayerScreen(
             viewState = viewState,
             player = viewModel.getPlayer(),
@@ -146,6 +153,7 @@ class MainActivity : ComponentActivity() {
             onToggleFavorite = { url: String -> viewModel.toggleFavorite(url) },
             onShowEpgForChannel = { tvgId: String -> viewModel.showEpgForChannel(tvgId) },
             onTogglePlaylist = { viewModel.togglePlaylist() },
+            onRegisterToggleControls = { callback -> toggleControlsCallbackState = callback },
             onToggleFavorites = { viewModel.toggleFavorites() },
             onClosePlaylist = { viewModel.closePlaylist() },
             onCycleAspectRatio = { viewModel.cycleAspectRatio() },
@@ -209,9 +217,12 @@ class MainActivity : ComponentActivity() {
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showNoPlaylistDialog = false }) {
+                    TextButton(onClick = {
+                        // Close the app when Exit is pressed
+                        finishAffinity()
+                    }) {
                         Text(
-                            text = getString(R.string.button_later),
+                            text = getString(R.string.button_exit),
                             color = MaterialTheme.ruTvColors.textPrimary
                         )
                     }
@@ -470,9 +481,63 @@ class MainActivity : ComponentActivity() {
                     // Handle in composable based on focus - pass through
                     return false
                 }
-                // D-pad navigation is handled by Compose focus system
-                // We don't need to intercept DPAD_UP/DOWN/LEFT/RIGHT here
-                // DPAD_CENTER/ENTER is handled by Compose focus system when item is focused
+                // OK/DPAD_CENTER button - toggle controls visibility
+                KeyEvent.KEYCODE_DPAD_CENTER,
+                KeyEvent.KEYCODE_ENTER,
+                KeyEvent.KEYCODE_BUTTON_A -> {
+                    // Toggle controls when video is playing
+                    toggleControlsCallback?.invoke()
+                    return true
+                }
+                // Left arrow - open channel list if not open
+                KeyEvent.KEYCODE_DPAD_LEFT -> {
+                    val currentState = viewModel.viewState.value
+                    if (!currentState.showPlaylist && currentState.hasChannels) {
+                        viewModel.togglePlaylist()
+                        return true
+                    }
+                    // If playlist is open, let focus system handle navigation
+                    return false
+                }
+                // Right arrow - open EPG for current/selected channel
+                KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                    val currentState = viewModel.viewState.value
+                    // If playlist is open, let ChannelListItem handle it for focused channel
+                    // Otherwise, if playlist is closed but channel is playing, open EPG for current channel
+                    if (!currentState.showPlaylist && currentState.currentChannel != null) {
+                        currentState.currentChannel.tvgId.let { tvgId ->
+                            if (tvgId.isNotBlank()) {
+                                viewModel.showEpgForChannel(tvgId)
+                                return true
+                            }
+                        }
+                    }
+                    // If playlist is open, let ChannelListItem's onKeyEvent handle it
+                    return false
+                }
+                // Up/Down arrows - navigate channel list if open, otherwise change channels
+                KeyEvent.KEYCODE_DPAD_UP -> {
+                    val currentState = viewModel.viewState.value
+                    if (currentState.showPlaylist) {
+                        // Let Compose focus system handle navigation within list
+                        return false
+                    } else {
+                        // Switch channel up
+                        switchChannelUp()
+                        return true
+                    }
+                }
+                KeyEvent.KEYCODE_DPAD_DOWN -> {
+                    val currentState = viewModel.viewState.value
+                    if (currentState.showPlaylist) {
+                        // Let Compose focus system handle navigation within list
+                        return false
+                    } else {
+                        // Switch channel down
+                        switchChannelDown()
+                        return true
+                    }
+                }
             }
         }
 

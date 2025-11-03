@@ -109,10 +109,29 @@ fun PlayerScreen(
     onLoadMoreEpgFuture: () -> Unit,
     epgNotificationMessage: String?,
     onClearEpgNotification: () -> Unit,
+    onRegisterToggleControls: ((() -> Unit)) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showControls by remember { mutableStateOf(false) }
     var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
+
+    // Toggle controls function - exposed to MainActivity for OK button
+    val toggleControls: () -> Unit = {
+        val newValue = !showControls
+        showControls = newValue
+        playerViewRef?.post {
+            if (newValue) {
+                playerViewRef?.showController()
+            } else {
+                playerViewRef?.hideController()
+            }
+        }
+    }
+
+    // Register toggle function with parent
+    LaunchedEffect(Unit) {
+        onRegisterToggleControls(toggleControls)
+    }
 
     // Show controls initially if player is loaded (for first-time users)
     LaunchedEffect(player) {
