@@ -65,6 +65,9 @@ class MainActivity : ComponentActivity() {
     // State for Close App dialog (accessible from both composable and onKeyDown)
     private var showCloseAppDialogState: MutableState<Boolean>? = null
 
+    // State for controls visibility
+    private var areControlsVisible = false
+
     override fun attachBaseContext(newBase: Context) {
         // Load saved language from SharedPreferences (synchronous, safe)
         val localeCode = LocaleHelper.getSavedLanguage(newBase)
@@ -168,6 +171,7 @@ class MainActivity : ComponentActivity() {
             onShowEpgForChannel = { tvgId: String -> viewModel.showEpgForChannel(tvgId) },
             onTogglePlaylist = { viewModel.togglePlaylist() },
             onRegisterToggleControls = { callback -> toggleControlsCallbackState = callback },
+            onControlsVisibilityChanged = { visible -> areControlsVisible = visible },
             onToggleFavorites = { viewModel.toggleFavorites() },
             onClosePlaylist = { viewModel.closePlaylist() },
             onCloseEpgPanel = { viewModel.closeEpgPanel() },
@@ -556,6 +560,11 @@ class MainActivity : ComponentActivity() {
                     if (currentState.showPlaylist || currentState.showEpgPanel) {
                         return false // Let ChannelListItem or EpgProgramItem handle it
                     }
+                    // If controls are visible, let the focused control handle OK
+                    // (e.g., custom control button or ExoPlayer control)
+                    if (areControlsVisible) {
+                        return false // Let CustomControlButtons or ExoPlayer handle it
+                    }
                     // Otherwise, toggle controls when video is playing in full screen
                     toggleControlsCallback?.invoke()
                     return true
@@ -566,6 +575,10 @@ class MainActivity : ComponentActivity() {
                     // If EPG panel is open, let it handle LEFT (to close EPG and return to channel list)
                     if (currentState.showEpgPanel) {
                         return false // Let EpgProgramItem handle it
+                    }
+                    // If controls are visible, let ExoPlayer/CustomControls handle LEFT
+                    if (areControlsVisible) {
+                        return false // Let ExoPlayer or CustomControlButtons handle LEFT navigation
                     }
                     // If playlist is not open and no EPG, open channel list
                     if (!currentState.showPlaylist && currentState.hasChannels) {
@@ -578,9 +591,16 @@ class MainActivity : ComponentActivity() {
                 // Right arrow - open EPG for current/selected channel
                 KeyEvent.KEYCODE_DPAD_RIGHT -> {
                     val currentState = viewModel.viewState.value
-                    // If playlist is open, let ChannelListItem handle it for focused channel
-                    // Otherwise, if playlist is closed but channel is playing, open EPG for current channel
-                    if (!currentState.showPlaylist && currentState.currentChannel != null) {
+                    if (currentState.showPlaylist) {
+                        // Let ChannelListItem handle it for focused channel
+                        return false
+                    }
+                    // If controls are visible, let ExoPlayer handle RIGHT (navigate between Exo controls)
+                    if (areControlsVisible) {
+                        return false // Let ExoPlayer handle RIGHT navigation
+                    }
+                    // If controls are not visible and channel is playing, open EPG for current channel
+                    if (currentState.currentChannel != null) {
                         currentState.currentChannel.tvgId.let { tvgId ->
                             if (tvgId.isNotBlank()) {
                                 viewModel.showEpgForChannel(tvgId)
@@ -588,31 +608,36 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
-                    // If playlist is open, let ChannelListItem's onKeyEvent handle it
                     return false
                 }
-                // Up/Down arrows - navigate channel list if open, otherwise change channels
+                // Up/Down arrows - navigate channel list if open, navigate custom controls if focused, otherwise change channels
                 KeyEvent.KEYCODE_DPAD_UP -> {
                     val currentState = viewModel.viewState.value
                     if (currentState.showPlaylist) {
                         // Let Compose focus system handle navigation within list
                         return false
-                    } else {
-                        // Switch channel up
-                        switchChannelUp()
-                        return true
                     }
+                    // If controls are visible, let them handle navigation (for custom controls UP/DOWN)
+                    if (areControlsVisible) {
+                        return false // Let CustomControlButtons handle UP/DOWN navigation
+                    }
+                    // If controls are not visible, switch channel up
+                    switchChannelUp()
+                    return true
                 }
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
                     val currentState = viewModel.viewState.value
                     if (currentState.showPlaylist) {
                         // Let Compose focus system handle navigation within list
                         return false
-                    } else {
-                        // Switch channel down
-                        switchChannelDown()
-                        return true
                     }
+                    // If controls are visible, let them handle navigation (for custom controls UP/DOWN)
+                    if (areControlsVisible) {
+                        return false // Let CustomControlButtons handle UP/DOWN navigation
+                    }
+                    // If controls are not visible, switch channel down
+                    switchChannelDown()
+                    return true
                 }
                 // BACK button - context dependent
                 KeyEvent.KEYCODE_BACK -> {

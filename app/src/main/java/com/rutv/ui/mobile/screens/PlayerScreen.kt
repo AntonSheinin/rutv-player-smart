@@ -111,10 +111,19 @@ fun PlayerScreen(
     epgNotificationMessage: String?,
     onClearEpgNotification: () -> Unit,
     onRegisterToggleControls: ((() -> Unit)) -> Unit,
+    onControlsVisibilityChanged: ((Boolean) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var showControls by remember { mutableStateOf(false) }
     var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
+
+    // Store focus requesters for custom controls (for ExoPlayer navigation)
+    var leftColumnFocusRequesters by remember { mutableStateOf<List<FocusRequester>?>(null) }
+    var rightColumnFocusRequesters by remember { mutableStateOf<List<FocusRequester>?>(null) }
+
+    // Callbacks to move focus to custom controls (used by ExoPlayer controls)
+    var navigateToFavoritesCallback by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var navigateToRotateCallback by remember { mutableStateOf<(() -> Unit)?>(null) }
 
     // Toggle controls function - exposed to MainActivity for OK button
     val toggleControls: () -> Unit = {
@@ -154,6 +163,8 @@ fun PlayerScreen(
                 }
             }
         }
+        // Notify parent about controls visibility
+        onControlsVisibilityChanged?.invoke(showControls)
     }
 
     LaunchedEffect(showControls, playerViewRef) {
@@ -233,9 +244,13 @@ fun PlayerScreen(
                         onSeekBack = onSeekBack,
                         onSeekForward = onSeekForward,
                         onPausePlayback = onPausePlayback,
-                        onResumePlayback = onResumePlayback
+                        onResumePlayback = onResumePlayback,
+                        onNavigateLeftToFavorites = navigateToFavoritesCallback,
+                        onNavigateRightToRotate = navigateToRotateCallback
                     )
                     playerView.hideSettingsControls()
+
+                    // Setup navigation from ExoPlayer controls to custom controls will be done in applyControlCustomizations
                 },
                 modifier = Modifier.fillMaxSize()
             )
@@ -255,6 +270,17 @@ fun PlayerScreen(
                 onGoToChannelClick = onGoToChannel,
                 onAspectRatioClick = onCycleAspectRatio,
                 onSettingsClick = onOpenSettings,
+                onRegisterFocusRequesters = { left, right ->
+                    leftColumnFocusRequesters = left
+                    rightColumnFocusRequesters = right
+                    // Update callbacks for ExoPlayer navigation
+                    navigateToFavoritesCallback = {
+                        left.getOrNull(1)?.requestFocus()
+                    }
+                    navigateToRotateCallback = {
+                        right.getOrNull(1)?.requestFocus() // Rotate is index 1 in right column
+                    }
+                },
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -1416,7 +1442,9 @@ private fun PlayerView.applyControlCustomizations(
     onSeekBack: () -> Unit,
     onSeekForward: () -> Unit,
     onPausePlayback: () -> Unit,
-    onResumePlayback: () -> Unit
+    onResumePlayback: () -> Unit,
+    onNavigateLeftToFavorites: (() -> Unit)? = null,
+    onNavigateRightToRotate: (() -> Unit)? = null
 ) {
     setShowPreviousButton(true)
     setShowNextButton(true)
@@ -1427,12 +1455,28 @@ private fun PlayerView.applyControlCustomizations(
         visibility = View.VISIBLE
         enableControl()
         setOnClickListener { onRestartPlayback() }
+        // LEFT from leftmost Exo control should move to Favorites button
+        isFocusable = true
+        isFocusableInTouchMode = false
+        setOnKeyListener { _, keyCode, event ->
+            if (event.action == android.view.KeyEvent.ACTION_DOWN &&
+                keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT &&
+                hasFocus()) {
+                onNavigateLeftToFavorites?.invoke()
+                true
+            } else {
+                false
+            }
+        }
     }
 
     findControlView("exo_next")?.apply {
         visibility = View.VISIBLE
         disableControl()
         setOnClickListener(null)
+        // Make focusable so OK can activate it (even though disabled, for navigation)
+        isFocusable = true
+        isFocusableInTouchMode = false
     }
 
     listOf("exo_rew", "exo_rew_with_amount").forEach { controlId ->
@@ -1440,6 +1484,9 @@ private fun PlayerView.applyControlCustomizations(
             visibility = View.VISIBLE
             enableControl()
             setOnClickListener { onSeekBack() }
+            // Make focusable so OK can activate it
+            isFocusable = true
+            isFocusableInTouchMode = false
         }
     }
 
@@ -1453,18 +1500,52 @@ private fun PlayerView.applyControlCustomizations(
                 disableControl()
                 setOnClickListener(null)
             }
+            // RIGHT from rightmost Exo control should move to Rotate button
+            isFocusable = true
+            isFocusableInTouchMode = false
+            setOnKeyListener { _, keyCode, event ->
+                if (event.action == android.view.KeyEvent.ACTION_DOWN &&
+                    keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT) {
+                    // Check if this view has focus before navigating
+                    if (hasFocus()) {
+                        post {
+                            onNavigateRightToRotate?.invoke()
+                        }
+                        true
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            }
         }
     }
 
-    findControlView("exo_pause")?.setOnClickListener { onPausePlayback() }
-    findControlView("exo_play")?.setOnClickListener { onResumePlayback() }
-    findControlView("exo_play_pause")?.setOnClickListener {
-        val playerInstance = player
-        if (playerInstance?.isPlaying == true) {
-            onPausePlayback()
-        } else {
-            onResumePlayback()
+    findControlView("exo_pause")?.apply {
+        setOnClickListener { onPausePlayback() }
+        // Make focusable so OK can activate it
+        isFocusable = true
+        isFocusableInTouchMode = false
+    }
+    findControlView("exo_play")?.apply {
+        setOnClickListener { onResumePlayback() }
+        // Make focusable so OK can activate it
+        isFocusable = true
+        isFocusableInTouchMode = false
+    }
+    findControlView("exo_play_pause")?.apply {
+        setOnClickListener {
+            val playerInstance = player
+            if (playerInstance?.isPlaying == true) {
+                onPausePlayback()
+            } else {
+                onResumePlayback()
+            }
         }
+        // Make focusable so OK can activate it
+        isFocusable = true
+        isFocusableInTouchMode = false
     }
 
     // Refactor progress bar: center it and position times on left/right sides
@@ -1497,6 +1578,23 @@ private fun PlayerView.applyControlCustomizations(
     durationView?.let { view ->
         setVerticalOffsetDp(progressVerticalOffsetDp)
     }
+}
+
+/**
+ * Setup navigation from ExoPlayer controls to custom control buttons
+ * Store references to focus requesters for MainActivity to use
+ */
+private fun setupExoPlayerNavigationToCustomControls(
+    playerView: PlayerView,
+    leftFocusRequesters: List<FocusRequester>?,
+    rightFocusRequesters: List<FocusRequester>?
+) {
+    // Store references in playerView tag for MainActivity to access
+    // This is a bridge between View (ExoPlayer) and Compose (CustomControlButtons)
+    playerView.tag = mapOf(
+        "leftFocusRequesters" to leftFocusRequesters,
+        "rightFocusRequesters" to rightFocusRequesters
+    )
 }
 
 private fun View.setVerticalOffsetDp(offsetDp: Float) {
