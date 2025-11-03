@@ -83,8 +83,8 @@ fun CustomControlButtons(
             onRegisterFocusRequesters?.invoke(leftColumnFocusRequesters, rightColumnFocusRequesters)
         }
 
-        val leftColumnKeyHandler: (Int, KeyEvent) -> Boolean = { index, event ->
-            if (event.type != KeyEventType.KeyDown) return@leftColumnKeyHandler false
+        val leftColumnKeyHandler: (Int, KeyEvent) -> Boolean = leftHandler@{ index, event ->
+            if (event.type != KeyEventType.KeyDown) return@leftHandler false
             when (index) {
                 0 -> when (event.key) {
                     Key.DirectionRight -> {
@@ -118,8 +118,8 @@ fun CustomControlButtons(
             }
         }
 
-        val rightColumnKeyHandler: (Int, KeyEvent) -> Boolean = { index, event ->
-            if (event.type != KeyEventType.KeyDown) return@rightColumnKeyHandler false
+        val rightColumnKeyHandler: (Int, KeyEvent) -> Boolean = rightHandler@{ index, event ->
+            if (event.type != KeyEventType.KeyDown) return@rightHandler false
             when (index) {
                 0 -> when (event.key) {
                     Key.DirectionLeft -> {
