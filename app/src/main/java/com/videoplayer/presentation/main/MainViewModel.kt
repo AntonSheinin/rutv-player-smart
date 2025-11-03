@@ -12,6 +12,7 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import com.videoplayer.data.model.Channel
 import com.videoplayer.data.model.EpgProgram
 import com.videoplayer.data.model.EpgResponse
+import com.videoplayer.data.model.PlaylistSource
 import com.videoplayer.data.repository.ChannelRepository
 import com.videoplayer.data.repository.EpgRepository
 import com.videoplayer.data.repository.PreferencesRepository
@@ -72,6 +73,12 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.Main) {
             if (_viewState.value.epgNotificationMessage == EPG_LOADED_MESSAGE) return@launch
             _viewState.update { it.copy(epgNotificationMessage = EPG_LOADED_MESSAGE) }
+        }
+    }
+
+    private fun postNotificationMessage(message: String) {
+        viewModelScope.launch(Dispatchers.Main) {
+            _viewState.update { it.copy(epgNotificationMessage = message) }
         }
     }
 
@@ -206,7 +213,18 @@ class MainViewModel @Inject constructor(
                 _viewState.update { it.copy(isLoading = true, error = null) }
             }
 
-            when (val result = loadPlaylistUseCase()) {
+            // For URL playlists, always reload from URL on app start to get fresh content
+            val source = preferencesRepository.playlistSource.first()
+            val shouldForceReload = source is PlaylistSource.Url
+
+            val result = if (shouldForceReload) {
+                Timber.d("App Init: URL playlist detected, forcing reload from URL")
+                loadPlaylistUseCase.reload()
+            } else {
+                loadPlaylistUseCase()
+            }
+
+            when (result) {
                 is Result.Success -> {
                     val channels = result.data
                     Timber.d("App Init: Playlist loaded (${channels.size} channels)")
@@ -243,14 +261,18 @@ class MainViewModel @Inject constructor(
                 }
                 is Result.Error -> {
                     Timber.e(result.exception, "App Init: Failed to load playlist")
+                    val errorMessage = result.message ?: StringFormatter.formatErrorFailedLoadPlaylist()
                     appendDebugMessage(
-                        DebugMessage(StringFormatter.formatEpgPlaylistFailed(result.message ?: StringFormatter.formatErrorUnknown()))
+                        DebugMessage(StringFormatter.formatEpgPlaylistFailed(errorMessage))
                     )
                     withContext(Dispatchers.Main) {
+                        // Post notification message (toast)
+                        postNotificationMessage(errorMessage)
+
                         _viewState.update {
                             it.copy(
                                 isLoading = false,
-                                error = result.message ?: StringFormatter.formatErrorFailedLoadPlaylist()
+                                error = errorMessage
                             )
                         }
                     }
@@ -423,14 +445,18 @@ class MainViewModel @Inject constructor(
                     }
                     is Result.Error -> {
                         Timber.e(result.exception, "Error loading playlist")
+                        val errorMessage = result.message ?: StringFormatter.formatErrorFailedLoadPlaylist()
                         appendDebugMessage(
-                            DebugMessage(StringFormatter.formatEpgPlaylistFailed(result.message ?: StringFormatter.formatErrorUnknown()))
+                            DebugMessage(StringFormatter.formatEpgPlaylistFailed(errorMessage))
                         )
                         withContext(Dispatchers.Main) {
+                            // Post notification message (toast)
+                            postNotificationMessage(errorMessage)
+
                             _viewState.update {
                                 it.copy(
                                     isLoading = false,
-                                    error = result.message ?: StringFormatter.formatErrorFailedLoadPlaylist()
+                                    error = errorMessage
                                 )
                             }
                         }
@@ -441,11 +467,15 @@ class MainViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Error in loadPlaylist")
+                val errorMessage = "Failed to load playlist: ${e.message}"
                 withContext(Dispatchers.Main) {
+                    // Post notification message (toast)
+                    postNotificationMessage(errorMessage)
+
                     _viewState.update {
                         it.copy(
                             isLoading = false,
-                            error = "Failed to load playlist: ${e.message}"
+                            error = errorMessage
                         )
                     }
                 }

@@ -111,16 +111,28 @@ class MainActivity : ComponentActivity() {
         // Only show if there's no playlist source configured (not just if loading failed)
         var playlistCheckStarted by remember { mutableStateOf(false) }
 
-        LaunchedEffect(viewState.hasChannels, viewState.isLoading, viewState.hasPlaylistSource) {
+        LaunchedEffect(viewState.hasChannels, viewState.isLoading, viewState.hasPlaylistSource, viewState.error) {
             if (viewState.isLoading) {
                 playlistCheckStarted = true
             }
-            // Only show dialog if:
+
+            // Dismiss dialog if channels become available
+            if (showNoPlaylistDialog && viewState.hasChannels) {
+                showNoPlaylistDialog = false
+            }
+
+            // Show dialog if:
             // 1. Loading has started and finished
             // 2. No channels loaded
-            // 3. No playlist source is configured (prevents showing dialog when URL is configured but loading fails)
+            // 3. Either no playlist source OR playlist loading failed with error
             // 4. Haven't shown the prompt yet
-            if (playlistCheckStarted && !viewState.isLoading && !viewState.hasChannels && !viewState.hasPlaylistSource && !hasShownNoPlaylistPrompt) {
+            val shouldShowDialog = playlistCheckStarted &&
+                !viewState.isLoading &&
+                !viewState.hasChannels &&
+                (!viewState.hasPlaylistSource || viewState.error != null) &&
+                !hasShownNoPlaylistPrompt
+
+            if (shouldShowDialog) {
                 hasShownNoPlaylistPrompt = true
                 showNoPlaylistDialog = true
             }
