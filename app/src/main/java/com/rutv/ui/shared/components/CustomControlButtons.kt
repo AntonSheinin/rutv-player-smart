@@ -46,6 +46,7 @@ fun CustomControlButtons(
     onGoToChannelClick: () -> Unit,
     onAspectRatioClick: () -> Unit,
     onSettingsClick: () -> Unit,
+    onRegisterFocusRequesters: ((List<FocusRequester>, List<FocusRequester>) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -57,6 +58,17 @@ fun CustomControlButtons(
             ),
         propagateMinConstraints = false
     ) {
+        val leftColumnFocusRequesters = remember {
+            List(3) { FocusRequester() }
+        }
+        val rightColumnFocusRequesters = remember {
+            List(3) { FocusRequester() }
+        }
+
+        LaunchedEffect(Unit) {
+            onRegisterFocusRequesters?.invoke(leftColumnFocusRequesters, rightColumnFocusRequesters)
+        }
+
         ControlColumn(
             modifier = Modifier.align(Alignment.CenterStart),
             buttons = listOf(
@@ -75,7 +87,8 @@ fun CustomControlButtons(
                     description = R.string.cd_go_to_channel_button,
                     onClick = onGoToChannelClick
                 )
-            )
+            ),
+            focusRequesters = leftColumnFocusRequesters
         )
 
         ControlColumn(
@@ -96,7 +109,8 @@ fun CustomControlButtons(
                     description = R.string.cd_settings_button,
                     onClick = onSettingsClick
                 )
-            )
+            ),
+            focusRequesters = rightColumnFocusRequesters
         )
     }
 }
@@ -110,12 +124,12 @@ private data class ControlButtonData(
 @Composable
 private fun ControlColumn(
     modifier: Modifier,
-    buttons: List<ControlButtonData>
-) {
-    val isRemoteMode = DeviceHelper.isRemoteInputActive()
-    val focusRequesters = remember(buttons.size) {
+    buttons: List<ControlButtonData>,
+    focusRequesters: List<FocusRequester> = remember(buttons.size) {
         List(buttons.size) { FocusRequester() }
     }
+) {
+    val isRemoteMode = DeviceHelper.isRemoteInputActive()
 
     Surface(
         modifier = modifier,
@@ -141,16 +155,37 @@ private fun ControlColumn(
                     modifier = Modifier
                         .size(LayoutConstants.ControlButtonSize)
                         .alpha(alpha)
-                        .focusable(enabled = isRemoteMode && !isRotation)
+                        // Make Rotate button focusable for navigation, even though it's disabled
+                        .focusable(enabled = isRemoteMode)
                         .focusRequester(focusRequesters[index])
                         .onFocusChanged { isFocused = it.isFocused }
                         .then(if (isRemoteMode) focusIndicatorModifier(isFocused = isFocused) else Modifier)
                         .onKeyEvent { event ->
-                            if (event.type == KeyEventType.KeyDown && isFocused && !isRotation) {
+                            if (event.type == KeyEventType.KeyDown && isFocused && isRemoteMode) {
                                 when (event.key) {
                                     Key.DirectionCenter, Key.Enter -> {
-                                        button.onClick()
+                                        if (!isRotation) {
+                                            button.onClick()
+                                        }
                                         true
+                                    }
+                                    Key.DirectionUp -> {
+                                        // Navigate up in the same column (from Rotate to Aspect Ratio, or from middle to top)
+                                        if (index > 0) {
+                                            focusRequesters[index - 1].requestFocus()
+                                            true
+                                        } else {
+                                            false
+                                        }
+                                    }
+                                    Key.DirectionDown -> {
+                                        // Navigate down in the same column (from Rotate to Settings, or from middle to bottom)
+                                        if (index < buttons.size - 1) {
+                                            focusRequesters[index + 1].requestFocus()
+                                            true
+                                        } else {
+                                            false
+                                        }
                                     }
                                     else -> false
                                 }
