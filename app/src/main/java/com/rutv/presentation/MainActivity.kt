@@ -62,6 +62,9 @@ class MainActivity : ComponentActivity() {
     // State holder for PlayerScreen controls toggle
     private var toggleControlsCallback: (() -> Unit)? = null
 
+    // State for Close App dialog (accessible from both composable and onKeyDown)
+    private var showCloseAppDialogState: MutableState<Boolean>? = null
+
     override fun attachBaseContext(newBase: Context) {
         // Load saved language from SharedPreferences (synchronous, safe)
         val localeCode = LocaleHelper.getSavedLanguage(newBase)
@@ -109,7 +112,17 @@ class MainActivity : ComponentActivity() {
         var showNoPlaylistDialog by remember { mutableStateOf(false) }
         var showChannelDialog by remember { mutableStateOf(false) }
         var channelInput by remember { mutableStateOf("") }
-        var showCloseAppDialog by remember { mutableStateOf(false) }
+
+        // Close App dialog state (shared between composable and onKeyDown)
+        val showCloseAppDialogState = remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) {
+            this@MainActivity.showCloseAppDialogState = showCloseAppDialogState
+        }
+        DisposableEffect(Unit) {
+            onDispose {
+                this@MainActivity.showCloseAppDialogState = null
+            }
+        }
 
         // Show no-playlist dialog if needed
         // Only show if there's no playlist source configured (not just if loading failed)
@@ -306,9 +319,11 @@ class MainActivity : ComponentActivity() {
         }
 
         // Close App Dialog
-        if (showCloseAppDialog) {
+        if (showCloseAppDialogState.value) {
             RemoteDialog(
-                onDismissRequest = { showCloseAppDialog = false },
+                onDismissRequest = {
+                    showCloseAppDialogState.value = false
+                },
                 containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f),
                 title = {
                     Text(
@@ -335,7 +350,9 @@ class MainActivity : ComponentActivity() {
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showCloseAppDialog = false }) {
+                    TextButton(onClick = {
+                        showCloseAppDialogState.value = false
+                    }) {
                         Text(
                             text = getString(R.string.button_cancel),
                             color = MaterialTheme.ruTvColors.textPrimary
@@ -606,13 +623,17 @@ class MainActivity : ComponentActivity() {
                         return true
                     }
                     // If full screen playing, show Close App dialog
-                    if (showCloseAppDialog) {
-                        // Dialog already shown, let it handle the back press
-                        return false
-                    } else {
-                        showCloseAppDialog = true
-                        return true
+                    val dialogState = showCloseAppDialogState
+                    if (dialogState != null) {
+                        if (dialogState.value) {
+                            // Dialog already shown, let it handle the back press
+                            return false
+                        } else {
+                            dialogState.value = true
+                            return true
+                        }
                     }
+                    return false
                 }
             }
         }
