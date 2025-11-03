@@ -331,6 +331,24 @@ fun PlayerScreen(
 
 @UnstableApi
 @Composable
+private fun ReturnToLiveButton(
+    onClick: () -> Unit,
+    buttonHeight: Dp = 48.dp
+) {
+    Button(
+        onClick = onClick,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.ruTvColors.gold,
+            contentColor = MaterialTheme.ruTvColors.darkBackground
+        ),
+        modifier = Modifier.height(buttonHeight)
+    ) {
+        Text(text = stringResource(R.string.player_return_to_live))
+    }
+}
+
+@UnstableApi
+@Composable
 private fun ProgramInfoButton(
     program: EpgProgram,
     buttonHeight: Dp,
@@ -338,20 +356,24 @@ private fun ProgramInfoButton(
     containerColor: Color = MaterialTheme.ruTvColors.darkBackground,
     iconSizeMultiplier: Float = 0.75f
 ) {
-    IconButton(
-        onClick = { onShowProgramInfo(program) },
-        colors = IconButtonDefaults.iconButtonColors(
-            contentColor = MaterialTheme.ruTvColors.gold,
-            containerColor = containerColor
-        ),
-        contentPadding = PaddingValues(0.dp),
-        modifier = Modifier.size(buttonHeight)
+    Box(
+        modifier = Modifier.size(buttonHeight),
+        contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = Icons.Default.Info,
-            contentDescription = stringResource(R.string.player_program_info),
-            modifier = Modifier.size(buttonHeight * iconSizeMultiplier)
-        )
+        IconButton(
+            onClick = { onShowProgramInfo(program) },
+            colors = IconButtonDefaults.iconButtonColors(
+                contentColor = MaterialTheme.ruTvColors.gold,
+                containerColor = containerColor
+            ),
+            modifier = Modifier.size(buttonHeight)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Info,
+                contentDescription = stringResource(R.string.player_program_info),
+                modifier = Modifier.size(buttonHeight * iconSizeMultiplier)
+            )
+        }
     }
 }
 
@@ -402,23 +424,14 @@ private fun ChannelInfoOverlay(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        var archiveButtonHeight by remember { mutableStateOf(48.dp) }
-                        val density = LocalDensity.current
-                        Button(
+                        val standardButtonHeight = 48.dp
+                        ReturnToLiveButton(
                             onClick = onReturnToLive,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.ruTvColors.gold,
-                                contentColor = MaterialTheme.ruTvColors.darkBackground
-                            ),
-                            modifier = Modifier.onSizeChanged { size ->
-                                archiveButtonHeight = with(density) { size.height.toDp() }
-                            }
-                        ) {
-                            Text(text = stringResource(R.string.player_return_to_live))
-                        }
+                            buttonHeight = standardButtonHeight
+                        )
                         ProgramInfoButton(
                             program = program,
-                            buttonHeight = archiveButtonHeight,
+                            buttonHeight = standardButtonHeight,
                             onShowProgramInfo = onShowProgramInfo
                         )
                     }
@@ -450,17 +463,12 @@ private fun ChannelInfoOverlay(
                                 overflow = TextOverflow.Ellipsis,
                                 textAlign = TextAlign.Center
                             )
-                            var nonArchiveButtonHeight by remember { mutableStateOf(56.dp) }
-                            val density = LocalDensity.current
-                            // Measure the Button that should be nearby, but since there's no Button in this section,
-                            // use a reasonable default that matches typical button heights
-                            val defaultButtonHeight = 48.dp
+                            val standardButtonHeight = 48.dp
                             ProgramInfoButton(
                                 program = program,
-                                buttonHeight = defaultButtonHeight,
+                                buttonHeight = standardButtonHeight,
                                 onShowProgramInfo = onShowProgramInfo,
-                                containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.0f),
-                                iconSizeMultiplier = 0.6f
+                                containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.0f)
                             )
                         }
                     }
@@ -472,24 +480,15 @@ private fun ChannelInfoOverlay(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        var buttonHeight by remember { mutableStateOf(48.dp) }
-                        val density = LocalDensity.current
-                        Button(
+                        val standardButtonHeight = 48.dp
+                        ReturnToLiveButton(
                             onClick = onReturnToLive,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.ruTvColors.gold,
-                                contentColor = MaterialTheme.ruTvColors.darkBackground
-                            ),
-                            modifier = Modifier.onSizeChanged { size ->
-                                buttonHeight = with(density) { size.height.toDp() }
-                            }
-                        ) {
-                            Text(text = stringResource(R.string.player_return_to_live))
-                        }
+                            buttonHeight = standardButtonHeight
+                        )
                         currentProgram?.let { program ->
                             ProgramInfoButton(
                                 program = program,
-                                buttonHeight = buttonHeight,
+                                buttonHeight = standardButtonHeight,
                                 onShowProgramInfo = onShowProgramInfo
                             )
                         }
