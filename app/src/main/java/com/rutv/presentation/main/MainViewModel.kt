@@ -746,6 +746,18 @@ class MainViewModel @Inject constructor(
     }
 
     /**
+     * Close EPG panel only (keep playlist open)
+     */
+    fun closeEpgPanel() {
+        _viewState.update { current ->
+            current.copy(
+                showEpgPanel = false,
+                selectedProgramDetails = null
+            )
+        }
+    }
+
+    /**
      * Show EPG for channel
      */
     fun showEpgForChannel(tvgId: String) {

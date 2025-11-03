@@ -109,6 +109,7 @@ class MainActivity : ComponentActivity() {
         var showNoPlaylistDialog by remember { mutableStateOf(false) }
         var showChannelDialog by remember { mutableStateOf(false) }
         var channelInput by remember { mutableStateOf("") }
+        var showCloseAppDialog by remember { mutableStateOf(false) }
 
         // Show no-playlist dialog if needed
         // Only show if there's no playlist source configured (not just if loading failed)
@@ -156,6 +157,7 @@ class MainActivity : ComponentActivity() {
             onRegisterToggleControls = { callback -> toggleControlsCallbackState = callback },
             onToggleFavorites = { viewModel.toggleFavorites() },
             onClosePlaylist = { viewModel.closePlaylist() },
+            onCloseEpgPanel = { viewModel.closeEpgPanel() },
             onCycleAspectRatio = { viewModel.cycleAspectRatio() },
             onOpenSettings = {
                 // Save current language before opening settings
@@ -288,6 +290,52 @@ class MainActivity : ComponentActivity() {
                 },
                 dismissButton = {
                     TextButton(onClick = { showChannelDialog = false }) {
+                        Text(
+                            text = getString(R.string.button_cancel),
+                            color = MaterialTheme.ruTvColors.textPrimary
+                        )
+                    }
+                },
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.border(
+                    2.dp,
+                    MaterialTheme.ruTvColors.gold.copy(alpha = 0.7f),
+                    RoundedCornerShape(16.dp)
+                )
+            )
+        }
+
+        // Close App Dialog
+        if (showCloseAppDialog) {
+            RemoteDialog(
+                onDismissRequest = { showCloseAppDialog = false },
+                containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f),
+                title = {
+                    Text(
+                        text = getString(R.string.dialog_title_close_app),
+                        color = MaterialTheme.ruTvColors.gold,
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                },
+                text = {
+                    Text(
+                        text = getString(R.string.dialog_message_close_app),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.ruTvColors.textPrimary
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        finishAffinity()
+                    }) {
+                        Text(
+                            text = getString(R.string.button_exit),
+                            color = MaterialTheme.ruTvColors.gold
+                        )
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showCloseAppDialog = false }) {
                         Text(
                             text = getString(R.string.button_cancel),
                             color = MaterialTheme.ruTvColors.textPrimary
@@ -481,17 +529,28 @@ class MainActivity : ComponentActivity() {
                     // Handle in composable based on focus - pass through
                     return false
                 }
-                // OK/DPAD_CENTER button - toggle controls visibility
+                // OK/DPAD_CENTER button - context dependent
                 KeyEvent.KEYCODE_DPAD_CENTER,
                 KeyEvent.KEYCODE_ENTER,
                 KeyEvent.KEYCODE_BUTTON_A -> {
-                    // Toggle controls when video is playing
+                    val currentState = viewModel.viewState.value
+                    // If channel list or EPG panel is open, let focused item handle OK
+                    // (e.g., play channel from channel list, or play archive/show details in EPG)
+                    if (currentState.showPlaylist || currentState.showEpgPanel) {
+                        return false // Let ChannelListItem or EpgProgramItem handle it
+                    }
+                    // Otherwise, toggle controls when video is playing in full screen
                     toggleControlsCallback?.invoke()
                     return true
                 }
-                // Left arrow - open channel list if not open
+                // Left arrow - open channel list if not open, or let EPG panel handle it
                 KeyEvent.KEYCODE_DPAD_LEFT -> {
                     val currentState = viewModel.viewState.value
+                    // If EPG panel is open, let it handle LEFT (to close EPG and return to channel list)
+                    if (currentState.showEpgPanel) {
+                        return false // Let EpgProgramItem handle it
+                    }
+                    // If playlist is not open and no EPG, open channel list
                     if (!currentState.showPlaylist && currentState.hasChannels) {
                         viewModel.togglePlaylist()
                         return true
@@ -535,6 +594,23 @@ class MainActivity : ComponentActivity() {
                     } else {
                         // Switch channel down
                         switchChannelDown()
+                        return true
+                    }
+                }
+                // BACK button - context dependent
+                KeyEvent.KEYCODE_BACK -> {
+                    val currentState = viewModel.viewState.value
+                    // If channel list or EPG panel (or both) are open, close them and return to full screen
+                    if (currentState.showPlaylist || currentState.showEpgPanel) {
+                        viewModel.closePlaylist()
+                        return true
+                    }
+                    // If full screen playing, show Close App dialog
+                    if (showCloseAppDialog) {
+                        // Dialog already shown, let it handle the back press
+                        return false
+                    } else {
+                        showCloseAppDialog = true
                         return true
                     }
                 }

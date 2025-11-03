@@ -8,10 +8,12 @@
     <string name="dialog_title_load_playlist_url">Load Playlist from URL</string>
     <string name="dialog_title_no_playlist_loaded">No Playlist</string>
     <string name="dialog_title_reload_playlist">Reload Playlist?</string>
+    <string name="dialog_title_close_app">Close App?</string>
     <!-- Dialog Messages -->
     <string name="dialog_message_no_playlist">Please go to Settings to configure your playlist source (URL or file) to start watching channels.</string>
     <string name="dialog_message_no_playlist_loaded">No playlist is currently loaded. Please load a playlist first.</string>
     <string name="dialog_message_reload_playlist">This will reload the playlist from the original source and refresh all EPG data (tvg-id, catchup-days, etc.).</string>
+    <string name="dialog_message_close_app">Are you sure you want to close the app?</string>
 
     <!-- Buttons -->
     <string name="button_ok">OK</string>

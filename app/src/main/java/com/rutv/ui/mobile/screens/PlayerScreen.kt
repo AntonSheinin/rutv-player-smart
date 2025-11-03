@@ -91,6 +91,7 @@ fun PlayerScreen(
     onTogglePlaylist: () -> Unit,
     onToggleFavorites: () -> Unit,
     onClosePlaylist: () -> Unit,
+    onCloseEpgPanel: () -> Unit,
     onCycleAspectRatio: () -> Unit,
     onOpenSettings: () -> Unit,
     onGoToChannel: () -> Unit,
@@ -312,9 +313,10 @@ fun PlayerScreen(
                 channel = epgChannel,
                 onProgramClick = onShowProgramDetails,
                 onPlayArchive = onPlayArchiveProgram,
-            isArchivePlayback = viewState.isArchivePlayback,
-            onLoadMorePast = onLoadMoreEpgPast,
-            onLoadMoreFuture = onLoadMoreEpgFuture,
+                isArchivePlayback = viewState.isArchivePlayback,
+                onLoadMorePast = onLoadMoreEpgPast,
+                onLoadMoreFuture = onLoadMoreEpgFuture,
+                onClose = onCloseEpgPanel,
                 modifier = Modifier.align(Alignment.CenterEnd)
             )
         }
@@ -547,6 +549,9 @@ private fun PlaylistPanel(
     val searchButtonFocus = remember { FocusRequester() }
     val closeButtonFocus = remember { FocusRequester() }
 
+    // Track which channel opened EPG for focus restoration
+    var channelThatOpenedEpg by remember { mutableStateOf<Int?>(null) }
+
     // Auto-scroll to current channel when panel opens (center it in viewport)
     LaunchedEffect(currentChannelIndex, channels.size) {
         if (currentChannelIndex >= 0 && currentChannelIndex < channels.size) {
@@ -558,6 +563,25 @@ private fun PlaylistPanel(
             if (isRemoteMode) {
                 focusRequesters[currentChannelIndex].requestFocus()
             }
+        }
+    }
+
+    // Restore focus to channel list when EPG closes
+    LaunchedEffect(epgOpenIndex) {
+        if (epgOpenIndex >= 0 && epgOpenIndex < channels.size) {
+            channelThatOpenedEpg = epgOpenIndex
+        } else if (epgOpenIndex < 0 && channelThatOpenedEpg != null) {
+            // EPG closed, restore focus to the channel that opened it
+            val channelIndex = channelThatOpenedEpg!!
+            if (channelIndex >= 0 && channelIndex < channels.size && isRemoteMode) {
+                coroutineScope.launch {
+                    // Small delay to ensure EPG panel is removed first
+                    delay(50)
+                    listState.animateScrollToItem(channelIndex, scrollOffset = -160)
+                    focusRequesters[channelIndex].requestFocus()
+                }
+            }
+            channelThatOpenedEpg = null
         }
     }
 
@@ -820,6 +844,7 @@ private fun EpgPanel(
     isArchivePlayback: Boolean,
     onLoadMorePast: () -> Unit,
     onLoadMoreFuture: () -> Unit,
+    onClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
@@ -876,20 +901,25 @@ private fun EpgPanel(
         }
     }
 
-    // Auto-scroll only once on first open
+    // Auto-scroll and focus when EPG opens or channel changes
+    var lastEpgChannelTvgId by remember { mutableStateOf<String?>(null) }
     var didInitialScroll by remember { mutableStateOf(false) }
-    LaunchedEffect(scrollToIndex, items.size) {
-        if (!didInitialScroll && scrollToIndex >= 0 && scrollToIndex < items.size) {
+    LaunchedEffect(scrollToIndex, items.size, channel?.tvgId) {
+        val channelChanged = channel?.tvgId != lastEpgChannelTvgId
+        val shouldScroll = channelChanged || (!didInitialScroll && scrollToIndex >= 0)
+        if (shouldScroll && scrollToIndex >= 0 && scrollToIndex < items.size) {
             listState.scrollToItem(scrollToIndex)
             listState.animateScrollToItem(scrollToIndex, scrollOffset = -200)
+            lastEpgChannelTvgId = channel?.tvgId
             didInitialScroll = true
 
-            // Request focus on current program in remote mode
+            // Request focus on current program in remote mode to move focus from channel list
             if (isRemoteMode && currentProgramIndex >= 0 && currentProgramIndex < focusRequesters.size) {
                 focusRequesters[currentProgramIndex].requestFocus()
             }
         }
     }
+
 
     // Lazy paging triggers near list edges
     var edgeRequestedPast by remember { mutableStateOf(false) }
@@ -1007,6 +1037,7 @@ private fun EpgPanel(
                                     showArchiveIndicator = isArchiveCandidate,
                                     onClick = { onProgramClick(data) },
                                     onPlayArchive = if (canPlayArchive) { { onPlayArchive(data) } } else null,
+                                    onCloseEpg = onClose,
                                     focusRequester = if (programIndex >= 0 && programIndex < focusRequesters.size) {
                                         focusRequesters[programIndex]
                                     } else null,

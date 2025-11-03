@@ -54,6 +54,7 @@ fun EpgProgramItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     onPlayArchive: (() -> Unit)? = null,
+    onCloseEpg: (() -> Unit)? = null,
     focusRequester: FocusRequester? = null
 ) {
     var isFocused by remember { mutableStateOf(false) }
@@ -76,12 +77,23 @@ fun EpgProgramItem(
             when (event.key) {
                 Key.DirectionCenter, // DPAD_CENTER
                 Key.Enter -> {
-                    onClick()
+                    // OK: If program is past and in archive, play archive; otherwise show details
+                    // onPlayArchive is only provided when program can be played from archive
+                    if (onPlayArchive != null && isPast && showArchiveIndicator) {
+                        onPlayArchive.invoke()
+                    } else {
+                        onClick()
+                    }
                     true
                 }
                 Key.DirectionRight -> {
-                    // DPAD_RIGHT or KEYCODE_BUTTON_Y: Play archive if available
+                    // DPAD_RIGHT: Play archive if available
                     onPlayArchive?.invoke()
+                    true
+                }
+                Key.DirectionLeft -> {
+                    // LEFT: Close EPG panel and move focus back to channel list
+                    onCloseEpg?.invoke()
                     true
                 }
                 else -> false
