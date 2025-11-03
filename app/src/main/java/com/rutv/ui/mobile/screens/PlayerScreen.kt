@@ -264,12 +264,32 @@ fun PlayerScreen(
             exit = fadeOut(),
             modifier = Modifier.fillMaxSize()
         ) {
+            val focusLeftmostExoControl = {
+                playerViewRef?.post {
+                    playerViewRef?.focusOnControl(
+                        "exo_prev",
+                        "exo_play_pause",
+                        "exo_play"
+                    )
+                }
+            }
+            val focusRightmostExoControl = {
+                playerViewRef?.post {
+                    playerViewRef?.focusOnControl(
+                        "exo_ffwd",
+                        "exo_ffwd_with_amount",
+                        "exo_next"
+                    )
+                }
+            }
             CustomControlButtons(
                 onPlaylistClick = onTogglePlaylist,
                 onFavoritesClick = onToggleFavorites,
                 onGoToChannelClick = onGoToChannel,
                 onAspectRatioClick = onCycleAspectRatio,
                 onSettingsClick = onOpenSettings,
+                onNavigateRightFromFavorites = { focusLeftmostExoControl() },
+                onNavigateLeftFromRotate = { focusRightmostExoControl() },
                 onRegisterFocusRequesters = { left, right ->
                     leftColumnFocusRequesters = left
                     rightColumnFocusRequesters = right
@@ -1597,11 +1617,17 @@ private fun setupExoPlayerNavigationToCustomControls(
     )
 }
 
+private fun PlayerView.focusOnControl(vararg controlNames: String) {
+    controlNames.asSequence()
+        .mapNotNull { findControlView(it) }
+        .firstOrNull { view ->
+            view.visibility == View.VISIBLE && view.isFocusable
+        }?.requestFocus()
+}
+
 private fun View.setVerticalOffsetDp(offsetDp: Float) {
     translationY = offsetDp * resources.displayMetrics.density
 }
-
-
 
 
 

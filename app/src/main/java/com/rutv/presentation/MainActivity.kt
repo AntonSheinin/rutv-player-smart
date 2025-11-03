@@ -572,17 +572,12 @@ class MainActivity : ComponentActivity() {
                 // Left arrow - open channel list if not open, or let EPG panel handle it
                 KeyEvent.KEYCODE_DPAD_LEFT -> {
                     val currentState = viewModel.viewState.value
-                    // If EPG panel is open, let it handle LEFT (to close EPG and return to channel list)
-                    if (currentState.showEpgPanel) {
-                        return false // Let EpgProgramItem handle it
-                    }
-                    // If controls are visible, let ExoPlayer/CustomControls handle LEFT
                     if (areControlsVisible) {
                         return false // Let ExoPlayer or CustomControlButtons handle LEFT navigation
                     }
-                    // If playlist is not open and no EPG, open channel list
-                    if (!currentState.showPlaylist && currentState.hasChannels) {
-                        viewModel.togglePlaylist()
+                    // Only intercept in full screen playback (no playlist or EPG shown)
+                    if (!currentState.showPlaylist && !currentState.showEpgPanel && currentState.hasChannels) {
+                        viewModel.openPlaylist()
                         return true
                     }
                     // If playlist is open, let focus system handle navigation
@@ -591,21 +586,15 @@ class MainActivity : ComponentActivity() {
                 // Right arrow - open EPG for current/selected channel
                 KeyEvent.KEYCODE_DPAD_RIGHT -> {
                     val currentState = viewModel.viewState.value
-                    if (currentState.showPlaylist) {
-                        // Let ChannelListItem handle it for focused channel
-                        return false
-                    }
-                    // If controls are visible, let ExoPlayer handle RIGHT (navigate between Exo controls)
                     if (areControlsVisible) {
                         return false // Let ExoPlayer handle RIGHT navigation
                     }
-                    // If controls are not visible and channel is playing, open EPG for current channel
-                    if (currentState.currentChannel != null) {
-                        currentState.currentChannel.tvgId.let { tvgId ->
-                            if (tvgId.isNotBlank()) {
-                                viewModel.showEpgForChannel(tvgId)
-                                return true
-                            }
+                    if (!currentState.showPlaylist && !currentState.showEpgPanel) {
+                        val tvgId = currentState.currentChannel?.tvgId
+                        if (!tvgId.isNullOrBlank()) {
+                            viewModel.openPlaylist()
+                            viewModel.showEpgForChannel(tvgId)
+                            return true
                         }
                     }
                     return false
@@ -642,9 +631,19 @@ class MainActivity : ComponentActivity() {
                 // BACK button - context dependent
                 KeyEvent.KEYCODE_BACK -> {
                     val currentState = viewModel.viewState.value
-                    // If channel list or EPG panel (or both) are open, close them and return to full screen
-                    if (currentState.showPlaylist || currentState.showEpgPanel) {
+                    // Close EPG panel first if visible
+                    if (currentState.showEpgPanel) {
+                        viewModel.closeEpgPanel()
+                        return true
+                    }
+                    // Then close playlist if visible
+                    if (currentState.showPlaylist) {
                         viewModel.closePlaylist()
+                        return true
+                    }
+                    // Hide controls overlay if visible
+                    if (areControlsVisible) {
+                        toggleControlsCallback?.invoke()
                         return true
                     }
                     // If full screen playing, show Close App dialog
@@ -687,6 +686,5 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
 
 

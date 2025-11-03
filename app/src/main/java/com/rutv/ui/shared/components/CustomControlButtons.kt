@@ -1,12 +1,24 @@
 package com.rutv.ui.shared.components
 
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.AspectRatio
+import androidx.compose.material.icons.filled.Numbers
+import androidx.compose.material.icons.filled.ScreenRotation
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -21,6 +33,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
@@ -31,9 +44,7 @@ import androidx.annotation.StringRes
 import com.rutv.R
 import com.rutv.ui.shared.presentation.LayoutConstants
 import com.rutv.ui.theme.ruTvColors
-import androidx.compose.material3.MaterialTheme
 import com.rutv.util.DeviceHelper
-import com.rutv.ui.shared.components.focusIndicatorModifier
 
 private const val DISABLED_CONTROL_ALPHA = 0.4f
 
@@ -47,6 +58,8 @@ fun CustomControlButtons(
     onGoToChannelClick: () -> Unit,
     onAspectRatioClick: () -> Unit,
     onSettingsClick: () -> Unit,
+    onNavigateRightFromFavorites: (() -> Unit)? = null,
+    onNavigateLeftFromRotate: (() -> Unit)? = null,
     onRegisterFocusRequesters: ((List<FocusRequester>, List<FocusRequester>) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -70,6 +83,72 @@ fun CustomControlButtons(
             onRegisterFocusRequesters?.invoke(leftColumnFocusRequesters, rightColumnFocusRequesters)
         }
 
+        val leftColumnKeyHandler: (Int, KeyEvent) -> Boolean = { index, event ->
+            if (event.type != KeyEventType.KeyDown) return@leftColumnKeyHandler false
+            when (index) {
+                0 -> when (event.key) {
+                    Key.DirectionRight -> {
+                        rightColumnFocusRequesters.getOrNull(0)?.requestFocus()
+                        true
+                    }
+                    Key.DirectionLeft, Key.DirectionUp -> true
+                    else -> false
+                }
+                1 -> when (event.key) {
+                    Key.DirectionLeft -> true
+                    Key.DirectionRight -> {
+                        onNavigateRightFromFavorites?.invoke()
+                        true
+                    }
+                    else -> false
+                }
+                2 -> when (event.key) {
+                    Key.DirectionLeft -> true
+                    Key.DirectionRight -> {
+                        rightColumnFocusRequesters.getOrNull(2)?.requestFocus()
+                        true
+                    }
+                    Key.DirectionDown -> {
+                        leftColumnFocusRequesters.getOrNull(1)?.requestFocus()
+                        true
+                    }
+                    else -> false
+                }
+                else -> false
+            }
+        }
+
+        val rightColumnKeyHandler: (Int, KeyEvent) -> Boolean = { index, event ->
+            if (event.type != KeyEventType.KeyDown) return@rightColumnKeyHandler false
+            when (index) {
+                0 -> when (event.key) {
+                    Key.DirectionLeft -> {
+                        leftColumnFocusRequesters.getOrNull(0)?.requestFocus()
+                        true
+                    }
+                    Key.DirectionRight, Key.DirectionUp -> true
+                    else -> false
+                }
+                1 -> when (event.key) {
+                    Key.DirectionLeft -> {
+                        onNavigateLeftFromRotate?.invoke()
+                        true
+                    }
+                    Key.DirectionRight -> true
+                    else -> false
+                }
+                2 -> when (event.key) {
+                    Key.DirectionLeft -> {
+                        leftColumnFocusRequesters.getOrNull(2)?.requestFocus()
+                        true
+                    }
+                    Key.DirectionRight, Key.DirectionDown -> true
+                    else -> false
+                }
+                else -> false
+            }
+        }
+
         ControlColumn(
             modifier = Modifier.align(Alignment.CenterStart),
             buttons = listOf(
@@ -89,7 +168,8 @@ fun CustomControlButtons(
                     onClick = onGoToChannelClick
                 )
             ),
-            focusRequesters = leftColumnFocusRequesters
+            focusRequesters = leftColumnFocusRequesters,
+            onKeyHandler = leftColumnKeyHandler
         )
 
         ControlColumn(
@@ -111,7 +191,8 @@ fun CustomControlButtons(
                     onClick = onSettingsClick
                 )
             ),
-            focusRequesters = rightColumnFocusRequesters
+            focusRequesters = rightColumnFocusRequesters,
+            onKeyHandler = rightColumnKeyHandler
         )
     }
 }
@@ -126,9 +207,8 @@ private data class ControlButtonData(
 private fun ControlColumn(
     modifier: Modifier,
     buttons: List<ControlButtonData>,
-    focusRequesters: List<FocusRequester> = remember(buttons.size) {
-        List(buttons.size) { FocusRequester() }
-    }
+    focusRequesters: List<FocusRequester>,
+    onKeyHandler: ((Int, KeyEvent) -> Boolean)? = null
 ) {
     val isRemoteMode = DeviceHelper.isRemoteInputActive()
 
@@ -163,6 +243,9 @@ private fun ControlColumn(
                         .then(if (isRemoteMode) focusIndicatorModifier(isFocused = isFocused) else Modifier)
                         .onKeyEvent { event ->
                             if (event.type == KeyEventType.KeyDown && isFocused && isRemoteMode) {
+                                if (onKeyHandler?.invoke(index, event) == true) {
+                                    return@onKeyEvent true
+                                }
                                 when (event.key) {
                                     Key.DirectionCenter, Key.Enter -> {
                                         if (!isRotation) {
@@ -171,22 +254,16 @@ private fun ControlColumn(
                                         true
                                     }
                                     Key.DirectionUp -> {
-                                        // Navigate up in the same column (from Rotate to Aspect Ratio, or from middle to top)
                                         if (index > 0) {
                                             focusRequesters[index - 1].requestFocus()
-                                            true
-                                        } else {
-                                            false
                                         }
+                                        true
                                     }
                                     Key.DirectionDown -> {
-                                        // Navigate down in the same column (from Rotate to Settings, or from middle to bottom)
                                         if (index < buttons.size - 1) {
                                             focusRequesters[index + 1].requestFocus()
-                                            true
-                                        } else {
-                                            false
                                         }
+                                        true
                                     }
                                     else -> false
                                 }

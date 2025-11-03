@@ -720,6 +720,20 @@ class MainViewModel @Inject constructor(
     }
 
     /**
+     * Open playlist explicitly with optional favorites filter
+     */
+    fun openPlaylist(showFavoritesOnly: Boolean = false) {
+        _viewState.update { current ->
+            current.copy(
+                showPlaylist = true,
+                showFavoritesOnly = showFavoritesOnly,
+                showEpgPanel = false,
+                selectedProgramDetails = null
+            )
+        }
+    }
+
+    /**
      * Toggle favorites view
      */
     fun toggleFavorites() {
@@ -796,6 +810,7 @@ class MainViewModel @Inject constructor(
                     )
                     _viewState.update {
                         it.copy(
+                            showPlaylist = true,
                             showEpgPanel = true,
                             epgChannelTvgId = tvgId,
                             epgPrograms = programs,
@@ -1212,7 +1227,6 @@ class MainViewModel @Inject constructor(
         const val EPG_LOADED_MESSAGE = "EPG loaded"
     }
 }
-
 
 
 
