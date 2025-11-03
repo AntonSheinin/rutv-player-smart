@@ -102,9 +102,26 @@ class EpgRepository @Inject constructor(
                 connection.disconnect()
                 Result.Error(Exception("Health check failed: $responseCode"))
             }
+        } catch (e: javax.net.ssl.SSLException) {
+            Timber.e(e, "SSL/TLS error during EPG health check")
+            Result.Error(Exception("SSL connection error. Please check your network connection.", e))
+        } catch (e: java.net.SocketException) {
+            Timber.e(e, "Network error during EPG health check")
+            Result.Error(Exception("Network error. Please check your connection.", e))
+        } catch (e: java.net.UnknownHostException) {
+            Timber.e(e, "Host resolution error during EPG health check")
+            Result.Error(Exception("Cannot reach EPG server. Please check the URL.", e))
         } catch (e: Exception) {
             Timber.e(e, "EPG service health check error")
-            Result.Error(e)
+            // Check if it's an SSL-related error in the message
+            val errorMessage = if (e.message?.contains("tls", ignoreCase = true) == true ||
+                e.message?.contains("ssl", ignoreCase = true) == true ||
+                e.message?.contains("parse", ignoreCase = true) == true) {
+                "Network error: ${e.message ?: "Connection failed"}"
+            } else {
+                e.message ?: "Health check failed"
+            }
+            Result.Error(Exception(errorMessage, e))
         }
     }
 
@@ -265,12 +282,34 @@ class EpgRepository @Inject constructor(
                 Timber.e("EPG batch failed with HTTP $responseCode")
                 Result.Error(Exception("HTTP error: $responseCode"))
             }
+        } catch (e: javax.net.ssl.SSLException) {
+            Timber.e(e, "SSL/TLS error fetching EPG batch")
+            val errorMessage = if (e.message?.contains("parse", ignoreCase = true) == true) {
+                "SSL connection error. Please check your network connection or try again."
+            } else {
+                "SSL error: ${e.message ?: "Connection failed"}"
+            }
+            Result.Error(Exception(errorMessage, e))
+        } catch (e: java.net.SocketException) {
+            Timber.e(e, "Network error fetching EPG batch")
+            Result.Error(Exception("Network error. Please check your connection and try again.", e))
+        } catch (e: java.net.UnknownHostException) {
+            Timber.e(e, "Host resolution error for EPG URL")
+            Result.Error(Exception("Cannot reach EPG server. Please check the URL and your internet connection.", e))
         } catch (e: OutOfMemoryError) {
             Timber.e(e, "Out of memory fetching EPG batch")
             Result.Error(Exception("Out of memory: ${e.message}"))
         } catch (e: Exception) {
             Timber.e(e, "Error fetching EPG batch")
-            Result.Error(e)
+            // Check if it's an SSL-related error in the message
+            val errorMessage = if (e.message?.contains("tls", ignoreCase = true) == true ||
+                e.message?.contains("ssl", ignoreCase = true) == true ||
+                e.message?.contains("parse", ignoreCase = true) == true) {
+                "Network error: ${e.message ?: "Connection failed"}. Please try again."
+            } else {
+                e.message ?: "Failed to fetch EPG data"
+            }
+            Result.Error(Exception(errorMessage, e))
         } finally {
             connection?.disconnect()
         }
@@ -769,6 +808,16 @@ class EpgRepository @Inject constructor(
                 val stop = p.stopUtcMillis
                 stop >= fromUtcMillis && start <= toUtcMillis
             }
+        } catch (e: javax.net.ssl.SSLException) {
+            Timber.e(e, "SSL/TLS error fetching single-channel EPG")
+            // Return empty list - this is a background operation, don't interrupt user
+            emptyList()
+        } catch (e: java.net.SocketException) {
+            Timber.e(e, "Network error fetching single-channel EPG")
+            emptyList()
+        } catch (e: java.net.UnknownHostException) {
+            Timber.e(e, "Host resolution error for EPG URL")
+            emptyList()
         } catch (e: Exception) {
             Timber.e(e, "Failed to fetch single-channel EPG window")
             emptyList()

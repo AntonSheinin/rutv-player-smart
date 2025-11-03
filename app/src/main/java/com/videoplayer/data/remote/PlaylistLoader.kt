@@ -10,6 +10,7 @@ import kotlinx.coroutines.withContext
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
+import javax.net.ssl.SSLException
 
 /**
  * Loads playlist content from various sources
@@ -52,9 +53,31 @@ class PlaylistLoader @Inject constructor(
                 Timber.d("Loaded ${out.length} bytes from URL")
                 Result.Success(out.toString())
             }
+        } catch (e: javax.net.ssl.SSLException) {
+            Timber.e(e, "SSL/TLS error loading playlist from URL: $url")
+            val errorMessage = if (e.message?.contains("parse", ignoreCase = true) == true) {
+                "SSL connection error. Please check your network connection or try again."
+            } else {
+                "SSL error: ${e.message ?: "Connection failed"}"
+            }
+            Result.Error(Exception(errorMessage, e))
+        } catch (e: java.net.SocketException) {
+            Timber.e(e, "Network error loading playlist from URL: $url")
+            Result.Error(Exception("Network error. Please check your connection and try again.", e))
+        } catch (e: java.net.UnknownHostException) {
+            Timber.e(e, "Host resolution error for playlist URL: $url")
+            Result.Error(Exception("Cannot reach server. Please check the URL and your internet connection.", e))
         } catch (e: Exception) {
             Timber.e(e, "Error loading playlist from URL: $url")
-            Result.Error(e)
+            // Check if it's an SSL-related error in the message
+            val errorMessage = if (e.message?.contains("tls", ignoreCase = true) == true ||
+                e.message?.contains("ssl", ignoreCase = true) == true ||
+                e.message?.contains("parse", ignoreCase = true) == true) {
+                "Network error: ${e.message ?: "Connection failed"}. Please try again."
+            } else {
+                e.message ?: "Failed to load playlist"
+            }
+            Result.Error(Exception(errorMessage, e))
         } finally {
             runCatching { dataSource.close() }
         }
