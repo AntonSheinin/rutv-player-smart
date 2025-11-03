@@ -31,6 +31,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.viewinterop.AndroidView
@@ -329,6 +331,32 @@ fun PlayerScreen(
 
 @UnstableApi
 @Composable
+private fun ProgramInfoButton(
+    program: EpgProgram,
+    buttonHeight: Dp,
+    onShowProgramInfo: (EpgProgram) -> Unit,
+    containerColor: Color = MaterialTheme.ruTvColors.darkBackground,
+    iconSizeMultiplier: Float = 0.75f
+) {
+    IconButton(
+        onClick = { onShowProgramInfo(program) },
+        colors = IconButtonDefaults.iconButtonColors(
+            contentColor = MaterialTheme.ruTvColors.gold,
+            containerColor = containerColor
+        ),
+        contentPadding = PaddingValues(0.dp),
+        modifier = Modifier.size(buttonHeight)
+    ) {
+        Icon(
+            imageVector = Icons.Default.Info,
+            contentDescription = stringResource(R.string.player_program_info),
+            modifier = Modifier.size(buttonHeight * iconSizeMultiplier)
+        )
+    }
+}
+
+@UnstableApi
+@Composable
 private fun ChannelInfoOverlay(
     channelNumber: Int,
     channel: Channel,
@@ -388,20 +416,11 @@ private fun ChannelInfoOverlay(
                         ) {
                             Text(text = stringResource(R.string.player_return_to_live))
                         }
-                        IconButton(
-                            onClick = { onShowProgramInfo(program) },
-                            colors = IconButtonDefaults.iconButtonColors(
-                                contentColor = MaterialTheme.ruTvColors.gold,
-                                containerColor = MaterialTheme.ruTvColors.darkBackground
-                            ),
-                            modifier = Modifier.size(archiveButtonHeight)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Info,
-                                contentDescription = stringResource(R.string.player_program_info),
-                                modifier = Modifier.size(archiveButtonHeight * 0.6f)
-                            )
-                        }
+                        ProgramInfoButton(
+                            program = program,
+                            buttonHeight = archiveButtonHeight,
+                            onShowProgramInfo = onShowProgramInfo
+                        )
                     }
                 }
             } else {
@@ -436,25 +455,13 @@ private fun ChannelInfoOverlay(
                             // Measure the Button that should be nearby, but since there's no Button in this section,
                             // use a reasonable default that matches typical button heights
                             val defaultButtonHeight = 48.dp
-                            IconButton(
-                                onClick = { onShowProgramInfo(program) },
-                                colors = IconButtonDefaults.iconButtonColors(
-                                    contentColor = MaterialTheme.ruTvColors.gold,
-                                    containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.0f)
-                                ),
-                                modifier = Modifier
-                                    .size(defaultButtonHeight)
-                                    .onSizeChanged { size ->
-                                        // This won't help measure another button, but keeps consistency
-                                        nonArchiveButtonHeight = with(density) { size.height.toDp() }
-                                    }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Info,
-                                    contentDescription = stringResource(R.string.player_program_info),
-                                    modifier = Modifier.size(defaultButtonHeight * 0.6f)
-                                )
-                            }
+                            ProgramInfoButton(
+                                program = program,
+                                buttonHeight = defaultButtonHeight,
+                                onShowProgramInfo = onShowProgramInfo,
+                                containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.0f),
+                                iconSizeMultiplier = 0.6f
+                            )
                         }
                     }
                 }
@@ -480,20 +487,11 @@ private fun ChannelInfoOverlay(
                             Text(text = stringResource(R.string.player_return_to_live))
                         }
                         currentProgram?.let { program ->
-                            IconButton(
-                                onClick = { onShowProgramInfo(program) },
-                                colors = IconButtonDefaults.iconButtonColors(
-                                    contentColor = MaterialTheme.ruTvColors.gold,
-                                    containerColor = MaterialTheme.ruTvColors.darkBackground
-                                ),
-                                modifier = Modifier.size(buttonHeight)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Info,
-                                    contentDescription = stringResource(R.string.player_program_info),
-                                    modifier = Modifier.size(buttonHeight * 0.6f)
-                                )
-                            }
+                            ProgramInfoButton(
+                                program = program,
+                                buttonHeight = buttonHeight,
+                                onShowProgramInfo = onShowProgramInfo
+                            )
                         }
                     }
                 }
