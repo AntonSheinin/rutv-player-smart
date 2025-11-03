@@ -55,6 +55,10 @@ fun EpgProgramItem(
     modifier: Modifier = Modifier,
     onPlayArchive: (() -> Unit)? = null,
     onCloseEpg: (() -> Unit)? = null,
+    onNavigateUp: (() -> Boolean)? = null,
+    onNavigateDown: (() -> Boolean)? = null,
+    onNavigateLeft: (() -> Boolean)? = null,
+    onFocused: ((Boolean) -> Unit)? = null,
     focusRequester: FocusRequester? = null
 ) {
     var isFocused by remember { mutableStateOf(false) }
@@ -91,10 +95,21 @@ fun EpgProgramItem(
                     onPlayArchive?.invoke()
                     true
                 }
+                Key.DirectionUp -> {
+                    onNavigateUp?.invoke() ?: false
+                }
+                Key.DirectionDown -> {
+                    onNavigateDown?.invoke() ?: false
+                }
                 Key.DirectionLeft -> {
-                    // LEFT: Close EPG panel and move focus back to channel list
-                    onCloseEpg?.invoke()
-                    true
+                    when {
+                        onNavigateLeft != null -> onNavigateLeft.invoke()
+                        onCloseEpg != null -> {
+                            onCloseEpg.invoke()
+                            true
+                        }
+                        else -> false
+                    }
                 }
                 else -> false
             }
@@ -110,7 +125,10 @@ fun EpgProgramItem(
             .alpha(contentAlpha)
             .focusable(enabled = true)
             .then(focusRequester?.let { Modifier.focusRequester(it) } ?: Modifier)
-            .onFocusChanged { isFocused = it.isFocused }
+            .onFocusChanged {
+                isFocused = it.isFocused
+                onFocused?.invoke(it.isFocused)
+            }
             .onKeyEvent(onRemoteKeyEvent)
             .then(focusIndicatorModifier(isFocused = isFocused))
             .then(
@@ -216,7 +234,5 @@ fun EpgDateDelimiter(
         )
     }
 }
-
-
 
 

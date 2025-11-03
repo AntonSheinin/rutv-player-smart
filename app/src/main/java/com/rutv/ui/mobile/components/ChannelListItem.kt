@@ -51,10 +51,15 @@ fun ChannelListItem(
     channelNumber: Int,
     isPlaying: Boolean,
     isEpgOpen: Boolean,
+    isEpgPanelVisible: Boolean = isEpgOpen,
     currentProgram: EpgProgram?,
     onChannelClick: () -> Unit,
     onFavoriteClick: () -> Unit,
     onShowPrograms: () -> Unit,
+    onNavigateUp: (() -> Boolean)? = null,
+    onNavigateDown: (() -> Boolean)? = null,
+    onNavigateRight: (() -> Boolean)? = null,
+    onFocused: ((Boolean) -> Unit)? = null,
     focusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier
 ) {
@@ -79,14 +84,22 @@ fun ChannelListItem(
                     onChannelClick()
                     true
                 }
+                Key.DirectionUp -> {
+                    onNavigateUp?.invoke() ?: false
+                }
+                Key.DirectionDown -> {
+                    onNavigateDown?.invoke() ?: false
+                }
                 Key.DirectionRight -> {
-                    // DPAD_RIGHT: Show EPG for channel (if available)
-                    // Note: If EPG panel is on the right, this will navigate to EPG
-                    // Otherwise, this opens EPG for the focused channel
-                    if (channel.hasEpg) {
+                    // DPAD_RIGHT: either move focus to EPG panel (if already open) or open it
+                    if (isEpgPanelVisible) {
+                        onNavigateRight?.invoke() ?: true
+                    } else if (channel.hasEpg) {
                         onShowPrograms()
+                        true
+                    } else {
+                        false
                     }
-                    true
                 }
                 // Favorite toggle - handled via KEYCODE_BUTTON_Y or KEYCODE_MENU in MainActivity
                 // when item is focused and button is pressed
@@ -104,6 +117,7 @@ fun ChannelListItem(
             .then(focusRequester?.let { Modifier.focusRequester(it) } ?: Modifier)
             .onFocusChanged {
                 isFocused = it.isFocused
+                onFocused?.invoke(it.isFocused)
             }
             .onKeyEvent(onRemoteKeyEvent)
             .then(focusIndicatorModifier(isFocused = isFocused))

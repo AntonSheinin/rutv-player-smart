@@ -120,6 +120,9 @@ fun PlayerScreen(
     // Store focus requesters for custom controls (for ExoPlayer navigation)
     var leftColumnFocusRequesters by remember { mutableStateOf<List<FocusRequester>?>(null) }
     var rightColumnFocusRequesters by remember { mutableStateOf<List<FocusRequester>?>(null) }
+    var playlistFocusRequesters by remember { mutableStateOf<List<FocusRequester>?>(null) }
+    var epgFocusRequesters by remember { mutableStateOf<List<FocusRequester>?>(null) }
+    var lastFocusedPlaylistIndex by remember { mutableIntStateOf(viewState.currentChannelIndex.coerceAtLeast(0)) }
 
     // Callbacks to move focus to custom controls (used by ExoPlayer controls)
     var navigateToFavoritesCallback by remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -334,6 +337,28 @@ fun PlayerScreen(
         }
 
         // Playlist Panel
+        val focusFirstEpgProgram: () -> Unit = {
+            val requester = epgFocusRequesters?.firstOrNull()
+            requester?.requestFocus()
+        }
+        val focusPlaylistFromEpg: () -> Unit = {
+            val targetIndex = when {
+                lastFocusedPlaylistIndex >= 0 -> lastFocusedPlaylistIndex
+                viewState.currentChannelIndex >= 0 -> viewState.currentChannelIndex
+                else -> -1
+            }
+            val requester = when {
+                targetIndex >= 0 -> playlistFocusRequesters?.getOrNull(targetIndex)
+                else -> null
+            } ?: playlistFocusRequesters?.firstOrNull()
+            requester?.let { focusRequester ->
+                playlistFocusRequesters?.indexOf(focusRequester)?.takeIf { it >= 0 }?.let {
+                    lastFocusedPlaylistIndex = it
+                }
+                focusRequester.requestFocus()
+            }
+        }
+
         if (viewState.showPlaylist) {
             PlaylistPanel(
                 channels = viewState.filteredChannels,
@@ -350,6 +375,15 @@ fun PlayerScreen(
                 onFavoriteClick = onToggleFavorite,
                 onShowPrograms = onShowEpgForChannel,
                 onClose = onClosePlaylist,
+                onRegisterFocusRequesters = { playlistFocusRequesters = it },
+                onChannelFocused = { index ->
+                    if (index >= 0) {
+                        lastFocusedPlaylistIndex = index
+                    }
+                },
+                onNavigateToEpg = {
+                    focusFirstEpgProgram()
+                },
                 modifier = Modifier.align(Alignment.CenterStart)
             )
         }
@@ -369,6 +403,10 @@ fun PlayerScreen(
                 onLoadMorePast = onLoadMoreEpgPast,
                 onLoadMoreFuture = onLoadMoreEpgFuture,
                 onClose = onCloseEpgPanel,
+                onRegisterFocusRequesters = { epgFocusRequesters = it },
+                onNavigateLeftToChannels = {
+                    focusPlaylistFromEpg()
+                },
                 modifier = Modifier.align(Alignment.CenterEnd)
             )
         }
@@ -584,6 +622,9 @@ private fun PlaylistPanel(
     onFavoriteClick: (String) -> Unit,
     onShowPrograms: (String) -> Unit,
     onClose: () -> Unit,
+    onRegisterFocusRequesters: ((List<FocusRequester>) -> Unit)? = null,
+    onChannelFocused: ((Int) -> Unit)? = null,
+    onNavigateToEpg: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
@@ -597,12 +638,32 @@ private fun PlaylistPanel(
         List(channels.size) { FocusRequester() }
     }
 
+    var focusedChannelIndex by remember {
+        mutableIntStateOf(
+            currentChannelIndex.takeIf { it >= 0 } ?: 0
+        )
+    }
+
     // Focus requesters for header buttons
     val searchButtonFocus = remember { FocusRequester() }
     val closeButtonFocus = remember { FocusRequester() }
 
     // Track which channel opened EPG for focus restoration
     var channelThatOpenedEpg by remember { mutableStateOf<Int?>(null) }
+
+    LaunchedEffect(focusRequesters) {
+        onRegisterFocusRequesters?.invoke(focusRequesters)
+    }
+
+    LaunchedEffect(channels.size) {
+        if (channels.isEmpty()) {
+            focusedChannelIndex = -1
+            onChannelFocused?.invoke(-1)
+        } else if (focusedChannelIndex !in channels.indices) {
+            focusedChannelIndex = currentChannelIndex.coerceIn(0, channels.lastIndex)
+            onChannelFocused?.invoke(focusedChannelIndex)
+        }
+    }
 
     // Auto-scroll to current channel when panel opens (center it in viewport)
     LaunchedEffect(currentChannelIndex, channels.size) {
@@ -614,9 +675,13 @@ private fun PlaylistPanel(
             // Request focus on current channel after the list settles
             delay(60)
             focusRequesters[currentChannelIndex].requestFocus()
+            focusedChannelIndex = currentChannelIndex
+            onChannelFocused?.invoke(focusedChannelIndex)
         } else if (channels.isNotEmpty()) {
             delay(60)
             focusRequesters.firstOrNull()?.requestFocus()
+            focusedChannelIndex = 0
+            onChannelFocused?.invoke(focusedChannelIndex)
         }
     }
 
@@ -633,10 +698,29 @@ private fun PlaylistPanel(
                     delay(50)
                     listState.animateScrollToItem(channelIndex, scrollOffset = -160)
                     focusRequesters[channelIndex].requestFocus()
+                    focusedChannelIndex = channelIndex
+                    onChannelFocused?.invoke(focusedChannelIndex)
                 }
             }
             channelThatOpenedEpg = null
         }
+    }
+
+    fun focusChannel(targetIndex: Int, play: Boolean = true): Boolean {
+        if (targetIndex !in channels.indices) return false
+        focusedChannelIndex = targetIndex
+        onChannelFocused?.invoke(targetIndex)
+        val shouldScroll = listState.layoutInfo.visibleItemsInfo.none { it.index == targetIndex }
+        coroutineScope.launch {
+            if (shouldScroll) {
+                listState.animateScrollToItem(targetIndex, scrollOffset = -160)
+            }
+            focusRequesters[targetIndex].requestFocus()
+        }
+        if (play) {
+            onChannelClick(targetIndex)
+        }
+        return true
     }
 
     Card(
@@ -726,6 +810,8 @@ private fun PlaylistPanel(
 
             // Channel List with scrollbar
             Box(modifier = Modifier.fillMaxSize()) {
+                val isEpgPanelVisible = epgOpenIndex >= 0
+
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
@@ -735,30 +821,42 @@ private fun PlaylistPanel(
                         items = channels,
                         key = { _, channel -> channel.url }
                     ) { index, channel ->
-                        var isItemFocused by remember { mutableStateOf(false) }
-
-                        // Auto-scroll when item gets focus
-                        LaunchedEffect(isItemFocused) {
-                            if (isItemFocused && isRemoteMode) {
-                                coroutineScope.launch {
-                                    listState.animateScrollToItem(index, scrollOffset = -160)
-                                }
-                            }
-                        }
-
                         ChannelListItem(
                             channel = channel,
                             channelNumber = index + 1,
                             isPlaying = index == currentChannelIndex,
                             isEpgOpen = index == epgOpenIndex,
+                            isEpgPanelVisible = isEpgPanelVisible,
                             currentProgram = currentProgramsMap[channel.tvgId],
-                            onChannelClick = { onChannelClick(index) },
+                            onChannelClick = { focusChannel(index, play = true) },
                             onFavoriteClick = { onFavoriteClick(channel.url) },
                             onShowPrograms = { onShowPrograms(channel.tvgId) },
+                            onNavigateUp = {
+                                if (index > 0) {
+                                    focusChannel(index - 1)
+                                } else {
+                                    true
+                                }
+                            },
+                            onNavigateDown = {
+                                if (index < channels.lastIndex) {
+                                    focusChannel(index + 1)
+                                } else {
+                                    true
+                                }
+                            },
+                            onNavigateRight = {
+                                onNavigateToEpg?.invoke()
+                                true
+                            },
+                            onFocused = { gained ->
+                                if (gained) {
+                                    focusedChannelIndex = index
+                                    onChannelFocused?.invoke(index)
+                                }
+                            },
                             focusRequester = focusRequesters[index],
-                            modifier = Modifier
-                                .padding(vertical = 4.dp, horizontal = 8.dp)
-                                .onFocusChanged { isItemFocused = it.isFocused }
+                            modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp)
                         )
                     }
                 }
@@ -899,6 +997,8 @@ private fun EpgPanel(
     onLoadMorePast: () -> Unit,
     onLoadMoreFuture: () -> Unit,
     onClose: () -> Unit,
+    onRegisterFocusRequesters: ((List<FocusRequester>) -> Unit)? = null,
+    onNavigateLeftToChannels: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
@@ -911,6 +1011,14 @@ private fun EpgPanel(
         List(programs.size) { FocusRequester() }
     }
 
+    LaunchedEffect(focusRequesters) {
+        onRegisterFocusRequesters?.invoke(focusRequesters)
+    }
+
+    LaunchedEffect(Unit) {
+        onRegisterFocusRequesters?.invoke(focusRequesters)
+    }
+
     // Find current program index in original list
     val currentProgramIndex = programs.indexOfFirst { program ->
         val start = program.startTimeMillis
@@ -918,9 +1026,14 @@ private fun EpgPanel(
         start > 0L && end > 0L && currentTime in start..end
     }
 
+    var focusedProgramIndex by remember {
+        mutableIntStateOf(currentProgramIndex.takeIf { it >= 0 } ?: 0)
+    }
+
     // Build items list with date delimiters to calculate correct scroll position
-    val items = remember(programs) {
+    val (items, programItemIndices) = remember(programs) {
         val itemsList = mutableListOf<Pair<String, Any>>() // Pair of key to item (delimiter or program)
+        val indexMap = MutableList(programs.size) { -1 }
         var lastDate = ""
         programs.forEachIndexed { index, program ->
             val programDate = TimeFormatter.formatEpgDate(Date(program.startTimeMillis))
@@ -933,23 +1046,41 @@ private fun EpgPanel(
                 else -> "${program.startTimeMillis}_${program.stopTimeMillis}_${program.title}_$index"
             }
             itemsList.add("program_$baseKey" to program)
+            indexMap[index] = itemsList.lastIndex
         }
-        itemsList
+        itemsList to indexMap
+    }
+
+    LaunchedEffect(programs.size) {
+        if (programs.isEmpty()) {
+            focusedProgramIndex = -1
+        } else if (focusedProgramIndex !in programs.indices) {
+            focusedProgramIndex = currentProgramIndex
+                .takeIf { it >= 0 }
+                ?: 0
+        }
+    }
+
+    fun focusProgram(targetIndex: Int): Boolean {
+        if (targetIndex !in programs.indices) return false
+        val itemIndex = programItemIndices.getOrNull(targetIndex) ?: return false
+        focusedProgramIndex = targetIndex
+        val shouldScroll = listState.layoutInfo.visibleItemsInfo.none { it.index == itemIndex }
+        coroutineScope.launch {
+            if (shouldScroll) {
+                listState.animateScrollToItem(itemIndex, scrollOffset = -200)
+            }
+            focusRequesters[targetIndex].requestFocus()
+        }
+        return true
     }
 
     // Calculate actual item index including delimiters
-    val scrollToIndex = remember(currentProgramIndex, items) {
-        if (currentProgramIndex >= 0) {
-            var delimitersBefore = 0
-            var lastDate = ""
-            for (i in 0 until currentProgramIndex) {
-                val programDate = TimeFormatter.formatEpgDate(Date(programs[i].startTimeMillis))
-                if (programDate != lastDate) {
-                    delimitersBefore++
-                    lastDate = programDate
-                }
-            }
-            currentProgramIndex + delimitersBefore
+    val scrollToIndex = remember(currentProgramIndex, programItemIndices, items.size) {
+        if (currentProgramIndex >= 0 &&
+            currentProgramIndex < programItemIndices.size
+        ) {
+            programItemIndices[currentProgramIndex]
         } else {
             -1
         }
@@ -971,6 +1102,7 @@ private fun EpgPanel(
             if (currentProgramIndex >= 0 && currentProgramIndex < focusRequesters.size) {
                 delay(60)
                 focusRequesters[currentProgramIndex].requestFocus()
+                focusedProgramIndex = currentProgramIndex
             }
         }
     }
@@ -1052,6 +1184,7 @@ private fun EpgPanel(
                             }
                             is EpgProgram -> {
                                 val programIndex = programs.indexOf(data)
+                                if (programIndex < 0) return@items
                                 val isPast = data.stopTimeMillis > 0 && data.stopTimeMillis <= currentTime
                                 val catchupWindowMillis = channel
                                     ?.takeIf { it.supportsCatchup() }
@@ -1093,6 +1226,29 @@ private fun EpgPanel(
                                     onClick = { onProgramClick(data) },
                                     onPlayArchive = if (canPlayArchive) { { onPlayArchive(data) } } else null,
                                     onCloseEpg = onClose,
+                                    onNavigateUp = {
+                                        if (programIndex > 0) {
+                                            focusProgram(programIndex - 1)
+                                        } else {
+                                            true
+                                        }
+                                    },
+                                    onNavigateDown = {
+                                        if (programIndex < programs.lastIndex) {
+                                            focusProgram(programIndex + 1)
+                                        } else {
+                                            true
+                                        }
+                                    },
+                                    onNavigateLeft = {
+                                        onNavigateLeftToChannels?.invoke()
+                                        true
+                                    },
+                                    onFocused = { gained ->
+                                        if (gained) {
+                                            focusedProgramIndex = programIndex
+                                        }
+                                    },
                                     focusRequester = if (programIndex >= 0 && programIndex < focusRequesters.size) {
                                         focusRequesters[programIndex]
                                     } else null,
@@ -1491,6 +1647,7 @@ private fun PlayerView.applyControlCustomizations(
             if (event.action == android.view.KeyEvent.ACTION_DOWN &&
                 keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT &&
                 hasFocus()) {
+                DeviceHelper.updateLastInputMethod(event)
                 onNavigateLeftToFavorites?.invoke()
                 true
             } else {
@@ -1511,6 +1668,7 @@ private fun PlayerView.applyControlCustomizations(
                 keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT &&
                 hasFocus()
             ) {
+                DeviceHelper.updateLastInputMethod(event)
                 post { onNavigateRightToRotate?.invoke() }
                 true
             } else {
@@ -1532,6 +1690,7 @@ private fun PlayerView.applyControlCustomizations(
                     keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT &&
                     hasFocus()
                 ) {
+                    DeviceHelper.updateLastInputMethod(event)
                     post { onNavigateLeftToFavorites?.invoke() }
                     true
                 } else {
@@ -1559,6 +1718,7 @@ private fun PlayerView.applyControlCustomizations(
                     keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT) {
                     // Check if this view has focus before navigating
                     if (hasFocus()) {
+                        DeviceHelper.updateLastInputMethod(event)
                         post {
                             onNavigateRightToRotate?.invoke()
                         }
