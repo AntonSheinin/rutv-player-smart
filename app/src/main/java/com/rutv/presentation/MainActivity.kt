@@ -617,9 +617,9 @@ class MainActivity : ComponentActivity() {
                         switchChannelUp()
                         return true
                     }
-                    // Let Compose focus system handle UP navigation when playlist or EPG is open
-                    viewModel.logDebug("▲ UP → Compose")
-                    return false
+                    // DON'T handle UP when panels are open - let it propagate naturally
+                    viewModel.logDebug("▲ UP → super (not intercepting)")
+                    // Fall through to default handling
                 }
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
                     val currentState = viewModel.viewState.value
@@ -635,9 +635,9 @@ class MainActivity : ComponentActivity() {
                         switchChannelDown()
                         return true
                     }
-                    // Let Compose focus system handle DOWN navigation when playlist or EPG is open
-                    viewModel.logDebug("▼ DOWN → Compose")
-                    return false
+                    // DON'T handle DOWN when panels are open - let it propagate naturally
+                    viewModel.logDebug("▼ DOWN → super (not intercepting)")
+                    // Fall through to default handling
                 }
                 // BACK button - context dependent
                 KeyEvent.KEYCODE_BACK -> {
