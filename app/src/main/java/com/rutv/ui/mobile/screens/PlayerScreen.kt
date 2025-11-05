@@ -853,18 +853,24 @@ private fun PlaylistPanel(
                             onFavoriteClick = { onFavoriteClick(channel.url) },
                             onShowPrograms = { onShowPrograms(channel.tvgId) },
                             onNavigateUp = {
+                                timber.log.Timber.d("PlaylistPanel: onNavigateUp called for index=$index")
                                 if (index > 0) {
+                                    timber.log.Timber.d("PlaylistPanel: Focusing channel ${index - 1}")
                                     focusChannel(index - 1, false)
                                     true
                                 } else {
+                                    timber.log.Timber.d("PlaylistPanel: Already at top")
                                     true
                                 }
                             },
                             onNavigateDown = {
+                                timber.log.Timber.d("PlaylistPanel: onNavigateDown called for index=$index")
                                 if (index < channels.lastIndex) {
+                                    timber.log.Timber.d("PlaylistPanel: Focusing channel ${index + 1}")
                                     focusChannel(index + 1, false)
                                     true
                                 } else {
+                                    timber.log.Timber.d("PlaylistPanel: Already at bottom")
                                     true
                                 }
                             },

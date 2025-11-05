@@ -77,24 +77,30 @@ fun ChannelListItem(
 
     // Handle remote key events
     val onRemoteKeyEvent: (androidx.compose.ui.input.key.KeyEvent) -> Boolean = { event ->
+        timber.log.Timber.d("ChannelListItem[$channelNumber]: onKeyEvent called - key=${event.key}, type=${event.type}, focused=$isFocused, remoteMode=$isRemoteMode")
+
         if (event.type == KeyEventType.KeyDown && isFocused && isRemoteMode) {
-            when (event.key) {
+            val handled = when (event.key) {
                 Key.DirectionCenter, // DPAD_CENTER (OK button)
                 Key.Enter -> {
-                    // OK button: Play the selected channel
+                    timber.log.Timber.d("ChannelListItem[$channelNumber]: OK pressed")
                     onChannelClick()
                     true
                 }
                 Key.DirectionUp -> {
-                    // UP: Navigate to previous channel in list
-                    onNavigateUp?.invoke() ?: false
+                    timber.log.Timber.d("ChannelListItem[$channelNumber]: UP pressed, calling onNavigateUp")
+                    val result = onNavigateUp?.invoke() ?: false
+                    timber.log.Timber.d("ChannelListItem[$channelNumber]: UP result=$result")
+                    result
                 }
                 Key.DirectionDown -> {
-                    // DOWN: Navigate to next channel in list
-                    onNavigateDown?.invoke() ?: false
+                    timber.log.Timber.d("ChannelListItem[$channelNumber]: DOWN pressed, calling onNavigateDown")
+                    val result = onNavigateDown?.invoke() ?: false
+                    timber.log.Timber.d("ChannelListItem[$channelNumber]: DOWN result=$result")
+                    result
                 }
                 Key.DirectionRight -> {
-                    // RIGHT: Move focus to EPG panel if already open, otherwise open EPG for this channel
+                    timber.log.Timber.d("ChannelListItem[$channelNumber]: RIGHT pressed, epgVisible=$isEpgPanelVisible")
                     if (isEpgPanelVisible) {
                         onNavigateRight?.invoke() ?: true
                     } else if (channel.hasEpg) {
@@ -104,11 +110,12 @@ fun ChannelListItem(
                         false
                     }
                 }
-                // Favorite toggle - handled via KEYCODE_BUTTON_Y or KEYCODE_MENU in MainActivity
-                // when item is focused and button is pressed
                 else -> false
             }
+            timber.log.Timber.d("ChannelListItem[$channelNumber]: Event handled=$handled")
+            handled
         } else {
+            timber.log.Timber.d("ChannelListItem[$channelNumber]: Event not handled - wrong type or not focused")
             false
         }
     }

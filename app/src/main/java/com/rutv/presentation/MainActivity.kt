@@ -604,30 +604,38 @@ class MainActivity : ComponentActivity() {
                 // Up/Down arrows - navigate channel list/EPG if open, otherwise change channels
                 KeyEvent.KEYCODE_DPAD_UP -> {
                     val currentState = viewModel.viewState.value
+                    Timber.d("MainActivity: UP - playlist=${currentState.showPlaylist}, epg=${currentState.showEpgPanel}, controls=$areControlsVisible")
                     // If controls are visible, let them handle navigation
                     if (areControlsVisible) {
+                        Timber.d("MainActivity: UP - delegating to controls")
                         return false
                     }
                     // Only intercept UP when in fullscreen mode (no panels open)
                     if (!currentState.showPlaylist && !currentState.showEpgPanel) {
+                        Timber.d("MainActivity: UP - switching channel")
                         switchChannelUp()
                         return true
                     }
                     // Let Compose focus system handle UP navigation when playlist or EPG is open
+                    Timber.d("MainActivity: UP - delegating to Compose")
                     return false
                 }
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
                     val currentState = viewModel.viewState.value
+                    Timber.d("MainActivity: DOWN - playlist=${currentState.showPlaylist}, epg=${currentState.showEpgPanel}, controls=$areControlsVisible")
                     // If controls are visible, let them handle navigation
                     if (areControlsVisible) {
+                        Timber.d("MainActivity: DOWN - delegating to controls")
                         return false
                     }
                     // Only intercept DOWN when in fullscreen mode (no panels open)
                     if (!currentState.showPlaylist && !currentState.showEpgPanel) {
+                        Timber.d("MainActivity: DOWN - switching channel")
                         switchChannelDown()
                         return true
                     }
                     // Let Compose focus system handle DOWN navigation when playlist or EPG is open
+                    Timber.d("MainActivity: DOWN - delegating to Compose")
                     return false
                 }
                 // BACK button - context dependent
