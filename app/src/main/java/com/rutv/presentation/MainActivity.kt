@@ -604,31 +604,31 @@ class MainActivity : ComponentActivity() {
                 // Up/Down arrows - navigate channel list/EPG if open, otherwise change channels
                 KeyEvent.KEYCODE_DPAD_UP -> {
                     val currentState = viewModel.viewState.value
-                    // Let Compose focus system handle UP navigation when playlist or EPG is open
-                    if (currentState.showPlaylist || currentState.showEpgPanel) {
-                        return false
-                    }
                     // If controls are visible, let them handle navigation
                     if (areControlsVisible) {
                         return false
                     }
-                    // In fullscreen mode, switch channel up
-                    switchChannelUp()
-                    return true
+                    // Only intercept UP when in fullscreen mode (no panels open)
+                    if (!currentState.showPlaylist && !currentState.showEpgPanel) {
+                        switchChannelUp()
+                        return true
+                    }
+                    // Let Compose focus system handle UP navigation when playlist or EPG is open
+                    return false
                 }
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
                     val currentState = viewModel.viewState.value
-                    // Let Compose focus system handle DOWN navigation when playlist or EPG is open
-                    if (currentState.showPlaylist || currentState.showEpgPanel) {
-                        return false
-                    }
                     // If controls are visible, let them handle navigation
                     if (areControlsVisible) {
                         return false
                     }
-                    // In fullscreen mode, switch channel down
-                    switchChannelDown()
-                    return true
+                    // Only intercept DOWN when in fullscreen mode (no panels open)
+                    if (!currentState.showPlaylist && !currentState.showEpgPanel) {
+                        switchChannelDown()
+                        return true
+                    }
+                    // Let Compose focus system handle DOWN navigation when playlist or EPG is open
+                    return false
                 }
                 // BACK button - context dependent
                 KeyEvent.KEYCODE_BACK -> {

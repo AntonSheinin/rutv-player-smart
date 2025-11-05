@@ -855,6 +855,7 @@ private fun PlaylistPanel(
                             onNavigateUp = {
                                 if (index > 0) {
                                     focusChannel(index - 1, false)
+                                    true
                                 } else {
                                     true
                                 }
@@ -862,6 +863,7 @@ private fun PlaylistPanel(
                             onNavigateDown = {
                                 if (index < channels.lastIndex) {
                                     focusChannel(index + 1, false)
+                                    true
                                 } else {
                                     true
                                 }
@@ -1251,6 +1253,7 @@ private fun EpgPanel(
                                     onNavigateUp = {
                                         if (programIndex > 0) {
                                             focusProgram(programIndex - 1)
+                                            true
                                         } else {
                                             true
                                         }
@@ -1258,6 +1261,7 @@ private fun EpgPanel(
                                     onNavigateDown = {
                                         if (programIndex < programs.lastIndex) {
                                             focusProgram(programIndex + 1)
+                                            true
                                         } else {
                                             true
                                         }
