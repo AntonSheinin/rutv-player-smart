@@ -646,7 +646,7 @@ private fun PlaylistPanel(
     onShowPrograms: (String) -> Unit,
     onClose: () -> Unit,
     onRegisterFocusRequesters: ((List<FocusRequester>) -> Unit)? = null,
-    onProvideFocusController: ((Int, Boolean) -> Boolean)? = null,
+    onProvideFocusController: (((Int, Boolean) -> Boolean)?) -> Unit = {},
     onChannelFocused: ((Int) -> Unit)? = null,
     onNavigateToEpg: (() -> Boolean)? = null,
     modifier: Modifier = Modifier
@@ -697,7 +697,13 @@ private fun PlaylistPanel(
 
     LaunchedEffect(focusRequesters) {
         onRegisterFocusRequesters?.invoke(focusRequesters)
-        onProvideFocusController?.invoke(focusChannel)
+        onProvideFocusController(focusChannel)
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            onProvideFocusController(null)
+        }
     }
 
     LaunchedEffect(channels.size) {
@@ -719,7 +725,7 @@ private fun PlaylistPanel(
             else -> 0
         }
         delay(60)
-        focusChannel(targetIndex, play = false)
+        focusChannel(targetIndex, false)
     }
 
     // Restore focus to channel list when EPG closes
@@ -732,7 +738,7 @@ private fun PlaylistPanel(
             if (channelIndex >= 0 && channelIndex < channels.size && isRemoteMode) {
                 // Small delay to ensure EPG panel is removed first
                 delay(50)
-                focusChannel(channelIndex, play = false)
+                focusChannel(channelIndex, false)
             }
             channelThatOpenedEpg = null
         }
@@ -843,19 +849,19 @@ private fun PlaylistPanel(
                             isEpgOpen = index == epgOpenIndex,
                             isEpgPanelVisible = isEpgPanelVisible,
                             currentProgram = currentProgramsMap[channel.tvgId],
-                            onChannelClick = { focusChannel(index, play = true) },
+                            onChannelClick = { focusChannel(index, true) },
                             onFavoriteClick = { onFavoriteClick(channel.url) },
                             onShowPrograms = { onShowPrograms(channel.tvgId) },
                             onNavigateUp = {
                                 if (index > 0) {
-                                    focusChannel(index - 1, play = false)
+                                    focusChannel(index - 1, false)
                                 } else {
                                     true
                                 }
                             },
                             onNavigateDown = {
                                 if (index < channels.lastIndex) {
-                                    focusChannel(index + 1, play = false)
+                                    focusChannel(index + 1, false)
                                 } else {
                                     true
                                 }
