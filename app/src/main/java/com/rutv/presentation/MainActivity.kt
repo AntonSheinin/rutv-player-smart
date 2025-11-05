@@ -470,9 +470,7 @@ class MainActivity : ComponentActivity() {
      * Dispatch key events to ensure Compose receives them properly
      * This intercepts events BEFORE they reach the view hierarchy
      */
-    override fun dispatchKeyEvent(event: KeyEvent?): Boolean {
-        event ?: return super.dispatchKeyEvent(event)
-
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         // Only handle KeyDown events
         if (event.action != KeyEvent.ACTION_DOWN) {
             return super.dispatchKeyEvent(event)
