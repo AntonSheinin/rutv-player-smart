@@ -120,10 +120,10 @@ fun PlayerScreen(
     // Store focus requesters for custom controls (for ExoPlayer navigation)
     var leftColumnFocusRequesters by remember { mutableStateOf<List<FocusRequester>?>(null) }
     var rightColumnFocusRequesters by remember { mutableStateOf<List<FocusRequester>?>(null) }
-    var playlistFocusRequesters by remember { mutableStateOf<List<FocusRequester>?>(null) }
     var epgFocusRequesters by remember { mutableStateOf<List<FocusRequester>?>(null) }
     var lastFocusedPlaylistIndex by remember { mutableIntStateOf(viewState.currentChannelIndex.coerceAtLeast(0)) }
     var lastFocusedEpgIndex by remember { mutableIntStateOf(0) }
+    var focusPlaylistChannel by remember { mutableStateOf<((Int, Boolean) -> Boolean)?>(null) }
 
     // Callbacks to move focus to custom controls (used by ExoPlayer controls)
     var navigateToFavoritesCallback by remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -339,17 +339,26 @@ fun PlayerScreen(
 
         // Playlist Panel
         val focusFirstEpgProgram: () -> Boolean = {
-            val requesters = epgFocusRequesters ?: return@focusFirstEpgProgram false
-            if (requesters.isEmpty()) return@focusFirstEpgProgram false
-            val resolvedIndex = when {
-                lastFocusedEpgIndex in requesters.indices -> lastFocusedEpgIndex
-                else -> 0
+            val requesters = epgFocusRequesters
+            if (requesters.isNullOrEmpty()) {
+                false
+            } else {
+                val resolvedIndex = if (lastFocusedEpgIndex in requesters.indices) {
+                    lastFocusedEpgIndex
+                } else {
+                    0
+                }
+                val requester = requesters.getOrNull(resolvedIndex)
+                if (requester != null) {
+                    requester.requestFocus()
+                    lastFocusedEpgIndex = resolvedIndex
+                    true
+                } else {
+                    false
+                }
             }
-            val requester = requesters.getOrNull(resolvedIndex) ?: return@focusFirstEpgProgram false
-            requester.requestFocus()
-            lastFocusedEpgIndex = resolvedIndex
-            true
         }
+
         val focusPlaylistFromEpg: () -> Unit = {
             val targetIndex = when {
                 lastFocusedPlaylistIndex >= 0 -> lastFocusedPlaylistIndex
@@ -362,7 +371,7 @@ fun PlayerScreen(
                 else -> -1
             }
             if (resolvedIndex >= 0) {
-                focusChannel(resolvedIndex, play = false)
+                focusPlaylistChannel?.invoke(resolvedIndex, false)
             }
         }
 
@@ -382,7 +391,7 @@ fun PlayerScreen(
                 onFavoriteClick = onToggleFavorite,
                 onShowPrograms = onShowEpgForChannel,
                 onClose = onClosePlaylist,
-                onRegisterFocusRequesters = { playlistFocusRequesters = it },
+                onProvideFocusController = { controller -> focusPlaylistChannel = controller },
                 onChannelFocused = { index ->
                     if (index >= 0) {
                         lastFocusedPlaylistIndex = index
@@ -393,6 +402,8 @@ fun PlayerScreen(
                 },
                 modifier = Modifier.align(Alignment.CenterStart)
             )
+        } else {
+            focusPlaylistChannel = null
         }
 
         // EPG Panel
@@ -635,6 +646,7 @@ private fun PlaylistPanel(
     onShowPrograms: (String) -> Unit,
     onClose: () -> Unit,
     onRegisterFocusRequesters: ((List<FocusRequester>) -> Unit)? = null,
+    onProvideFocusController: ((Int, Boolean) -> Boolean)? = null,
     onChannelFocused: ((Int) -> Unit)? = null,
     onNavigateToEpg: (() -> Boolean)? = null,
     modifier: Modifier = Modifier
@@ -663,8 +675,29 @@ private fun PlaylistPanel(
     // Track which channel opened EPG for focus restoration
     var channelThatOpenedEpg by remember { mutableStateOf<Int?>(null) }
 
+    val focusChannel: (Int, Boolean) -> Boolean = { targetIndex, play ->
+        if (targetIndex !in channels.indices) {
+            false
+        } else {
+            focusedChannelIndex = targetIndex
+            onChannelFocused?.invoke(targetIndex)
+            val shouldScroll = listState.layoutInfo.visibleItemsInfo.none { it.index == targetIndex }
+            coroutineScope.launch {
+                if (shouldScroll) {
+                    listState.animateScrollToItem(targetIndex, scrollOffset = -160)
+                }
+                focusRequesters[targetIndex].requestFocus()
+            }
+            if (play) {
+                onChannelClick(targetIndex)
+            }
+            true
+        }
+    }
+
     LaunchedEffect(focusRequesters) {
         onRegisterFocusRequesters?.invoke(focusRequesters)
+        onProvideFocusController?.invoke(focusChannel)
     }
 
     LaunchedEffect(channels.size) {
@@ -703,23 +736,6 @@ private fun PlaylistPanel(
             }
             channelThatOpenedEpg = null
         }
-    }
-
-    fun focusChannel(targetIndex: Int, play: Boolean = false): Boolean {
-        if (targetIndex !in channels.indices) return false
-        focusedChannelIndex = targetIndex
-        onChannelFocused?.invoke(targetIndex)
-        val shouldScroll = listState.layoutInfo.visibleItemsInfo.none { it.index == targetIndex }
-        coroutineScope.launch {
-            if (shouldScroll) {
-                listState.animateScrollToItem(targetIndex, scrollOffset = -160)
-            }
-            focusRequesters[targetIndex].requestFocus()
-        }
-        if (play) {
-            onChannelClick(targetIndex)
-        }
-        return true
     }
 
     Card(
