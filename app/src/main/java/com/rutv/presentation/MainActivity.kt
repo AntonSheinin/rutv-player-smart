@@ -467,15 +467,24 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * Handle remote control key events
-     * Maps standard Android KeyEvent codes to app actions
+     * Dispatch key events to ensure Compose receives them properly
+     * This intercepts events BEFORE they reach the view hierarchy
      */
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+    override fun dispatchKeyEvent(event: KeyEvent?): Boolean {
+        event ?: return super.dispatchKeyEvent(event)
+
+        // Only handle KeyDown events
+        if (event.action != KeyEvent.ACTION_DOWN) {
+            return super.dispatchKeyEvent(event)
+        }
+
         // Detect and track input method
-        val isRemote = event?.let { DeviceHelper.detectInputMethod(it) } ?: false
-        if (isRemote && event != null) {
+        val isRemote = DeviceHelper.detectInputMethod(event)
+        if (isRemote) {
             DeviceHelper.updateLastInputMethod(event)
         }
+
+        val keyCode = event.keyCode
 
         // Only handle remote keys if remote is active or detected
         if (isRemote && DeviceHelper.hasRemoteControl(this)) {
@@ -493,7 +502,7 @@ class MainActivity : ComponentActivity() {
                 KeyEvent.KEYCODE_MENU -> {
                     // Toggle controls overlay or open settings
                     // This will be handled in PlayerScreen composable
-                    return false // Let Compose handle it
+                    return super.dispatchKeyEvent(event) // Let Compose handle it
                 }
                 // Number pad input for channel selection
                 KeyEvent.KEYCODE_0,
@@ -525,7 +534,7 @@ class MainActivity : ComponentActivity() {
                         // This will be handled in the composable via state
                         // For now, pass through to let Compose handle it
                     }
-                    return false // Let Compose handle it - channelInput state will update via TextField
+                    return super.dispatchKeyEvent(event) // Let Compose handle it - channelInput state will update via TextField
                 }
                 // Media controls - ExoPlayer handles these natively when player has focus
                 KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
@@ -534,7 +543,7 @@ class MainActivity : ComponentActivity() {
                 KeyEvent.KEYCODE_MEDIA_REWIND,
                 KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> {
                     // ExoPlayer will handle these if player has focus
-                    return false // Let ExoPlayer handle if focused, otherwise will fall through
+                    return super.dispatchKeyEvent(event) // Let ExoPlayer handle if focused, otherwise will fall through
                 }
                 // Info button - show program details
                 KeyEvent.KEYCODE_INFO -> {
@@ -549,7 +558,7 @@ class MainActivity : ComponentActivity() {
                 KeyEvent.KEYCODE_BUTTON_Y,
                 KeyEvent.KEYCODE_BUTTON_1 -> {
                     // Handle in composable based on focus - pass through
-                    return false
+                    return super.dispatchKeyEvent(event)
                 }
                 // OK/DPAD_CENTER button - context dependent
                 KeyEvent.KEYCODE_DPAD_CENTER,
@@ -559,12 +568,12 @@ class MainActivity : ComponentActivity() {
                     // If channel list or EPG panel is open, let focused item handle OK
                     // (e.g., play channel from channel list, or play archive/show details in EPG)
                     if (currentState.showPlaylist || currentState.showEpgPanel) {
-                        return false // Let ChannelListItem or EpgProgramItem handle it
+                        return super.dispatchKeyEvent(event) // Let ChannelListItem or EpgProgramItem handle it
                     }
                     // If controls are visible, let the focused control handle OK
                     // (e.g., custom control button or ExoPlayer control)
                     if (areControlsVisible) {
-                        return false // Let CustomControlButtons or ExoPlayer handle it
+                        return super.dispatchKeyEvent(event) // Let CustomControlButtons or ExoPlayer handle it
                     }
                     // Otherwise, toggle controls when video is playing in full screen
                     toggleControlsCallback?.invoke()
@@ -574,7 +583,7 @@ class MainActivity : ComponentActivity() {
                 KeyEvent.KEYCODE_DPAD_LEFT -> {
                     val currentState = viewModel.viewState.value
                     if (areControlsVisible) {
-                        return false // Let ExoPlayer or CustomControlButtons handle LEFT navigation
+                        return super.dispatchKeyEvent(event) // Let ExoPlayer or CustomControlButtons handle LEFT navigation
                     }
                     // Open playlist only when in fullscreen (no panels visible)
                     if (!currentState.showPlaylist && !currentState.showEpgPanel && currentState.hasChannels) {
@@ -582,13 +591,13 @@ class MainActivity : ComponentActivity() {
                         return true
                     }
                     // If playlist or EPG is open, let Compose focus system handle LEFT navigation
-                    return false
+                    return super.dispatchKeyEvent(event)
                 }
                 // Right arrow - open channel list AND EPG panel from fullscreen view
                 KeyEvent.KEYCODE_DPAD_RIGHT -> {
                     val currentState = viewModel.viewState.value
                     if (areControlsVisible) {
-                        return false // Let ExoPlayer handle RIGHT navigation
+                        return super.dispatchKeyEvent(event) // Let ExoPlayer handle RIGHT navigation
                     }
                     // Open both playlist and EPG when in fullscreen mode
                     if (!currentState.showPlaylist && !currentState.showEpgPanel) {
@@ -600,7 +609,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     // If panels are already open, let Compose focus system handle RIGHT navigation
-                    return false
+                    return super.dispatchKeyEvent(event)
                 }
                 // Up/Down arrows - navigate channel list/EPG if open, otherwise change channels
                 KeyEvent.KEYCODE_DPAD_UP -> {
@@ -610,13 +619,13 @@ class MainActivity : ComponentActivity() {
                     // If controls are visible, let them handle navigation
                     if (areControlsVisible) {
                         viewModel.logDebug("▲ UP → controls (super)")
-                        return super.onKeyDown(keyCode, event)
+                        return super.dispatchKeyEvent(event)
                     }
 
                     // If panels are open, DON'T intercept - pass directly to super
                     if (currentState.showPlaylist || currentState.showEpgPanel) {
                         viewModel.logDebug("▲ UP → panels open (super)")
-                        return super.onKeyDown(keyCode, event)
+                        return super.dispatchKeyEvent(event)
                     }
 
                     // Only in fullscreen mode, switch channels
@@ -631,13 +640,13 @@ class MainActivity : ComponentActivity() {
                     // If controls are visible, let them handle navigation
                     if (areControlsVisible) {
                         viewModel.logDebug("▼ DOWN → controls (super)")
-                        return super.onKeyDown(keyCode, event)
+                        return super.dispatchKeyEvent(event)
                     }
 
                     // If panels are open, DON'T intercept - pass directly to super
                     if (currentState.showPlaylist || currentState.showEpgPanel) {
                         viewModel.logDebug("▼ DOWN → panels open (super)")
-                        return super.onKeyDown(keyCode, event)
+                        return super.dispatchKeyEvent(event)
                     }
 
                     // Only in fullscreen mode, switch channels
@@ -668,18 +677,18 @@ class MainActivity : ComponentActivity() {
                     if (dialogState != null) {
                         if (dialogState.value) {
                             // Dialog already shown, let it handle the back press
-                            return false
+                            return super.dispatchKeyEvent(event)
                         } else {
                             dialogState.value = true
                             return true
                         }
                     }
-                    return false
+                    return super.dispatchKeyEvent(event)
                 }
             }
         }
 
-        return super.onKeyDown(keyCode, event)
+        return super.dispatchKeyEvent(event)
     }
 
     /**
