@@ -606,38 +606,44 @@ class MainActivity : ComponentActivity() {
                 KeyEvent.KEYCODE_DPAD_UP -> {
                     val currentState = viewModel.viewState.value
                     viewModel.logDebug("▲ UP: list=${currentState.showPlaylist}, epg=${currentState.showEpgPanel}, ctrl=$areControlsVisible")
+
                     // If controls are visible, let them handle navigation
                     if (areControlsVisible) {
-                        viewModel.logDebug("▲ UP → controls")
-                        return false
+                        viewModel.logDebug("▲ UP → controls (super)")
+                        return super.onKeyDown(keyCode, event)
                     }
-                    // Only intercept UP when in fullscreen mode (no panels open)
-                    if (!currentState.showPlaylist && !currentState.showEpgPanel) {
-                        viewModel.logDebug("▲ UP → switch channel")
-                        switchChannelUp()
-                        return true
+
+                    // If panels are open, DON'T intercept - pass directly to super
+                    if (currentState.showPlaylist || currentState.showEpgPanel) {
+                        viewModel.logDebug("▲ UP → panels open (super)")
+                        return super.onKeyDown(keyCode, event)
                     }
-                    // DON'T handle UP when panels are open - let it propagate naturally
-                    viewModel.logDebug("▲ UP → super (not intercepting)")
-                    // Fall through to default handling
+
+                    // Only in fullscreen mode, switch channels
+                    viewModel.logDebug("▲ UP → switch channel")
+                    switchChannelUp()
+                    return true
                 }
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
                     val currentState = viewModel.viewState.value
                     viewModel.logDebug("▼ DOWN: list=${currentState.showPlaylist}, epg=${currentState.showEpgPanel}, ctrl=$areControlsVisible")
+
                     // If controls are visible, let them handle navigation
                     if (areControlsVisible) {
-                        viewModel.logDebug("▼ DOWN → controls")
-                        return false
+                        viewModel.logDebug("▼ DOWN → controls (super)")
+                        return super.onKeyDown(keyCode, event)
                     }
-                    // Only intercept DOWN when in fullscreen mode (no panels open)
-                    if (!currentState.showPlaylist && !currentState.showEpgPanel) {
-                        viewModel.logDebug("▼ DOWN → switch channel")
-                        switchChannelDown()
-                        return true
+
+                    // If panels are open, DON'T intercept - pass directly to super
+                    if (currentState.showPlaylist || currentState.showEpgPanel) {
+                        viewModel.logDebug("▼ DOWN → panels open (super)")
+                        return super.onKeyDown(keyCode, event)
                     }
-                    // DON'T handle DOWN when panels are open - let it propagate naturally
-                    viewModel.logDebug("▼ DOWN → super (not intercepting)")
-                    // Fall through to default handling
+
+                    // Only in fullscreen mode, switch channels
+                    viewModel.logDebug("▼ DOWN → switch channel")
+                    switchChannelDown()
+                    return true
                 }
                 // BACK button - context dependent
                 KeyEvent.KEYCODE_BACK -> {
