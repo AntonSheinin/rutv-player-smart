@@ -1171,6 +1171,15 @@ class MainViewModel @Inject constructor(
     }
 
     /**
+     * Add a debug message (public wrapper for MainActivity and other components)
+     */
+    fun logDebug(message: String) {
+        viewModelScope.launch {
+            appendDebugMessage(DebugMessage(message))
+        }
+    }
+
+    /**
      * Cycle aspect ratio
      */
     fun cycleAspectRatio() {

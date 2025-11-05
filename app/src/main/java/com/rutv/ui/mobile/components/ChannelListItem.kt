@@ -61,6 +61,7 @@ fun ChannelListItem(
     onNavigateRight: (() -> Boolean)? = null,
     onFocused: ((Boolean) -> Unit)? = null,
     focusRequester: FocusRequester? = null,
+    onLogDebug: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var lastClickTime by remember { mutableLongStateOf(0L) }
@@ -77,30 +78,30 @@ fun ChannelListItem(
 
     // Handle remote key events
     val onRemoteKeyEvent: (androidx.compose.ui.input.key.KeyEvent) -> Boolean = { event ->
-        timber.log.Timber.d("ChannelListItem[$channelNumber]: onKeyEvent called - key=${event.key}, type=${event.type}, focused=$isFocused, remoteMode=$isRemoteMode")
+        onLogDebug?.invoke("🔘 Ch$channelNumber key=${event.key.keyCode} focus=$isFocused remote=$isRemoteMode")
 
         if (event.type == KeyEventType.KeyDown && isFocused && isRemoteMode) {
             val handled = when (event.key) {
                 Key.DirectionCenter, // DPAD_CENTER (OK button)
                 Key.Enter -> {
-                    timber.log.Timber.d("ChannelListItem[$channelNumber]: OK pressed")
+                    onLogDebug?.invoke("  ✓ OK Ch$channelNumber")
                     onChannelClick()
                     true
                 }
                 Key.DirectionUp -> {
-                    timber.log.Timber.d("ChannelListItem[$channelNumber]: UP pressed, calling onNavigateUp")
+                    onLogDebug?.invoke("  ⬆ UP Ch$channelNumber")
                     val result = onNavigateUp?.invoke() ?: false
-                    timber.log.Timber.d("ChannelListItem[$channelNumber]: UP result=$result")
+                    onLogDebug?.invoke("    result=$result")
                     result
                 }
                 Key.DirectionDown -> {
-                    timber.log.Timber.d("ChannelListItem[$channelNumber]: DOWN pressed, calling onNavigateDown")
+                    onLogDebug?.invoke("  ⬇ DOWN Ch$channelNumber")
                     val result = onNavigateDown?.invoke() ?: false
-                    timber.log.Timber.d("ChannelListItem[$channelNumber]: DOWN result=$result")
+                    onLogDebug?.invoke("    result=$result")
                     result
                 }
                 Key.DirectionRight -> {
-                    timber.log.Timber.d("ChannelListItem[$channelNumber]: RIGHT pressed, epgVisible=$isEpgPanelVisible")
+                    onLogDebug?.invoke("  → RIGHT Ch$channelNumber")
                     if (isEpgPanelVisible) {
                         onNavigateRight?.invoke() ?: true
                     } else if (channel.hasEpg) {
@@ -112,10 +113,10 @@ fun ChannelListItem(
                 }
                 else -> false
             }
-            timber.log.Timber.d("ChannelListItem[$channelNumber]: Event handled=$handled")
+            onLogDebug?.invoke("  handled=$handled")
             handled
         } else {
-            timber.log.Timber.d("ChannelListItem[$channelNumber]: Event not handled - wrong type or not focused")
+            onLogDebug?.invoke("  ✗ skip (type=${event.type}, focus=$isFocused, remote=$isRemoteMode)")
             false
         }
     }

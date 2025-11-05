@@ -202,6 +202,7 @@ class MainActivity : ComponentActivity() {
             onLoadMoreEpgFuture = { viewModel.loadMoreEpgFuture() },
             epgNotificationMessage = viewState.epgNotificationMessage,
             onClearEpgNotification = { viewModel.clearEpgNotification() },
+            onLogDebug = { message -> viewModel.logDebug(message) },
             modifier = Modifier.fillMaxSize()
         )
 
@@ -604,38 +605,38 @@ class MainActivity : ComponentActivity() {
                 // Up/Down arrows - navigate channel list/EPG if open, otherwise change channels
                 KeyEvent.KEYCODE_DPAD_UP -> {
                     val currentState = viewModel.viewState.value
-                    Timber.d("MainActivity: UP - playlist=${currentState.showPlaylist}, epg=${currentState.showEpgPanel}, controls=$areControlsVisible")
+                    viewModel.logDebug("▲ UP: list=${currentState.showPlaylist}, epg=${currentState.showEpgPanel}, ctrl=$areControlsVisible")
                     // If controls are visible, let them handle navigation
                     if (areControlsVisible) {
-                        Timber.d("MainActivity: UP - delegating to controls")
+                        viewModel.logDebug("▲ UP → controls")
                         return false
                     }
                     // Only intercept UP when in fullscreen mode (no panels open)
                     if (!currentState.showPlaylist && !currentState.showEpgPanel) {
-                        Timber.d("MainActivity: UP - switching channel")
+                        viewModel.logDebug("▲ UP → switch channel")
                         switchChannelUp()
                         return true
                     }
                     // Let Compose focus system handle UP navigation when playlist or EPG is open
-                    Timber.d("MainActivity: UP - delegating to Compose")
+                    viewModel.logDebug("▲ UP → Compose")
                     return false
                 }
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
                     val currentState = viewModel.viewState.value
-                    Timber.d("MainActivity: DOWN - playlist=${currentState.showPlaylist}, epg=${currentState.showEpgPanel}, controls=$areControlsVisible")
+                    viewModel.logDebug("▼ DOWN: list=${currentState.showPlaylist}, epg=${currentState.showEpgPanel}, ctrl=$areControlsVisible")
                     // If controls are visible, let them handle navigation
                     if (areControlsVisible) {
-                        Timber.d("MainActivity: DOWN - delegating to controls")
+                        viewModel.logDebug("▼ DOWN → controls")
                         return false
                     }
                     // Only intercept DOWN when in fullscreen mode (no panels open)
                     if (!currentState.showPlaylist && !currentState.showEpgPanel) {
-                        Timber.d("MainActivity: DOWN - switching channel")
+                        viewModel.logDebug("▼ DOWN → switch channel")
                         switchChannelDown()
                         return true
                     }
                     // Let Compose focus system handle DOWN navigation when playlist or EPG is open
-                    Timber.d("MainActivity: DOWN - delegating to Compose")
+                    viewModel.logDebug("▼ DOWN → Compose")
                     return false
                 }
                 // BACK button - context dependent

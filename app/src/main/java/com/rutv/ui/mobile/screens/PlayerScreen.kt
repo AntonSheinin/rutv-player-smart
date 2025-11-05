@@ -112,6 +112,7 @@ fun PlayerScreen(
     onClearEpgNotification: () -> Unit,
     onRegisterToggleControls: ((() -> Unit)) -> Unit,
     onControlsVisibilityChanged: ((Boolean) -> Unit)? = null,
+    onLogDebug: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var showControls by remember { mutableStateOf(false) }
@@ -391,6 +392,7 @@ fun PlayerScreen(
                 onFavoriteClick = onToggleFavorite,
                 onShowPrograms = onShowEpgForChannel,
                 onClose = onClosePlaylist,
+                onLogDebug = onLogDebug,
                 onProvideFocusController = { controller -> focusPlaylistChannel = controller },
                 onChannelFocused = { index ->
                     if (index >= 0) {
@@ -645,6 +647,7 @@ private fun PlaylistPanel(
     onFavoriteClick: (String) -> Unit,
     onShowPrograms: (String) -> Unit,
     onClose: () -> Unit,
+    onLogDebug: ((String) -> Unit)? = null,
     onRegisterFocusRequesters: ((List<FocusRequester>) -> Unit)? = null,
     onProvideFocusController: (((Int, Boolean) -> Boolean)?) -> Unit = {},
     onChannelFocused: ((Int) -> Unit)? = null,
@@ -853,24 +856,24 @@ private fun PlaylistPanel(
                             onFavoriteClick = { onFavoriteClick(channel.url) },
                             onShowPrograms = { onShowPrograms(channel.tvgId) },
                             onNavigateUp = {
-                                timber.log.Timber.d("PlaylistPanel: onNavigateUp called for index=$index")
+                                onLogDebug?.invoke("⬆ Ch${index + 1} UP")
                                 if (index > 0) {
-                                    timber.log.Timber.d("PlaylistPanel: Focusing channel ${index - 1}")
+                                    onLogDebug?.invoke("  → Ch${index}")
                                     focusChannel(index - 1, false)
                                     true
                                 } else {
-                                    timber.log.Timber.d("PlaylistPanel: Already at top")
+                                    onLogDebug?.invoke("  → top")
                                     true
                                 }
                             },
                             onNavigateDown = {
-                                timber.log.Timber.d("PlaylistPanel: onNavigateDown called for index=$index")
+                                onLogDebug?.invoke("⬇ Ch${index + 1} DOWN")
                                 if (index < channels.lastIndex) {
-                                    timber.log.Timber.d("PlaylistPanel: Focusing channel ${index + 1}")
+                                    onLogDebug?.invoke("  → Ch${index + 2}")
                                     focusChannel(index + 1, false)
                                     true
                                 } else {
-                                    timber.log.Timber.d("PlaylistPanel: Already at bottom")
+                                    onLogDebug?.invoke("  → bottom")
                                     true
                                 }
                             },
@@ -884,6 +887,7 @@ private fun PlaylistPanel(
                                 }
                             },
                             focusRequester = focusRequesters[index],
+                            onLogDebug = onLogDebug,
                             modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp)
                         )
                     }

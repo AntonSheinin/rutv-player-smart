@@ -3,57 +3,54 @@
 ## Steps to Test
 
 1. Build and install the app with the debug logging enabled
-2. Connect via ADB and monitor logcat
+2. **Enable Debug Log in the app:**
+   - Go to Settings → Show Debug Log → Enable it
 3. Open the channel list (press LEFT on d-pad)
 4. Try pressing UP or DOWN
-5. Share the logcat output
+5. **Look at the debug log window on the TV screen** (no ADB needed!)
+6. Take a photo or screenshot of the debug logs
 
-## ADB Commands
+## Expected Log Sequence (when UP is pressed in channel list)
 
-```bash
-# Clear logcat
-adb logcat -c
+1. `▲ UP: list=true, epg=false, ctrl=false` (MainActivity)
+2. `▲ UP → Compose` (MainActivity delegating to Compose)
+3. `🔘 Ch5 key=19 focus=true remote=true` (ChannelListItem receives event)
+4. `  ⬆ UP Ch5` (ChannelListItem handling UP)
+5. `⬆ Ch5 UP` (PlaylistPanel callback)
+6. `  → Ch4` (Focusing previous channel)
+7. `    result=true` (Navigation succeeded)
+8. `  handled=true` (Event consumed)
 
-# Start monitoring (filter for our logs)
-adb logcat | grep -E "(MainActivity|ChannelListItem|PlaylistPanel)"
-```
-
-## What to Look For
-
-### Expected Log Sequence (when UP is pressed)
-
-1. `MainActivity: UP - playlist=true, epg=false, controls=false`
-2. `MainActivity: UP - delegating to Compose`
-3. `ChannelListItem[X]: onKeyEvent called - key=DirectionUp, type=KeyDown, focused=true, remoteMode=true`
-4. `ChannelListItem[X]: UP pressed, calling onNavigateUp`
-5. `PlaylistPanel: onNavigateUp called for index=X`
-6. `PlaylistPanel: Focusing channel Y`
-7. `ChannelListItem[X]: UP result=true`
-8. `ChannelListItem[X]: Event handled=true`
-
-### Possible Issues
+## Possible Issues to Diagnose
 
 **Issue 1: onKeyEvent not called**
-- Log shows MainActivity delegating, but no ChannelListItem log
+- Logs show MainActivity delegating, but no `🔘 Ch` log
 - Means Compose isn't receiving the event
 - Root cause: Event consumed elsewhere or focus issue
 
 **Issue 2: Item not focused**
-- Log shows `focused=false` in ChannelListItem
+- Log shows `focus=false` in ChannelListItem
 - Means focus isn't being set correctly
-- Check focus requester setup
+- Check if initial focus is requested
 
 **Issue 3: Remote mode not detected**
-- Log shows `remoteMode=false`
+- Log shows `remote=false`
 - DeviceHelper.isRemoteInputActive() returning false
 - Need to check device input detection
 
-**Issue 4: Callback returns false**
-- Log shows `UP result=false`
-- Navigation callback not working
-- Check lambda return values
+**Issue 4: Event type wrong**
+- Log shows `type=KeyUp` instead of `KeyDown`
+- UP events are being processed instead of DOWN events
 
-## Quick Fix to Try
+**Issue 5: Callback returns false**
+- Log shows `result=false`
+- Navigation callback not working properly
 
-If logs show the event ISN'T reaching Compose, the issue is in MainActivity.
-If logs show the event IS reaching Compose but not being handled, the issue is in the Compose layer.
+## Debug Symbols Legend
+
+- `▲` / `▼` - UP/DOWN in MainActivity
+- `🔘` - Key event received in ChannelListItem
+- `⬆` / `⬇` - UP/DOWN navigation in channel list
+- `✓` - OK button pressed
+- `→` - RIGHT arrow or navigation to EPG
+- `✗` - Event skipped/not handled
