@@ -79,19 +79,22 @@ fun ChannelListItem(
     val onRemoteKeyEvent: (androidx.compose.ui.input.key.KeyEvent) -> Boolean = { event ->
         if (event.type == KeyEventType.KeyDown && isFocused && isRemoteMode) {
             when (event.key) {
-                Key.DirectionCenter, // DPAD_CENTER
+                Key.DirectionCenter, // DPAD_CENTER (OK button)
                 Key.Enter -> {
+                    // OK button: Play the selected channel
                     onChannelClick()
                     true
                 }
                 Key.DirectionUp -> {
+                    // UP: Navigate to previous channel in list
                     onNavigateUp?.invoke() ?: false
                 }
                 Key.DirectionDown -> {
+                    // DOWN: Navigate to next channel in list
                     onNavigateDown?.invoke() ?: false
                 }
                 Key.DirectionRight -> {
-                    // DPAD_RIGHT: either move focus to EPG panel (if already open) or open it
+                    // RIGHT: Move focus to EPG panel if already open, otherwise open EPG for this channel
                     if (isEpgPanelVisible) {
                         onNavigateRight?.invoke() ?: true
                     } else if (channel.hasEpg) {

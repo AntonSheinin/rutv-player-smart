@@ -79,9 +79,9 @@ fun EpgProgramItem(
     val onRemoteKeyEvent: (androidx.compose.ui.input.key.KeyEvent) -> Boolean = { event ->
         if (event.type == KeyEventType.KeyDown && isFocused && isRemoteMode) {
             when (event.key) {
-                Key.DirectionCenter, // DPAD_CENTER
+                Key.DirectionCenter, // DPAD_CENTER (OK button)
                 Key.Enter -> {
-                    // OK: If program is past and in archive, play archive; otherwise show details
+                    // OK button: If program is past and in archive, play archive; otherwise show details
                     // onPlayArchive is only provided when program can be played from archive
                     if (onPlayArchive != null && isPast && showArchiveIndicator) {
                         onPlayArchive.invoke()
@@ -91,17 +91,20 @@ fun EpgProgramItem(
                     true
                 }
                 Key.DirectionRight -> {
-                    // DPAD_RIGHT: Play archive if available
+                    // RIGHT: Play archive if available (alternative way to play archive)
                     onPlayArchive?.invoke()
                     true
                 }
                 Key.DirectionUp -> {
+                    // UP: Navigate to previous program in EPG list
                     onNavigateUp?.invoke() ?: false
                 }
                 Key.DirectionDown -> {
+                    // DOWN: Navigate to next program in EPG list
                     onNavigateDown?.invoke() ?: false
                 }
                 Key.DirectionLeft -> {
+                    // LEFT: Return focus to channel list (or close EPG if no channel list)
                     when {
                         onNavigateLeft != null -> onNavigateLeft.invoke()
                         onCloseEpg != null -> {

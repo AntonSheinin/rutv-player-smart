@@ -569,26 +569,27 @@ class MainActivity : ComponentActivity() {
                     toggleControlsCallback?.invoke()
                     return true
                 }
-                // Left arrow - open channel list if not open, or let EPG panel handle it
+                // Left arrow - open channel list from fullscreen view
                 KeyEvent.KEYCODE_DPAD_LEFT -> {
                     val currentState = viewModel.viewState.value
                     if (areControlsVisible) {
                         return false // Let ExoPlayer or CustomControlButtons handle LEFT navigation
                     }
-                    // Only intercept in full screen playback (no playlist or EPG shown)
+                    // Open playlist only when in fullscreen (no panels visible)
                     if (!currentState.showPlaylist && !currentState.showEpgPanel && currentState.hasChannels) {
                         viewModel.openPlaylist()
                         return true
                     }
-                    // If playlist is open, let focus system handle navigation
+                    // If playlist or EPG is open, let Compose focus system handle LEFT navigation
                     return false
                 }
-                // Right arrow - open EPG for current/selected channel
+                // Right arrow - open channel list AND EPG panel from fullscreen view
                 KeyEvent.KEYCODE_DPAD_RIGHT -> {
                     val currentState = viewModel.viewState.value
                     if (areControlsVisible) {
                         return false // Let ExoPlayer handle RIGHT navigation
                     }
+                    // Open both playlist and EPG when in fullscreen mode
                     if (!currentState.showPlaylist && !currentState.showEpgPanel) {
                         val tvgId = currentState.currentChannel?.tvgId
                         if (!tvgId.isNullOrBlank()) {
@@ -597,34 +598,35 @@ class MainActivity : ComponentActivity() {
                             return true
                         }
                     }
+                    // If panels are already open, let Compose focus system handle RIGHT navigation
                     return false
                 }
-                // Up/Down arrows - navigate channel list if open, navigate custom controls if focused, otherwise change channels
+                // Up/Down arrows - navigate channel list/EPG if open, otherwise change channels
                 KeyEvent.KEYCODE_DPAD_UP -> {
                     val currentState = viewModel.viewState.value
-                    if (currentState.showPlaylist) {
-                        // Let Compose focus system handle navigation within list
+                    // Let Compose focus system handle UP navigation when playlist or EPG is open
+                    if (currentState.showPlaylist || currentState.showEpgPanel) {
                         return false
                     }
-                    // If controls are visible, let them handle navigation (for custom controls UP/DOWN)
+                    // If controls are visible, let them handle navigation
                     if (areControlsVisible) {
-                        return false // Let CustomControlButtons handle UP/DOWN navigation
+                        return false
                     }
-                    // If controls are not visible, switch channel up
+                    // In fullscreen mode, switch channel up
                     switchChannelUp()
                     return true
                 }
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
                     val currentState = viewModel.viewState.value
-                    if (currentState.showPlaylist) {
-                        // Let Compose focus system handle navigation within list
+                    // Let Compose focus system handle DOWN navigation when playlist or EPG is open
+                    if (currentState.showPlaylist || currentState.showEpgPanel) {
                         return false
                     }
-                    // If controls are visible, let them handle navigation (for custom controls UP/DOWN)
+                    // If controls are visible, let them handle navigation
                     if (areControlsVisible) {
-                        return false // Let CustomControlButtons handle UP/DOWN navigation
+                        return false
                     }
-                    // If controls are not visible, switch channel down
+                    // In fullscreen mode, switch channel down
                     switchChannelDown()
                     return true
                 }
