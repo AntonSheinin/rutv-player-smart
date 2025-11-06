@@ -483,9 +483,16 @@ class MainActivity : ComponentActivity() {
         }
 
         val keyCode = event.keyCode
+        val hasRemote = DeviceHelper.hasRemoteControl(this)
+
+        // Log entry point for UP/DOWN keys
+        if (keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+            val symbol = if (keyCode == KeyEvent.KEYCODE_DPAD_UP) "▲" else "▼"
+            viewModel.logDebug("$symbol dispatch: isRemote=$isRemote, hasRemote=$hasRemote, keyCode=$keyCode")
+        }
 
         // Only handle remote keys if remote is active or detected
-        if (isRemote && DeviceHelper.hasRemoteControl(this)) {
+        if (isRemote && hasRemote) {
             when (keyCode) {
                 // Channel navigation (direct, bypasses focus)
                 KeyEvent.KEYCODE_CHANNEL_UP -> {
@@ -620,10 +627,12 @@ class MainActivity : ComponentActivity() {
                         return super.dispatchKeyEvent(event)
                     }
 
-                    // If panels are open, DON'T intercept - pass directly to super
+                    // If panels are open, DON'T intercept - let Compose handle it
                     if (currentState.showPlaylist || currentState.showEpgPanel) {
-                        viewModel.logDebug("▲ UP → panels open (super)")
-                        return super.dispatchKeyEvent(event)
+                        viewModel.logDebug("▲ UP → panels open (not handled)")
+                        // Return false to indicate we didn't handle it
+                        // This allows the event to continue to Compose
+                        return false
                     }
 
                     // Only in fullscreen mode, switch channels
@@ -641,10 +650,12 @@ class MainActivity : ComponentActivity() {
                         return super.dispatchKeyEvent(event)
                     }
 
-                    // If panels are open, DON'T intercept - pass directly to super
+                    // If panels are open, DON'T intercept - let Compose handle it
                     if (currentState.showPlaylist || currentState.showEpgPanel) {
-                        viewModel.logDebug("▼ DOWN → panels open (super)")
-                        return super.dispatchKeyEvent(event)
+                        viewModel.logDebug("▼ DOWN → panels open (not handled)")
+                        // Return false to indicate we didn't handle it
+                        // This allows the event to continue to Compose
+                        return false
                     }
 
                     // Only in fullscreen mode, switch channels
