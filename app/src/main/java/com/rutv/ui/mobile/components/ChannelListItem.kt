@@ -78,7 +78,16 @@ fun ChannelListItem(
 
     // Handle remote key events
     val onRemoteKeyEvent: (androidx.compose.ui.input.key.KeyEvent) -> Boolean = { event ->
-        onLogDebug?.invoke("🔘 Ch$channelNumber key=${event.key.keyCode} focus=$isFocused remote=$isRemoteMode")
+        // Log EVERY key event that reaches this lambda
+        val keyName = when(event.key.keyCode) {
+            19 -> "UP"
+            20 -> "DOWN"
+            21 -> "LEFT"
+            22 -> "RIGHT"
+            23 -> "OK"
+            else -> event.key.keyCode.toString()
+        }
+        onLogDebug?.invoke("🔘 Ch$channelNumber $keyName type=${event.type} focus=$isFocused remote=$isRemoteMode")
 
         if (event.type == KeyEventType.KeyDown && isFocused && isRemoteMode) {
             val handled = when (event.key) {
