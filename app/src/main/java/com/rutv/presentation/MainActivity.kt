@@ -480,11 +480,18 @@ class MainActivity : ComponentActivity() {
         }
 
         val hasRemote = DeviceHelper.hasRemoteControl(this)
+        val currentState = viewModel.viewState.value
 
         // Log entry point for UP/DOWN keys
         if (keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
             val symbol = if (keyCode == KeyEvent.KEYCODE_DPAD_UP) "▲" else "▼"
             viewModel.logDebug("$symbol onKeyDown: isRemote=$isRemote, hasRemote=$hasRemote, keyCode=$keyCode")
+
+            // If panels or controls are open, DON'T handle UP/DOWN at all - let Compose handle it
+            if (currentState.showPlaylist || currentState.showEpgPanel || areControlsVisible) {
+                viewModel.logDebug("$symbol → skip MainActivity (panels/controls open)")
+                return super.onKeyDown(keyCode, event)
+            }
         }
 
         // Only handle remote keys if remote is active or detected
@@ -612,48 +619,15 @@ class MainActivity : ComponentActivity() {
                     // If panels are already open, let Compose focus system handle RIGHT navigation
                     return super.onKeyDown(keyCode, event)
                 }
-                // Up/Down arrows - navigate channel list/EPG if open, otherwise change channels
+                // Up/Down arrows - switch channels in fullscreen mode
+                // Note: When panels/controls are open, these are filtered out before we get here
                 KeyEvent.KEYCODE_DPAD_UP -> {
-                    val currentState = viewModel.viewState.value
-                    viewModel.logDebug("▲ UP: list=${currentState.showPlaylist}, epg=${currentState.showEpgPanel}, ctrl=$areControlsVisible")
-
-                    // If controls are visible, let them handle navigation
-                    if (areControlsVisible) {
-                        viewModel.logDebug("▲ UP → controls (super)")
-                        return super.onKeyDown(keyCode, event)
-                    }
-
-                    // If panels are open, DON'T intercept - let Compose handle it
-                    if (currentState.showPlaylist || currentState.showEpgPanel) {
-                        viewModel.logDebug("▲ UP → panels open (super)")
-                        // Let super handle it - this allows Compose to receive the event
-                        return super.onKeyDown(keyCode, event)
-                    }
-
-                    // Only in fullscreen mode, switch channels
-                    viewModel.logDebug("▲ UP → switch channel")
+                    viewModel.logDebug("▲ UP → switch channel (fullscreen)")
                     switchChannelUp()
                     return true
                 }
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
-                    val currentState = viewModel.viewState.value
-                    viewModel.logDebug("▼ DOWN: list=${currentState.showPlaylist}, epg=${currentState.showEpgPanel}, ctrl=$areControlsVisible")
-
-                    // If controls are visible, let them handle navigation
-                    if (areControlsVisible) {
-                        viewModel.logDebug("▼ DOWN → controls (super)")
-                        return super.onKeyDown(keyCode, event)
-                    }
-
-                    // If panels are open, DON'T intercept - let Compose handle it
-                    if (currentState.showPlaylist || currentState.showEpgPanel) {
-                        viewModel.logDebug("▼ DOWN → panels open (super)")
-                        // Let super handle it - this allows Compose to receive the event
-                        return super.onKeyDown(keyCode, event)
-                    }
-
-                    // Only in fullscreen mode, switch channels
-                    viewModel.logDebug("▼ DOWN → switch channel")
+                    viewModel.logDebug("▼ DOWN → switch channel (fullscreen)")
                     switchChannelDown()
                     return true
                 }
