@@ -930,6 +930,7 @@ private fun PlaylistPanel(
                             isEpgOpen = index == epgOpenIndex,
                             isEpgPanelVisible = isEpgPanelVisible,
                             currentProgram = currentProgramsMap[channel.tvgId],
+                            isItemFocused = index == focusedChannelIndex, // Visual focus indicator
                             onChannelClick = { focusChannel(index, true) },
                             onFavoriteClick = { onFavoriteClick(channel.url) },
                             onShowPrograms = { onShowPrograms(channel.tvgId) },

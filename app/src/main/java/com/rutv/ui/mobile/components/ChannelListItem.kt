@@ -62,6 +62,7 @@ fun ChannelListItem(
     onFocused: ((Boolean) -> Unit)? = null,
     focusRequester: FocusRequester? = null,
     onLogDebug: ((String) -> Unit)? = null,
+    isItemFocused: Boolean = false, // NEW: For visual focus indicator
     modifier: Modifier = Modifier
 ) {
     var lastClickTime by remember { mutableLongStateOf(0L) }
@@ -144,7 +145,7 @@ fun ChannelListItem(
                 onFocused?.invoke(it.isFocused)
             }
             .onKeyEvent(onRemoteKeyEvent)
-            .then(focusIndicatorModifier(isFocused = isFocused))
+            .then(focusIndicatorModifier(isFocused = isItemFocused)) // Use isItemFocused for visual indicator
             .clickable(enabled = !isRemoteMode) {
                 // Touch-only clickable behavior (double-tap/single-tap)
                 val currentTime = System.currentTimeMillis()
