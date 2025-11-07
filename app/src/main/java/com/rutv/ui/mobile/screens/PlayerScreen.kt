@@ -843,10 +843,22 @@ private fun PlaylistPanel(
             Box(modifier = Modifier.fillMaxSize()) {
                 val isEpgPanelVisible = epgOpenIndex >= 0
 
+                // LazyColumn needs to be focusable to participate in focus tree
+                val lazyColumnFocusRequester = remember { FocusRequester() }
+
+                // Request focus on LazyColumn when panel opens
+                LaunchedEffect(Unit) {
+                    delay(100)
+                    lazyColumnFocusRequester.requestFocus()
+                    onLogDebug?.invoke("🎯 LazyColumn focus requested")
+                }
+
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
                         .fillMaxSize()
+                        .focusRequester(lazyColumnFocusRequester)
+                        .focusable()
                         .onKeyEvent { event ->
                             val keyName = when(event.key.keyCode.toInt()) {
                                 19 -> "UP"
