@@ -680,8 +680,10 @@ private fun PlaylistPanel(
 
     val focusChannel: (Int, Boolean) -> Boolean = { targetIndex, play ->
         if (targetIndex !in channels.indices) {
+            onLogDebug?.invoke("❌ focusChannel($targetIndex) out of range [0..${channels.lastIndex}]")
             false
         } else {
+            onLogDebug?.invoke("🎯 focusChannel($targetIndex, play=$play) requesting focus")
             focusedChannelIndex = targetIndex
             onChannelFocused?.invoke(targetIndex)
             val shouldScroll = listState.layoutInfo.visibleItemsInfo.none { it.index == targetIndex }
@@ -690,6 +692,7 @@ private fun PlaylistPanel(
                     listState.animateScrollToItem(targetIndex, scrollOffset = -160)
                 }
                 focusRequesters[targetIndex].requestFocus()
+                onLogDebug?.invoke("  → requestFocus() called for Ch${targetIndex + 1}")
             }
             if (play) {
                 onChannelClick(targetIndex)
@@ -721,12 +724,16 @@ private fun PlaylistPanel(
 
     // Auto-scroll to current channel when panel opens (center it in viewport)
     LaunchedEffect(currentChannelIndex, channels.size) {
-        if (channels.isEmpty()) return@LaunchedEffect
+        if (channels.isEmpty()) {
+            onLogDebug?.invoke("🚀 LaunchedEffect: channels empty, skipping focus")
+            return@LaunchedEffect
+        }
         val targetIndex = when {
             currentChannelIndex in channels.indices -> currentChannelIndex
             focusedChannelIndex in channels.indices -> focusedChannelIndex
             else -> 0
         }
+        onLogDebug?.invoke("🚀 LaunchedEffect: initial focus to Ch${targetIndex + 1} (current=$currentChannelIndex, focused=$focusedChannelIndex)")
         delay(60)
         focusChannel(targetIndex, false)
     }
@@ -838,7 +845,20 @@ private fun PlaylistPanel(
 
                 LazyColumn(
                     state = listState,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .onKeyEvent { event ->
+                            val keyName = when(event.key.keyCode.toInt()) {
+                                19 -> "UP"
+                                20 -> "DOWN"
+                                21 -> "LEFT"
+                                22 -> "RIGHT"
+                                23 -> "OK"
+                                else -> event.key.keyCode.toString()
+                            }
+                            onLogDebug?.invoke("📋 LazyColumn $keyName type=${event.type} remote=$isRemoteMode")
+                            false // Don't consume, let children handle
+                        },
                     contentPadding = PaddingValues(start = 0.dp, top = 4.dp, end = 12.dp, bottom = 4.dp) // Add end padding for scrollbar
                 ) {
                     itemsIndexed(

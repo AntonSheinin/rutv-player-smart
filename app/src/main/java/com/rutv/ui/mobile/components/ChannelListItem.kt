@@ -136,7 +136,11 @@ fun ChannelListItem(
             .focusable(enabled = true)
             .then(focusRequester?.let { Modifier.focusRequester(it) } ?: Modifier)
             .onFocusChanged {
+                val wasFocused = isFocused
                 isFocused = it.isFocused
+                if (wasFocused != it.isFocused) {
+                    onLogDebug?.invoke("🎯 Ch$channelNumber focus=${it.isFocused} hasFocus=${it.hasFocus} isFocused=${it.isFocused}")
+                }
                 onFocused?.invoke(it.isFocused)
             }
             .onKeyEvent(onRemoteKeyEvent)
