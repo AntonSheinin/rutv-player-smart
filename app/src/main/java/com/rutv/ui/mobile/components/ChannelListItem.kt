@@ -79,7 +79,7 @@ fun ChannelListItem(
     // Handle remote key events
     val onRemoteKeyEvent: (androidx.compose.ui.input.key.KeyEvent) -> Boolean = { event ->
         // Log EVERY key event that reaches this lambda
-        val keyName = when(event.key.keyCode) {
+        val keyName = when(event.key.keyCode.toInt()) {
             19 -> "UP"
             20 -> "DOWN"
             21 -> "LEFT"
