@@ -843,10 +843,21 @@ private fun PlaylistPanel(
             Box(modifier = Modifier.fillMaxSize()) {
                 val isEpgPanelVisible = epgOpenIndex >= 0
 
+                // Focus requester for LazyColumn
+                val lazyColumnFocusRequester = remember { FocusRequester() }
+
+                // Request focus on LazyColumn when it first appears
+                LaunchedEffect(Unit) {
+                    delay(150) // Wait for composition
+                    lazyColumnFocusRequester.requestFocus()
+                    onLogDebug?.invoke("🎯 Requesting focus on LazyColumn")
+                }
+
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
                         .fillMaxSize()
+                        .focusRequester(lazyColumnFocusRequester)
                         .focusable()
                         .onKeyEvent { event ->
                             if (event.type == KeyEventType.KeyDown && isRemoteMode) {
