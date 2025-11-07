@@ -843,33 +843,68 @@ private fun PlaylistPanel(
             Box(modifier = Modifier.fillMaxSize()) {
                 val isEpgPanelVisible = epgOpenIndex >= 0
 
-                // LazyColumn needs to be focusable to participate in focus tree
-                val lazyColumnFocusRequester = remember { FocusRequester() }
-
-                // Request focus on LazyColumn when panel opens
-                LaunchedEffect(Unit) {
-                    delay(100)
-                    lazyColumnFocusRequester.requestFocus()
-                    onLogDebug?.invoke("🎯 LazyColumn focus requested")
-                }
-
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
                         .fillMaxSize()
-                        .focusRequester(lazyColumnFocusRequester)
                         .focusable()
                         .onKeyEvent { event ->
-                            val keyName = when(event.key.keyCode.toInt()) {
-                                19 -> "UP"
-                                20 -> "DOWN"
-                                21 -> "LEFT"
-                                22 -> "RIGHT"
-                                23 -> "OK"
-                                else -> event.key.keyCode.toString()
+                            if (event.type == KeyEventType.KeyDown && isRemoteMode) {
+                                val keyName = when(event.key.keyCode.toInt()) {
+                                    19 -> "UP"
+                                    20 -> "DOWN"
+                                    21 -> "LEFT"
+                                    22 -> "RIGHT"
+                                    23 -> "OK"
+                                    else -> event.key.keyCode.toString()
+                                }
+                                onLogDebug?.invoke("📋 LazyColumn $keyName focus=$focusedChannelIndex")
+
+                                when (event.key) {
+                                    Key.DirectionUp -> {
+                                        onLogDebug?.invoke("  ⬆ LazyColumn UP")
+                                        if (focusedChannelIndex > 0) {
+                                            focusChannel(focusedChannelIndex - 1, false)
+                                            true
+                                        } else {
+                                            onLogDebug?.invoke("    → at top")
+                                            true
+                                        }
+                                    }
+                                    Key.DirectionDown -> {
+                                        onLogDebug?.invoke("  ⬇ LazyColumn DOWN")
+                                        if (focusedChannelIndex < channels.lastIndex) {
+                                            focusChannel(focusedChannelIndex + 1, false)
+                                            true
+                                        } else {
+                                            onLogDebug?.invoke("    → at bottom")
+                                            true
+                                        }
+                                    }
+                                    Key.DirectionCenter, Key.Enter -> {
+                                        onLogDebug?.invoke("  ✓ LazyColumn OK")
+                                        focusChannel(focusedChannelIndex, true)
+                                        true
+                                    }
+                                    Key.DirectionRight -> {
+                                        onLogDebug?.invoke("  → LazyColumn RIGHT")
+                                        if (isEpgPanelVisible) {
+                                            onNavigateToEpg?.invoke() ?: false
+                                        } else {
+                                            val channel = channels.getOrNull(focusedChannelIndex)
+                                            if (channel?.hasEpg == true) {
+                                                onShowPrograms(channel.tvgId)
+                                                true
+                                            } else {
+                                                false
+                                            }
+                                        }
+                                    }
+                                    else -> false
+                                }
+                            } else {
+                                false
                             }
-                            onLogDebug?.invoke("📋 LazyColumn $keyName type=${event.type} remote=$isRemoteMode")
-                            false // Don't consume, let children handle
                         },
                     contentPadding = PaddingValues(start = 0.dp, top = 4.dp, end = 12.dp, bottom = 4.dp) // Add end padding for scrollbar
                 ) {
