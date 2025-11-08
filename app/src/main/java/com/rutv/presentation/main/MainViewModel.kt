@@ -68,6 +68,7 @@ class MainViewModel @Inject constructor(
     private var pendingCurrentProgramsSnapshot: Map<String, EpgProgram?>? = null
     private var pendingEpgTimestamp: Long? = null
     private var epgPreloadJob: Job? = null
+    private var channelFilterJob: Job? = null
 
     private fun postEpgNotification() {
         viewModelScope.launch(Dispatchers.Main) {
@@ -206,6 +207,21 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    private fun refreshFilteredChannels(
+        channels: List<Channel> = _viewState.value.channels,
+        showFavoritesOnly: Boolean = _viewState.value.showFavoritesOnly
+    ) {
+        channelFilterJob?.cancel()
+        channelFilterJob = viewModelScope.launch(Dispatchers.Default) {
+            val filtered = filterChannelsUseCase(channels, showFavoritesOnly)
+            withContext(Dispatchers.Main) {
+                _viewState.update { current ->
+                    if (current.filteredChannels === filtered) current else current.copy(filteredChannels = filtered)
+                }
+            }
+        }
+    }
+
     private suspend fun loadPlaylistAndPlayer() {
         try {
             Timber.d("App Init: Step 2 - Loading playlist")
@@ -238,6 +254,7 @@ class MainViewModel @Inject constructor(
                             )
                         }
                     }
+                    refreshFilteredChannels(channels, _viewState.value.showFavoritesOnly)
 
                     if (channels.isNotEmpty()) {
                         val catchupSupported = channels.count { it.supportsCatchup() }
@@ -415,6 +432,7 @@ class MainViewModel @Inject constructor(
                                 appendDebugMessage(DebugMessage(StringFormatter.formatEpgPlaylistEmpty()))
                             }
                         }
+                        refreshFilteredChannels(channels, _viewState.value.showFavoritesOnly)
 
                         if (channels.isNotEmpty()) {
                             initializePlayer(channels)
@@ -692,6 +710,7 @@ class MainViewModel @Inject constructor(
                     val updatedChannels = channelRepository.getAllChannels()
                     if (updatedChannels is Result.Success) {
                         _viewState.update { it.copy(channels = updatedChannels.data) }
+                        refreshFilteredChannels(updatedChannels.data, _viewState.value.showFavoritesOnly)
                     }
                 }
                 is Result.Error -> {
@@ -708,6 +727,7 @@ class MainViewModel @Inject constructor(
      * Toggle playlist visibility
      */
     fun togglePlaylist() {
+        val wasFavoritesOnly = _viewState.value.showFavoritesOnly
         _viewState.update { current ->
             val showPlaylist = !current.showPlaylist
             current.copy(
@@ -717,12 +737,16 @@ class MainViewModel @Inject constructor(
                 selectedProgramDetails = if (showPlaylist) current.selectedProgramDetails else null
             )
         }
+        if (wasFavoritesOnly) {
+            refreshFilteredChannels()
+        }
     }
 
     /**
      * Open playlist explicitly with optional favorites filter
      */
     fun openPlaylist(showFavoritesOnly: Boolean = false) {
+        val previousFavoritesOnly = _viewState.value.showFavoritesOnly
         _viewState.update { current ->
             current.copy(
                 showPlaylist = true,
@@ -731,18 +755,25 @@ class MainViewModel @Inject constructor(
                 selectedProgramDetails = null
             )
         }
+        if (previousFavoritesOnly != showFavoritesOnly) {
+            refreshFilteredChannels()
+        }
     }
 
     /**
      * Toggle favorites view
      */
     fun toggleFavorites() {
+        val wasFavoritesOnly = _viewState.value.showFavoritesOnly
         _viewState.update {
             it.copy(
                 showPlaylist = !it.showPlaylist,
                 showFavoritesOnly = true,
                 showEpgPanel = false
             )
+        }
+        if (!wasFavoritesOnly) {
+            refreshFilteredChannels()
         }
     }
 
@@ -1235,9 +1266,4 @@ class MainViewModel @Inject constructor(
         const val EPG_LOADED_MESSAGE = "EPG loaded"
     }
 }
-
-
-
-
-
 

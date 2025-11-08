@@ -17,6 +17,7 @@ import com.rutv.presentation.player.PlayerState
 @Immutable
 data class MainViewState(
     val channels: List<Channel> = emptyList(),
+    val filteredChannels: List<Channel> = emptyList(),
     val currentChannel: Channel? = null,
     val currentChannelIndex: Int = -1,
     val playerState: PlayerState = PlayerState.Idle,

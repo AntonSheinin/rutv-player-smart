@@ -72,21 +72,13 @@ data class PlayerUiActions(
 
 @Composable
 fun rememberPlayerUiState(viewState: MainViewState): PlayerUiState {
-    val filteredChannels = remember(viewState.channels, viewState.showFavoritesOnly) {
-        if (viewState.showFavoritesOnly) {
-            viewState.channels.filter { it.isFavorite }
-        } else {
-            viewState.channels
-        }
-    }
-
     val epgChannel = remember(viewState.epgChannelTvgId, viewState.channels, viewState.currentChannel) {
         viewState.channels.firstOrNull { it.tvgId == viewState.epgChannelTvgId }
             ?: viewState.currentChannel
     }
 
     return remember(
-        filteredChannels,
+        viewState.filteredChannels,
         viewState.playlistTitleResId,
         viewState.hasChannels,
         viewState.currentChannel,
@@ -111,7 +103,7 @@ fun rememberPlayerUiState(viewState: MainViewState): PlayerUiState {
     ) {
         PlayerUiState(
             allChannels = viewState.channels,
-            filteredChannels = filteredChannels,
+            filteredChannels = viewState.filteredChannels,
             playlistTitleResId = viewState.playlistTitleResId,
             hasChannels = viewState.hasChannels,
             currentChannel = viewState.currentChannel,
