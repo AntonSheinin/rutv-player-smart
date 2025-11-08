@@ -121,7 +121,6 @@ fun PlayerScreen(
     // Store focus requesters for custom controls (for ExoPlayer navigation)
     var leftColumnFocusRequesters by remember { mutableStateOf<List<FocusRequester>?>(null) }
     var rightColumnFocusRequesters by remember { mutableStateOf<List<FocusRequester>?>(null) }
-    var epgFocusRequesters by remember { mutableStateOf<List<FocusRequester>?>(null) }
     var lastFocusedPlaylistIndex by remember { mutableIntStateOf(viewState.currentChannelIndex.coerceAtLeast(0)) }
     var lastFocusedEpgIndex by remember { mutableIntStateOf(0) }
     var focusPlaylistChannel by remember { mutableStateOf<((Int, Boolean) -> Boolean)?>(null) }
@@ -338,28 +337,7 @@ fun PlayerScreen(
             }
         }
 
-        // Playlist Panel
-        val focusFirstEpgProgram: () -> Boolean = {
-            val requesters = epgFocusRequesters
-            if (requesters.isNullOrEmpty()) {
-                false
-            } else {
-                val resolvedIndex = if (lastFocusedEpgIndex in requesters.indices) {
-                    lastFocusedEpgIndex
-                } else {
-                    0
-                }
-                val requester = requesters.getOrNull(resolvedIndex)
-                if (requester != null) {
-                    requester.requestFocus()
-                    lastFocusedEpgIndex = resolvedIndex
-                    true
-                } else {
-                    false
-                }
-            }
-        }
-
+        // Focus management for panel transitions
         val focusPlaylistFromEpg: () -> Unit = {
             val targetIndex = when {
                 lastFocusedPlaylistIndex >= 0 -> lastFocusedPlaylistIndex
@@ -400,7 +378,8 @@ fun PlayerScreen(
                     }
                 },
                 onNavigateToEpg = {
-                    focusFirstEpgProgram()
+                    // EPG panel handles its own focus automatically via LazyColumn
+                    true
                 },
                 modifier = Modifier.align(Alignment.CenterStart)
             )
@@ -423,7 +402,6 @@ fun PlayerScreen(
                 onLoadMorePast = onLoadMoreEpgPast,
                 onLoadMoreFuture = onLoadMoreEpgFuture,
                 onClose = onCloseEpgPanel,
-                onRegisterFocusRequesters = { epgFocusRequesters = it },
                 onNavigateLeftToChannels = {
                     focusPlaylistFromEpg()
                 },
@@ -432,6 +410,7 @@ fun PlayerScreen(
                         lastFocusedEpgIndex = index
                     }
                 },
+                onLogDebug = onLogDebug,
                 modifier = Modifier.align(Alignment.CenterEnd)
             )
         }
@@ -1068,24 +1047,15 @@ private fun EpgPanel(
     onLoadMorePast: () -> Unit,
     onLoadMoreFuture: () -> Unit,
     onClose: () -> Unit,
-    onRegisterFocusRequesters: ((List<FocusRequester>) -> Unit)? = null,
     onNavigateLeftToChannels: (() -> Unit)? = null,
     onProgramFocused: ((Int) -> Unit)? = null,
+    onLogDebug: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     val currentTime = System.currentTimeMillis()
     val isRemoteMode = DeviceHelper.isRemoteInputActive()
-
-    // Create focus requesters for each program item
-    val focusRequesters = remember(programs.size) {
-        List(programs.size) { FocusRequester() }
-    }
-
-    LaunchedEffect(focusRequesters) {
-        onRegisterFocusRequesters?.invoke(focusRequesters)
-    }
 
     // Find current program index in original list
     val currentProgramIndex = programs.indexOfFirst { program ->
@@ -1133,8 +1103,16 @@ private fun EpgPanel(
     }
 
     fun focusProgram(targetIndex: Int): Boolean {
-        if (targetIndex !in programs.indices) return false
-        val itemIndex = programItemIndices.getOrNull(targetIndex) ?: return false
+        if (targetIndex !in programs.indices) {
+            onLogDebug?.invoke("❌ focusProgram($targetIndex) out of range [0..${programs.lastIndex}]")
+            return false
+        }
+        val itemIndex = programItemIndices.getOrNull(targetIndex)
+        if (itemIndex == null) {
+            onLogDebug?.invoke("❌ focusProgram($targetIndex) no item index")
+            return false
+        }
+        onLogDebug?.invoke("🎯 focusProgram($targetIndex) updating index")
         focusedProgramIndex = targetIndex
         onProgramFocused?.invoke(targetIndex)
         val shouldScroll = listState.layoutInfo.visibleItemsInfo.none { it.index == itemIndex }
@@ -1142,7 +1120,6 @@ private fun EpgPanel(
             if (shouldScroll) {
                 listState.animateScrollToItem(itemIndex, scrollOffset = -200)
             }
-            focusRequesters[targetIndex].requestFocus()
         }
         return true
     }
@@ -1165,15 +1142,15 @@ private fun EpgPanel(
         val channelChanged = channel?.tvgId != lastEpgChannelTvgId
         val shouldScroll = channelChanged || (!didInitialScroll && scrollToIndex >= 0)
         if (shouldScroll && scrollToIndex >= 0 && scrollToIndex < items.size) {
+            onLogDebug?.invoke("🚀 EPG LaunchedEffect: scroll to program $currentProgramIndex")
             listState.scrollToItem(scrollToIndex)
             listState.animateScrollToItem(scrollToIndex, scrollOffset = -200)
             lastEpgChannelTvgId = channel?.tvgId
             didInitialScroll = true
 
-            // Request focus on current program to move focus from channel list
-            if (currentProgramIndex >= 0 && currentProgramIndex < focusRequesters.size) {
+            // Set focused program index
+            if (currentProgramIndex >= 0 && currentProgramIndex < programs.size) {
                 delay(60)
-                focusRequesters[currentProgramIndex].requestFocus()
                 focusedProgramIndex = currentProgramIndex
                 onProgramFocused?.invoke(currentProgramIndex)
             }
@@ -1243,10 +1220,89 @@ private fun EpgPanel(
 
             // Programs List with scrollbar
             Box(modifier = Modifier.fillMaxSize()) {
+                // Focus requester for LazyColumn
+                val lazyColumnFocusRequester = remember { FocusRequester() }
+
+                // Request focus on LazyColumn when it first appears
+                LaunchedEffect(Unit) {
+                    delay(150) // Wait for composition
+                    lazyColumnFocusRequester.requestFocus()
+                    onLogDebug?.invoke("🎯 Requesting focus on EPG LazyColumn")
+                }
+
                 LazyColumn(
                     state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 8.dp, top = 4.dp, end = 16.dp, bottom = 4.dp) // Add end padding for scrollbar
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .focusRequester(lazyColumnFocusRequester)
+                        .focusable()
+                        .onKeyEvent { event ->
+                            if (event.type == KeyEventType.KeyDown && isRemoteMode) {
+                                val keyName = when(event.key.keyCode.toInt()) {
+                                    19 -> "UP"
+                                    20 -> "DOWN"
+                                    21 -> "LEFT"
+                                    22 -> "RIGHT"
+                                    23 -> "OK"
+                                    else -> event.key.keyCode.toString()
+                                }
+                                onLogDebug?.invoke("📺 EPG LazyColumn $keyName focus=$focusedProgramIndex")
+
+                                when (event.key) {
+                                    Key.DirectionUp -> {
+                                        onLogDebug?.invoke("  ⬆ EPG LazyColumn UP")
+                                        if (focusedProgramIndex > 0) {
+                                            focusProgram(focusedProgramIndex - 1)
+                                            true
+                                        } else {
+                                            onLogDebug?.invoke("    → at top")
+                                            true
+                                        }
+                                    }
+                                    Key.DirectionDown -> {
+                                        onLogDebug?.invoke("  ⬇ EPG LazyColumn DOWN")
+                                        if (focusedProgramIndex < programs.lastIndex) {
+                                            focusProgram(focusedProgramIndex + 1)
+                                            true
+                                        } else {
+                                            onLogDebug?.invoke("    → at bottom")
+                                            true
+                                        }
+                                    }
+                                    Key.DirectionCenter, Key.Enter -> {
+                                        onLogDebug?.invoke("  ✓ EPG LazyColumn OK")
+                                        val program = programs.getOrNull(focusedProgramIndex)
+                                        if (program != null) {
+                                            val isPast = program.stopTimeMillis > 0 && program.stopTimeMillis <= currentTime
+                                            val catchupWindowMillis = channel
+                                                ?.takeIf { it.supportsCatchup() }
+                                                ?.let { java.util.concurrent.TimeUnit.DAYS.toMillis(it.catchupDays.toLong()) }
+                                            val isArchiveCandidate = catchupWindowMillis != null &&
+                                                isPast &&
+                                                program.startTimeMillis > 0 &&
+                                                currentTime - program.startTimeMillis <= catchupWindowMillis
+                                            val canPlayArchive = isArchiveCandidate && !isArchivePlayback
+
+                                            if (canPlayArchive) {
+                                                onPlayArchive(program)
+                                            } else {
+                                                onProgramClick(program)
+                                            }
+                                        }
+                                        true
+                                    }
+                                    Key.DirectionLeft -> {
+                                        onLogDebug?.invoke("  ← EPG LazyColumn LEFT")
+                                        onNavigateLeftToChannels?.invoke()
+                                        true
+                                    }
+                                    else -> false
+                                }
+                            } else {
+                                false
+                            }
+                        },
+                    contentPadding = PaddingValues(start = 8.dp, top = 4.dp, end = 16.dp, bottom = 4.dp)
                 ) {
                     items(items.size, key = { items[it].first }) { index ->
                         val item = items[index]
@@ -1268,67 +1324,16 @@ private fun EpgPanel(
                                     currentTime - data.startTimeMillis <= catchupWindowMillis
                                 val canPlayArchive = isArchiveCandidate && !isArchivePlayback
 
-                                var isItemFocused by remember { mutableStateOf(false) }
-
-                                // Auto-scroll when item gets focus
-                                LaunchedEffect(isItemFocused) {
-                                    if (isItemFocused && isRemoteMode) {
-                                        coroutineScope.launch {
-                                            listState.animateScrollToItem(index, scrollOffset = -200)
-                                        }
-
-                                        // Auto-load more EPG when near edges
-                                        val visibleItemCount = listState.layoutInfo.visibleItemsInfo.size
-                                        val firstVisible = listState.firstVisibleItemIndex
-                                        val lastVisible = firstVisible + visibleItemCount
-
-                                        if (index <= firstVisible + 3 && programIndex <= 2) {
-                                            onLoadMorePast()
-                                        }
-                                        if (index >= lastVisible - 3 && programIndex >= programs.size - 3) {
-                                            onLoadMoreFuture()
-                                        }
-                                    }
-                                }
-
                                 EpgProgramItem(
                                     program = data,
                                     isCurrent = programIndex == currentProgramIndex,
                                     isPast = isPast,
                                     showArchiveIndicator = isArchiveCandidate,
+                                    isItemFocused = programIndex == focusedProgramIndex, // Visual focus indicator
                                     onClick = { onProgramClick(data) },
                                     onPlayArchive = if (canPlayArchive) { { onPlayArchive(data) } } else null,
                                     onCloseEpg = onClose,
-                                    onNavigateUp = {
-                                        if (programIndex > 0) {
-                                            focusProgram(programIndex - 1)
-                                            true
-                                        } else {
-                                            true
-                                        }
-                                    },
-                                    onNavigateDown = {
-                                        if (programIndex < programs.lastIndex) {
-                                            focusProgram(programIndex + 1)
-                                            true
-                                        } else {
-                                            true
-                                        }
-                                    },
-                                    onNavigateLeft = {
-                                        onNavigateLeftToChannels?.invoke()
-                                        true
-                                    },
-                                    onFocused = { gained ->
-                                        if (gained) {
-                                            focusedProgramIndex = programIndex
-                                            onProgramFocused?.invoke(programIndex)
-                                        }
-                                    },
-                                    focusRequester = if (programIndex >= 0 && programIndex < focusRequesters.size) {
-                                        focusRequesters[programIndex]
-                                    } else null,
-                                    modifier = Modifier.onFocusChanged { isItemFocused = it.isFocused }
+                                    onLogDebug = onLogDebug
                                 )
                             }
                         }

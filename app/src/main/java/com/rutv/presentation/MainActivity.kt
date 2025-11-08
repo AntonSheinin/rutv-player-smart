@@ -587,31 +587,30 @@ class MainActivity : ComponentActivity() {
                     toggleControlsCallback?.invoke()
                     return true
                 }
-                // Left arrow - open channel list from fullscreen view
+                // Left arrow - open channel list from fullscreen view or EPG panel
                 KeyEvent.KEYCODE_DPAD_LEFT -> {
                     val currentState = viewModel.viewState.value
                     if (areControlsVisible) {
                         return super.onKeyDown(keyCode, event) // Let ExoPlayer or CustomControlButtons handle LEFT navigation
                     }
-                    // Open playlist only when in fullscreen (no panels visible)
-                    if (!currentState.showPlaylist && !currentState.showEpgPanel && currentState.hasChannels) {
+                    // Open playlist when in fullscreen (no panels visible) OR when only EPG is visible
+                    if (!currentState.showPlaylist && currentState.hasChannels) {
                         viewModel.openPlaylist()
                         return true
                     }
-                    // If playlist or EPG is open, let Compose focus system handle LEFT navigation
+                    // If playlist is already open, let Compose focus system handle LEFT navigation
                     return super.onKeyDown(keyCode, event)
                 }
-                // Right arrow - open channel list AND EPG panel from fullscreen view
+                // Right arrow - open ONLY EPG panel from fullscreen view
                 KeyEvent.KEYCODE_DPAD_RIGHT -> {
                     val currentState = viewModel.viewState.value
                     if (areControlsVisible) {
                         return super.onKeyDown(keyCode, event) // Let ExoPlayer handle RIGHT navigation
                     }
-                    // Open both playlist and EPG when in fullscreen mode
+                    // Open only EPG panel when in fullscreen mode
                     if (!currentState.showPlaylist && !currentState.showEpgPanel) {
                         val tvgId = currentState.currentChannel?.tvgId
                         if (!tvgId.isNullOrBlank()) {
-                            viewModel.openPlaylist()
                             viewModel.showEpgForChannel(tvgId)
                             return true
                         }

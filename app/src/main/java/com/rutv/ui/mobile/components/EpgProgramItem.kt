@@ -27,23 +27,10 @@ import com.rutv.ui.shared.presentation.TimeFormatter
 import com.rutv.ui.shared.components.focusIndicatorModifier
 import com.rutv.ui.theme.ruTvColors
 import com.rutv.util.DeviceHelper
-import androidx.compose.foundation.focusable
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.key.type
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import java.util.*
 
 /**
- * EPG program item composable with remote control focus support
+ * EPG program item composable with state-based visual focus
  */
 @Composable
 fun EpgProgramItem(
@@ -52,16 +39,12 @@ fun EpgProgramItem(
     isPast: Boolean,
     showArchiveIndicator: Boolean,
     onClick: () -> Unit,
+    isItemFocused: Boolean = false, // Visual focus indicator for state-based focus
     modifier: Modifier = Modifier,
     onPlayArchive: (() -> Unit)? = null,
     onCloseEpg: (() -> Unit)? = null,
-    onNavigateUp: (() -> Boolean)? = null,
-    onNavigateDown: (() -> Boolean)? = null,
-    onNavigateLeft: (() -> Boolean)? = null,
-    onFocused: ((Boolean) -> Unit)? = null,
-    focusRequester: FocusRequester? = null
+    onLogDebug: ((String) -> Unit)? = null
 ) {
-    var isFocused by remember { mutableStateOf(false) }
     val isRemoteMode = DeviceHelper.isRemoteInputActive()
 
     val startTime = program.startTimeMillis.takeIf { it > 0L }?.let {
@@ -75,65 +58,12 @@ fun EpgProgramItem(
     }
     val contentAlpha = if (isPast && !isCurrent) 0.5f else 1f
 
-    // Handle remote key events
-    val onRemoteKeyEvent: (androidx.compose.ui.input.key.KeyEvent) -> Boolean = { event ->
-        if (event.type == KeyEventType.KeyDown && isFocused && isRemoteMode) {
-            when (event.key) {
-                Key.DirectionCenter, // DPAD_CENTER (OK button)
-                Key.Enter -> {
-                    // OK button: If program is past and in archive, play archive; otherwise show details
-                    // onPlayArchive is only provided when program can be played from archive
-                    if (onPlayArchive != null && isPast && showArchiveIndicator) {
-                        onPlayArchive.invoke()
-                    } else {
-                        onClick()
-                    }
-                    true
-                }
-                Key.DirectionRight -> {
-                    // RIGHT: Play archive if available (alternative way to play archive)
-                    onPlayArchive?.invoke()
-                    true
-                }
-                Key.DirectionUp -> {
-                    // UP: Navigate to previous program in EPG list
-                    onNavigateUp?.invoke() ?: false
-                }
-                Key.DirectionDown -> {
-                    // DOWN: Navigate to next program in EPG list
-                    onNavigateDown?.invoke() ?: false
-                }
-                Key.DirectionLeft -> {
-                    // LEFT: Return focus to channel list (or close EPG if no channel list)
-                    when {
-                        onNavigateLeft != null -> onNavigateLeft.invoke()
-                        onCloseEpg != null -> {
-                            onCloseEpg.invoke()
-                            true
-                        }
-                        else -> false
-                    }
-                }
-                else -> false
-            }
-        } else {
-            false
-        }
-    }
-
     Row(
         modifier = modifier
             .fillMaxWidth()
             .background(backgroundColor)
             .alpha(contentAlpha)
-            .focusable(enabled = true)
-            .then(focusRequester?.let { Modifier.focusRequester(it) } ?: Modifier)
-            .onFocusChanged {
-                isFocused = it.isFocused
-                onFocused?.invoke(it.isFocused)
-            }
-            .onKeyEvent(onRemoteKeyEvent)
-            .then(focusIndicatorModifier(isFocused = isFocused))
+            .then(focusIndicatorModifier(isFocused = isItemFocused)) // Use isItemFocused for visual indicator
             .then(
                 if (!isRemoteMode) {
                     Modifier.pointerInput(onClick, onPlayArchive) {
