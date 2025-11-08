@@ -810,7 +810,6 @@ class MainViewModel @Inject constructor(
                     )
                     _viewState.update {
                         it.copy(
-                            showPlaylist = true,
                             showEpgPanel = true,
                             epgChannelTvgId = tvgId,
                             epgPrograms = programs,

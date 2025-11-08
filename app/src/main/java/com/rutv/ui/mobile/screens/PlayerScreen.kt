@@ -398,6 +398,7 @@ fun PlayerScreen(
                 onProgramClick = onShowProgramDetails,
                 onPlayArchive = onPlayArchiveProgram,
                 isArchivePlayback = viewState.isArchivePlayback,
+                isPlaylistOpen = viewState.showPlaylist,
                 onLoadMorePast = onLoadMoreEpgPast,
                 onLoadMoreFuture = onLoadMoreEpgFuture,
                 onClose = onCloseEpgPanel,
@@ -1038,6 +1039,7 @@ private fun EpgPanel(
     onProgramClick: (EpgProgram) -> Unit,
     onPlayArchive: (EpgProgram) -> Unit,
     isArchivePlayback: Boolean,
+    isPlaylistOpen: Boolean,
     onLoadMorePast: () -> Unit,
     onLoadMoreFuture: () -> Unit,
     onClose: () -> Unit,
@@ -1282,9 +1284,15 @@ private fun EpgPanel(
                                         true
                                     }
                                     Key.DirectionLeft -> {
-                                        onLogDebug?.invoke("  ← EPG LazyColumn LEFT")
-                                        onNavigateLeftToChannels?.invoke()
-                                        true
+                                        onLogDebug?.invoke("  ← EPG LazyColumn LEFT (playlist=${if (isPlaylistOpen) "open" else "closed"})")
+                                        if (isPlaylistOpen) {
+                                            // Playlist is open, transfer focus to it
+                                            onNavigateLeftToChannels?.invoke()
+                                            true
+                                        } else {
+                                            // Playlist is closed, let MainActivity handle opening it
+                                            false
+                                        }
                                     }
                                     else -> false
                                 }
