@@ -871,7 +871,7 @@ private fun PlaylistPanel(
                             onChannelClick = { focusChannel(index, true) },
                             onFavoriteClick = { onFavoriteClick(channel.url) },
                             onShowPrograms = { onShowPrograms(channel.tvgId) },
-                            onLogDebug = debugLogger,
+                            onLogDebug = onLogDebug,
                             modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp)
                         )
                     }
