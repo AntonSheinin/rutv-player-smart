@@ -60,6 +60,7 @@ import com.rutv.data.model.EpgProgram
 import com.rutv.ui.mobile.screens.PlayerUiState
 import com.rutv.ui.mobile.screens.PlayerUiActions
 import com.rutv.ui.mobile.screens.rememberPlayerViewHolder
+import com.rutv.ui.mobile.screens.rememberRemoteFocusCoordinator
 import com.rutv.ui.mobile.components.ChannelListItem
 import com.rutv.ui.mobile.components.EpgDateDelimiter
 import com.rutv.ui.mobile.components.EpgProgramItem
@@ -193,7 +194,7 @@ fun PlayerScreen(
                             ViewGroup.LayoutParams.MATCH_PARENT
                         )
                         playerViewRef = this
-                        player = exoPlayer
+                        this.player = exoPlayer
                         configurePlayerView(uiState, controllerVisibilityCallback)
                     }
                 },
