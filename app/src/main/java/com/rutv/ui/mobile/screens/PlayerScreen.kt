@@ -1284,9 +1284,10 @@ private fun EpgPanel(
                                             val canPlayArchive = isArchiveCandidate && !isArchivePlayback
 
                                             if (canPlayArchive) {
+                                                onLogDebug?.invoke("    → Playing archive program")
                                                 onPlayArchive(program)
                                             } else {
-                                                onProgramClick(program)
+                                                onLogDebug?.invoke("    → Program not in archive or not past")
                                             }
                                         }
                                         true
