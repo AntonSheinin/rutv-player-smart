@@ -648,7 +648,6 @@ private fun PlaylistPanel(
     onShowPrograms: (String) -> Unit,
     onClose: () -> Unit,
     onLogDebug: ((String) -> Unit)? = null,
-    onRegisterFocusRequesters: ((List<FocusRequester>) -> Unit)? = null,
     onProvideFocusController: (((Int, Boolean) -> Boolean)?) -> Unit = {},
     onChannelFocused: ((Int) -> Unit)? = null,
     onNavigateToEpg: (() -> Boolean)? = null,
@@ -659,11 +658,6 @@ private fun PlaylistPanel(
     var showSearchDialog by remember { mutableStateOf(false) }
     var searchText by remember { mutableStateOf("") }
     val isRemoteMode = DeviceHelper.isRemoteInputActive()
-
-    // Create focus requesters for each channel item
-    val focusRequesters = remember(channels.size) {
-        List(channels.size) { FocusRequester() }
-    }
 
     var focusedChannelIndex by remember {
         mutableIntStateOf(
@@ -683,7 +677,7 @@ private fun PlaylistPanel(
             onLogDebug?.invoke("❌ focusChannel($targetIndex) out of range [0..${channels.lastIndex}]")
             false
         } else {
-            onLogDebug?.invoke("🎯 focusChannel($targetIndex, play=$play) requesting focus")
+            onLogDebug?.invoke("🎯 focusChannel($targetIndex, play=$play) updating index")
             focusedChannelIndex = targetIndex
             onChannelFocused?.invoke(targetIndex)
             val shouldScroll = listState.layoutInfo.visibleItemsInfo.none { it.index == targetIndex }
@@ -691,8 +685,6 @@ private fun PlaylistPanel(
                 if (shouldScroll) {
                     listState.animateScrollToItem(targetIndex, scrollOffset = -160)
                 }
-                focusRequesters[targetIndex].requestFocus()
-                onLogDebug?.invoke("  → requestFocus() called for Ch${targetIndex + 1}")
             }
             if (play) {
                 onChannelClick(targetIndex)
@@ -701,8 +693,7 @@ private fun PlaylistPanel(
         }
     }
 
-    LaunchedEffect(focusRequesters) {
-        onRegisterFocusRequesters?.invoke(focusRequesters)
+    LaunchedEffect(Unit) {
         onProvideFocusController(focusChannel)
     }
 
@@ -917,11 +908,12 @@ private fun PlaylistPanel(
                                 false
                             }
                         },
-                    contentPadding = PaddingValues(start = 0.dp, top = 4.dp, end = 12.dp, bottom = 4.dp) // Add end padding for scrollbar
+                    contentPadding = PaddingValues(start = 0.dp, top = 4.dp, end = 12.dp, bottom = 4.dp)
                 ) {
                     itemsIndexed(
                         items = channels,
-                        key = { _, channel -> channel.url }
+                        key = { _, channel -> channel.url },
+                        contentType = { _, _ -> "channel_item" } // Add content type for better item reuse
                     ) { index, channel ->
                         ChannelListItem(
                             channel = channel,
@@ -934,38 +926,6 @@ private fun PlaylistPanel(
                             onChannelClick = { focusChannel(index, true) },
                             onFavoriteClick = { onFavoriteClick(channel.url) },
                             onShowPrograms = { onShowPrograms(channel.tvgId) },
-                            onNavigateUp = {
-                                onLogDebug?.invoke("⬆ Ch${index + 1} UP")
-                                if (index > 0) {
-                                    onLogDebug?.invoke("  → Ch${index}")
-                                    focusChannel(index - 1, false)
-                                    true
-                                } else {
-                                    onLogDebug?.invoke("  → top")
-                                    true
-                                }
-                            },
-                            onNavigateDown = {
-                                onLogDebug?.invoke("⬇ Ch${index + 1} DOWN")
-                                if (index < channels.lastIndex) {
-                                    onLogDebug?.invoke("  → Ch${index + 2}")
-                                    focusChannel(index + 1, false)
-                                    true
-                                } else {
-                                    onLogDebug?.invoke("  → bottom")
-                                    true
-                                }
-                            },
-                            onNavigateRight = {
-                                onNavigateToEpg?.invoke() ?: false
-                            },
-                            onFocused = { gained ->
-                                if (gained) {
-                                    focusedChannelIndex = index
-                                    onChannelFocused?.invoke(index)
-                                }
-                            },
-                            focusRequester = focusRequesters[index],
                             onLogDebug = onLogDebug,
                             modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp)
                         )

@@ -56,18 +56,12 @@ fun ChannelListItem(
     onChannelClick: () -> Unit,
     onFavoriteClick: () -> Unit,
     onShowPrograms: () -> Unit,
-    onNavigateUp: (() -> Boolean)? = null,
-    onNavigateDown: (() -> Boolean)? = null,
-    onNavigateRight: (() -> Boolean)? = null,
-    onFocused: ((Boolean) -> Unit)? = null,
-    focusRequester: FocusRequester? = null,
     onLogDebug: ((String) -> Unit)? = null,
-    isItemFocused: Boolean = false, // NEW: For visual focus indicator
+    isItemFocused: Boolean = false, // Visual focus indicator for state-based focus
     modifier: Modifier = Modifier
 ) {
     var lastClickTime by remember { mutableLongStateOf(0L) }
     var clickJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
-    var isFocused by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     val isRemoteMode = DeviceHelper.isRemoteInputActive()
 
@@ -77,74 +71,9 @@ fun ChannelListItem(
         else -> MaterialTheme.ruTvColors.cardBackground
     }
 
-    // Handle remote key events
-    val onRemoteKeyEvent: (androidx.compose.ui.input.key.KeyEvent) -> Boolean = { event ->
-        // Log EVERY key event that reaches this lambda
-        val keyName = when(event.key.keyCode.toInt()) {
-            19 -> "UP"
-            20 -> "DOWN"
-            21 -> "LEFT"
-            22 -> "RIGHT"
-            23 -> "OK"
-            else -> event.key.keyCode.toString()
-        }
-        onLogDebug?.invoke("🔘 Ch$channelNumber $keyName type=${event.type} focus=$isFocused remote=$isRemoteMode")
-
-        if (event.type == KeyEventType.KeyDown && isFocused && isRemoteMode) {
-            val handled = when (event.key) {
-                Key.DirectionCenter, // DPAD_CENTER (OK button)
-                Key.Enter -> {
-                    onLogDebug?.invoke("  ✓ OK Ch$channelNumber")
-                    onChannelClick()
-                    true
-                }
-                Key.DirectionUp -> {
-                    onLogDebug?.invoke("  ⬆ UP Ch$channelNumber")
-                    val result = onNavigateUp?.invoke() ?: false
-                    onLogDebug?.invoke("    result=$result")
-                    result
-                }
-                Key.DirectionDown -> {
-                    onLogDebug?.invoke("  ⬇ DOWN Ch$channelNumber")
-                    val result = onNavigateDown?.invoke() ?: false
-                    onLogDebug?.invoke("    result=$result")
-                    result
-                }
-                Key.DirectionRight -> {
-                    onLogDebug?.invoke("  → RIGHT Ch$channelNumber")
-                    if (isEpgPanelVisible) {
-                        onNavigateRight?.invoke() ?: true
-                    } else if (channel.hasEpg) {
-                        onShowPrograms()
-                        true
-                    } else {
-                        false
-                    }
-                }
-                else -> false
-            }
-            onLogDebug?.invoke("  handled=$handled")
-            handled
-        } else {
-            onLogDebug?.invoke("  ✗ skip (type=${event.type}, focus=$isFocused, remote=$isRemoteMode)")
-            false
-        }
-    }
-
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .focusable(enabled = true)
-            .then(focusRequester?.let { Modifier.focusRequester(it) } ?: Modifier)
-            .onFocusChanged {
-                val wasFocused = isFocused
-                isFocused = it.isFocused
-                if (wasFocused != it.isFocused) {
-                    onLogDebug?.invoke("🎯 Ch$channelNumber focus=${it.isFocused} hasFocus=${it.hasFocus} isFocused=${it.isFocused}")
-                }
-                onFocused?.invoke(it.isFocused)
-            }
-            .onKeyEvent(onRemoteKeyEvent)
             .then(focusIndicatorModifier(isFocused = isItemFocused)) // Use isItemFocused for visual indicator
             .clickable(enabled = !isRemoteMode) {
                 // Touch-only clickable behavior (double-tap/single-tap)
@@ -177,23 +106,28 @@ fun ChannelListItem(
                 .padding(horizontal = 12.dp, vertical = 6.dp), // Reduced vertical padding to make items narrower
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Channel Logo
+            // Channel Logo - optimized for performance
             val context = LocalContext.current
             val sizePx = with(LocalDensity.current) { ChannelLogoSize.toPx().toInt() }
-            val logoRequest = remember(channel.logo, sizePx) {
-                ImageRequest.Builder(context)
-                    .data(channel.logo.takeIf { it.isNotBlank() })
-                    .size(sizePx)
-                    .scale(Scale.FIT)
-                    .precision(Precision.EXACT)
-                    .allowHardware(true)
-                    .crossfade(false)
-                    .build()
+
+            // Build request only when logo URL changes (not on every recomposition)
+            val logoRequest = remember(channel.logo) {
+                channel.logo.takeIf { it.isNotBlank() }?.let {
+                    ImageRequest.Builder(context)
+                        .data(it)
+                        .size(sizePx)
+                        .scale(Scale.FIT)
+                        .precision(Precision.EXACT)
+                        .allowHardware(true)
+                        .crossfade(false)
+                        .memoryCacheKey(it) // Explicit cache key
+                        .diskCacheKey(it)
+                        .build()
+                }
             }
 
             AsyncImage(
                 model = logoRequest,
-                imageLoader = remember { coil.Coil.imageLoader(context) },
                 contentDescription = stringResource(R.string.cd_channel_logo),
                 placeholder = painterResource(R.drawable.ic_channel_placeholder),
                 error = painterResource(R.drawable.ic_channel_placeholder),
@@ -266,25 +200,13 @@ fun ChannelListItem(
                     stringResource(R.string.favorite_filled)
                 else
                     stringResource(R.string.favorite_empty),
-                style = MaterialTheme.typography.headlineLarge, // Changed from headlineSmall to headlineLarge
+                style = MaterialTheme.typography.headlineLarge,
                 color = if (channel.isFavorite)
                     MaterialTheme.ruTvColors.gold
                 else
                     MaterialTheme.ruTvColors.textDisabled,
                 modifier = Modifier
                     .clickable(enabled = !isRemoteMode, onClick = onFavoriteClick)
-                    .then(
-                        // In remote mode, favorite is toggled via context menu or button Y
-                        if (isRemoteMode && isFocused) {
-                            Modifier.onKeyEvent { event ->
-                                if (event.type == KeyEventType.KeyDown) {
-                                    // KEYCODE_BUTTON_Y or KEYCODE_MENU when focused
-                                    // This will be handled in MainActivity onKeyDown
-                                    false // Let Activity handle it
-                                } else false
-                            }
-                        } else Modifier
-                    )
                     .padding(8.dp)
             )
         }
