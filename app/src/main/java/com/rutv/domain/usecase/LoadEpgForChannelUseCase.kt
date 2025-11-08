@@ -3,6 +3,7 @@ package com.rutv.domain.usecase
 import com.rutv.data.model.EpgProgram
 import com.rutv.data.repository.EpgRepository
 import com.rutv.util.Result
+import com.rutv.util.logDebug
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -41,7 +42,7 @@ class LoadEpgForChannelUseCase @Inject constructor(
                 currentProgram = currentProgram
             )
 
-            Timber.d("Loaded EPG for $tvgId: ${programs.size} programs${currentProgram?.let { ", current: ${it.title}" } ?: ""}")
+            logDebug { "Loaded EPG for $tvgId: ${programs.size} programs${currentProgram?.let { ", current: ${it.title}" } ?: ""}" }
             return Result.Success(data)
 
         } catch (e: Exception) {

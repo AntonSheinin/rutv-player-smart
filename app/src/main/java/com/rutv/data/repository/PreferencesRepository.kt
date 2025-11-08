@@ -8,6 +8,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.rutv.data.model.PlayerConfig
 import com.rutv.data.model.PlaylistSource
 import com.rutv.util.PlayerConstants
+import com.rutv.util.logDebug
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -97,7 +98,7 @@ class PreferencesRepository @Inject constructor(
             }
             preferences.remove(PreferencesKeys.PLAYLIST_URL)
         }
-        Timber.d("Saved playlist from file")
+        logDebug { "Saved playlist from file" }
     }
 
     suspend fun savePlaylistFromUrl(url: String) {
@@ -107,7 +108,7 @@ class PreferencesRepository @Inject constructor(
             preferences.remove(PreferencesKeys.PLAYLIST_CONTENT)
             preferences.remove(PreferencesKeys.PLAYLIST_FILE_NAME)
         }
-        Timber.d("Saved playlist from URL: $url")
+        logDebug { "Saved playlist from URL: $url" }
     }
 
     suspend fun savePlaylistHash(hash: String) {
@@ -133,7 +134,7 @@ class PreferencesRepository @Inject constructor(
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.EPG_URL] = url
         }
-        Timber.d("Saved EPG URL: $url")
+        logDebug { "Saved EPG URL: $url" }
     }
 
     /**
@@ -149,7 +150,7 @@ class PreferencesRepository @Inject constructor(
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.EPG_DAYS_AHEAD] = days
         }
-        Timber.d("Saved EPG days ahead: $days")
+        logDebug { "Saved EPG days ahead: $days" }
     }
 
     /**
@@ -165,7 +166,7 @@ class PreferencesRepository @Inject constructor(
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.EPG_DAYS_PAST] = days
         }
-        Timber.d("Saved EPG days past: $days")
+        logDebug { "Saved EPG days past: $days" }
     }
 
     /**
@@ -181,7 +182,7 @@ class PreferencesRepository @Inject constructor(
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.EPG_PAGE_DAYS] = days
         }
-        Timber.d("Saved EPG page size (days): $days")
+        logDebug { "Saved EPG page size (days): $days" }
     }
 
     /**
@@ -204,7 +205,7 @@ class PreferencesRepository @Inject constructor(
             preferences[PreferencesKeys.BUFFER_SECONDS] = config.bufferSeconds
             preferences[PreferencesKeys.SHOW_DEBUG_LOG] = config.showDebugLog
         }
-        Timber.d("Saved player config: $config")
+        logDebug { "Saved player config: $config" }
     }
 
     /**
@@ -233,7 +234,7 @@ class PreferencesRepository @Inject constructor(
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.LAST_EPG_FETCH_TIMESTAMP] = timestamp
         }
-        Timber.d("Saved last EPG fetch timestamp: $timestamp")
+        logDebug { "Saved last EPG fetch timestamp: $timestamp" }
     }
 
     /**
@@ -243,7 +244,7 @@ class PreferencesRepository @Inject constructor(
         dataStore.edit { preferences ->
             preferences.remove(PreferencesKeys.PLAYLIST_HASH)
         }
-        Timber.d("Cleared playlist cache")
+        logDebug { "Cleared playlist cache" }
     }
 
     /**
@@ -277,6 +278,6 @@ class PreferencesRepository @Inject constructor(
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.APP_LANGUAGE] = localeCode
         }
-        Timber.d("Saved app language: $localeCode (commit success: $success)")
+        logDebug { "Saved app language: $localeCode (commit success: $success)" }
     }
 }

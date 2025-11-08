@@ -44,6 +44,7 @@ import com.rutv.ui.theme.RuTvTheme
 import com.rutv.ui.shared.components.RemoteDialog
 import com.rutv.util.DeviceHelper
 import com.rutv.util.LocaleHelper
+import com.rutv.util.logDebug
 import dagger.hilt.android.AndroidEntryPoint
 import timber.log.Timber
 import android.view.KeyEvent
@@ -97,7 +98,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        Timber.d("MainActivity created with Compose UI")
+        logDebug { "MainActivity created with Compose UI" }
     }
 
     override fun onStart() {
@@ -393,11 +394,11 @@ class MainActivity : ComponentActivity() {
         val languageAfterSettings = LocaleHelper.getSavedLanguage(this)
         val languageChanged = languageBeforeSettings != languageAfterSettings
 
-        Timber.d("Language check: before=$languageBeforeSettings, after=$languageAfterSettings, changed=$languageChanged")
+        logDebug { "Language check: before=$languageBeforeSettings, after=$languageAfterSettings, changed=$languageChanged" }
 
         if (languageChanged) {
             // Language changed, recreate MainActivity to apply new locale
-            Timber.d("Language changed, recreating MainActivity")
+            logDebug { "Language changed, recreating MainActivity" }
             recreate()
             return@registerForActivityResult
         }
@@ -431,7 +432,7 @@ class MainActivity : ComponentActivity() {
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
         timeChangeReceiver = receiver
-        Timber.d("Registered system time change receiver")
+        logDebug { "Registered system time change receiver" }
     }
 
     private fun unregisterTimeChangeReceiver() {
@@ -439,7 +440,7 @@ class MainActivity : ComponentActivity() {
         runCatching { unregisterReceiver(receiver) }
             .onFailure { Timber.w(it, "Failed to unregister time change receiver") }
         timeChangeReceiver = null
-        Timber.d("Unregistered system time change receiver")
+        logDebug { "Unregistered system time change receiver" }
     }
 
     /**

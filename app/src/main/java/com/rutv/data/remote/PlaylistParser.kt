@@ -2,7 +2,7 @@ package com.rutv.data.remote
 
 import androidx.media3.common.util.UnstableApi
 import com.rutv.data.model.Channel
-import timber.log.Timber
+import com.rutv.util.logDebug
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -75,7 +75,7 @@ class PlaylistParser @Inject constructor() {
             }
         }
 
-        Timber.d("Parsed ${channels.size} channels from playlist")
+        logDebug { "Parsed ${channels.size} channels from playlist" }
         return channels
     }
 

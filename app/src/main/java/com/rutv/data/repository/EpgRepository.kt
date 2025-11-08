@@ -9,6 +9,7 @@ import com.google.gson.stream.JsonReader
 import com.google.gson.stream.JsonToken
 import com.rutv.data.model.*
 import com.rutv.util.EpgConstants
+import com.rutv.util.logDebug
 import com.rutv.util.Result
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -82,7 +83,7 @@ class EpgRepository @Inject constructor(
      */
     suspend fun checkHealth(epgUrl: String): Result<Boolean> = withContext(Dispatchers.IO) {
         try {
-            Timber.d("Checking EPG service health: $epgUrl/health")
+            logDebug { "Checking EPG service health: $epgUrl/health" }
             val healthUrl = URL("$epgUrl/health")
             val connection = healthUrl.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
@@ -95,7 +96,7 @@ class EpgRepository @Inject constructor(
                 val healthResponse = gson.fromJson(response, EpgHealthResponse::class.java)
                 connection.disconnect()
 
-                Timber.d("EPG health check: ${if (healthResponse.isHealthy) "OK" else "NOT OK"}")
+                logDebug { "EPG health check: ${if (healthResponse.isHealthy) "OK" else "NOT OK"}" }
                 Result.Success(healthResponse.isHealthy)
             } else {
                 Timber.w("EPG health check failed with code: $responseCode")
@@ -146,17 +147,17 @@ class EpgRepository @Inject constructor(
 
         val batchSize = max(1, EpgConstants.EPG_FETCH_BATCH_SIZE)
         val totalBatches = (channelsWithEpg.size + batchSize - 1) / batchSize
-        Timber.d("Fetching EPG for ${channelsWithEpg.size} channels in $totalBatches batch(es)")
+        logDebug { "Fetching EPG for ${channelsWithEpg.size} channels in $totalBatches batch(es)" }
 
         val deviceTimezone = TimeZone.getDefault().id
         val timezoneOffsetHours = TimeZone.getDefault().getOffset(System.currentTimeMillis()) / (1000 * 60 * 60)
-        Timber.d("EPG request timezone: $deviceTimezone (UTC${if (timezoneOffsetHours >= 0) "+" else ""}$timezoneOffsetHours)")
+        logDebug { "EPG request timezone: $deviceTimezone (UTC${if (timezoneOffsetHours >= 0) "+" else ""}$timezoneOffsetHours)" }
 
         val fromUtcMillis = window.fromUtcMillis
         val toUtcMillis = window.toUtcMillis
         val fromIso = Instant.ofEpochMilli(fromUtcMillis).toString()
         val toIso = Instant.ofEpochMilli(toUtcMillis).toString()
-        Timber.d("EPG window request: from=$fromIso to=$toIso")
+        logDebug { "EPG window request: from=$fromIso to=$toIso" }
 
         val aggregationState = EpgAggregationState()
         val overallStartTime = System.currentTimeMillis()
@@ -164,7 +165,7 @@ class EpgRepository @Inject constructor(
 
         for (chunk in channelsWithEpg.chunked(batchSize)) {
             batchIndex++
-            Timber.d("Fetching EPG batch $batchIndex/$totalBatches (${chunk.size} channels)")
+            logDebug { "Fetching EPG batch $batchIndex/$totalBatches (${chunk.size} channels)" }
             when (
                 val batchResult = fetchEpgBatch(
                     epgUrl = epgUrl,
@@ -180,9 +181,9 @@ class EpgRepository @Inject constructor(
                 is Result.Success -> {
                     val batchResponse = batchResult.data
                     updateCachesWithBatch(aggregationState, batchResponse, channelsWithEpg.size)
-                    Timber.d(
+                    logDebug {
                         "EPG batch $batchIndex parsed ${batchResponse.epg.size} channels (${batchResponse.totalPrograms} programs)"
-                    )
+                    }
                     yield()
                 }
                 is Result.Error -> {
@@ -199,9 +200,9 @@ class EpgRepository @Inject constructor(
         val totalDuration = System.currentTimeMillis() - overallStartTime
         val aggregatedResponse = aggregationState.toResponse(channelsWithEpg.size)
 
-        Timber.d(
+        logDebug {
             "EPG batches complete: ${aggregatedResponse.channelsFound}/${aggregatedResponse.channelsRequested} channels, ${aggregatedResponse.totalPrograms} programs collected in ${totalDuration}ms"
-        )
+        }
 
         saveEpgData(aggregatedResponse)
         Result.Success(aggregatedResponse)
@@ -227,12 +228,10 @@ class EpgRepository @Inject constructor(
             )
 
             val requestBody = gson.toJson(epgRequest)
-            Timber.d(
-                "EPG batch payload: %d channels, body=%d bytes. Sample: %s",
-                channels.size,
-                requestBody.length,
-                channels.take(3).joinToString { "${it.title}(${it.tvgId})" }
-            )
+            logDebug {
+                val sample = channels.take(3).joinToString { "${it.title}(${it.tvgId})" }
+                "EPG batch payload: ${channels.size} channels, body=${requestBody.length} bytes. Sample: $sample"
+            }
 
             val url = URL("$epgUrl/epg")
             connection = (url.openConnection() as HttpURLConnection).apply {
@@ -247,14 +246,12 @@ class EpgRepository @Inject constructor(
                 os.write(requestBody.toByteArray())
             }
 
-            Timber.d(
-                "EPG batch request sent (timezone=$deviceTimezone, UTC${if (timezoneOffsetHours >= 0) "+" else ""}$timezoneOffsetHours)"
-            )
+            logDebug { "EPG batch request sent (timezone=$deviceTimezone, UTC${if (timezoneOffsetHours >= 0) "+" else ""}$timezoneOffsetHours)" }
 
             val responseStart = System.currentTimeMillis()
             val responseCode = connection.responseCode
             val fetchDuration = System.currentTimeMillis() - responseStart
-            Timber.d("EPG batch HTTP $responseCode in ${fetchDuration}ms for ${channels.size} channels")
+            logDebug { "EPG batch HTTP $responseCode in ${fetchDuration}ms for ${channels.size} channels" }
 
             if (responseCode == 200) {
                 val parseStart = System.currentTimeMillis()
@@ -264,10 +261,9 @@ class EpgRepository @Inject constructor(
                 val parseDuration = System.currentTimeMillis() - parseStart
 
                 if (epgResponse != null) {
-                    Timber.d(
-                        "%snull", "EPG batch parsed in ${parseDuration}ms: " +
-                            "${epgResponse.channelsFound}/${epgResponse.channelsRequested} channels, "
-                    )
+                    logDebug {
+                        "EPG batch parsed in ${parseDuration}ms: ${epgResponse.channelsFound}/${epgResponse.channelsRequested} channels"
+                    }
                     val trimmedResponse = trimEpgToWindow(
                         epgResponse,
                         fromUtcMillis,
@@ -402,7 +398,7 @@ class EpgRepository @Inject constructor(
                     "total_programs" -> totalPrograms = jsonReader.nextInt()
                     "epg" -> {
                         // Parse epg object incrementally - one channel at a time
-                        Timber.d("Parsing EPG map with streaming parser...")
+                        logDebug { "Parsing EPG map with streaming parser..." }
                         var channelCount = 0
                         jsonReader.beginObject()
                         while (jsonReader.hasNext()) {
@@ -413,11 +409,11 @@ class EpgRepository @Inject constructor(
 
                             // Log progress every 50 channels to track memory usage
                             if (channelCount % 50 == 0) {
-                                Timber.d("Parsed $channelCount channels so far...")
+                                logDebug { "Parsed $channelCount channels so far..." }
                             }
                         }
                         jsonReader.endObject()
-                        Timber.d("Finished parsing $channelCount channels")
+                        logDebug { "Finished parsing $channelCount channels" }
                     }
                     else -> jsonReader.skipValue()
                 }
@@ -497,10 +493,10 @@ class EpgRepository @Inject constructor(
             cachedBounds = calculateBounds(epgResponse)
             val programCount = epgResponse.totalPrograms
             val channelCount = epgResponse.epg.size
-            Timber.d("EPG data cached in memory: $programCount programs across $channelCount channels")
+        logDebug { "EPG data cached in memory: $programCount programs across $channelCount channels" }
 
             try {
-                Timber.d("Saving EPG to disk with streaming + GZIP...")
+            logDebug { "Saving EPG to disk with streaming + GZIP..." }
                 val startTime = System.currentTimeMillis()
 
                 val tempFile = File(epgFile.parentFile, "${epgFile.name}.tmp")
@@ -535,10 +531,10 @@ class EpgRepository @Inject constructor(
                     val duration = System.currentTimeMillis() - startTime
                     val fileSizeKB = epgFile.length() / 1024
                     val fileSizeMB = fileSizeKB / 1024
-                    Timber.d("EPG saved to disk: ${fileSizeMB}MB (${fileSizeKB}KB) in ${duration}ms")
+                    logDebug { "EPG saved to disk: ${fileSizeMB}MB (${fileSizeKB}KB) in ${duration}ms" }
                     if (fileSizeKB > 0) {
                         val compressionRatio = (programCount * 500L) / (fileSizeKB * 1024L)
-                        Timber.d("  Compression ratio: ~$compressionRatio:1")
+                        logDebug { "Compression ratio: ~$compressionRatio:1" }
                     }
                 }
             } catch (e: OutOfMemoryError) {
@@ -559,11 +555,11 @@ class EpgRepository @Inject constructor(
 
         return try {
             if (!epgFile.exists()) {
-                Timber.d("No EPG data file found")
+            logDebug { "No EPG data file found" }
                 return null
             }
 
-            Timber.d("Loading EPG from disk with streaming parser...")
+        logDebug { "Loading EPG from disk with streaming parser..." }
             val startTime = System.currentTimeMillis()
 
             val epgResponse = epgFile.inputStream().buffered().use { fileIn ->
@@ -578,7 +574,7 @@ class EpgRepository @Inject constructor(
             cachedEpgData = epgResponse
             cachedBounds = epgResponse?.let { calculateBounds(it) }
             if (epgResponse != null) {
-                Timber.d("Loaded EPG data: ${epgResponse.totalPrograms} programs in ${duration}ms")
+                logDebug { "Loaded EPG data: ${epgResponse.totalPrograms} programs in ${duration}ms" }
             } else {
                 Timber.e("Failed to parse EPG data from disk")
             }
@@ -592,7 +588,7 @@ class EpgRepository @Inject constructor(
                 cachedEpgData = epgResponse
                 cachedBounds = epgResponse?.let { calculateBounds(it) }
                 if (epgResponse != null) {
-                    Timber.d("Loaded EPG data (legacy format): ${epgResponse.totalPrograms} programs")
+                    logDebug { "Loaded EPG data (legacy format): ${epgResponse.totalPrograms} programs" }
                 } else {
                     Timber.e("Failed to parse legacy EPG data")
                 }
@@ -674,7 +670,7 @@ class EpgRepository @Inject constructor(
 
         currentProgramsCache = cache
         currentProgramsCacheTime = System.currentTimeMillis()
-        Timber.d("EPG: Rebuilt current programs cache for ${cache.size} channels")
+        logDebug { "EPG: Rebuilt current programs cache for ${cache.size} channels" }
     }
 
     /**
@@ -891,7 +887,7 @@ class EpgRepository @Inject constructor(
         }
 
         if (trigger == TimeChangeTrigger.TIMEZONE) {
-            Timber.d("Timezone change broadcast received but timezone snapshot unchanged; no cache updates needed")
+            logDebug { "Timezone change broadcast received but timezone snapshot unchanged; no cache updates needed" }
             return TimeChangeResult.NONE
         }
 
@@ -903,10 +899,10 @@ class EpgRepository @Inject constructor(
             return TimeChangeResult.CLOCK_CHANGED
         }
 
-        Timber.d(
+        logDebug {
             "Ignoring time change trigger $trigger (timezone=${timezone.id}, offsetMinutes=$offsetMinutes, " +
                 "cachedTimezone=$lastKnownTimezoneId, cachedOffset=$lastKnownUtcOffsetMinutes)"
-        )
+        }
         return TimeChangeResult.NONE
     }
 
@@ -941,7 +937,7 @@ class EpgRepository @Inject constructor(
         if (epgFile.exists()) {
             epgFile.delete()
         }
-        Timber.d("EPG cache cleared (including current programs cache)")
+        logDebug { "EPG cache cleared (including current programs cache)" }
     }
 
 }
@@ -966,5 +962,3 @@ data class EpgBounds(
     val earliestUtcMillis: Long,
     val latestUtcMillis: Long
 )
-
-

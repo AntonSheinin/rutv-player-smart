@@ -7,6 +7,7 @@ import com.rutv.util.Constants
 import com.rutv.util.Result
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.rutv.util.logDebug
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -28,7 +29,7 @@ class PlaylistLoader @Inject constructor(
 
         val dataSource = httpFactory.createDataSource()
         return@withContext try {
-            Timber.d("Loading playlist from URL: $url")
+            logDebug { "Loading playlist from URL: $url" }
             val spec = DataSpec.Builder()
                 .setUri(url)
                 .setHttpMethod(DataSpec.HTTP_METHOD_GET)
@@ -50,7 +51,7 @@ class PlaylistLoader @Inject constructor(
                 if (total >= max) {
                     Timber.w("Playlist content reached size cap: $max bytes")
                 }
-                Timber.d("Loaded ${out.length} bytes from URL")
+                logDebug { "Loaded ${out.length} bytes from URL" }
                 Result.Success(out.toString())
             }
         } catch (e: javax.net.ssl.SSLException) {

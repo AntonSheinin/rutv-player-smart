@@ -5,6 +5,7 @@ import com.rutv.data.model.EpgResponse
 import com.rutv.data.repository.ChannelRepository
 import com.rutv.data.repository.EpgRepository
 import com.rutv.data.repository.PreferencesRepository
+import com.rutv.util.logDebug
 import com.rutv.util.Result
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -27,9 +28,7 @@ class FetchEpgUseCase @Inject constructor(
      */
     suspend operator fun invoke(): Result<EpgResponse> {
         try {
-            Timber.d("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-            Timber.d("       EPG FETCH STARTED")
-            Timber.d("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+            logDebug { "EPG fetch started" }
 
             // Get EPG URL
             val epgUrl = preferencesRepository.epgUrl.first()
@@ -37,10 +36,10 @@ class FetchEpgUseCase @Inject constructor(
                 Timber.w("✗ EPG URL not configured")
                 return Result.Error(Exception("EPG URL not configured"))
             }
-            Timber.d("EPG Service URL: $epgUrl")
+            logDebug { "EPG service URL: $epgUrl" }
 
             // Check health first
-            Timber.d("━━━ HEALTH CHECK ━━━")
+            logDebug { "Running EPG health check" }
             val healthStart = System.currentTimeMillis()
             when (val healthResult = epgRepository.checkHealth(epgUrl)) {
                 is Result.Success -> {
@@ -49,7 +48,7 @@ class FetchEpgUseCase @Inject constructor(
                         Timber.w("✗ EPG service is not healthy (took ${healthDuration}ms)")
                         return Result.Error(Exception("EPG service not healthy"))
                     }
-                    Timber.d("✓ EPG service healthy (took ${healthDuration}ms)")
+                    logDebug { "EPG service healthy (${healthDuration}ms)" }
                 }
                 is Result.Error -> {
                     val healthDuration = System.currentTimeMillis() - healthStart
@@ -60,7 +59,7 @@ class FetchEpgUseCase @Inject constructor(
             }
 
             // Get channels
-            Timber.d("━━━ CHANNEL VALIDATION ━━━")
+            logDebug { "Validating channels before EPG fetch" }
             val channelsResult = channelRepository.getAllChannels()
             val channels = when (channelsResult) {
                 is Result.Success -> channelsResult.data
@@ -75,18 +74,18 @@ class FetchEpgUseCase @Inject constructor(
                 Timber.w("✗ No channels to fetch EPG for")
                 return Result.Error(Exception("No channels loaded"))
             }
-            Timber.d("Total channels loaded: ${channels.size}")
+            logDebug { "Total channels loaded: ${channels.size}" }
 
             val channelsWithEpg = channels.filter { it.hasEpg }
             if (channelsWithEpg.isEmpty()) {
                 Timber.w("✗ No channels provide EPG identifiers (tvg-id)")
                 return Result.Error(Exception("No channels with EPG identifiers"))
             }
-            Timber.d("Channels with EPG: ${channelsWithEpg.size}/${channels.size}")
+            logDebug { "Channels with EPG: ${channelsWithEpg.size}/${channels.size}" }
 
             val epgDaysAhead = preferencesRepository.epgDaysAhead.first()
             val window = epgRepository.calculateWindow(channelsWithEpg, epgDaysAhead)
-            Timber.d("Desired EPG window: ${window.fromInstant} -> ${window.toInstant}")
+            logDebug { "Desired EPG window: ${window.fromInstant} -> ${window.toInstant}" }
 
             // If cache already covers desired window, skip network fetch
             val cacheCoversWindow = withContext(Dispatchers.IO) {
@@ -95,30 +94,26 @@ class FetchEpgUseCase @Inject constructor(
             if (cacheCoversWindow) {
                 val cached = withContext(Dispatchers.IO) { epgRepository.loadEpgData() }
                 if (cached != null) {
-                    Timber.d("EPG cache already covers desired window, skipping fetch")
+                    logDebug { "EPG cache already covers desired window, skipping fetch" }
                     return Result.Success(cached)
                 }
             }
 
             // Fetch EPG data
-            Timber.d("━━━ FETCHING EPG DATA ━━━")
+            logDebug { "Fetching EPG data for ${channelsWithEpg.size} channels" }
             val fetchStart = System.currentTimeMillis()
             val result = epgRepository.fetchEpgData(epgUrl, channelsWithEpg, window)
             val totalDuration = System.currentTimeMillis() - fetchStart
 
             when (result) {
                 is Result.Success -> {
-                    Timber.d("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-                    Timber.d("  ✓ EPG FETCH COMPLETED")
-                    Timber.d("  Total time: ${totalDuration}ms")
-                    Timber.d("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+                    logDebug {
+                        val programCount = result.data.programs.size
+                        "EPG fetch completed in ${totalDuration}ms ($programCount programs)"
+                    }
                 }
                 is Result.Error -> {
-                    Timber.e("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-                    Timber.e("  ✗ EPG FETCH FAILED")
-                    Timber.e("  Error: ${result.message}")
-                    Timber.e("  Time: ${totalDuration}ms")
-                    Timber.e("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+                    Timber.e("✗ EPG fetch failed after ${totalDuration}ms: ${result.message}")
                 }
                 is Result.Loading -> {}
             }
@@ -126,9 +121,8 @@ class FetchEpgUseCase @Inject constructor(
             return result
 
         } catch (e: Exception) {
-            Timber.e(e, "✗ Exception in FetchEpgUseCase")
+            Timber.e(e, "Exception in FetchEpgUseCase")
             return Result.Error(e)
         }
     }
 }
-

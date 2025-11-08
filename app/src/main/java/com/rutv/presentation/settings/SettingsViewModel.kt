@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.rutv.util.logDebug
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -112,7 +113,7 @@ class SettingsViewModel @Inject constructor(
                         error = null
                     )
                 }
-                Timber.d("Playlist saved from file")
+                logDebug { "Playlist saved from file" }
             } catch (e: Exception) {
                 _viewState.update {
                     it.copy(error = "Failed to save playlist: ${e.message}")
@@ -140,7 +141,7 @@ class SettingsViewModel @Inject constructor(
                         error = null
                     )
                 }
-                Timber.d("Playlist URL saved: $url")
+                logDebug { "Playlist URL saved: $url" }
             } catch (e: Exception) {
                 _viewState.update {
                     it.copy(error = "Failed to save URL: ${e.message}")
@@ -166,7 +167,7 @@ class SettingsViewModel @Inject constructor(
                             error = null
                         )
                     }
-                    Timber.d("Playlist reloaded: ${result.data.size} channels")
+                    logDebug { "Playlist reloaded: ${result.data.size} channels" }
                 }
                 is Result.Error -> {
                     _viewState.update {
@@ -191,7 +192,7 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 preferencesRepository.saveEpgUrl(url.trim())
-                Timber.d("EPG URL saved: $url")
+                logDebug { "EPG URL saved: $url" }
             } catch (e: Exception) {
                 Timber.e(e, "Failed to save EPG URL")
             }
@@ -205,7 +206,7 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 preferencesRepository.savePlayerConfig(config)
-                Timber.d("Player config saved: $config")
+                logDebug { "Player config saved: $config" }
             } catch (e: Exception) {
                 Timber.e(e, "Failed to save player config")
             }
@@ -268,7 +269,7 @@ class SettingsViewModel @Inject constructor(
             val clampedDays = days.coerceIn(1, 30)
             try {
                 preferencesRepository.saveEpgDaysAhead(clampedDays)
-                Timber.d("EPG days ahead saved: $clampedDays")
+                logDebug { "EPG days ahead saved: $clampedDays" }
             } catch (e: Exception) {
                 Timber.e(e, "Failed to save EPG days ahead")
             }
@@ -283,7 +284,7 @@ class SettingsViewModel @Inject constructor(
             val clampedDays = days.coerceIn(1, 60)
             try {
                 preferencesRepository.saveEpgDaysPast(clampedDays)
-                Timber.d("EPG days past saved: $clampedDays")
+                logDebug { "EPG days past saved: $clampedDays" }
             } catch (e: Exception) {
                 Timber.e(e, "Failed to save EPG days past")
             }
@@ -298,7 +299,7 @@ class SettingsViewModel @Inject constructor(
             val clampedDays = days.coerceIn(1, 14)
             try {
                 preferencesRepository.saveEpgPageDays(clampedDays)
-                Timber.d("EPG page days saved: $clampedDays")
+                logDebug { "EPG page days saved: $clampedDays" }
             } catch (e: Exception) {
                 Timber.e(e, "Failed to save EPG page days")
             }
@@ -326,7 +327,7 @@ class SettingsViewModel @Inject constructor(
     suspend fun setAppLanguage(localeCode: String) {
         try {
             preferencesRepository.saveAppLanguage(localeCode)
-            Timber.d("App language saved: $localeCode")
+            logDebug { "App language saved: $localeCode" }
         } catch (e: Exception) {
             Timber.e(e, "Failed to save app language")
             _viewState.update { it.copy(error = "Failed to save language preference: ${e.message}") }

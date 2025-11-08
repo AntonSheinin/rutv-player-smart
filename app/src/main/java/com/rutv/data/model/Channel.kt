@@ -95,9 +95,6 @@ data class Channel(
             null
         ).toString()
 
-        timber.log.Timber.d("DVR: Using Flussonic path-based format")
-        timber.log.Timber.d("DVR: Archive path: $archivePath")
-        timber.log.Timber.d("DVR: ${if (isOngoing) "Program still airing" else "Program complete"}, using EVENT playlist")
 
         return archiveUrl
     }

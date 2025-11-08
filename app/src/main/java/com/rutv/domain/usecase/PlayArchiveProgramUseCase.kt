@@ -3,6 +3,7 @@ package com.rutv.domain.usecase
 import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
 import com.rutv.util.Result
+import com.rutv.util.logDebug
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -38,7 +39,7 @@ class PlayArchiveProgramUseCase @Inject constructor() {
             if (program.stopTimeMillis > currentTime) {
                 val minutesRemaining = (program.stopTimeMillis - currentTime) / 60000
                 val message = "${program.title} is still airing (ends in $minutesRemaining minutes)"
-                Timber.d(message)
+                logDebug { message }
                 return Result.Error(Exception(message), message)
             }
 
@@ -63,7 +64,7 @@ class PlayArchiveProgramUseCase @Inject constructor() {
                 templateUsed = channel.catchupSource.ifBlank { "Flussonic path-based" }
             )
 
-            Timber.d("Archive playback validated: ${channel.title} -> ${program.title} (${durationMinutes}m, ${ageMinutes}m ago)")
+            logDebug { "Archive playback validated: ${channel.title} -> ${program.title} (${durationMinutes}m, ${ageMinutes}m ago)" }
             return Result.Success(info)
 
         } catch (e: Exception) {

@@ -31,7 +31,7 @@ object SSLConfig {
             // This trusts system certificates
             sslContext.init(null, null, SecureRandom())
 
-            Timber.d("SSL Context created with protocol: $protocol")
+            logDebug { "SSL Context created with protocol: $protocol" }
             sslContext
         } catch (e: Exception) {
             Timber.e(e, "Failed to create SSL context, using default")
@@ -118,10 +118,9 @@ object SSLConfig {
 
             // Hostname verifier is already set to default by the system, no need to change it
 
-            Timber.d("Default SSL Socket Factory initialized")
+            logDebug { "Default SSL Socket Factory initialized" }
         } catch (e: Exception) {
             Timber.e(e, "Failed to initialize default SSL socket factory")
         }
     }
 }
-

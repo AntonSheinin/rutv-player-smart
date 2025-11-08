@@ -31,6 +31,7 @@ import com.rutv.presentation.player.PlayerState
 import com.rutv.util.PlayerConstants
 import com.rutv.util.Result
 import com.rutv.util.StringFormatter
+import com.rutv.util.logDebug
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -181,10 +182,10 @@ class MainViewModel @Inject constructor(
 
     private suspend fun preloadCachedEpg() {
         try {
-            Timber.d("App Init: Background EPG preload - Loading cached EPG")
+            logDebug { "App Init: Background EPG preload - Loading cached EPG" }
             val cachedEpg = epgRepository.loadEpgData()
             if (cachedEpg != null) {
-                Timber.d("App Init: Cached EPG loaded (${cachedEpg.totalPrograms} programs)")
+                logDebug { "App Init: Cached EPG loaded (${cachedEpg.totalPrograms} programs)" }
                 appendDebugMessage(
                     DebugMessage(StringFormatter.formatEpgLoadedCached(cachedEpg.totalPrograms, cachedEpg.channelsFound))
                 )
@@ -196,7 +197,7 @@ class MainViewModel @Inject constructor(
                     loadedAt
                 )
             } else {
-                Timber.d("App Init: No cached EPG found")
+                logDebug { "App Init: No cached EPG found" }
                 appendDebugMessage(DebugMessage(StringFormatter.formatEpgNoCached()))
             }
         } catch (e: Exception) {
@@ -224,7 +225,7 @@ class MainViewModel @Inject constructor(
 
     private suspend fun loadPlaylistAndPlayer() {
         try {
-            Timber.d("App Init: Step 2 - Loading playlist")
+            logDebug { "App Init: Step 2 - Loading playlist" }
             withContext(Dispatchers.Main) {
                 _viewState.update { it.copy(isLoading = true, error = null) }
             }
@@ -234,7 +235,7 @@ class MainViewModel @Inject constructor(
             val shouldForceReload = source is PlaylistSource.Url
 
             val result = if (shouldForceReload) {
-                Timber.d("App Init: URL playlist detected, forcing reload from URL")
+                logDebug { "App Init: URL playlist detected, forcing reload from URL" }
                 loadPlaylistUseCase.reload()
             } else {
                 loadPlaylistUseCase()
@@ -243,7 +244,7 @@ class MainViewModel @Inject constructor(
             when (result) {
                 is Result.Success -> {
                     val channels = result.data
-                    Timber.d("App Init: Playlist loaded (${channels.size} channels)")
+                    logDebug { "App Init: Playlist loaded (${channels.size} channels)" }
 
                     withContext(Dispatchers.Main) {
                         _viewState.update {
@@ -262,17 +263,17 @@ class MainViewModel @Inject constructor(
                             DebugMessage(StringFormatter.formatEpgPlaylistLoaded(channels.size, catchupSupported.toString()))
                         )
                     } else {
-                        Timber.d("App Init: No channels loaded")
+                        logDebug { "App Init: No channels loaded" }
                         appendDebugMessage(DebugMessage(StringFormatter.formatEpgPlaylistEmpty()))
                     }
 
                     flushPendingCurrentProgramsIfReady()
 
                     if (channels.isNotEmpty()) {
-                        Timber.d("App Init: Step 3 - Initializing player")
+                        logDebug { "App Init: Step 3 - Initializing player" }
                         initializePlayer(channels)
 
-                        Timber.d("App Init: Step 4 - Checking EPG freshness")
+                        logDebug { "App Init: Step 4 - Checking EPG freshness" }
                         fetchEpgIfNeeded()
                     }
                 }
@@ -428,7 +429,7 @@ class MainViewModel @Inject constructor(
                                 )
 
                             } else {
-                                Timber.d("No channels loaded")
+                                logDebug { "No channels loaded" }
                                 appendDebugMessage(DebugMessage(StringFormatter.formatEpgPlaylistEmpty()))
                             }
                         }
@@ -552,7 +553,7 @@ class MainViewModel @Inject constructor(
                 appendDebugMessage(
                     DebugMessage(StringFormatter.formatEpgCachedCoveringWindow(hoursSinceLastFetch.toInt(), cachedEpg.totalPrograms))
                 )
-                Timber.d("EPG: Cached data covers desired window; skipping fetch")
+                logDebug { "EPG: Cached data covers desired window; skipping fetch" }
 
                 _viewState.value.currentChannel?.let { channel ->
                     updateCurrentProgram(channel)
@@ -591,7 +592,7 @@ class MainViewModel @Inject constructor(
 
             when (fetchResult) {
                 is Result.Success -> {
-                    Timber.d("EPG fetched successfully")
+                    logDebug { "EPG fetched successfully" }
                     val response = fetchResult.data
                     appendDebugMessage(
                         DebugMessage(
@@ -661,7 +662,7 @@ class MainViewModel @Inject constructor(
                     }
                 }
                 EpgRepository.TimeChangeResult.NONE -> {
-                    Timber.d("Ignoring system time change broadcast (action=$action, trigger=$trigger)")
+                    logDebug { "Ignoring system time change broadcast (action=$action, trigger=$trigger)" }
                 }
             }
         }
@@ -1166,7 +1167,7 @@ class MainViewModel @Inject constructor(
                     currentProgramsMap = updatedMap
                 )
             }
-            Timber.d("Current program updated for ${channel.title}: ${program?.title ?: "none"}")
+            logDebug { "Current program updated for ${channel.title}: ${program?.title ?: "none"}" }
         } catch (e: Exception) {
             Timber.e(e, "Error updating current program for ${channel.title}")
             _viewState.update {

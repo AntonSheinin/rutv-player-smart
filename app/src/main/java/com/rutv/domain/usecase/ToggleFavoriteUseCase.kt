@@ -2,6 +2,7 @@ package com.rutv.domain.usecase
 
 import com.rutv.data.repository.ChannelRepository
 import com.rutv.util.Result
+import com.rutv.util.logDebug
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -14,7 +15,7 @@ class ToggleFavoriteUseCase @Inject constructor(
 
     suspend operator fun invoke(channelUrl: String): Result<Boolean> {
         return try {
-            Timber.d("Toggling favorite for channel: $channelUrl")
+            logDebug { "Toggling favorite for channel: $channelUrl" }
             channelRepository.toggleFavorite(channelUrl)
         } catch (e: Exception) {
             Timber.e(e, "Error toggling favorite")

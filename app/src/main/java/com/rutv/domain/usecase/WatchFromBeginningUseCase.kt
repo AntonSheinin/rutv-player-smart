@@ -3,6 +3,7 @@ package com.rutv.domain.usecase
 import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
 import com.rutv.util.Result
+import com.rutv.util.logDebug
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -38,7 +39,7 @@ class WatchFromBeginningUseCase @Inject constructor() {
             if (program.startTimeMillis > currentTime) {
                 val minutesUntilStart = (program.startTimeMillis - currentTime) / 60000
                 val message = "${program.title} hasn't started yet (starts in $minutesUntilStart minutes)"
-                Timber.d(message)
+                logDebug { message }
                 return Result.Error(Exception(message), message)
             }
 
@@ -63,7 +64,7 @@ class WatchFromBeginningUseCase @Inject constructor() {
                 templateUsed = channel.catchupSource.ifBlank { "Flussonic path-based" }
             )
 
-            Timber.d("Timeshift validated: Restarting ${program.title} from beginning (${ageMinutes}m into program)")
+            logDebug { "Timeshift validated: Restarting ${program.title} from beginning (${ageMinutes}m into program)" }
             return Result.Success(info)
 
         } catch (e: Exception) {

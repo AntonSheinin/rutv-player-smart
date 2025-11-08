@@ -5,6 +5,7 @@ import com.rutv.data.local.dao.ChannelDao
 import com.rutv.data.local.entity.ChannelEntity
 import com.rutv.data.model.Channel
 import com.rutv.util.Result
+import com.rutv.util.logDebug
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -44,7 +45,7 @@ class ChannelRepository @Inject constructor(
                 ChannelEntity.fromChannel(channel.copy(position = index))
             }
             channelDao.insertChannels(entities)
-            Timber.d("Saved ${channels.size} channels to database")
+            logDebug { "Saved ${channels.size} channels to database" }
             Result.Success(Unit)
         } catch (e: Exception) {
             Timber.e(e, "Error saving channels")
@@ -62,7 +63,7 @@ class ChannelRepository @Inject constructor(
             if (channel != null) {
                 val newStatus = !channel.isFavorite
                 channelDao.updateFavoriteStatus(url, newStatus)
-                Timber.d("Toggled favorite for: $url to $newStatus")
+                logDebug { "Toggled favorite for: $url to $newStatus" }
                 Result.Success(newStatus)
             } else {
                 Timber.w("Channel not found for URL: $url")
@@ -80,7 +81,7 @@ class ChannelRepository @Inject constructor(
     suspend fun updateAspectRatio(url: String, aspectRatio: Int): Result<Unit> {
         return try {
             channelDao.updateAspectRatio(url, aspectRatio)
-            Timber.d("Updated aspect ratio for: $url to $aspectRatio")
+            logDebug { "Updated aspect ratio for: $url to $aspectRatio" }
             Result.Success(Unit)
         } catch (e: Exception) {
             Timber.e(e, "Error updating aspect ratio")
@@ -94,7 +95,7 @@ class ChannelRepository @Inject constructor(
     suspend fun clearAllChannels(): Result<Unit> {
         return try {
             channelDao.deleteAllChannels()
-            Timber.d("Cleared all channels")
+            logDebug { "Cleared all channels" }
             Result.Success(Unit)
         } catch (e: Exception) {
             Timber.e(e, "Error clearing channels")

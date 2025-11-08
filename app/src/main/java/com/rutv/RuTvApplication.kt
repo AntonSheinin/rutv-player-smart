@@ -11,6 +11,7 @@ import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import com.rutv.util.LocaleHelper
 import dagger.hilt.android.HiltAndroidApp
+import com.rutv.util.logDebug
 import timber.log.Timber
 
 /**
@@ -37,7 +38,7 @@ class RuTvApplication : Application(), ImageLoaderFactory {
         // Initialize SSL configuration to fix TLS handshake issues
         com.rutv.util.SSLConfig.initializeDefaultSSLSocketFactory()
 
-        Timber.d("RuTV Application started")
+        logDebug { "RuTV Application started" }
     }
 
     override fun newImageLoader(): ImageLoader {

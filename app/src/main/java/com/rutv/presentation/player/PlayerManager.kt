@@ -45,6 +45,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancel
+import com.rutv.util.logDebug
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -135,7 +136,7 @@ class PlayerManager @Inject constructor(
         startIndex: Int,
         mediaItems: List<MediaItem>
     ) {
-        Timber.d("Initializing player with ${channelList.size} channels, startIndex=$startIndex")
+        logDebug { "Initializing player with ${channelList.size} channels, startIndex=$startIndex" }
         addDebugMessage("App Started")
 
         if (channelList.isEmpty()) {
@@ -383,7 +384,7 @@ class PlayerManager @Inject constructor(
                     val currentIndex = player?.currentMediaItemIndex ?: return
                     val channel = channels.getOrNull(currentIndex) ?: return
 
-                    Timber.d("Channel transition to: ${channel.title} (#${currentIndex + 1})")
+                    logDebug { "Channel transition to: ${channel.title} (#${currentIndex + 1})" }
                     _playerState.value = PlayerState.Ready(channel, currentIndex)
                     _playerEvents.tryEmit(PlayerEvent.ChannelChanged(channel, currentIndex))
                 }
@@ -475,7 +476,7 @@ class PlayerManager @Inject constructor(
     fun playChannel(index: Int) {
         player?.let { p ->
             if (index >= 0 && index < channels.size) {
-                Timber.d("Playing channel at index $index")
+                logDebug { "Playing channel at index $index" }
                 if (isArchivePlayback) {
                     restoreLivePlaylist(index)
                 } else {
@@ -769,7 +770,7 @@ class PlayerManager @Inject constructor(
         archiveProgram = null
         pendingArchiveSeek = false
         _playerState.value = PlayerState.Idle
-        Timber.d("Player released")
+        logDebug { "Player released" }
     }
 
     /**
@@ -844,7 +845,7 @@ class PlayerManager @Inject constructor(
      * Add debug message
      */
     private fun addDebugMessage(message: String) {
-        Timber.d(message)
+        logDebug { message }
         _debugMessages.tryEmit(DebugMessage(message))
     }
 
@@ -870,7 +871,7 @@ class FFmpegRenderersFactory(
 ) : NextRenderersFactory(context) {
 
     init {
-        Timber.d("FFmpegFactory Init: Audio=$useFfmpegAudio, Video=$useFfmpegVideo")
+        logDebug { "FFmpegFactory Init: Audio=$useFfmpegAudio, Video=$useFfmpegVideo" }
         setEnableDecoderFallback(false)
         forceEnableMediaCodecAsynchronousQueueing()
         setAllowedVideoJoiningTimeMs(10000)

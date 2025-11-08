@@ -18,6 +18,7 @@ import com.rutv.presentation.settings.SettingsViewModel
 import com.rutv.ui.mobile.screens.SettingsScreen
 import com.rutv.ui.theme.RuTvTheme
 import com.rutv.util.LocaleHelper
+import com.rutv.util.logDebug
 import dagger.hilt.android.AndroidEntryPoint
 import timber.log.Timber
 
@@ -50,7 +51,7 @@ class SettingsActivity : ComponentActivity() {
             }
         }
 
-        Timber.d("SettingsActivity created with Compose UI")
+        logDebug { "SettingsActivity created with Compose UI" }
     }
 
     @Composable
