@@ -42,7 +42,8 @@ data class MainViewState(
     val error: String? = null,
     val epgNotificationMessage: String? = null,
     val epgLoadedTimestamp: Long = 0L, // Timestamp when EPG was last loaded, used to trigger adapter refresh
-    val playlistSource: PlaylistSource = PlaylistSource.None
+    val playlistSource: PlaylistSource = PlaylistSource.None,
+    val lastPlaylistScrollIndex: Int = 0
 ) {
     val playlistTitleResId: Int
         get() = if (showFavoritesOnly) R.string.playlist_title_favorites else R.string.playlist_title_channels

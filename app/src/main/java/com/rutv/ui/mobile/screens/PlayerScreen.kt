@@ -74,6 +74,9 @@ import com.rutv.util.PlayerConstants
 import android.annotation.SuppressLint
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlin.math.min
@@ -328,6 +331,7 @@ fun PlayerScreen(
                 channels = uiState.filteredChannels,
                 playlistTitleResId = uiState.playlistTitleResId,
                 currentChannelIndex = uiState.currentChannelIndex,
+                initialScrollIndex = uiState.lastPlaylistScrollIndex,
                 epgOpenIndex = if (uiState.showEpgPanel) {
                     // Find the index of the channel whose EPG is open
                     uiState.filteredChannels.indexOfFirst { it.tvgId == uiState.epgChannelTvgId }
@@ -339,6 +343,7 @@ fun PlayerScreen(
                 onFavoriteClick = actions.onToggleFavorite,
                 onShowPrograms = actions.onShowEpgForChannel,
                 onClose = actions.onClosePlaylist,
+                onUpdateScrollIndex = actions.onUpdatePlaylistScrollIndex,
                 onLogDebug = debugLogger,
                 onProvideFocusController = { controller -> focusCoordinator.registerPlaylistController(controller) },
                 onProvideFocusRequester = { requester -> focusCoordinator.registerPlaylistRequester(requester) },
@@ -583,12 +588,14 @@ private fun PlaylistPanel(
     channels: List<Channel>,
     playlistTitleResId: Int,
     currentChannelIndex: Int,
+    initialScrollIndex: Int,
     epgOpenIndex: Int,
     currentProgramsMap: Map<String, EpgProgram?>,
     onChannelClick: (Int) -> Unit,
     onFavoriteClick: (String) -> Unit,
     onShowPrograms: (String) -> Unit,
     onClose: () -> Unit,
+    onUpdateScrollIndex: (Int) -> Unit,
     onLogDebug: (String) -> Unit = {},
     onProvideFocusController: (((Int, Boolean) -> Boolean)?) -> Unit = {},
     onProvideFocusRequester: ((FocusRequester?) -> Unit)? = null,
@@ -615,18 +622,33 @@ private fun PlaylistPanel(
     // Track which channel opened EPG for focus restoration
     var channelThatOpenedEpg by remember { mutableStateOf<Int?>(null) }
 
+    var suppressNextChannelSnap by remember { mutableStateOf(false) }
+    var pendingInitialFocusIndex by remember { mutableStateOf<Int?>(null) }
+    var pendingAlignmentIndex by remember { mutableStateOf<Int?>(null) }
+    val entryInitialScrollIndex = remember(channels) { initialScrollIndex }
+    var initialFocusScheduled by remember(channels) { mutableStateOf(false) }
+
     val focusChannel: (Int, Boolean) -> Boolean = { targetIndex, play ->
         if (targetIndex !in channels.indices) {
-            onLogDebug("❌ focusChannel($targetIndex) out of range [0..${channels.lastIndex}]")
+            onLogDebug("?? focusChannel($targetIndex) out of range [0..${channels.lastIndex}]")
             false
         } else {
-            onLogDebug("🎯 focusChannel($targetIndex, play=$play) updating index")
+            onLogDebug("?? focusChannel($targetIndex, play=$play) updating index")
             focusedChannelIndex = targetIndex
             onChannelFocused?.invoke(targetIndex)
+            onUpdateScrollIndex(targetIndex)
             val shouldScroll = listState.layoutInfo.visibleItemsInfo.none { it.index == targetIndex }
+            val useInstantSnap = suppressNextChannelSnap
             coroutineScope.launch {
-                if (shouldScroll) {
-                    listState.animateScrollToItem(targetIndex, scrollOffset = -160)
+                when {
+                    useInstantSnap -> {
+                        suppressNextChannelSnap = false
+                        listState.scrollToItem(targetIndex, scrollOffset = 0)
+                        pendingAlignmentIndex = targetIndex
+                    }
+                    shouldScroll -> {
+                        listState.animateScrollToItem(targetIndex, scrollOffset = -160)
+                    }
                 }
             }
             if (play) {
@@ -635,7 +657,6 @@ private fun PlaylistPanel(
             true
         }
     }
-
     // Focus requester for LazyColumn - will be provided to parent for EPG→Playlist focus transfer
     val lazyColumnFocusRequester = remember { FocusRequester() }
 
@@ -661,20 +682,67 @@ private fun PlaylistPanel(
         }
     }
 
-    // Auto-scroll to current channel when panel opens (center it in viewport)
-    LaunchedEffect(currentChannelIndex, channels.size) {
+    // Queue initial focus once the list is ready and measurements settle
+    LaunchedEffect(channels, entryInitialScrollIndex) {
         if (channels.isEmpty()) {
-            onLogDebug("🚀 LaunchedEffect: channels empty, skipping focus")
+            pendingInitialFocusIndex = null
+            initialFocusScheduled = false
+            return@LaunchedEffect
+        }
+        if (initialFocusScheduled) {
             return@LaunchedEffect
         }
         val targetIndex = when {
             currentChannelIndex in channels.indices -> currentChannelIndex
+            entryInitialScrollIndex in channels.indices -> entryInitialScrollIndex
             focusedChannelIndex in channels.indices -> focusedChannelIndex
             else -> 0
         }
-        onLogDebug("🚀 LaunchedEffect: initial focus to Ch${targetIndex + 1} (current=$currentChannelIndex, focused=$focusedChannelIndex)")
-        delay(60)
+        onLogDebug("dYs? Playlist init target=${targetIndex + 1} (current=${currentChannelIndex + 1}, cached=${entryInitialScrollIndex + 1}, focused=$focusedChannelIndex)")
+        suppressNextChannelSnap = true
+        pendingInitialFocusIndex = targetIndex
+        initialFocusScheduled = true
+    }
+
+    LaunchedEffect(pendingInitialFocusIndex) {
+        val targetIndex = pendingInitialFocusIndex ?: return@LaunchedEffect
+        if (targetIndex !in channels.indices) {
+            pendingInitialFocusIndex = null
+            initialFocusScheduled = false
+            return@LaunchedEffect
+        }
+        snapshotFlow { listState.layoutInfo.totalItemsCount }
+            .filter { totalItems -> totalItems > 0 && totalItems >= channels.size }
+            .first()
         focusChannel(targetIndex, false)
+        pendingInitialFocusIndex = null
+    }
+
+    // After instant snap, gently nudge to offset once scrolling settles
+    LaunchedEffect(pendingAlignmentIndex) {
+        val targetIndex = pendingAlignmentIndex ?: return@LaunchedEffect
+        if (targetIndex !in channels.indices) {
+            pendingAlignmentIndex = null
+            return@LaunchedEffect
+        }
+        snapshotFlow { listState.isScrollInProgress }
+            .filter { inProgress -> !inProgress }
+            .first()
+        delay(90)
+        if (focusedChannelIndex == targetIndex) {
+            listState.animateScrollToItem(targetIndex, scrollOffset = -160)
+        }
+        pendingAlignmentIndex = null
+    }
+
+    // Cancel pending offset adjustments if user starts scrolling manually
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.isScrollInProgress }
+            .collectLatest { inProgress ->
+                if (inProgress) {
+                    pendingAlignmentIndex = null
+                }
+            }
     }
 
     // Restore focus to channel list when EPG closes
@@ -687,6 +755,7 @@ private fun PlaylistPanel(
             if (channelIndex >= 0 && channelIndex < channels.size && isRemoteMode) {
                 // Small delay to ensure EPG panel is removed first
                 delay(50)
+                suppressNextChannelSnap = true
                 focusChannel(channelIndex, false)
             }
             channelThatOpenedEpg = null

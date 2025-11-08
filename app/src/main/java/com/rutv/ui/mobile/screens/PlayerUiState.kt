@@ -39,7 +39,8 @@ data class PlayerUiState(
     val archivePrompt: ArchivePrompt?,
     val epgNotificationMessage: String?,
     val currentResizeMode: Int,
-    val playerState: PlayerState
+    val playerState: PlayerState,
+    val lastPlaylistScrollIndex: Int
 )
 
 @Immutable
@@ -67,7 +68,8 @@ data class PlayerUiActions(
     val onCloseProgramDetails: () -> Unit,
     val onLoadMoreEpgPast: () -> Unit,
     val onLoadMoreEpgFuture: () -> Unit,
-    val onClearEpgNotification: () -> Unit
+    val onClearEpgNotification: () -> Unit,
+    val onUpdatePlaylistScrollIndex: (Int) -> Unit
 )
 
 @Composable
@@ -99,7 +101,8 @@ fun rememberPlayerUiState(viewState: MainViewState): PlayerUiState {
         viewState.archivePrompt,
         viewState.epgNotificationMessage,
         viewState.currentResizeMode,
-        viewState.playerState
+        viewState.playerState,
+        viewState.lastPlaylistScrollIndex
     ) {
         PlayerUiState(
             allChannels = viewState.channels,
@@ -124,7 +127,8 @@ fun rememberPlayerUiState(viewState: MainViewState): PlayerUiState {
             archivePrompt = viewState.archivePrompt,
             epgNotificationMessage = viewState.epgNotificationMessage,
             currentResizeMode = viewState.currentResizeMode,
-            playerState = viewState.playerState
+            playerState = viewState.playerState,
+            lastPlaylistScrollIndex = viewState.lastPlaylistScrollIndex
         )
     }
 }

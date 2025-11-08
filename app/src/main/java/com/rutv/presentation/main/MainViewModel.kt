@@ -777,6 +777,13 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    fun updatePlaylistScrollIndex(index: Int) {
+        val normalized = index.coerceAtLeast(0)
+        _viewState.update { current ->
+            if (current.lastPlaylistScrollIndex == normalized) current else current.copy(lastPlaylistScrollIndex = normalized)
+        }
+    }
+
     /**
      * Close playlist
      */
@@ -1266,4 +1273,3 @@ class MainViewModel @Inject constructor(
         const val EPG_LOADED_MESSAGE = "EPG loaded"
     }
 }
-
