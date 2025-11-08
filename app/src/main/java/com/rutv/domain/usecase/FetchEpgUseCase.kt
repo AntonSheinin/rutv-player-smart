@@ -108,7 +108,7 @@ class FetchEpgUseCase @Inject constructor(
             when (result) {
                 is Result.Success -> {
                     logDebug {
-                        val programCount = result.data.programs.size
+                        val programCount = result.data.totalPrograms
                         "EPG fetch completed in ${totalDuration}ms ($programCount programs)"
                     }
                 }

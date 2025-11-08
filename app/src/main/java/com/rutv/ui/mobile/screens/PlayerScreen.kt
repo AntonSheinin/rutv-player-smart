@@ -1084,8 +1084,8 @@ private fun EpgPanel(
     }
     val listState = remember(channel?.tvgId) {
         LazyListState(
-            initialFirstVisibleItemIndex = max(resolvedInitialItemIndex, 0),
-            initialFirstVisibleItemScrollOffset = 0
+            max(resolvedInitialItemIndex, 0),
+            0
         )
     }
 
