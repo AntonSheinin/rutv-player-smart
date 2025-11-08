@@ -37,6 +37,9 @@ import com.rutv.R
 import com.rutv.data.model.EpgProgram
 import com.rutv.presentation.main.MainViewModel
 import com.rutv.ui.mobile.screens.PlayerScreen
+import com.rutv.ui.mobile.screens.PlayerUiState
+import com.rutv.ui.mobile.screens.PlayerUiActions
+import com.rutv.ui.mobile.screens.rememberPlayerUiState
 import com.rutv.ui.theme.RuTvTheme
 import com.rutv.ui.shared.components.RemoteDialog
 import com.rutv.util.DeviceHelper
@@ -158,37 +161,28 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Coil will automatically use the ImageLoader from RuTvApplication's ImageLoaderFactory
-        // Store toggle controls callback
-        var toggleControlsCallbackState by remember { mutableStateOf<(() -> Unit)?>(null) }
-        toggleControlsCallback = toggleControlsCallbackState
-
-        PlayerScreen(
-            viewState = viewState,
-            player = viewModel.getPlayer(),
-            onPlayChannel = { index: Int -> viewModel.playChannel(index) },
-            onToggleFavorite = { url: String -> viewModel.toggleFavorite(url) },
-            onShowEpgForChannel = { tvgId: String -> viewModel.showEpgForChannel(tvgId) },
+        val playerUiState = rememberPlayerUiState(viewState)
+        val playerActions = PlayerUiActions(
+            onPlayChannel = { index -> viewModel.playChannel(index) },
+            onToggleFavorite = { url -> viewModel.toggleFavorite(url) },
+            onShowEpgForChannel = { tvgId -> viewModel.showEpgForChannel(tvgId) },
             onTogglePlaylist = { viewModel.togglePlaylist() },
-            onRegisterToggleControls = { callback -> toggleControlsCallbackState = callback },
-            onControlsVisibilityChanged = { visible -> areControlsVisible = visible },
             onToggleFavorites = { viewModel.toggleFavorites() },
             onClosePlaylist = { viewModel.closePlaylist() },
             onCloseEpgPanel = { viewModel.closeEpgPanel() },
             onCycleAspectRatio = { viewModel.cycleAspectRatio() },
             onOpenSettings = {
-                // Save current language before opening settings
                 languageBeforeSettings = LocaleHelper.getSavedLanguage(this@MainActivity)
                 settingsLauncher.launch(Intent(context, SettingsActivity::class.java))
             },
             onGoToChannel = {
-                if (viewState.hasChannels) {
+                if (playerUiState.hasChannels) {
                     channelInput = ""
                     showChannelDialog = true
                 }
             },
-            onShowProgramDetails = { program: EpgProgram -> viewModel.showProgramDetails(program) },
-            onPlayArchiveProgram = { program: EpgProgram -> viewModel.playArchiveProgram(program) },
+            onShowProgramDetails = { program -> viewModel.showProgramDetails(program) },
+            onPlayArchiveProgram = { program -> viewModel.playArchiveProgram(program) },
             onReturnToLive = { viewModel.returnToLive() },
             onRestartPlayback = { viewModel.restartCurrentPlayback() },
             onSeekBack = { viewModel.seekBackTenSeconds() },
@@ -200,8 +194,20 @@ class MainActivity : ComponentActivity() {
             onCloseProgramDetails = { viewModel.closeProgramDetails() },
             onLoadMoreEpgPast = { viewModel.loadMoreEpgPast() },
             onLoadMoreEpgFuture = { viewModel.loadMoreEpgFuture() },
-            epgNotificationMessage = viewState.epgNotificationMessage,
-            onClearEpgNotification = { viewModel.clearEpgNotification() },
+            onClearEpgNotification = { viewModel.clearEpgNotification() }
+        )
+
+        // Coil will automatically use the ImageLoader from RuTvApplication's ImageLoaderFactory
+        // Store toggle controls callback
+        var toggleControlsCallbackState by remember { mutableStateOf<(() -> Unit)?>(null) }
+        toggleControlsCallback = toggleControlsCallbackState
+
+        PlayerScreen(
+            uiState = playerUiState,
+            player = viewModel.getPlayer(),
+            actions = playerActions,
+            onRegisterToggleControls = { callback -> toggleControlsCallbackState = callback },
+            onControlsVisibilityChanged = { visible -> areControlsVisible = visible },
             onLogDebug = { message -> viewModel.logDebug(message) },
             modifier = Modifier.fillMaxSize()
         )
@@ -688,5 +694,3 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
-

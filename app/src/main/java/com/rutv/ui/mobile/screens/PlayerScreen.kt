@@ -1,6 +1,5 @@
 package com.rutv.ui.mobile.screens
 
-import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -58,7 +57,9 @@ import androidx.media3.ui.R as Media3UiR
 import com.rutv.R
 import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
-import com.rutv.presentation.main.MainViewState
+import com.rutv.ui.mobile.screens.PlayerUiState
+import com.rutv.ui.mobile.screens.PlayerUiActions
+import com.rutv.ui.mobile.screens.rememberPlayerViewHolder
 import com.rutv.ui.mobile.components.ChannelListItem
 import com.rutv.ui.mobile.components.EpgDateDelimiter
 import com.rutv.ui.mobile.components.EpgProgramItem
@@ -83,46 +84,33 @@ import java.util.*
 @UnstableApi
 @Composable
 fun PlayerScreen(
-    viewState: MainViewState,
+    uiState: PlayerUiState,
     player: ExoPlayer?,
-    onPlayChannel: (Int) -> Unit,
-    onToggleFavorite: (String) -> Unit,
-    onShowEpgForChannel: (String) -> Unit,
-    onTogglePlaylist: () -> Unit,
-    onToggleFavorites: () -> Unit,
-    onClosePlaylist: () -> Unit,
-    onCloseEpgPanel: () -> Unit,
-    onCycleAspectRatio: () -> Unit,
-    onOpenSettings: () -> Unit,
-    onGoToChannel: () -> Unit,
-    onShowProgramDetails: (EpgProgram) -> Unit,
-    onPlayArchiveProgram: (EpgProgram) -> Unit,
-    onReturnToLive: () -> Unit,
-    onRestartPlayback: () -> Unit,
-    onSeekBack: () -> Unit,
-    onSeekForward: () -> Unit,
-    onPausePlayback: () -> Unit,
-    onResumePlayback: () -> Unit,
-    onArchivePromptContinue: () -> Unit,
-    onArchivePromptBackToLive: () -> Unit,
-    onCloseProgramDetails: () -> Unit,
-    onLoadMoreEpgPast: () -> Unit,
-    onLoadMoreEpgFuture: () -> Unit,
-    epgNotificationMessage: String?,
-    onClearEpgNotification: () -> Unit,
+    actions: PlayerUiActions,
     onRegisterToggleControls: ((() -> Unit)) -> Unit,
     onControlsVisibilityChanged: ((Boolean) -> Unit)? = null,
     onLogDebug: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    val debugLogger: (String) -> Unit = remember(uiState.showDebugLog, onLogDebug) {
+        { message: String ->
+            if (uiState.showDebugLog) {
+                onLogDebug?.invoke(message)
+            }
+        }
+    }
+    val focusCoordinator = rememberRemoteFocusCoordinator(debugLogger)
     var showControls by remember { mutableStateOf(false) }
     var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
+    val controllerVisibilityCallback by rememberUpdatedState<(Boolean) -> Unit> { visible ->
+        showControls = visible
+    }
 
     // Store focus requesters for custom controls (for ExoPlayer navigation)
     var leftColumnFocusRequesters by remember { mutableStateOf<List<FocusRequester>?>(null) }
     var rightColumnFocusRequesters by remember { mutableStateOf<List<FocusRequester>?>(null) }
-    var lastFocusedPlaylistIndex by remember { mutableIntStateOf(viewState.currentChannelIndex.coerceAtLeast(0)) }
-    var focusPlaylistChannel by remember { mutableStateOf<((Int, Boolean) -> Boolean)?>(null) }
+    var lastFocusedPlaylistIndex by remember { mutableIntStateOf(uiState.currentChannelIndex.coerceAtLeast(0)) }
+    var lastControlsSignature by remember { mutableStateOf<ControlsSignature?>(null) }
 
     // Callbacks to move focus to custom controls (used by ExoPlayer controls)
     var navigateToFavoritesCallback by remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -166,7 +154,9 @@ fun PlayerScreen(
                 }
             }
         }
-        // Notify parent about controls visibility
+    }
+
+    LaunchedEffect(showControls) {
         onControlsVisibilityChanged?.invoke(showControls)
     }
 
@@ -187,73 +177,45 @@ fun PlayerScreen(
     ) {
         // EPG Notification
         EpgNotificationToast(
-            message = epgNotificationMessage,
-            onDismiss = onClearEpgNotification,
+            message = uiState.epgNotificationMessage,
+            onDismiss = actions.onClearEpgNotification,
             modifier = Modifier
         )
 
         // ExoPlayer View
-        player?.let {
-            @Suppress("DiscouragedApi")
+        val playerViewHolder = rememberPlayerViewHolder()
+        player?.let { exoPlayer ->
             AndroidView(
-                factory = { context ->
-                    (LayoutInflater.from(context)
-                        .inflate(R.layout.player_view_texture, null, false) as PlayerView).also { playerView ->
-                        playerViewRef = playerView
-                        playerView.layoutParams = FrameLayout.LayoutParams(
+                factory = {
+                    playerViewHolder.obtain().apply {
+                        layoutParams = FrameLayout.LayoutParams(
                             ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.MATCH_PARENT
                         )
-                        playerView.player = it
-                        playerView.useController = true
-                        playerView.controllerShowTimeoutMs = PlayerConstants.CONTROLLER_AUTO_HIDE_TIMEOUT_MS // Auto-hide controls
-                        playerView.controllerHideOnTouch = true
-                        playerView.resizeMode = viewState.currentResizeMode
-                        playerView.setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
-                        // Hide shuffle, subtitle, and settings buttons (keep prev/next)
-                        playerView.setShowShuffleButton(false)
-                        playerView.setShowSubtitleButton(false)
-                        // Try to hide settings button if method exists
-                        try {
-                            playerView::class.java.getMethod("setShowSettingsButton", Boolean::class.javaPrimitiveType)
-                                .invoke(playerView, false)
-                        } catch (_: Exception) {
-                            // Method doesn't exist in this version, ignore
-                        }
-                        playerView.setShowPreviousButton(true)
-                        playerView.setShowNextButton(true)
-                        playerView.setShowRewindButton(true)
-                        playerView.setShowFastForwardButton(true)
-                        playerView.hideSettingsControls()
-                        playerView.post { playerView.hideSettingsControls() }
-
-                        // Listen for controller visibility changes
-                        playerView.setControllerVisibilityListener(
-                            PlayerView.ControllerVisibilityListener { visibility ->
-                                // Update custom controls when ExoPlayer controls change visibility
-                                showControls = (visibility == View.VISIBLE)
-                            }
-                        )
+                        playerViewRef = this
+                        player = exoPlayer
+                        configurePlayerView(uiState, controllerVisibilityCallback)
                     }
                 },
                 update = { playerView ->
                     playerViewRef = playerView
-                    playerView.player = it
-                    playerView.resizeMode = viewState.currentResizeMode
-                    playerView.applyControlCustomizations(
-                        isArchivePlayback = viewState.isArchivePlayback,
-                        currentProgram = if (viewState.isArchivePlayback) viewState.archiveProgram else viewState.currentProgram,
-                        onRestartPlayback = onRestartPlayback,
-                        onSeekBack = onSeekBack,
-                        onSeekForward = onSeekForward,
-                        onPausePlayback = onPausePlayback,
-                        onResumePlayback = onResumePlayback,
-                        onNavigateLeftToFavorites = navigateToFavoritesCallback,
-                        onNavigateRightToRotate = navigateToRotateCallback
+                    playerView.player = exoPlayer
+                    playerView.resizeMode = uiState.currentResizeMode
+                    val controlsSignature = ControlsSignature(
+                        isArchivePlayback = uiState.isArchivePlayback,
+                        programHash = (uiState.archiveProgram ?: uiState.currentProgram)?.hashCode() ?: 0,
+                        navigateLeftHash = navigateToFavoritesCallback?.hashCode() ?: 0,
+                        navigateRightHash = navigateToRotateCallback?.hashCode() ?: 0
                     )
-                    playerView.hideSettingsControls()
-
-                    // Setup navigation from ExoPlayer controls to custom controls will be done in applyControlCustomizations
+                    if (controlsSignature != lastControlsSignature) {
+                        playerView.bindControls(
+                            uiState = uiState,
+                            actions = actions,
+                            onNavigateLeftToFavorites = navigateToFavoritesCallback,
+                            onNavigateRightToRotate = navigateToRotateCallback
+                        )
+                        lastControlsSignature = controlsSignature
+                    }
                 },
                 modifier = Modifier.fillMaxSize()
             )
@@ -292,11 +254,11 @@ fun PlayerScreen(
                 }
             }
             CustomControlButtons(
-                onPlaylistClick = onTogglePlaylist,
-                onFavoritesClick = onToggleFavorites,
-                onGoToChannelClick = onGoToChannel,
-                onAspectRatioClick = onCycleAspectRatio,
-                onSettingsClick = onOpenSettings,
+                onPlaylistClick = actions.onTogglePlaylist,
+                onFavoritesClick = actions.onToggleFavorites,
+                onGoToChannelClick = actions.onGoToChannel,
+                onAspectRatioClick = actions.onCycleAspectRatio,
+                onSettingsClick = actions.onOpenSettings,
                 onNavigateRightFromFavorites = { focusLeftmostExoControl() },
                 onNavigateLeftFromRotate = { focusRightmostExoControl() },
                 onRegisterFocusRequesters = { left, right ->
@@ -321,66 +283,64 @@ fun PlayerScreen(
             exit = fadeOut(),
             modifier = Modifier.align(Alignment.TopCenter)
         ) {
-            viewState.currentChannel?.let { channel ->
+            uiState.currentChannel?.let { channel ->
                 ChannelInfoOverlay(
-                    channelNumber = viewState.currentChannelIndex + 1,
+                    channelNumber = uiState.currentChannelIndex + 1,
                     channel = channel,
-                    currentProgram = viewState.currentProgram,
-                    isArchivePlayback = viewState.isArchivePlayback,
-                    isTimeshiftPlayback = viewState.isTimeshiftPlayback,
-                    archiveProgram = viewState.archiveProgram,
-                    onReturnToLive = onReturnToLive,
-                    onShowProgramInfo = onShowProgramDetails,
+                    currentProgram = uiState.currentProgram,
+                    isArchivePlayback = uiState.isArchivePlayback,
+                    isTimeshiftPlayback = uiState.isTimeshiftPlayback,
+                    archiveProgram = uiState.archiveProgram,
+                    onReturnToLive = actions.onReturnToLive,
+                    onShowProgramInfo = actions.onShowProgramDetails,
                     modifier = Modifier.padding(LayoutConstants.DefaultPadding)
                 )
             }
         }
 
         // Focus management for panel transitions
-        var playlistFocusRequester by remember { mutableStateOf<FocusRequester?>(null) }
-
         val focusPlaylistFromEpg: () -> Unit = {
-            onLogDebug?.invoke("← EPG→Playlist: Transferring focus (requester=${playlistFocusRequester != null})")
+            debugLogger("← EPG→Playlist: Transferring focus")
 
             // Request focus on playlist LazyColumn
-            playlistFocusRequester?.requestFocus()
+            focusCoordinator.requestPlaylistFocus()
 
             // Also update the focused channel index
             val targetIndex = when {
                 lastFocusedPlaylistIndex >= 0 -> lastFocusedPlaylistIndex
-                viewState.currentChannelIndex >= 0 -> viewState.currentChannelIndex
+                uiState.currentChannelIndex >= 0 -> uiState.currentChannelIndex
                 else -> -1
             }
             val resolvedIndex = when {
-                targetIndex >= 0 && targetIndex < viewState.filteredChannels.size -> targetIndex
-                viewState.filteredChannels.isNotEmpty() -> 0
+                targetIndex >= 0 && targetIndex < uiState.filteredChannels.size -> targetIndex
+                uiState.filteredChannels.isNotEmpty() -> 0
                 else -> -1
             }
             if (resolvedIndex >= 0) {
-                onLogDebug?.invoke("← EPG→Playlist: Focusing channel $resolvedIndex")
-                focusPlaylistChannel?.invoke(resolvedIndex, false)
-            }
+                debugLogger("← EPG→Playlist: Focusing channel $resolvedIndex")
+                focusCoordinator.focusPlaylist(resolvedIndex, false)
+        }
         }
 
-        if (viewState.showPlaylist) {
+        if (uiState.showPlaylist) {
             PlaylistPanel(
-                channels = viewState.filteredChannels,
-                playlistTitleResId = viewState.playlistTitleResId,
-                currentChannelIndex = viewState.currentChannelIndex,
-                epgOpenIndex = if (viewState.showEpgPanel) {
+                channels = uiState.filteredChannels,
+                playlistTitleResId = uiState.playlistTitleResId,
+                currentChannelIndex = uiState.currentChannelIndex,
+                epgOpenIndex = if (uiState.showEpgPanel) {
                     // Find the index of the channel whose EPG is open
-                    viewState.filteredChannels.indexOfFirst { it.tvgId == viewState.epgChannelTvgId }
+                    uiState.filteredChannels.indexOfFirst { it.tvgId == uiState.epgChannelTvgId }
                 } else {
                     -1
                 },
-                currentProgramsMap = viewState.currentProgramsMap,
-                onChannelClick = onPlayChannel,
-                onFavoriteClick = onToggleFavorite,
-                onShowPrograms = onShowEpgForChannel,
-                onClose = onClosePlaylist,
-                onLogDebug = onLogDebug,
-                onProvideFocusController = { controller -> focusPlaylistChannel = controller },
-                onProvideFocusRequester = { requester -> playlistFocusRequester = requester },
+                currentProgramsMap = uiState.currentProgramsMap,
+                onChannelClick = actions.onPlayChannel,
+                onFavoriteClick = actions.onToggleFavorite,
+                onShowPrograms = actions.onShowEpgForChannel,
+                onClose = actions.onClosePlaylist,
+                onLogDebug = debugLogger,
+                onProvideFocusController = { controller -> focusCoordinator.registerPlaylistController(controller) },
+                onProvideFocusRequester = { requester -> focusCoordinator.registerPlaylistRequester(requester) },
                 onChannelFocused = { index ->
                     if (index >= 0) {
                         lastFocusedPlaylistIndex = index
@@ -393,58 +353,54 @@ fun PlayerScreen(
                 modifier = Modifier.align(Alignment.CenterStart)
             )
         } else {
-            focusPlaylistChannel = null
-            playlistFocusRequester = null
+            focusCoordinator.clearPlaylist()
         }
 
         // EPG Panel
-        val epgChannel = remember(viewState.epgChannelTvgId, viewState.channels, viewState.currentChannel) {
-            viewState.channels.firstOrNull { it.tvgId == viewState.epgChannelTvgId }
-                ?: viewState.currentChannel
-        }
-        if (viewState.showEpgPanel && viewState.epgPrograms.isNotEmpty()) {
+        val epgChannel = uiState.epgChannel
+        if (uiState.showEpgPanel && uiState.epgPrograms.isNotEmpty()) {
             EpgPanel(
-                programs = viewState.epgPrograms,
+                programs = uiState.epgPrograms,
                 channel = epgChannel,
-                onProgramClick = onShowProgramDetails,
-                onPlayArchive = onPlayArchiveProgram,
-                isArchivePlayback = viewState.isArchivePlayback,
-                isPlaylistOpen = viewState.showPlaylist,
-                onLoadMorePast = onLoadMoreEpgPast,
-                onLoadMoreFuture = onLoadMoreEpgFuture,
-                onClose = onCloseEpgPanel,
+                onProgramClick = actions.onShowProgramDetails,
+                onPlayArchive = actions.onPlayArchiveProgram,
+                isArchivePlayback = uiState.isArchivePlayback,
+                isPlaylistOpen = uiState.showPlaylist,
+                onLoadMorePast = actions.onLoadMoreEpgPast,
+                onLoadMoreFuture = actions.onLoadMoreEpgFuture,
+                onClose = actions.onCloseEpgPanel,
                 onNavigateLeftToChannels = {
                     focusPlaylistFromEpg()
                 },
-                onLogDebug = onLogDebug,
+                onLogDebug = debugLogger,
                 modifier = Modifier.align(Alignment.CenterEnd)
             )
         }
 
         // Program Details Panel
-        viewState.selectedProgramDetails?.let { program ->
+        uiState.selectedProgramDetails?.let { program ->
             ProgramDetailsPanel(
                 program = program,
-                onClose = onCloseProgramDetails,
+                onClose = actions.onCloseProgramDetails,
                 modifier = Modifier.align(Alignment.Center)
             )
         }
 
         // Debug Log Panel
-        if (viewState.showDebugLog && viewState.debugMessages.isNotEmpty()) {
+        if (uiState.showDebugLog && uiState.debugMessages.isNotEmpty()) {
             DebugLogPanel(
-                messages = viewState.debugMessages.takeLast(100).map { it.message },
+                messages = uiState.debugMessages.takeLast(100).map { it.message },
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(16.dp)
             )
         }
 
-        viewState.archivePrompt?.let { prompt ->
+        uiState.archivePrompt?.let { prompt ->
             ArchivePromptDialog(
                 prompt = prompt,
-                onContinue = onArchivePromptContinue,
-                onBackToLive = onArchivePromptBackToLive
+                onContinue = actions.onArchivePromptContinue,
+                onBackToLive = actions.onArchivePromptBackToLive
             )
         }
     }
@@ -632,7 +588,7 @@ private fun PlaylistPanel(
     onFavoriteClick: (String) -> Unit,
     onShowPrograms: (String) -> Unit,
     onClose: () -> Unit,
-    onLogDebug: ((String) -> Unit)? = null,
+    onLogDebug: (String) -> Unit = {},
     onProvideFocusController: (((Int, Boolean) -> Boolean)?) -> Unit = {},
     onProvideFocusRequester: ((FocusRequester?) -> Unit)? = null,
     onChannelFocused: ((Int) -> Unit)? = null,
@@ -660,10 +616,10 @@ private fun PlaylistPanel(
 
     val focusChannel: (Int, Boolean) -> Boolean = { targetIndex, play ->
         if (targetIndex !in channels.indices) {
-            onLogDebug?.invoke("❌ focusChannel($targetIndex) out of range [0..${channels.lastIndex}]")
+            onLogDebug("❌ focusChannel($targetIndex) out of range [0..${channels.lastIndex}]")
             false
         } else {
-            onLogDebug?.invoke("🎯 focusChannel($targetIndex, play=$play) updating index")
+            onLogDebug("🎯 focusChannel($targetIndex, play=$play) updating index")
             focusedChannelIndex = targetIndex
             onChannelFocused?.invoke(targetIndex)
             val shouldScroll = listState.layoutInfo.visibleItemsInfo.none { it.index == targetIndex }
@@ -707,7 +663,7 @@ private fun PlaylistPanel(
     // Auto-scroll to current channel when panel opens (center it in viewport)
     LaunchedEffect(currentChannelIndex, channels.size) {
         if (channels.isEmpty()) {
-            onLogDebug?.invoke("🚀 LaunchedEffect: channels empty, skipping focus")
+            onLogDebug("🚀 LaunchedEffect: channels empty, skipping focus")
             return@LaunchedEffect
         }
         val targetIndex = when {
@@ -715,7 +671,7 @@ private fun PlaylistPanel(
             focusedChannelIndex in channels.indices -> focusedChannelIndex
             else -> 0
         }
-        onLogDebug?.invoke("🚀 LaunchedEffect: initial focus to Ch${targetIndex + 1} (current=$currentChannelIndex, focused=$focusedChannelIndex)")
+        onLogDebug("🚀 LaunchedEffect: initial focus to Ch${targetIndex + 1} (current=$currentChannelIndex, focused=$focusedChannelIndex)")
         delay(60)
         focusChannel(targetIndex, false)
     }
@@ -829,7 +785,7 @@ private fun PlaylistPanel(
                 LaunchedEffect(Unit) {
                     delay(150) // Wait for composition
                     lazyColumnFocusRequester.requestFocus()
-                    onLogDebug?.invoke("🎯 Requesting focus on Playlist LazyColumn")
+                    onLogDebug("🎯 Requesting focus on Playlist LazyColumn")
                 }
 
                 LazyColumn(
@@ -848,36 +804,36 @@ private fun PlaylistPanel(
                                     23 -> "OK"
                                     else -> event.key.keyCode.toString()
                                 }
-                                onLogDebug?.invoke("📋 LazyColumn $keyName focus=$focusedChannelIndex")
+                                onLogDebug("📋 LazyColumn $keyName focus=$focusedChannelIndex")
 
                                 when (event.key) {
                                     Key.DirectionUp -> {
-                                        onLogDebug?.invoke("  ⬆ LazyColumn UP")
+                                        onLogDebug("  ⬆ LazyColumn UP")
                                         if (focusedChannelIndex > 0) {
                                             focusChannel(focusedChannelIndex - 1, false)
                                             true
                                         } else {
-                                            onLogDebug?.invoke("    → at top")
+                                            onLogDebug("    → at top")
                                             true
                                         }
                                     }
                                     Key.DirectionDown -> {
-                                        onLogDebug?.invoke("  ⬇ LazyColumn DOWN")
+                                        onLogDebug("  ⬇ LazyColumn DOWN")
                                         if (focusedChannelIndex < channels.lastIndex) {
                                             focusChannel(focusedChannelIndex + 1, false)
                                             true
                                         } else {
-                                            onLogDebug?.invoke("    → at bottom")
+                                            onLogDebug("    → at bottom")
                                             true
                                         }
                                     }
                                     Key.DirectionCenter, Key.Enter -> {
-                                        onLogDebug?.invoke("  ✓ LazyColumn OK")
+                                        onLogDebug("  ✓ LazyColumn OK")
                                         focusChannel(focusedChannelIndex, true)
                                         true
                                     }
                                     Key.DirectionRight -> {
-                                        onLogDebug?.invoke("  → LazyColumn RIGHT")
+                                        onLogDebug("  → LazyColumn RIGHT")
                                         if (isEpgPanelVisible) {
                                             onNavigateToEpg?.invoke() ?: false
                                         } else {
@@ -914,7 +870,7 @@ private fun PlaylistPanel(
                             onChannelClick = { focusChannel(index, true) },
                             onFavoriteClick = { onFavoriteClick(channel.url) },
                             onShowPrograms = { onShowPrograms(channel.tvgId) },
-                            onLogDebug = onLogDebug,
+                            onLogDebug = debugLogger,
                             modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp)
                         )
                     }
@@ -1058,7 +1014,7 @@ private fun EpgPanel(
     onLoadMoreFuture: () -> Unit,
     onClose: () -> Unit,
     onNavigateLeftToChannels: (() -> Unit)? = null,
-    onLogDebug: ((String) -> Unit)? = null,
+    onLogDebug: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
@@ -1111,15 +1067,15 @@ private fun EpgPanel(
 
     fun focusProgram(targetIndex: Int): Boolean {
         if (targetIndex !in programs.indices) {
-            onLogDebug?.invoke("❌ focusProgram($targetIndex) out of range [0..${programs.lastIndex}]")
+            onLogDebug("❌ focusProgram($targetIndex) out of range [0..${programs.lastIndex}]")
             return false
         }
         val itemIndex = programItemIndices.getOrNull(targetIndex)
         if (itemIndex == null) {
-            onLogDebug?.invoke("❌ focusProgram($targetIndex) no item index")
+            onLogDebug("❌ focusProgram($targetIndex) no item index")
             return false
         }
-        onLogDebug?.invoke("🎯 focusProgram($targetIndex) updating index")
+        onLogDebug("🎯 focusProgram($targetIndex) updating index")
         focusedProgramIndex = targetIndex
         val shouldScroll = listState.layoutInfo.visibleItemsInfo.none { it.index == itemIndex }
         coroutineScope.launch {
@@ -1148,7 +1104,7 @@ private fun EpgPanel(
         val channelChanged = channel?.tvgId != lastEpgChannelTvgId
         val shouldScroll = channelChanged || (!didInitialScroll && scrollToIndex >= 0)
         if (shouldScroll && scrollToIndex >= 0 && scrollToIndex < items.size) {
-            onLogDebug?.invoke("🚀 EPG LaunchedEffect: scroll to program $currentProgramIndex")
+            onLogDebug("🚀 EPG LaunchedEffect: scroll to program $currentProgramIndex")
             listState.scrollToItem(scrollToIndex)
             listState.animateScrollToItem(scrollToIndex, scrollOffset = -200)
             lastEpgChannelTvgId = channel?.tvgId
@@ -1232,7 +1188,7 @@ private fun EpgPanel(
                 LaunchedEffect(Unit) {
                     delay(150) // Wait for composition
                     lazyColumnFocusRequester.requestFocus()
-                    onLogDebug?.invoke("🎯 Requesting focus on EPG LazyColumn")
+                    onLogDebug("🎯 Requesting focus on EPG LazyColumn")
                 }
 
                 LazyColumn(
@@ -1251,31 +1207,31 @@ private fun EpgPanel(
                                     23 -> "OK"
                                     else -> event.key.keyCode.toString()
                                 }
-                                onLogDebug?.invoke("📺 EPG LazyColumn $keyName focus=$focusedProgramIndex")
+                                onLogDebug("📺 EPG LazyColumn $keyName focus=$focusedProgramIndex")
 
                                 when (event.key) {
                                     Key.DirectionUp -> {
-                                        onLogDebug?.invoke("  ⬆ EPG LazyColumn UP")
+                                        onLogDebug("  ⬆ EPG LazyColumn UP")
                                         if (focusedProgramIndex > 0) {
                                             focusProgram(focusedProgramIndex - 1)
                                             true
                                         } else {
-                                            onLogDebug?.invoke("    → at top")
+                                            onLogDebug("    → at top")
                                             true
                                         }
                                     }
                                     Key.DirectionDown -> {
-                                        onLogDebug?.invoke("  ⬇ EPG LazyColumn DOWN")
+                                        onLogDebug("  ⬇ EPG LazyColumn DOWN")
                                         if (focusedProgramIndex < programs.lastIndex) {
                                             focusProgram(focusedProgramIndex + 1)
                                             true
                                         } else {
-                                            onLogDebug?.invoke("    → at bottom")
+                                            onLogDebug("    → at bottom")
                                             true
                                         }
                                     }
                                     Key.DirectionCenter, Key.Enter -> {
-                                        onLogDebug?.invoke("  ✓ EPG LazyColumn OK")
+                                        onLogDebug("  ✓ EPG LazyColumn OK")
                                         val program = programs.getOrNull(focusedProgramIndex)
                                         if (program != null) {
                                             val isPast = program.stopTimeMillis > 0 && program.stopTimeMillis <= currentTime
@@ -1289,16 +1245,16 @@ private fun EpgPanel(
                                             val canPlayArchive = isArchiveCandidate && !isArchivePlayback
 
                                             if (canPlayArchive) {
-                                                onLogDebug?.invoke("    → Playing archive program")
+                                                onLogDebug("    → Playing archive program")
                                                 onPlayArchive(program)
                                             } else {
-                                                onLogDebug?.invoke("    → Program not in archive or not past")
+                                                onLogDebug("    → Program not in archive or not past")
                                             }
                                         }
                                         true
                                     }
                                     Key.DirectionLeft -> {
-                                        onLogDebug?.invoke("  ← EPG LazyColumn LEFT (playlist=${if (isPlaylistOpen) "open" else "closed"})")
+                                        onLogDebug("  ← EPG LazyColumn LEFT (playlist=${if (isPlaylistOpen) "open" else "closed"})")
                                         if (isPlaylistOpen) {
                                             // Playlist is open, transfer focus to it
                                             onNavigateLeftToChannels?.invoke()
@@ -1710,6 +1666,65 @@ private fun String.truncateForOverlay(maxChars: Int = MAX_PROGRAM_TITLE_CHARS): 
     return if (trimmed.isEmpty()) "…" else "$trimmed…"
 }
 
+
+private data class ControlsSignature(
+    val isArchivePlayback: Boolean,
+    val programHash: Int,
+    val navigateLeftHash: Int,
+    val navigateRightHash: Int
+)
+
+private fun PlayerView.configurePlayerView(
+    uiState: PlayerUiState,
+    onControllerVisibilityChanged: (Boolean) -> Unit
+) {
+    useController = true
+    controllerShowTimeoutMs = PlayerConstants.CONTROLLER_AUTO_HIDE_TIMEOUT_MS
+    controllerHideOnTouch = true
+    resizeMode = uiState.currentResizeMode
+    setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
+    setShowShuffleButton(false)
+    setShowSubtitleButton(false)
+    try {
+        val method = PlayerView::class.java.getMethod(
+            "setShowSettingsButton",
+            Boolean::class.javaPrimitiveType
+        )
+        method.invoke(this, false)
+    } catch (_: Exception) {
+        // Method not available, ignore
+    }
+    setShowPreviousButton(true)
+    setShowNextButton(true)
+    setShowRewindButton(true)
+    setShowFastForwardButton(true)
+    hideSettingsControls()
+    post { hideSettingsControls() }
+    setControllerVisibilityListener(
+        PlayerView.ControllerVisibilityListener { visibility ->
+            onControllerVisibilityChanged(visibility == View.VISIBLE)
+        }
+    )
+}
+
+private fun PlayerView.bindControls(
+    uiState: PlayerUiState,
+    actions: PlayerUiActions,
+    onNavigateLeftToFavorites: (() -> Unit)?,
+    onNavigateRightToRotate: (() -> Unit)?
+) {
+    applyControlCustomizations(
+        isArchivePlayback = uiState.isArchivePlayback,
+        currentProgram = if (uiState.isArchivePlayback) uiState.archiveProgram else uiState.currentProgram,
+        onRestartPlayback = actions.onRestartPlayback,
+        onSeekBack = actions.onSeekBack,
+        onSeekForward = actions.onSeekForward,
+        onPausePlayback = actions.onPausePlayback,
+        onResumePlayback = actions.onResumePlayback,
+        onNavigateLeftToFavorites = onNavigateLeftToFavorites,
+        onNavigateRightToRotate = onNavigateRightToRotate
+    )
+}
 
 private fun PlayerView.applyControlCustomizations(
     isArchivePlayback: Boolean,

@@ -43,13 +43,6 @@ data class MainViewState(
     val epgLoadedTimestamp: Long = 0L, // Timestamp when EPG was last loaded, used to trigger adapter refresh
     val playlistSource: PlaylistSource = PlaylistSource.None
 ) {
-    val filteredChannels: List<Channel>
-        get() = if (showFavoritesOnly) {
-            channels.filter { it.isFavorite }
-        } else {
-            channels
-        }
-
     val playlistTitleResId: Int
         get() = if (showFavoritesOnly) R.string.playlist_title_favorites else R.string.playlist_title_channels
 

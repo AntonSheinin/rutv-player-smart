@@ -111,17 +111,18 @@ fun ChannelListItem(
             val sizePx = with(LocalDensity.current) { ChannelLogoSize.toPx().toInt() }
 
             // Build request only when logo URL changes (not on every recomposition)
+            val logoSizePx = remember(context) { sizePx }
             val logoRequest = remember(channel.logo) {
-                channel.logo.takeIf { it.isNotBlank() }?.let {
+                channel.logo.takeIf { it.isNotBlank() }?.let { logoUrl ->
                     ImageRequest.Builder(context)
-                        .data(it)
-                        .size(sizePx)
-                        .scale(Scale.FIT)
-                        .precision(Precision.EXACT)
-                        .allowHardware(true)
+                        .data(logoUrl)
+                        .size(logoSizePx)
+                        .scale(Scale.FILL)
+                        .precision(Precision.INEXACT)
+                        .allowHardware(false)
                         .crossfade(false)
-                        .memoryCacheKey(it) // Explicit cache key
-                        .diskCacheKey(it)
+                        .diskCacheKey(logoUrl)
+                        .memoryCacheKey(logoUrl)
                         .build()
                 }
             }
