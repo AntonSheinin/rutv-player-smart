@@ -337,7 +337,15 @@ fun PlayerScreen(
         }
 
         // Focus management for panel transitions
+        var playlistFocusRequester by remember { mutableStateOf<FocusRequester?>(null) }
+
         val focusPlaylistFromEpg: () -> Unit = {
+            onLogDebug?.invoke("← EPG→Playlist: Transferring focus (requester=${playlistFocusRequester != null})")
+
+            // Request focus on playlist LazyColumn
+            playlistFocusRequester?.requestFocus()
+
+            // Also update the focused channel index
             val targetIndex = when {
                 lastFocusedPlaylistIndex >= 0 -> lastFocusedPlaylistIndex
                 viewState.currentChannelIndex >= 0 -> viewState.currentChannelIndex
@@ -349,6 +357,7 @@ fun PlayerScreen(
                 else -> -1
             }
             if (resolvedIndex >= 0) {
+                onLogDebug?.invoke("← EPG→Playlist: Focusing channel $resolvedIndex")
                 focusPlaylistChannel?.invoke(resolvedIndex, false)
             }
         }
@@ -371,6 +380,7 @@ fun PlayerScreen(
                 onClose = onClosePlaylist,
                 onLogDebug = onLogDebug,
                 onProvideFocusController = { controller -> focusPlaylistChannel = controller },
+                onProvideFocusRequester = { requester -> playlistFocusRequester = requester },
                 onChannelFocused = { index ->
                     if (index >= 0) {
                         lastFocusedPlaylistIndex = index
@@ -384,6 +394,7 @@ fun PlayerScreen(
             )
         } else {
             focusPlaylistChannel = null
+            playlistFocusRequester = null
         }
 
         // EPG Panel
@@ -623,6 +634,7 @@ private fun PlaylistPanel(
     onClose: () -> Unit,
     onLogDebug: ((String) -> Unit)? = null,
     onProvideFocusController: (((Int, Boolean) -> Boolean)?) -> Unit = {},
+    onProvideFocusRequester: ((FocusRequester?) -> Unit)? = null,
     onChannelFocused: ((Int) -> Unit)? = null,
     onNavigateToEpg: (() -> Boolean)? = null,
     modifier: Modifier = Modifier
@@ -667,13 +679,18 @@ private fun PlaylistPanel(
         }
     }
 
+    // Focus requester for LazyColumn - will be provided to parent for EPG→Playlist focus transfer
+    val lazyColumnFocusRequester = remember { FocusRequester() }
+
     LaunchedEffect(Unit) {
         onProvideFocusController(focusChannel)
+        onProvideFocusRequester?.invoke(lazyColumnFocusRequester)
     }
 
     DisposableEffect(Unit) {
         onDispose {
             onProvideFocusController(null)
+            onProvideFocusRequester?.invoke(null)
         }
     }
 
@@ -808,14 +825,11 @@ private fun PlaylistPanel(
             Box(modifier = Modifier.fillMaxSize()) {
                 val isEpgPanelVisible = epgOpenIndex >= 0
 
-                // Focus requester for LazyColumn
-                val lazyColumnFocusRequester = remember { FocusRequester() }
-
                 // Request focus on LazyColumn when it first appears
                 LaunchedEffect(Unit) {
                     delay(150) // Wait for composition
                     lazyColumnFocusRequester.requestFocus()
-                    onLogDebug?.invoke("🎯 Requesting focus on LazyColumn")
+                    onLogDebug?.invoke("🎯 Requesting focus on Playlist LazyColumn")
                 }
 
                 LazyColumn(
@@ -1300,7 +1314,7 @@ private fun EpgPanel(
                                 false
                             }
                         },
-                    contentPadding = PaddingValues(start = 8.dp, top = 4.dp, end = 16.dp, bottom = 4.dp)
+                    contentPadding = PaddingValues(start = 12.dp, top = 4.dp, end = 20.dp, bottom = 4.dp) // Extra padding for 4dp focus border
                 ) {
                     items(items.size, key = { items[it].first }) { index ->
                         val item = items[index]
