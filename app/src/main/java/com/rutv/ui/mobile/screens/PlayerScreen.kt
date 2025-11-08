@@ -122,7 +122,6 @@ fun PlayerScreen(
     var leftColumnFocusRequesters by remember { mutableStateOf<List<FocusRequester>?>(null) }
     var rightColumnFocusRequesters by remember { mutableStateOf<List<FocusRequester>?>(null) }
     var lastFocusedPlaylistIndex by remember { mutableIntStateOf(viewState.currentChannelIndex.coerceAtLeast(0)) }
-    var lastFocusedEpgIndex by remember { mutableIntStateOf(0) }
     var focusPlaylistChannel by remember { mutableStateOf<((Int, Boolean) -> Boolean)?>(null) }
 
     // Callbacks to move focus to custom controls (used by ExoPlayer controls)
@@ -404,11 +403,6 @@ fun PlayerScreen(
                 onClose = onCloseEpgPanel,
                 onNavigateLeftToChannels = {
                     focusPlaylistFromEpg()
-                },
-                onProgramFocused = { index ->
-                    if (index >= 0) {
-                        lastFocusedEpgIndex = index
-                    }
                 },
                 onLogDebug = onLogDebug,
                 modifier = Modifier.align(Alignment.CenterEnd)
@@ -1048,7 +1042,6 @@ private fun EpgPanel(
     onLoadMoreFuture: () -> Unit,
     onClose: () -> Unit,
     onNavigateLeftToChannels: (() -> Unit)? = null,
-    onProgramFocused: ((Int) -> Unit)? = null,
     onLogDebug: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -1092,13 +1085,11 @@ private fun EpgPanel(
     LaunchedEffect(programs.size) {
         if (programs.isEmpty()) {
             focusedProgramIndex = -1
-            onProgramFocused?.invoke(-1)
         } else if (focusedProgramIndex !in programs.indices) {
             val newIndex = currentProgramIndex
                 .takeIf { it >= 0 }
                 ?: 0
             focusedProgramIndex = newIndex
-            onProgramFocused?.invoke(newIndex)
         }
     }
 
@@ -1114,7 +1105,6 @@ private fun EpgPanel(
         }
         onLogDebug?.invoke("🎯 focusProgram($targetIndex) updating index")
         focusedProgramIndex = targetIndex
-        onProgramFocused?.invoke(targetIndex)
         val shouldScroll = listState.layoutInfo.visibleItemsInfo.none { it.index == itemIndex }
         coroutineScope.launch {
             if (shouldScroll) {
@@ -1152,7 +1142,6 @@ private fun EpgPanel(
             if (currentProgramIndex >= 0 && currentProgramIndex < programs.size) {
                 delay(60)
                 focusedProgramIndex = currentProgramIndex
-                onProgramFocused?.invoke(currentProgramIndex)
             }
         }
     }
@@ -1330,11 +1319,9 @@ private fun EpgPanel(
                                     isCurrent = programIndex == currentProgramIndex,
                                     isPast = isPast,
                                     showArchiveIndicator = isArchiveCandidate,
-                                    isItemFocused = programIndex == focusedProgramIndex, // Visual focus indicator
+                                    isItemFocused = programIndex == focusedProgramIndex,
                                     onClick = { onProgramClick(data) },
-                                    onPlayArchive = if (canPlayArchive) { { onPlayArchive(data) } } else null,
-                                    onCloseEpg = onClose,
-                                    onLogDebug = onLogDebug
+                                    onPlayArchive = if (canPlayArchive) { { onPlayArchive(data) } } else null
                                 )
                             }
                         }

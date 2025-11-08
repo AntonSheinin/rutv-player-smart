@@ -41,9 +41,7 @@ fun EpgProgramItem(
     onClick: () -> Unit,
     isItemFocused: Boolean = false, // Visual focus indicator for state-based focus
     modifier: Modifier = Modifier,
-    onPlayArchive: (() -> Unit)? = null,
-    onCloseEpg: (() -> Unit)? = null,
-    onLogDebug: ((String) -> Unit)? = null
+    onPlayArchive: (() -> Unit)? = null
 ) {
     val isRemoteMode = DeviceHelper.isRemoteInputActive()
 
