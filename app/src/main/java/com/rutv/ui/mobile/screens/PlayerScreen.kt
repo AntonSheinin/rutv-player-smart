@@ -74,6 +74,8 @@ import com.rutv.util.PlayerConstants
 import android.annotation.SuppressLint
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlin.math.max
@@ -603,8 +605,8 @@ private fun PlaylistPanel(
 ) {
     val resolvedInitialIndex = when {
         channels.isEmpty() -> -1
-        initialScrollIndex in channels.indices -> initialScrollIndex
         currentChannelIndex in channels.indices -> currentChannelIndex
+        initialScrollIndex in channels.indices -> initialScrollIndex
         else -> 0
     }
     val listState = rememberLazyListState(
@@ -612,6 +614,10 @@ private fun PlaylistPanel(
         initialFirstVisibleItemScrollOffset = 0
     )
     val coroutineScope = rememberCoroutineScope()
+    val playlistCenterOffsetPx = with(LocalDensity.current) { PLAYLIST_CENTER_OFFSET.roundToPx() }
+    var pendingInitialCenterIndex by remember(channels, currentChannelIndex) {
+        mutableStateOf(resolvedInitialIndex.takeIf { it in channels.indices })
+    }
     var showSearchDialog by remember { mutableStateOf(false) }
     var searchText by remember { mutableStateOf("") }
     val isRemoteMode = DeviceHelper.isRemoteInputActive()
@@ -691,6 +697,22 @@ private fun PlaylistPanel(
             focusedChannelIndex = fallbackIndex
             onChannelFocused?.invoke(focusedChannelIndex)
         }
+    }
+
+    LaunchedEffect(pendingInitialCenterIndex) {
+        val targetIndex = pendingInitialCenterIndex ?: return@LaunchedEffect
+        if (channels.isEmpty()) {
+            pendingInitialCenterIndex = null
+            return@LaunchedEffect
+        }
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.isNotEmpty() }
+            .filter { it }
+            .first()
+        listState.scrollToItem(targetIndex, -playlistCenterOffsetPx)
+        focusedChannelIndex = targetIndex
+        onChannelFocused?.invoke(targetIndex)
+        onUpdateScrollIndex(targetIndex)
+        pendingInitialCenterIndex = null
     }
 
     LaunchedEffect(Unit) {
@@ -1092,6 +1114,12 @@ private fun EpgPanel(
     var focusedProgramIndex by remember(channel?.tvgId) {
         mutableIntStateOf(resolvedInitialProgramIndex.coerceAtLeast(0))
     }
+    val epgCenterOffsetPx = with(LocalDensity.current) { EPG_CENTER_OFFSET.roundToPx() }
+    var pendingProgramCenterIndex by remember(channel?.tvgId, currentProgramIndex, programs) {
+        mutableStateOf(
+            if (resolvedInitialItemIndex >= 0 && programs.isNotEmpty()) resolvedInitialItemIndex else null
+        )
+    }
 
     LaunchedEffect(programs.size, channel?.tvgId, currentProgramIndex) {
         if (programs.isEmpty()) {
@@ -1103,6 +1131,22 @@ private fun EpgPanel(
             }
             focusedProgramIndex = fallback
         }
+    }
+
+    LaunchedEffect(pendingProgramCenterIndex) {
+        val targetItemIndex = pendingProgramCenterIndex ?: return@LaunchedEffect
+        if (programs.isEmpty()) {
+            pendingProgramCenterIndex = null
+            return@LaunchedEffect
+        }
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.isNotEmpty() }
+            .filter { it }
+            .first()
+        listState.scrollToItem(targetItemIndex, -epgCenterOffsetPx)
+        // Update focused program based on item index mapping
+        val programIndex = programItemIndices.indexOf(targetItemIndex).takeIf { it >= 0 }
+        programIndex?.let { focusedProgramIndex = it }
+        pendingProgramCenterIndex = null
     }
 
     fun focusProgram(targetIndex: Int): Boolean {
@@ -1619,6 +1663,8 @@ private fun DebugLogPanel(
 
 private const val MEDIA3_UI_PACKAGE = "androidx.media3.ui"
 private const val MAX_PROGRAM_TITLE_CHARS = 48
+private val PLAYLIST_CENTER_OFFSET = 160.dp
+private val EPG_CENTER_OFFSET = 200.dp
 
 private fun View.enableControl() {
     alpha = 1f
