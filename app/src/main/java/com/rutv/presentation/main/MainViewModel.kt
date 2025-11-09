@@ -66,6 +66,7 @@ class MainViewModel @Inject constructor(
 
     private val debugMessageList = mutableListOf<DebugMessage>()
     private val debugMessageMutex = Mutex()
+    private val epgProgramCache = mutableMapOf<String, List<EpgProgram>>()
     private var pendingCurrentProgramsSnapshot: Map<String, EpgProgram?>? = null
     private var pendingEpgTimestamp: Long? = null
     private var epgPreloadJob: Job? = null
@@ -81,6 +82,21 @@ class MainViewModel @Inject constructor(
     private fun postNotificationMessage(message: String) {
         viewModelScope.launch(Dispatchers.Main) {
             _viewState.update { it.copy(epgNotificationMessage = message) }
+        }
+    }
+
+    private fun updateEpgPanelState(
+        tvgId: String,
+        programs: List<EpgProgram>,
+        currentProgram: EpgProgram?
+    ) {
+        _viewState.update {
+            it.copy(
+                showEpgPanel = true,
+                epgChannelTvgId = tvgId,
+                epgPrograms = programs,
+                currentProgram = currentProgram
+            )
         }
     }
 
@@ -814,6 +830,20 @@ class MainViewModel @Inject constructor(
      * Show EPG for channel
      */
     fun showEpgForChannel(tvgId: String) {
+        epgProgramCache[tvgId]?.let { cachedPrograms ->
+            val cachedCurrent = cachedPrograms.firstOrNull { it.isCurrent() }
+            updateEpgPanelState(tvgId, cachedPrograms, cachedCurrent)
+        } ?: run {
+            _viewState.update {
+                it.copy(
+                    showEpgPanel = true,
+                    epgChannelTvgId = tvgId,
+                    epgPrograms = emptyList(),
+                    currentProgram = null
+                )
+            }
+        }
+
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val epgUrl = preferencesRepository.epgUrl.first().ifBlank { "" }
@@ -833,28 +863,26 @@ class MainViewModel @Inject constructor(
                     toUtcMillis = todayEnd.toInstant().toEpochMilli()
                 )
                 val current = programs.firstOrNull { it.isCurrent() }
+                epgProgramCache[tvgId] = programs
 
                 withContext(Dispatchers.Main) {
                     _viewState.update { state ->
-                        val updatedMap = state.currentProgramsMap.toMutableMap()
-                        updatedMap[tvgId] = current
+                        val updatedMap = state.currentProgramsMap.toMutableMap().apply {
+                            this[tvgId] = current
+                        }
                         state.copy(
                             currentProgramsMap = updatedMap,
                             epgLoadedFromUtc = todayStart.toInstant().toEpochMilli(),
-                            epgLoadedToUtc = todayEnd.toInstant().toEpochMilli()
-                        )
-                    }
-                    appendDebugMessage(
-                        DebugMessage(StringFormatter.formatEpgShowingPrograms(programs.size, tvgId, current?.title))
-                    )
-                    _viewState.update {
-                        it.copy(
+                            epgLoadedToUtc = todayEnd.toInstant().toEpochMilli(),
                             showEpgPanel = true,
                             epgChannelTvgId = tvgId,
                             epgPrograms = programs,
                             currentProgram = current
                         )
                     }
+                    appendDebugMessage(
+                        DebugMessage(StringFormatter.formatEpgShowingPrograms(programs.size, tvgId, current?.title))
+                    )
                     postEpgNotification()
                 }
             } catch (e: Exception) {
