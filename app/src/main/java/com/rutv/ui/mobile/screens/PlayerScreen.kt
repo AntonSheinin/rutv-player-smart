@@ -846,7 +846,6 @@ private fun PlaylistPanel(
                         .fillMaxSize()
                         .focusRequester(lazyColumnFocusRequester)
                         .focusable()
-                        .onFocusChanged { epgListHasFocus = it.isFocused }
                         .onFocusChanged { playlistHasFocus = it.isFocused }
                         .onKeyEvent { event ->
                             if (event.type == KeyEventType.KeyDown && isRemoteMode) {
