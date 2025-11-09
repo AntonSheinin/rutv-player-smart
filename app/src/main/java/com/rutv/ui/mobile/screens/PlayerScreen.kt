@@ -610,7 +610,6 @@ private fun PlaylistPanel(
     onProvideFocusRequester: ((FocusRequester?) -> Unit)? = null,
     onChannelFocused: ((Int) -> Unit)? = null,
     onRequestEpgFocus: (() -> Unit)? = null,
-    onRequestEpgFocus: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val resolvedInitialIndex = when {
