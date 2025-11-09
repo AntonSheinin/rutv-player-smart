@@ -637,6 +637,11 @@ private fun PlaylistPanel(
     var showSearchDialog by remember { mutableStateOf(false) }
     var searchText by remember { mutableStateOf("") }
     val isRemoteMode = DeviceHelper.isRemoteInputActive()
+    LaunchedEffect(showSearchDialog) {
+        if (showSearchDialog) {
+            playlistHasFocus = false
+        }
+    }
 
     var focusedChannelIndex by remember {
         mutableIntStateOf(
@@ -733,6 +738,7 @@ private fun PlaylistPanel(
         focusedChannelIndex = targetIndex
         onChannelFocused?.invoke(targetIndex)
         onUpdateScrollIndex(targetIndex)
+        playlistHasFocus = true
         pendingInitialCenterIndex = null
     }
 
@@ -837,6 +843,7 @@ private fun PlaylistPanel(
                 LaunchedEffect(Unit) {
                     delay(150) // Wait for composition
                     lazyColumnFocusRequester.requestFocus()
+                    playlistHasFocus = true
                     onLogDebug("🎯 Requesting focus on Playlist LazyColumn")
                 }
 
@@ -1045,10 +1052,8 @@ private fun PlaylistPanel(
                                         channel.title.lowercase().contains(searchLower)
                                     }
                                     if (matchingIndex >= 0) {
-                                        coroutineScope.launch {
-                                            listState.scrollToItem(matchingIndex)
-                                            listState.animateScrollToItem(matchingIndex, scrollOffset = -160)
-                                        }
+                                        pendingInitialCenterIndex = matchingIndex
+                                        focusChannel(matchingIndex, false)
                                     }
                                     showSearchDialog = false
                                     searchText = ""
@@ -1106,6 +1111,9 @@ private fun EpgPanel(
     val currentTime = System.currentTimeMillis()
     val isRemoteMode = DeviceHelper.isRemoteInputActive()
     var epgListHasFocus by remember { mutableStateOf(false) }
+    DisposableEffect(Unit) {
+        onDispose { epgListHasFocus = false }
+    }
 
     // Find current program index in original list
     val currentProgramIndex = programs.indexOfFirst { program ->
@@ -1185,6 +1193,7 @@ private fun EpgPanel(
         listState.centerOn(targetItemIndex)
         val programIndex = programItemIndices.indexOf(targetItemIndex).takeIf { it >= 0 }
         programIndex?.let { focusedProgramIndex = it }
+        epgListHasFocus = true
         pendingProgramCenterIndex = null
     }
 
@@ -1279,6 +1288,7 @@ private fun EpgPanel(
                     if (!isRemoteMode) return@LaunchedEffect
                     delay(50)
                     lazyColumnFocusRequester.requestFocus()
+                    epgListHasFocus = true
                     onLogDebug("🎯 Requesting focus on EPG LazyColumn (token=$focusRequestToken)")
                 }
 
@@ -1668,7 +1678,7 @@ private suspend fun LazyListState.centerOn(index: Int) {
     val viewportSize = (layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset).coerceAtLeast(1)
     val targetInfo = layoutInfo.visibleItemsInfo.firstOrNull { it.index == index } ?: return
     val desiredOffset = (viewportSize / 2) - (targetInfo.size / 2)
-    scrollToItem(index, desiredOffset.coerceAtLeast(0))
+    scrollToItem(index, -desiredOffset)
 }
 
 @Composable
