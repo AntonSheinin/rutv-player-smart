@@ -56,12 +56,16 @@ fun EpgProgramItem(
     }
     val contentAlpha = if (isPast && !isCurrent) 0.5f else 1f
 
+    val focusShape = RoundedCornerShape(12.dp)
+
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .then(focusIndicatorModifier(isFocused = isItemFocused, shape = focusShape))
+            .clip(focusShape)
             .background(backgroundColor)
             .alpha(contentAlpha)
-            .then(focusIndicatorModifier(isFocused = isItemFocused)) // Use isItemFocused for visual indicator
             .then(
                 if (!isRemoteMode) {
                     Modifier.pointerInput(onClick, onPlayArchive) {
@@ -165,5 +169,4 @@ fun EpgDateDelimiter(
         )
     }
 }
-
 

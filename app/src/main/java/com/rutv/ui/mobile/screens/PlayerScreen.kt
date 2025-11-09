@@ -758,7 +758,6 @@ private fun PlaylistPanel(
             if (channelIndex >= 0 && channelIndex < channels.size && isRemoteMode) {
                 // Small delay to ensure EPG panel is removed first
                 delay(50)
-                pendingInitialCenterIndex = channelIndex
                 focusChannel(channelIndex, false)
             }
             channelThatOpenedEpg = null
