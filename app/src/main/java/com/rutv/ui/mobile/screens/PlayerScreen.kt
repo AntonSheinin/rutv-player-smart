@@ -33,7 +33,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -79,7 +78,6 @@ import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlin.math.max
-import kotlin.math.min
 import java.util.*
 
 /**
@@ -115,6 +113,8 @@ fun PlayerScreen(
     var rightColumnFocusRequesters by remember { mutableStateOf<List<FocusRequester>?>(null) }
     var lastFocusedPlaylistIndex by remember { mutableIntStateOf(uiState.currentChannelIndex.coerceAtLeast(0)) }
     var lastControlsSignature by remember { mutableStateOf<ControlsSignature?>(null) }
+    var epgFocusRequestToken by remember { mutableIntStateOf(0) }
+    val requestEpgFocus: () -> Unit = { epgFocusRequestToken++ }
 
     // Callbacks to move focus to custom controls (used by ExoPlayer controls)
     var navigateToFavoritesCallback by remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -171,6 +171,12 @@ fun PlayerScreen(
         delay(timeoutMs)
         if (showControls) {
             playerView.hideController()
+        }
+    }
+
+    LaunchedEffect(uiState.showEpgPanel) {
+        if (uiState.showEpgPanel) {
+            requestEpgFocus()
         }
     }
 
@@ -352,10 +358,7 @@ fun PlayerScreen(
                         lastFocusedPlaylistIndex = index
                     }
                 },
-                onNavigateToEpg = {
-                    // EPG panel handles its own focus automatically via LazyColumn
-                    true
-                },
+                onRequestEpgFocus = { requestEpgFocus() },
                 modifier = Modifier.align(Alignment.CenterStart)
             )
         } else {
@@ -378,6 +381,12 @@ fun PlayerScreen(
                 onNavigateLeftToChannels = {
                     focusPlaylistFromEpg()
                 },
+                onOpenPlaylist = {
+                    if (!uiState.showPlaylist) {
+                        actions.onTogglePlaylist()
+                    }
+                },
+                focusRequestToken = epgFocusRequestToken,
                 onLogDebug = debugLogger,
                 modifier = Modifier.align(Alignment.CenterEnd)
             )
@@ -600,7 +609,8 @@ private fun PlaylistPanel(
     onProvideFocusController: (((Int, Boolean) -> Boolean)?) -> Unit = {},
     onProvideFocusRequester: ((FocusRequester?) -> Unit)? = null,
     onChannelFocused: ((Int) -> Unit)? = null,
-    onNavigateToEpg: (() -> Boolean)? = null,
+    onRequestEpgFocus: (() -> Unit)? = null,
+    onRequestEpgFocus: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val resolvedInitialIndex = when {
@@ -729,6 +739,7 @@ private fun PlaylistPanel(
             if (channelIndex >= 0 && channelIndex < channels.size && isRemoteMode) {
                 // Small delay to ensure EPG panel is removed first
                 delay(50)
+                pendingInitialCenterIndex = channelIndex
                 focusChannel(channelIndex, false)
             }
             channelThatOpenedEpg = null
@@ -862,16 +873,13 @@ private fun PlaylistPanel(
                                     }
                                     Key.DirectionRight -> {
                                         onLogDebug("  → LazyColumn RIGHT")
-                                        if (isEpgPanelVisible) {
-                                            onNavigateToEpg?.invoke() ?: false
+                                        val channel = channels.getOrNull(focusedChannelIndex)
+                                        if (channel?.hasEpg == true) {
+                                            onShowPrograms(channel.tvgId)
+                                            onRequestEpgFocus?.invoke()
+                                            true
                                         } else {
-                                            val channel = channels.getOrNull(focusedChannelIndex)
-                                            if (channel?.hasEpg == true) {
-                                                onShowPrograms(channel.tvgId)
-                                                true
-                                            } else {
-                                                false
-                                            }
+                                            false
                                         }
                                     }
                                     Key.DirectionLeft -> {
@@ -1047,6 +1055,8 @@ private fun EpgPanel(
     onLoadMoreFuture: () -> Unit,
     onClose: () -> Unit,
     onNavigateLeftToChannels: (() -> Unit)? = null,
+    onOpenPlaylist: (() -> Unit)? = null,
+    focusRequestToken: Int = 0,
     onLogDebug: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -1221,11 +1231,12 @@ private fun EpgPanel(
                 // Focus requester for LazyColumn
                 val lazyColumnFocusRequester = remember { FocusRequester() }
 
-                // Request focus on LazyColumn when it first appears
-                LaunchedEffect(Unit) {
-                    delay(150) // Wait for composition
+                // Request focus on LazyColumn when signaled
+                LaunchedEffect(focusRequestToken, isRemoteMode) {
+                    if (!isRemoteMode) return@LaunchedEffect
+                    delay(50)
                     lazyColumnFocusRequester.requestFocus()
-                    onLogDebug("🎯 Requesting focus on EPG LazyColumn")
+                    onLogDebug("🎯 Requesting focus on EPG LazyColumn (token=$focusRequestToken)")
                 }
 
                 LazyColumn(
@@ -1293,13 +1304,12 @@ private fun EpgPanel(
                                     Key.DirectionLeft -> {
                                         onLogDebug("  ← EPG LazyColumn LEFT (playlist=${if (isPlaylistOpen) "open" else "closed"})")
                                         if (isPlaylistOpen) {
-                                            // Playlist is open, transfer focus to it
                                             onNavigateLeftToChannels?.invoke()
-                                            true
                                         } else {
-                                            // Playlist is closed, let MainActivity handle opening it
-                                            false
+                                            onOpenPlaylist?.invoke()
                                         }
+                                        onClose()
+                                        true
                                     }
                                     Key.DirectionRight -> {
                                         onLogDebug("  → EPG LazyColumn RIGHT (details)")
@@ -1611,11 +1621,10 @@ private fun calculateScrollProgress(listState: LazyListState): Float {
 private suspend fun LazyListState.centerOn(index: Int) {
     if (index < 0) return
     scrollToItem(index)
-    val layoutInfo = layoutInfo
     val viewportSize = (layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset).coerceAtLeast(1)
     val targetInfo = layoutInfo.visibleItemsInfo.firstOrNull { it.index == index } ?: return
     val desiredOffset = (viewportSize / 2) - (targetInfo.size / 2)
-    scrollToItem(index, desiredOffset.coerceAtLeast(0))
+    scrollToItem(index, -desiredOffset)
 }
 
 @Composable
