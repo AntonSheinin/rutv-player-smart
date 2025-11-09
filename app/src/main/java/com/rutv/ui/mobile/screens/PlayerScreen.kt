@@ -614,7 +614,6 @@ private fun PlaylistPanel(
         initialFirstVisibleItemScrollOffset = 0
     )
     val coroutineScope = rememberCoroutineScope()
-    val playlistCenterOffsetPx = with(LocalDensity.current) { PLAYLIST_CENTER_OFFSET.roundToPx() }
     var pendingInitialCenterIndex by remember(channels, currentChannelIndex) {
         mutableStateOf(resolvedInitialIndex.takeIf { it in channels.indices })
     }
@@ -629,7 +628,6 @@ private fun PlaylistPanel(
     }
 
     // Focus requesters for header buttons
-    val searchButtonFocus = remember { FocusRequester() }
     val closeButtonFocus = remember { FocusRequester() }
 
     // Track which channel opened EPG for focus restoration
@@ -708,7 +706,7 @@ private fun PlaylistPanel(
         snapshotFlow { listState.layoutInfo.visibleItemsInfo.isNotEmpty() }
             .filter { it }
             .first()
-        listState.scrollToItem(targetIndex, -playlistCenterOffsetPx)
+        listState.centerOn(targetIndex)
         focusedChannelIndex = targetIndex
         onChannelFocused?.invoke(targetIndex)
         onUpdateScrollIndex(targetIndex)
@@ -770,22 +768,7 @@ private fun PlaylistPanel(
                     )
                     IconButton(
                         onClick = { showSearchDialog = true },
-                        modifier = Modifier
-                            .size(40.dp)
-                            .focusable(enabled = isRemoteMode)
-                            .focusRequester(searchButtonFocus)
-                            .then(focusIndicatorModifier(isFocused = false))
-                            .onKeyEvent { event ->
-                                if (event.type == KeyEventType.KeyDown) {
-                                    when (event.key) {
-                                        Key.DirectionCenter, Key.Enter -> {
-                                            showSearchDialog = true
-                                            true
-                                        }
-                                        else -> false
-                                    }
-                                } else false
-                            }
+                        modifier = Modifier.size(40.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Search,
@@ -890,6 +873,11 @@ private fun PlaylistPanel(
                                                 false
                                             }
                                         }
+                                    }
+                                    Key.DirectionLeft -> {
+                                        onLogDebug("  ← LazyColumn LEFT -> Search")
+                                        showSearchDialog = true
+                                        true
                                     }
                                     else -> false
                                 }
@@ -1114,7 +1102,6 @@ private fun EpgPanel(
     var focusedProgramIndex by remember(channel?.tvgId) {
         mutableIntStateOf(resolvedInitialProgramIndex.coerceAtLeast(0))
     }
-    val epgCenterOffsetPx = with(LocalDensity.current) { EPG_CENTER_OFFSET.roundToPx() }
     var pendingProgramCenterIndex by remember(channel?.tvgId, currentProgramIndex, programs) {
         mutableStateOf(
             if (resolvedInitialItemIndex >= 0 && programs.isNotEmpty()) resolvedInitialItemIndex else null
@@ -1142,8 +1129,7 @@ private fun EpgPanel(
         snapshotFlow { listState.layoutInfo.visibleItemsInfo.isNotEmpty() }
             .filter { it }
             .first()
-        listState.scrollToItem(targetItemIndex, -epgCenterOffsetPx)
-        // Update focused program based on item index mapping
+        listState.centerOn(targetItemIndex)
         val programIndex = programItemIndices.indexOf(targetItemIndex).takeIf { it >= 0 }
         programIndex?.let { focusedProgramIndex = it }
         pendingProgramCenterIndex = null
@@ -1312,6 +1298,16 @@ private fun EpgPanel(
                                             true
                                         } else {
                                             // Playlist is closed, let MainActivity handle opening it
+                                            false
+                                        }
+                                    }
+                                    Key.DirectionRight -> {
+                                        onLogDebug("  → EPG LazyColumn RIGHT (details)")
+                                        val program = programs.getOrNull(focusedProgramIndex)
+                                        if (program != null) {
+                                            onProgramClick(program)
+                                            true
+                                        } else {
                                             false
                                         }
                                     }
@@ -1612,6 +1608,16 @@ private fun calculateScrollProgress(listState: LazyListState): Float {
     return (scrolled.toFloat() / maxScroll.toFloat()).coerceIn(0f, 1f)
 }
 
+private suspend fun LazyListState.centerOn(index: Int) {
+    if (index < 0) return
+    scrollToItem(index)
+    val layoutInfo = layoutInfo
+    val viewportSize = (layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset).coerceAtLeast(1)
+    val targetInfo = layoutInfo.visibleItemsInfo.firstOrNull { it.index == index } ?: return
+    val desiredOffset = (viewportSize / 2) - (targetInfo.size / 2)
+    scrollToItem(index, desiredOffset.coerceAtLeast(0))
+}
+
 @Composable
 private fun DebugLogPanel(
     messages: List<String>,
@@ -1663,9 +1669,6 @@ private fun DebugLogPanel(
 
 private const val MEDIA3_UI_PACKAGE = "androidx.media3.ui"
 private const val MAX_PROGRAM_TITLE_CHARS = 48
-private val PLAYLIST_CENTER_OFFSET = 160.dp
-private val EPG_CENTER_OFFSET = 200.dp
-
 private fun View.enableControl() {
     alpha = 1f
     isEnabled = true
