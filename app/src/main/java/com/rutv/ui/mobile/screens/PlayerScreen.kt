@@ -174,9 +174,11 @@ fun PlayerScreen(
         }
     }
 
-    LaunchedEffect(uiState.showEpgPanel) {
+    LaunchedEffect(uiState.showEpgPanel, uiState.showPlaylist) {
         if (uiState.showEpgPanel) {
             requestEpgFocus()
+        } else if (uiState.showPlaylist) {
+            focusCoordinator.requestPlaylistFocus()
         }
     }
 
@@ -399,6 +401,11 @@ fun PlayerScreen(
                 onClose = actions.onCloseProgramDetails,
                 modifier = Modifier.align(Alignment.Center)
             )
+        }
+        LaunchedEffect(uiState.selectedProgramDetails, uiState.showEpgPanel) {
+            if (uiState.selectedProgramDetails == null && uiState.showEpgPanel) {
+                requestEpgFocus()
+            }
         }
 
         // Debug Log Panel
@@ -623,6 +630,7 @@ private fun PlaylistPanel(
         initialFirstVisibleItemScrollOffset = 0
     )
     val coroutineScope = rememberCoroutineScope()
+    var playlistHasFocus by remember { mutableStateOf(false) }
     var pendingInitialCenterIndex by remember(channels, currentChannelIndex) {
         mutableStateOf(resolvedInitialIndex.takeIf { it in channels.indices })
     }
@@ -634,6 +642,11 @@ private fun PlaylistPanel(
         mutableIntStateOf(
             resolvedInitialIndex.takeIf { it >= 0 } ?: -1
         )
+    }
+    LaunchedEffect(showSearchDialog) {
+        if (showSearchDialog) {
+            playlistHasFocus = false
+        }
     }
 
     // Focus requesters for header buttons
@@ -651,6 +664,7 @@ private fun PlaylistPanel(
             onLogDebug("?? focusChannel($targetIndex, play=$play) updating index")
             focusedChannelIndex = targetIndex
             onChannelFocused?.invoke(targetIndex)
+            playlistHasFocus = true
             val shouldScroll = listState.layoutInfo.visibleItemsInfo.none { it.index == targetIndex }
             if (shouldScroll) {
                 coroutineScope.launch {
@@ -832,6 +846,8 @@ private fun PlaylistPanel(
                         .fillMaxSize()
                         .focusRequester(lazyColumnFocusRequester)
                         .focusable()
+                        .onFocusChanged { epgListHasFocus = it.isFocused }
+                        .onFocusChanged { playlistHasFocus = it.isFocused }
                         .onKeyEvent { event ->
                             if (event.type == KeyEventType.KeyDown && isRemoteMode) {
                                 val keyName = when(event.key.keyCode.toInt()) {
@@ -874,6 +890,7 @@ private fun PlaylistPanel(
                                         onLogDebug("  → LazyColumn RIGHT")
                                         val channel = channels.getOrNull(focusedChannelIndex)
                                         if (channel?.hasEpg == true) {
+                                            playlistHasFocus = false
                                             onShowPrograms(channel.tvgId)
                                             onRequestEpgFocus?.invoke()
                                             true
@@ -906,7 +923,7 @@ private fun PlaylistPanel(
                             isEpgOpen = index == epgOpenIndex,
                             isEpgPanelVisible = isEpgPanelVisible,
                             currentProgram = currentProgramsMap[channel.tvgId],
-                            isItemFocused = index == focusedChannelIndex, // Visual focus indicator
+                            isItemFocused = playlistHasFocus && index == focusedChannelIndex,
                             onChannelClick = { focusChannel(index, true) },
                             onFavoriteClick = { onFavoriteClick(channel.url) },
                             onShowPrograms = { onShowPrograms(channel.tvgId) },
@@ -964,6 +981,24 @@ private fun PlaylistPanel(
 
             // Search Dialog
             if (showSearchDialog) {
+                val okButtonFocusRequester = remember { FocusRequester() }
+                val searchFieldFocusRequester = remember { FocusRequester() }
+                var pendingOkFocus by remember { mutableStateOf(false) }
+                LaunchedEffect(showSearchDialog) {
+                    if (showSearchDialog) {
+                        pendingOkFocus = false
+                        delay(50)
+                        searchFieldFocusRequester.requestFocus()
+                    }
+                }
+                LaunchedEffect(pendingOkFocus) {
+                    if (pendingOkFocus && showSearchDialog) {
+                        delay(10)
+                        okButtonFocusRequester.requestFocus()
+                        pendingOkFocus = false
+                    }
+                }
+
                 RemoteDialog(
                     onDismissRequest = {
                         showSearchDialog = false
@@ -983,7 +1018,14 @@ private fun PlaylistPanel(
                             onValueChange = { searchText = it },
                             label = { Text(stringResource(R.string.hint_search_channel)) },
                             singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .focusRequester(searchFieldFocusRequester)
+                                .onFocusChanged {
+                                    if (showSearchDialog && !it.isFocused) {
+                                        pendingOkFocus = true
+                                    }
+                                },
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = MaterialTheme.ruTvColors.gold,
                                 unfocusedBorderColor = MaterialTheme.ruTvColors.textDisabled,
@@ -995,23 +1037,25 @@ private fun PlaylistPanel(
                         )
                     },
                     confirmButton = {
-                        TextButton(onClick = {
-                            if (searchText.isNotBlank()) {
-                                val searchLower = searchText.lowercase()
-                                val matchingIndex = channels.indexOfFirst { channel ->
-                                    channel.title.lowercase().contains(searchLower)
-                                }
-                                if (matchingIndex >= 0) {
-                                    coroutineScope.launch {
-                                        // Use scrollToItem for instant jump, then quick animate for smooth positioning
-                                        listState.scrollToItem(matchingIndex)
-                                        listState.animateScrollToItem(matchingIndex, scrollOffset = -160)
+                        TextButton(
+                            modifier = Modifier.focusRequester(okButtonFocusRequester),
+                            onClick = {
+                                if (searchText.isNotBlank()) {
+                                    val searchLower = searchText.lowercase()
+                                    val matchingIndex = channels.indexOfFirst { channel ->
+                                        channel.title.lowercase().contains(searchLower)
                                     }
+                                    if (matchingIndex >= 0) {
+                                        coroutineScope.launch {
+                                            listState.scrollToItem(matchingIndex)
+                                            listState.animateScrollToItem(matchingIndex, scrollOffset = -160)
+                                        }
+                                    }
+                                    showSearchDialog = false
+                                    searchText = ""
                                 }
-                                showSearchDialog = false
-                                searchText = ""
                             }
-                        }) {
+                        ) {
                             Text(
                                 text = stringResource(R.string.button_ok),
                                 color = MaterialTheme.ruTvColors.gold
@@ -1062,6 +1106,7 @@ private fun EpgPanel(
     val coroutineScope = rememberCoroutineScope()
     val currentTime = System.currentTimeMillis()
     val isRemoteMode = DeviceHelper.isRemoteInputActive()
+    var epgListHasFocus by remember { mutableStateOf(false) }
 
     // Find current program index in original list
     val currentProgramIndex = programs.indexOfFirst { program ->
@@ -1307,6 +1352,7 @@ private fun EpgPanel(
                                         } else {
                                             onOpenPlaylist?.invoke()
                                         }
+                                        epgListHasFocus = false
                                         onClose()
                                         true
                                     }
@@ -1353,7 +1399,7 @@ private fun EpgPanel(
                                     isCurrent = programIndex == currentProgramIndex,
                                     isPast = isPast,
                                     showArchiveIndicator = isArchiveCandidate,
-                                    isItemFocused = programIndex == focusedProgramIndex,
+                                    isItemFocused = epgListHasFocus && programIndex == focusedProgramIndex,
                                     onClick = { onProgramClick(data) },
                                     onPlayArchive = if (canPlayArchive) { { onPlayArchive(data) } } else null
                                 )
@@ -1623,7 +1669,7 @@ private suspend fun LazyListState.centerOn(index: Int) {
     val viewportSize = (layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset).coerceAtLeast(1)
     val targetInfo = layoutInfo.visibleItemsInfo.firstOrNull { it.index == index } ?: return
     val desiredOffset = (viewportSize / 2) - (targetInfo.size / 2)
-    scrollToItem(index, -desiredOffset)
+    scrollToItem(index, desiredOffset.coerceAtLeast(0))
 }
 
 @Composable
