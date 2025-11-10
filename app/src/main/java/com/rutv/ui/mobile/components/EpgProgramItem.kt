@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.rutv.R
 import com.rutv.data.model.EpgProgram
+import com.rutv.ui.shared.presentation.LayoutConstants
 import com.rutv.ui.shared.presentation.TimeFormatter
 import com.rutv.ui.shared.components.focusIndicatorModifier
 import com.rutv.ui.theme.ruTvColors
@@ -61,7 +62,8 @@ fun EpgProgramItem(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .padding(horizontal = 12.dp, vertical = 4.dp)
+            .height(LayoutConstants.EpgItemHeight)
             .then(focusIndicatorModifier(isFocused = isItemFocused, shape = focusShape))
             .clip(focusShape)
             .background(backgroundColor)
@@ -100,16 +102,16 @@ fun EpgProgramItem(
         ) {
             Text(
                 text = program.title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = if (isCurrent) {
-                    MaterialTheme.ruTvColors.gold
-                } else {
-                    MaterialTheme.ruTvColors.textPrimary
-                },
-                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (isCurrent) {
+                MaterialTheme.ruTvColors.gold
+            } else {
+                MaterialTheme.ruTvColors.textPrimary
+            },
+            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
 
             program.description.takeIf { it.isNotEmpty() }?.let { description ->
                 Spacer(modifier = Modifier.height(4.dp))
@@ -169,4 +171,3 @@ fun EpgDateDelimiter(
         )
     }
 }
-

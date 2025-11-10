@@ -767,7 +767,7 @@ private fun PlaylistPanel(
     Card(
         modifier = modifier
             .fillMaxHeight()
-            .width(LayoutConstants.PlaylistPanelWidth)
+            .width(LayoutConstants.EpgPanelWidth)
             .padding(LayoutConstants.DefaultPadding),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f)

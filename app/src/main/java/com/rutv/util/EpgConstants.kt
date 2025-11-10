@@ -12,6 +12,4 @@ object EpgConstants {
     // EPG Fetch settings
     const val EPG_FETCH_BATCH_SIZE = 40
 
-    // EPG Cache settings
-    const val EPG_CACHE_COVERAGE_TOLERANCE_MS = 60_000L // 1 minute tolerance for window coverage
 }

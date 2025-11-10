@@ -35,9 +35,6 @@ class RuTvApplication : Application(), ImageLoaderFactory {
             Timber.plant(Timber.DebugTree())
         }
 
-        // Initialize SSL configuration to fix TLS handshake issues
-        com.rutv.util.SSLConfig.initializeDefaultSSLSocketFactory()
-
         logDebug { "RuTV Application started" }
     }
 

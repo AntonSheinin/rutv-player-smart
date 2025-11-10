@@ -9,8 +9,7 @@ import androidx.compose.ui.unit.dp
 object LayoutConstants {
     // Panel dimensions
     val PlaylistPanelWidth = 400.dp
-    val EpgPanelWidth = 500.dp
-    val EpgPanelMaxHeight = 0.8f // fraction of screen height
+    val EpgPanelWidth = 560.dp
     val ProgramDetailsPanelWidth = 500.dp
     val ProgramDetailsPanelMaxHeight = 0.8f
 
@@ -18,36 +17,15 @@ object LayoutConstants {
     val DefaultPadding = 16.dp
     val SmallPadding = 8.dp
     val LargePadding = 24.dp
-    val CardPadding = 12.dp
     val CardHorizontalPadding = 16.dp
-    val CardVerticalPadding = 12.dp
-
-    // List item dimensions
-    val ChannelLogoSize = 48.dp
-    val ListItemHeight = 72.dp
-    val ListItemPadding = 12.dp
-    val ListItemSpacing = 8.dp
-
-    // EPG item dimensions
-    val EpgItemMinHeight = 60.dp
-    val EpgItemPadding = 12.dp
 
     // Button dimensions
-    val ButtonHeight = 48.dp
-    val IconButtonSize = 40.dp
     val ControlButtonSize = 56.dp
 
-    // Card styling
-    val CardBorderWidth = 2.dp
-    val CardCornerRadius = 16.dp
-    val CardElevation = 24.dp
-
-    // Progress bar customization
-    val ProgressBarVerticalOffset = 12f // dp
-    val ProgressBarHorizontalMargin = 120f // dp
+    // EPG items
+    val EpgItemHeight = 72.dp
 
     // Overlay
-    val OverlayPadding = 16.dp
     val NotificationTopPadding = 32.dp
     val NotificationCornerRadius = 12.dp
     val NotificationHorizontalPadding = 16.dp

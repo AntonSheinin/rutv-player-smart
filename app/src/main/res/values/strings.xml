@@ -58,6 +58,8 @@
     <string name="settings_epg_days_ahead">EPG Days Ahead</string>
     <string name="settings_epg_days_past">EPG Depth (past days)</string>
     <string name="settings_epg_page_days">EPG Page Size (days per page)</string>
+    <string name="settings_number_range_hint">Allowed range: %1$d\u2013%2$d</string>
+    <string name="settings_number_error">Enter a value between %1$d and %2$d</string>
     <string name="settings_back">Back</string>
     <string name="settings_current_file">File</string>
     <string name="settings_current_url">URL</string>

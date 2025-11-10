@@ -4,6 +4,8 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardActions
@@ -15,7 +17,6 @@ import androidx.compose.material3.MenuDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -68,6 +69,7 @@ fun SettingsScreen(
     var showReloadDialog by remember { mutableStateOf(false) }
 
     var showNoPlaylistDialog by remember { mutableStateOf(false) }
+    val isRemoteMode = DeviceHelper.isRemoteInputActive()
 
     // File picker launcher
     val filePickerLauncher = rememberLauncherForActivityResult(
@@ -164,7 +166,6 @@ fun SettingsScreen(
             item { Spacer(modifier = Modifier.height(8.dp)) }
 
             item {
-                val isRemoteMode = DeviceHelper.isRemoteInputActive()
                 val fileButtonFocus = remember { FocusRequester() }
                 val urlButtonFocus = remember { FocusRequester() }
                 var fileButtonFocused by remember { mutableStateOf(false) }
@@ -268,7 +269,8 @@ fun SettingsScreen(
                 SwitchSetting(
                     label = stringResource(R.string.settings_debug_log),
                     checked = viewState.playerConfig.showDebugLog,
-                    onCheckedChange = onDebugLogChanged
+                    onCheckedChange = onDebugLogChanged,
+                    isRemoteMode = isRemoteMode
                 )
             }
 
@@ -276,7 +278,8 @@ fun SettingsScreen(
                 SwitchSetting(
                     label = stringResource(R.string.settings_ffmpeg_audio),
                     checked = viewState.playerConfig.useFfmpegAudio,
-                    onCheckedChange = onFfmpegAudioChanged
+                    onCheckedChange = onFfmpegAudioChanged,
+                    isRemoteMode = isRemoteMode
                 )
             }
 
@@ -284,7 +287,8 @@ fun SettingsScreen(
                 SwitchSetting(
                     label = stringResource(R.string.settings_ffmpeg_video),
                     checked = viewState.playerConfig.useFfmpegVideo,
-                    onCheckedChange = onFfmpegVideoChanged
+                    onCheckedChange = onFfmpegVideoChanged,
+                    isRemoteMode = isRemoteMode
                 )
             }
 
@@ -294,7 +298,8 @@ fun SettingsScreen(
                     value = viewState.playerConfig.bufferSeconds,
                     onValueChange = onBufferSecondsChanged,
                     minValue = PlayerConstants.MIN_BUFFER_SECONDS,
-                    maxValue = PlayerConstants.MAX_BUFFER_SECONDS
+                    maxValue = PlayerConstants.MAX_BUFFER_SECONDS,
+                    isRemoteMode = isRemoteMode
                 )
             }
 
@@ -309,7 +314,8 @@ fun SettingsScreen(
                 TextInputSetting(
                     label = stringResource(R.string.settings_epg_url),
                     value = viewState.epgUrl,
-                    onValueChange = onEpgUrlChanged
+                    onValueChange = onEpgUrlChanged,
+                    isRemoteMode = isRemoteMode
                 )
             }
 
@@ -319,7 +325,8 @@ fun SettingsScreen(
                     value = viewState.epgDaysAhead,
                     onValueChange = onEpgDaysAheadChanged,
                     minValue = 1,
-                    maxValue = 30
+                    maxValue = 30,
+                    isRemoteMode = isRemoteMode
                 )
             }
 
@@ -329,17 +336,19 @@ fun SettingsScreen(
                     value = viewState.epgDaysPast,
                     onValueChange = onEpgDaysPastChanged,
                     minValue = 1,
-                    maxValue = 60
+                    maxValue = 60,
+                    isRemoteMode = isRemoteMode
                 )
             }
 
             item {
-                NumberInputDelayedSetting(
+                NumberInputSetting(
                     label = stringResource(R.string.settings_epg_page_days),
                     value = viewState.epgPageDays,
+                    onValueChange = onEpgPageDaysChanged,
                     minValue = 1,
                     maxValue = 14,
-                    onCommit = onEpgPageDaysChanged
+                    isRemoteMode = isRemoteMode
                 )
             }
 
@@ -353,7 +362,8 @@ fun SettingsScreen(
             item {
                 LanguageSelectorSetting(
                     selectedLanguage = viewState.selectedLanguage,
-                    onLanguageSelected = onLanguageChanged
+                    onLanguageSelected = onLanguageChanged,
+                    isRemoteMode = isRemoteMode
                 )
             }
 
@@ -461,12 +471,31 @@ private fun SwitchSetting(
     label: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    isRemoteMode: Boolean,
     modifier: Modifier = Modifier
 ) {
+    var isFocused by remember { mutableStateOf(false) }
+
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .focusable(enabled = isRemoteMode)
+            .onFocusChanged { isFocused = it.isFocused }
+            .then(if (isRemoteMode) focusIndicatorModifier(isFocused) else Modifier)
+            .padding(vertical = 8.dp)
+            .onKeyEvent { event ->
+                if (isRemoteMode && isFocused && event.type == KeyEventType.KeyDown) {
+                    when (event.key) {
+                        Key.Enter, Key.DirectionCenter -> {
+                            onCheckedChange(!checked)
+                            true
+                        }
+                        else -> false
+                    }
+                } else {
+                    false
+                }
+            },
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -491,6 +520,7 @@ private fun TextInputSetting(
     label: String,
     value: String,
     onValueChange: (String) -> Unit,
+    isRemoteMode: Boolean,
     modifier: Modifier = Modifier
 ) {
     // Use local state to avoid immediate updates while typing
@@ -516,9 +546,11 @@ private fun TextInputSetting(
             onValueChange = { localValue = it },
             modifier = Modifier
                 .fillMaxWidth()
+                .focusable(enabled = isRemoteMode)
                 .onFocusChanged { focusState ->
                     isFocused = focusState.isFocused
-                },
+                }
+                .then(if (isRemoteMode) focusIndicatorModifier(isFocused) else Modifier),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = MaterialTheme.ruTvColors.gold,
                 unfocusedBorderColor = MaterialTheme.ruTvColors.textDisabled,
@@ -547,8 +579,14 @@ private fun NumberInputSetting(
     onValueChange: (Int) -> Unit,
     minValue: Int,
     maxValue: Int,
+    isRemoteMode: Boolean,
     modifier: Modifier = Modifier
 ) {
+    var showDialog by remember { mutableStateOf(false) }
+    val interactionSource = remember { MutableInteractionSource() }
+    var isFocused by remember { mutableStateOf(false) }
+    val openDialog = { showDialog = true }
+
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
             text = label,
@@ -558,80 +596,142 @@ private fun NumberInputSetting(
         )
         OutlinedTextField(
             value = value.toString(),
-            onValueChange = { newValue ->
-                newValue.toIntOrNull()?.let { intValue ->
-                    val clampedValue = intValue.coerceIn(minValue, maxValue)
-                    onValueChange(clampedValue)
+            onValueChange = { },
+            readOnly = true,
+            modifier = Modifier
+                .fillMaxWidth()
+                .focusable(enabled = isRemoteMode)
+                .onFocusChanged { isFocused = it.isFocused }
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null
+                ) { openDialog() }
+                .onKeyEvent { event ->
+                    if (event.type == KeyEventType.KeyDown &&
+                        (event.key == Key.Enter || event.key == Key.DirectionCenter)
+                    ) {
+                        openDialog()
+                        true
+                    } else {
+                        false
+                    }
                 }
-            },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.fillMaxWidth(),
+                .then(if (isRemoteMode) focusIndicatorModifier(isFocused) else Modifier),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = MaterialTheme.ruTvColors.gold,
                 unfocusedBorderColor = MaterialTheme.ruTvColors.textDisabled,
                 focusedTextColor = MaterialTheme.ruTvColors.textPrimary,
                 unfocusedTextColor = MaterialTheme.ruTvColors.textPrimary
             )
+        )
+    }
+
+    if (showDialog) {
+        NumberInputDialog(
+            label = label,
+            initialValue = value,
+            minValue = minValue,
+            maxValue = maxValue,
+            onConfirm = {
+                onValueChange(it)
+                showDialog = false
+            },
+            onDismiss = { showDialog = false }
         )
     }
 }
 
 @Composable
-private fun NumberInputDelayedSetting(
+private fun NumberInputDialog(
     label: String,
-    value: Int,
+    initialValue: Int,
     minValue: Int,
     maxValue: Int,
-    onCommit: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    onConfirm: (Int) -> Unit,
+    onDismiss: () -> Unit
 ) {
-    var local by remember(value) { mutableStateOf(value.toString()) }
-    var isFocused by remember { mutableStateOf(false) }
+    var input by remember { mutableStateOf(initialValue.toString()) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val focusRequester = remember { FocusRequester() }
+    val errorMessage = stringResource(R.string.settings_number_error, minValue, maxValue)
+    val rangeHint = stringResource(R.string.settings_number_range_hint, minValue, maxValue)
 
-    LaunchedEffect(isFocused) {
-        if (!isFocused) {
-            val parsed = local.toIntOrNull()
-            if (parsed != null) {
-                val clamped = parsed.coerceIn(minValue, maxValue)
-                if (clamped != value) onCommit(clamped)
-                local = clamped.toString()
-            } else {
-                // Revert to current value on invalid input
-                local = value.toString()
-            }
+    fun commit(): Boolean {
+        val parsed = input.toIntOrNull()
+        return if (parsed != null && parsed in minValue..maxValue) {
+            onConfirm(parsed)
+            true
+        } else {
+            error = errorMessage
+            false
         }
     }
 
-    Column(modifier = modifier.fillMaxWidth()) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.ruTvColors.textPrimary,
-            modifier = Modifier.padding(bottom = 4.dp)
-        )
-        OutlinedTextField(
-            value = local,
-            onValueChange = { new ->
-                // Allow empty while typing; validation on blur
-                if (new.length <= 2) local = new.filter { it.isDigit() }
-            },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(
-                onDone = {
-                    isFocused = false
-                }
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .onFocusChanged { isFocused = it.isFocused },
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MaterialTheme.ruTvColors.gold,
-                unfocusedBorderColor = MaterialTheme.ruTvColors.textDisabled,
-                focusedTextColor = MaterialTheme.ruTvColors.textPrimary,
-                unfocusedTextColor = MaterialTheme.ruTvColors.textPrimary
-            )
-        )
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
     }
+
+    RemoteDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(label) },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = input,
+                    onValueChange = { new ->
+                        input = new.filter { it.isDigit() }
+                        error = null
+                    },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            if (commit()) {
+                                onDismiss()
+                            }
+                        }
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(focusRequester),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.ruTvColors.gold,
+                        unfocusedBorderColor = MaterialTheme.ruTvColors.textDisabled,
+                        focusedTextColor = MaterialTheme.ruTvColors.textPrimary,
+                        unfocusedTextColor = MaterialTheme.ruTvColors.textPrimary
+                    ),
+                    supportingText = {
+                        Text(
+                            text = error ?: rangeHint,
+                            color = if (error != null) {
+                                MaterialTheme.colorScheme.error
+                            } else {
+                                MaterialTheme.ruTvColors.textSecondary
+                            }
+                        )
+                    }
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (commit()) {
+                        onDismiss()
+                    }
+                }
+            ) {
+                Text(stringResource(R.string.button_ok))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.button_cancel))
+            }
+        }
+    )
 }
 
 @Composable
@@ -705,6 +805,7 @@ private fun ConfirmationDialog(
 private fun LanguageSelectorSetting(
     selectedLanguage: String,
     onLanguageSelected: (String) -> Unit,
+    isRemoteMode: Boolean,
     modifier: Modifier = Modifier
 ) {
     val languages = listOf(
@@ -713,6 +814,9 @@ private fun LanguageSelectorSetting(
     )
 
     var expanded by remember { mutableStateOf(false) }
+    val toggleMenu = { expanded = !expanded }
+    var isFocused by remember { mutableStateOf(false) }
+    val interactionSource = remember { MutableInteractionSource() }
 
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
@@ -724,7 +828,7 @@ private fun LanguageSelectorSetting(
 
         ExposedDropdownMenuBox(
             expanded = expanded,
-            onExpandedChange = { expanded = !expanded },
+            onExpandedChange = { toggleMenu() },
             modifier = Modifier.fillMaxWidth()
         ) {
             OutlinedTextField(
@@ -734,7 +838,24 @@ private fun LanguageSelectorSetting(
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                 modifier = Modifier
                     .menuAnchor()
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .focusable(enabled = isRemoteMode)
+                    .onFocusChanged { isFocused = it.isFocused }
+                    .then(if (isRemoteMode) focusIndicatorModifier(isFocused) else Modifier)
+                    .clickable(
+                        interactionSource = interactionSource,
+                        indication = null
+                    ) { toggleMenu() }
+                    .onKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown &&
+                            (event.key == Key.Enter || event.key == Key.DirectionCenter)
+                        ) {
+                            toggleMenu()
+                            true
+                        } else {
+                            false
+                        }
+                    },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = MaterialTheme.ruTvColors.gold,
                     unfocusedBorderColor = MaterialTheme.ruTvColors.textDisabled,

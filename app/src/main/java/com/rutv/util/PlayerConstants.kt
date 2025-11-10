@@ -1,7 +1,5 @@
 package com.rutv.util
 
-import androidx.media3.ui.AspectRatioFrameLayout
-
 /**
  * Player-related constants
  */
@@ -25,6 +23,4 @@ object PlayerConstants {
     // Player
     const val SEEK_INCREMENT_MS = 10_000L
 
-    // Aspect Ratio
-    val DEFAULT_RESIZE_MODE = AspectRatioFrameLayout.RESIZE_MODE_FIT
 }
