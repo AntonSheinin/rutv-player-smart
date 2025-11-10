@@ -607,7 +607,9 @@ private fun NumberInputSetting(
                     indication = null
                 ) { openDialog() }
                 .onKeyEvent { event ->
-                    if (event.type == KeyEventType.KeyDown &&
+                    if (
+                        isRemoteMode &&
+                        event.type == KeyEventType.KeyDown &&
                         (event.key == Key.Enter || event.key == Key.DirectionCenter)
                     ) {
                         openDialog()
@@ -847,7 +849,9 @@ private fun LanguageSelectorSetting(
                         indication = null
                     ) { toggleMenu() }
                     .onKeyEvent { event ->
-                        if (event.type == KeyEventType.KeyDown &&
+                        if (
+                            isRemoteMode &&
+                            event.type == KeyEventType.KeyDown &&
                             (event.key == Key.Enter || event.key == Key.DirectionCenter)
                         ) {
                             toggleMenu()

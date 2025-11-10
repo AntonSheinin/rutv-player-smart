@@ -682,7 +682,7 @@ private fun PlaylistPanel(
             true
         }
     }
-    // Focus requester for LazyColumn - will be provided to parent for EPG→Playlist focus transfer
+    // Focus requester for playlist LazyColumn (shared for EPG/playlist focus transfer)
     val lazyColumnFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
@@ -749,7 +749,7 @@ private fun PlaylistPanel(
     }
 
     // Restore focus to channel list when EPG closes
-    LaunchedEffect(epgOpenIndex) {
+    LaunchedEffect(epgOpenIndex, isRemoteMode) {
         if (epgOpenIndex >= 0 && epgOpenIndex < channels.size) {
             channelThatOpenedEpg = epgOpenIndex
         } else if (epgOpenIndex < 0 && channelThatOpenedEpg != null) {
@@ -759,6 +759,8 @@ private fun PlaylistPanel(
                 // Small delay to ensure EPG panel is removed first
                 delay(50)
                 focusChannel(channelIndex, false)
+                lazyColumnFocusRequester.requestFocus()
+                playlistHasFocus = true
             }
             channelThatOpenedEpg = null
         }
@@ -767,7 +769,7 @@ private fun PlaylistPanel(
     Card(
         modifier = modifier
             .fillMaxHeight()
-            .width(LayoutConstants.EpgPanelWidth)
+            .width(LayoutConstants.PlaylistPanelWidth)
             .padding(LayoutConstants.DefaultPadding),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f)
@@ -1244,7 +1246,7 @@ private fun EpgPanel(
     Card(
         modifier = modifier
             .fillMaxHeight()
-            .width(LayoutConstants.PlaylistPanelWidth)
+            .width(LayoutConstants.EpgPanelWidth)
             .padding(LayoutConstants.DefaultPadding),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f)
