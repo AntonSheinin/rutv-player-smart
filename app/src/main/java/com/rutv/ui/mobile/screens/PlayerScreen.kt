@@ -1552,7 +1552,6 @@ private fun ProgramDetailsPanel(
             // Scrollable content with scrollbar
             Box(modifier = Modifier.fillMaxSize()) {
                 val listState = rememberLazyListState()
-                val scrollStepPx = 240f
 
                 LazyColumn(
                     state = listState,
@@ -1565,10 +1564,14 @@ private fun ProgramDetailsPanel(
                             if (!remoteActive || event.type != KeyEventType.KeyDown) {
                                 return@onKeyEvent false
                             }
+                            val totalItems = listState.layoutInfo.totalItemsCount
+                            if (totalItems <= 0) return@onKeyEvent false
                             when (event.key) {
                                 Key.DirectionDown -> {
                                     coroutineScope.launch {
-                                        listState.animateScrollBy(scrollStepPx)
+                                        val targetIndex = (listState.firstVisibleItemIndex + 1)
+                                            .coerceAtMost(totalItems - 1)
+                                        listState.animateScrollToItem(targetIndex)
                                     }
                                     true
                                 }
@@ -1579,7 +1582,9 @@ private fun ProgramDetailsPanel(
                                         closeButtonFocus.requestFocus()
                                     } else {
                                         coroutineScope.launch {
-                                            listState.animateScrollBy(-scrollStepPx)
+                                            val targetIndex = (listState.firstVisibleItemIndex - 1)
+                                                .coerceAtLeast(0)
+                                            listState.animateScrollToItem(targetIndex)
                                         }
                                     }
                                     true
