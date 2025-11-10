@@ -69,7 +69,6 @@ fun SettingsScreen(
     var showReloadDialog by remember { mutableStateOf(false) }
 
     var showNoPlaylistDialog by remember { mutableStateOf(false) }
-    val isRemoteMode = DeviceHelper.isRemoteInputActive()
 
     // File picker launcher
     val filePickerLauncher = rememberLauncherForActivityResult(
@@ -179,12 +178,13 @@ fun SettingsScreen(
                         onClick = { filePickerLauncher.launch("*/*") },
                         modifier = Modifier
                             .weight(1f)
-                            .focusable(enabled = isRemoteMode)
+                            .focusable()
                             .focusRequester(fileButtonFocus)
                             .onFocusChanged { fileButtonFocused = it.isFocused }
-                            .then(if (isRemoteMode) focusIndicatorModifier(isFocused = fileButtonFocused) else Modifier)
+                            .then(focusIndicatorModifier(isFocused = fileButtonFocused))
                             .onKeyEvent { event ->
-                                if (event.type == KeyEventType.KeyDown && fileButtonFocused && isRemoteMode) {
+                                val remoteActive = DeviceHelper.isRemoteInputActive()
+                                if (event.type == KeyEventType.KeyDown && fileButtonFocused && remoteActive) {
                                     when (event.key) {
                                         Key.DirectionCenter, Key.Enter -> {
                                             filePickerLauncher.launch("*/*")
@@ -210,12 +210,13 @@ fun SettingsScreen(
                         onClick = { showUrlDialog = true },
                         modifier = Modifier
                             .weight(1f)
-                            .focusable(enabled = isRemoteMode)
+                            .focusable()
                             .focusRequester(urlButtonFocus)
                             .onFocusChanged { urlButtonFocused = it.isFocused }
-                            .then(if (isRemoteMode) focusIndicatorModifier(isFocused = urlButtonFocused) else Modifier)
+                            .then(focusIndicatorModifier(isFocused = urlButtonFocused))
                             .onKeyEvent { event ->
-                                if (event.type == KeyEventType.KeyDown && urlButtonFocused && isRemoteMode) {
+                                val remoteActive = DeviceHelper.isRemoteInputActive()
+                                if (event.type == KeyEventType.KeyDown && urlButtonFocused && remoteActive) {
                                     when (event.key) {
                                         Key.DirectionCenter, Key.Enter -> {
                                             showUrlDialog = true
@@ -269,8 +270,7 @@ fun SettingsScreen(
                 SwitchSetting(
                     label = stringResource(R.string.settings_debug_log),
                     checked = viewState.playerConfig.showDebugLog,
-                    onCheckedChange = onDebugLogChanged,
-                    isRemoteMode = isRemoteMode
+                    onCheckedChange = onDebugLogChanged
                 )
             }
 
@@ -278,8 +278,7 @@ fun SettingsScreen(
                 SwitchSetting(
                     label = stringResource(R.string.settings_ffmpeg_audio),
                     checked = viewState.playerConfig.useFfmpegAudio,
-                    onCheckedChange = onFfmpegAudioChanged,
-                    isRemoteMode = isRemoteMode
+                    onCheckedChange = onFfmpegAudioChanged
                 )
             }
 
@@ -287,8 +286,7 @@ fun SettingsScreen(
                 SwitchSetting(
                     label = stringResource(R.string.settings_ffmpeg_video),
                     checked = viewState.playerConfig.useFfmpegVideo,
-                    onCheckedChange = onFfmpegVideoChanged,
-                    isRemoteMode = isRemoteMode
+                    onCheckedChange = onFfmpegVideoChanged
                 )
             }
 
@@ -298,8 +296,7 @@ fun SettingsScreen(
                     value = viewState.playerConfig.bufferSeconds,
                     onValueChange = onBufferSecondsChanged,
                     minValue = PlayerConstants.MIN_BUFFER_SECONDS,
-                    maxValue = PlayerConstants.MAX_BUFFER_SECONDS,
-                    isRemoteMode = isRemoteMode
+                    maxValue = PlayerConstants.MAX_BUFFER_SECONDS
                 )
             }
 
@@ -314,8 +311,7 @@ fun SettingsScreen(
                 TextInputSetting(
                     label = stringResource(R.string.settings_epg_url),
                     value = viewState.epgUrl,
-                    onValueChange = onEpgUrlChanged,
-                    isRemoteMode = isRemoteMode
+                    onValueChange = onEpgUrlChanged
                 )
             }
 
@@ -325,8 +321,7 @@ fun SettingsScreen(
                     value = viewState.epgDaysAhead,
                     onValueChange = onEpgDaysAheadChanged,
                     minValue = 1,
-                    maxValue = 30,
-                    isRemoteMode = isRemoteMode
+                    maxValue = 30
                 )
             }
 
@@ -336,8 +331,7 @@ fun SettingsScreen(
                     value = viewState.epgDaysPast,
                     onValueChange = onEpgDaysPastChanged,
                     minValue = 1,
-                    maxValue = 60,
-                    isRemoteMode = isRemoteMode
+                    maxValue = 60
                 )
             }
 
@@ -347,8 +341,7 @@ fun SettingsScreen(
                     value = viewState.epgPageDays,
                     onValueChange = onEpgPageDaysChanged,
                     minValue = 1,
-                    maxValue = 14,
-                    isRemoteMode = isRemoteMode
+                    maxValue = 14
                 )
             }
 
@@ -362,8 +355,7 @@ fun SettingsScreen(
             item {
                 LanguageSelectorSetting(
                     selectedLanguage = viewState.selectedLanguage,
-                    onLanguageSelected = onLanguageChanged,
-                    isRemoteMode = isRemoteMode
+                    onLanguageSelected = onLanguageChanged
                 )
             }
 
@@ -471,7 +463,6 @@ private fun SwitchSetting(
     label: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-    isRemoteMode: Boolean,
     modifier: Modifier = Modifier
 ) {
     var isFocused by remember { mutableStateOf(false) }
@@ -479,12 +470,12 @@ private fun SwitchSetting(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .focusable(enabled = isRemoteMode)
+            .focusable()
             .onFocusChanged { isFocused = it.isFocused }
-            .then(if (isRemoteMode) focusIndicatorModifier(isFocused) else Modifier)
+            .then(focusIndicatorModifier(isFocused))
             .padding(vertical = 8.dp)
             .onKeyEvent { event ->
-                if (isRemoteMode && isFocused && event.type == KeyEventType.KeyDown) {
+                if (DeviceHelper.isRemoteInputActive() && isFocused && event.type == KeyEventType.KeyDown) {
                     when (event.key) {
                         Key.Enter, Key.DirectionCenter -> {
                             onCheckedChange(!checked)
@@ -520,7 +511,6 @@ private fun TextInputSetting(
     label: String,
     value: String,
     onValueChange: (String) -> Unit,
-    isRemoteMode: Boolean,
     modifier: Modifier = Modifier
 ) {
     // Use local state to avoid immediate updates while typing
@@ -546,11 +536,11 @@ private fun TextInputSetting(
             onValueChange = { localValue = it },
             modifier = Modifier
                 .fillMaxWidth()
-                .focusable(enabled = isRemoteMode)
+                .focusable()
                 .onFocusChanged { focusState ->
                     isFocused = focusState.isFocused
                 }
-                .then(if (isRemoteMode) focusIndicatorModifier(isFocused) else Modifier),
+                .then(focusIndicatorModifier(isFocused)),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = MaterialTheme.ruTvColors.gold,
                 unfocusedBorderColor = MaterialTheme.ruTvColors.textDisabled,
@@ -579,7 +569,6 @@ private fun NumberInputSetting(
     onValueChange: (Int) -> Unit,
     minValue: Int,
     maxValue: Int,
-    isRemoteMode: Boolean,
     modifier: Modifier = Modifier
 ) {
     var showDialog by remember { mutableStateOf(false) }
@@ -600,7 +589,7 @@ private fun NumberInputSetting(
             readOnly = true,
             modifier = Modifier
                 .fillMaxWidth()
-                .focusable(enabled = isRemoteMode)
+                .focusable()
                 .onFocusChanged { isFocused = it.isFocused }
                 .clickable(
                     interactionSource = interactionSource,
@@ -608,7 +597,7 @@ private fun NumberInputSetting(
                 ) { openDialog() }
                 .onKeyEvent { event ->
                     if (
-                        isRemoteMode &&
+                        DeviceHelper.isRemoteInputActive() &&
                         event.type == KeyEventType.KeyDown &&
                         (event.key == Key.Enter || event.key == Key.DirectionCenter)
                     ) {
@@ -618,7 +607,7 @@ private fun NumberInputSetting(
                         false
                     }
                 }
-                .then(if (isRemoteMode) focusIndicatorModifier(isFocused) else Modifier),
+                .then(focusIndicatorModifier(isFocused)),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = MaterialTheme.ruTvColors.gold,
                 unfocusedBorderColor = MaterialTheme.ruTvColors.textDisabled,
@@ -807,7 +796,6 @@ private fun ConfirmationDialog(
 private fun LanguageSelectorSetting(
     selectedLanguage: String,
     onLanguageSelected: (String) -> Unit,
-    isRemoteMode: Boolean,
     modifier: Modifier = Modifier
 ) {
     val languages = listOf(
@@ -841,16 +829,16 @@ private fun LanguageSelectorSetting(
                 modifier = Modifier
                     .menuAnchor()
                     .fillMaxWidth()
-                    .focusable(enabled = isRemoteMode)
+                    .focusable()
                     .onFocusChanged { isFocused = it.isFocused }
-                    .then(if (isRemoteMode) focusIndicatorModifier(isFocused) else Modifier)
+                    .then(focusIndicatorModifier(isFocused))
                     .clickable(
                         interactionSource = interactionSource,
                         indication = null
                     ) { toggleMenu() }
                     .onKeyEvent { event ->
                         if (
-                            isRemoteMode &&
+                            DeviceHelper.isRemoteInputActive() &&
                             event.type == KeyEventType.KeyDown &&
                             (event.key == Key.Enter || event.key == Key.DirectionCenter)
                         ) {

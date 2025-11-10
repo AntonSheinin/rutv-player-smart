@@ -1144,19 +1144,17 @@ private fun EpgPanel(
         itemsList to indexMap
     }
 
-    val resolvedInitialProgramIndex = remember(channel?.tvgId, programs) {
-        when {
-            programs.isEmpty() -> -1
-            currentProgramIndex in programs.indices -> currentProgramIndex
-            else -> 0
-        }
+    val resolvedInitialProgramIndex = when {
+        programs.isEmpty() -> -1
+        currentProgramIndex in programs.indices -> currentProgramIndex
+        else -> 0
     }
-    val resolvedInitialItemIndex = remember(resolvedInitialProgramIndex, programItemIndices) {
-        programItemIndices.getOrNull(resolvedInitialProgramIndex)?.coerceAtLeast(0) ?: 0
-    }
+    val resolvedInitialItemIndex = programItemIndices
+        .getOrNull(resolvedInitialProgramIndex)
+        ?.coerceAtLeast(0)
     val listState = remember(channel?.tvgId) {
         LazyListState(
-            max(resolvedInitialItemIndex, 0),
+            max(resolvedInitialItemIndex ?: 0, 0),
             0
         )
     }
@@ -1164,10 +1162,12 @@ private fun EpgPanel(
     var focusedProgramIndex by remember(channel?.tvgId) {
         mutableIntStateOf(resolvedInitialProgramIndex.coerceAtLeast(0))
     }
-    var pendingProgramCenterIndex by remember(channel?.tvgId, currentProgramIndex, programs) {
-        mutableStateOf(
-            if (resolvedInitialItemIndex >= 0 && programs.isNotEmpty()) resolvedInitialItemIndex else null
-        )
+    var pendingProgramCenterIndex by remember(channel?.tvgId) {
+        mutableStateOf(resolvedInitialItemIndex)
+    }
+
+    LaunchedEffect(channel?.tvgId, focusRequestToken) {
+        pendingProgramCenterIndex = resolvedInitialItemIndex
     }
 
     LaunchedEffect(programs.size, channel?.tvgId, currentProgramIndex) {
@@ -1475,6 +1475,9 @@ private fun ProgramDetailsPanel(
 ) {
     val isRemoteMode = DeviceHelper.isRemoteInputActive()
     val closeButtonFocus = remember { FocusRequester() }
+    val contentFocusRequester = remember { FocusRequester() }
+    val coroutineScope = rememberCoroutineScope()
+    var closeButtonFocused by remember { mutableStateOf(false) }
 
     // Request focus on close button when panel opens in remote mode
     LaunchedEffect(isRemoteMode) {
@@ -1516,14 +1519,19 @@ private fun ProgramDetailsPanel(
                 IconButton(
                     onClick = onClose,
                     modifier = Modifier
-                        .focusable(enabled = isRemoteMode)
+                        .focusable()
                         .focusRequester(closeButtonFocus)
-                        .then(focusIndicatorModifier(isFocused = false))
+                        .onFocusChanged { closeButtonFocused = it.isFocused }
+                        .then(focusIndicatorModifier(isFocused = closeButtonFocused))
                         .onKeyEvent { event ->
                             if (event.type == KeyEventType.KeyDown) {
                                 when (event.key) {
                                     Key.DirectionCenter, Key.Enter, Key.Back -> {
                                         onClose()
+                                        true
+                                    }
+                                    Key.DirectionDown -> {
+                                        contentFocusRequester.requestFocus()
                                         true
                                     }
                                     else -> false
@@ -1544,11 +1552,41 @@ private fun ProgramDetailsPanel(
             // Scrollable content with scrollbar
             Box(modifier = Modifier.fillMaxSize()) {
                 val listState = rememberLazyListState()
+                val scrollStepPx = 240f
 
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
-                        .fillMaxSize(),
+                        .fillMaxSize()
+                        .focusRequester(contentFocusRequester)
+                        .focusable()
+                        .onKeyEvent { event ->
+                            val remoteActive = DeviceHelper.isRemoteInputActive()
+                            if (!remoteActive || event.type != KeyEventType.KeyDown) {
+                                return@onKeyEvent false
+                            }
+                            when (event.key) {
+                                Key.DirectionDown -> {
+                                    coroutineScope.launch {
+                                        listState.animateScrollBy(scrollStepPx)
+                                    }
+                                    true
+                                }
+                                Key.DirectionUp -> {
+                                    val atTop = listState.firstVisibleItemIndex == 0 &&
+                                        listState.firstVisibleItemScrollOffset == 0
+                                    if (atTop) {
+                                        closeButtonFocus.requestFocus()
+                                    } else {
+                                        coroutineScope.launch {
+                                            listState.animateScrollBy(-scrollStepPx)
+                                        }
+                                    }
+                                    true
+                                }
+                                else -> false
+                            }
+                        },
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 20.dp, bottom = 16.dp) // Add end padding for scrollbar
                 ) {
