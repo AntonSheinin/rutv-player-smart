@@ -1,4 +1,4 @@
-<resources>
+﻿<resources>
     <string name="app_name">RuTV</string>
 
     <!-- Dialog Titles -->
@@ -8,10 +8,12 @@
     <string name="dialog_title_load_playlist_url">Загрузить плейлист по URL</string>
     <string name="dialog_title_no_playlist_loaded">Нет плейлиста</string>
     <string name="dialog_title_reload_playlist">Перезагрузить плейлист?</string>
+    <string name="dialog_title_close_app">Закрыть приложение?</string>
     <!-- Dialog Messages -->
     <string name="dialog_message_no_playlist">Пожалуйста, перейдите в Настройки для настройки источника плейлиста (URL или файл), чтобы начать просмотр каналов.</string>
     <string name="dialog_message_no_playlist_loaded">Плейлист не загружен. Пожалуйста, сначала загрузите плейлист.</string>
     <string name="dialog_message_reload_playlist">Это перезагрузит плейлист из исходного источника и обновит все данные EPG (tvg-id, catchup-days и т.д.).</string>
+    <string name="dialog_message_close_app">Вы уверены, что хотите закрыть приложение?</string>
 
     <!-- Buttons -->
     <string name="button_ok">ОК</string>
