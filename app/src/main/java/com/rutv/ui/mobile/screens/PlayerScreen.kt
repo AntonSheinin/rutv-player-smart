@@ -1451,7 +1451,7 @@ private fun EpgPanel(
                                     true
                                 }
                                 Key.DirectionLeft -> {
-                                    onLogDebug("  \u2190 EPG LazyColumn LEFT (playlist=${if (isPlaylistOpen) \"open\" else \"closed\"})")
+                                    onLogDebug("  \u2190 EPG LazyColumn LEFT (playlist=${if (isPlaylistOpen) "open" else "closed"})")
                                     if (isPlaylistOpen) {
                                         onNavigateLeftToChannels?.invoke()
                                     } else {

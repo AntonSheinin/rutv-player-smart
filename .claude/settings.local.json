@@ -8,7 +8,9 @@
       "Bash(adb shell:*)",
       "Bash(git push:*)",
       "Bash(find:*)",
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []
