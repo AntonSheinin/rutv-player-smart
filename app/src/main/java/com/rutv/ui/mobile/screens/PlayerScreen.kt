@@ -13,7 +13,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.animateScrollBy
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -893,7 +892,6 @@ private fun PlaylistPanel(
 
                 LazyColumn(
                     state = listState,
-                    beyondBoundsItemCount = 1,
                     modifier = Modifier
                         .fillMaxSize()
                         .focusRequester(lazyColumnFocusRequester)
@@ -1172,21 +1170,23 @@ private fun EpgPanel(
 
     // Build items list with date delimiters to calculate correct scroll position
     val (items, programItemIndices) = remember(programs) {
-        val itemsList = mutableListOf<Pair<String, Any>>() // Pair of key to item (delimiter or program)
+        val itemsList = mutableListOf<EpgUiItem>()
         val indexMap = MutableList(programs.size) { -1 }
         var lastDate = ""
         programs.forEachIndexed { index, program ->
             val programDate = TimeFormatter.formatEpgDate(Date(program.startTimeMillis))
             if (programDate != lastDate) {
-                itemsList.add("date_$programDate" to programDate)
+                val absoluteIndex = itemsList.size
+                itemsList.add(EpgUiItem(absoluteIndex, "date_$programDate", programDate))
                 lastDate = programDate
             }
             val baseKey = when {
                 program.id.isNotBlank() -> program.id
                 else -> "${program.startTimeMillis}_${program.stopTimeMillis}_${program.title}_$index"
             }
-            itemsList.add("program_$baseKey" to program)
-            indexMap[index] = itemsList.lastIndex
+            val absoluteIndex = itemsList.size
+            itemsList.add(EpgUiItem(absoluteIndex, "program_$baseKey", program))
+            indexMap[index] = absoluteIndex
         }
         itemsList to indexMap
     }
@@ -1350,6 +1350,17 @@ private fun EpgPanel(
             Box(modifier = Modifier.fillMaxSize()) {
                 // Focus requester for LazyColumn
                 val lazyColumnFocusRequester = remember { FocusRequester() }
+                val pagingItems = remember(items) {
+                    Pager(
+                        PagingConfig(
+                            pageSize = 40,
+                            initialLoadSize = 40,
+                            enablePlaceholders = false
+                        )
+                    ) {
+                        StaticPagingSource(items)
+                    }
+                }.flow.collectAsLazyPagingItems()
 
                 // Request focus on LazyColumn when signaled
                 LaunchedEffect(focusRequestToken, isRemoteMode) {
@@ -1441,11 +1452,13 @@ private fun EpgPanel(
                         },
                     contentPadding = PaddingValues(start = 12.dp, top = 4.dp, end = 20.dp, bottom = 4.dp) // Extra padding for 4dp focus border
                 ) {
-                    items(items.size, key = { items[it].first }) { index ->
-                        val item = items[index]
-                        when (val data = item.second) {
+                    items(
+                        count = pagingItems.itemCount,
+                        key = { index -> pagingItems.peek(index)?.key ?: "epg_placeholder_$index" }
+                    ) { index ->
+                        val entry = pagingItems[index] ?: return@items
+                        when (val data = entry.payload) {
                             is String -> {
-                                // Date delimiters are not focusable - they're skipped automatically
                                 EpgDateDelimiter(date = data)
                             }
                             is EpgProgram -> {
@@ -1614,7 +1627,6 @@ private fun ProgramDetailsPanel(
 
                 LazyColumn(
                     state = listState,
-                    beyondBoundsItemCount = 2,
                     modifier = Modifier
                         .fillMaxSize()
                         .focusRequester(contentFocusRequester)
@@ -1772,6 +1784,12 @@ private fun calculateScrollProgress(listState: LazyListState): Float {
     return (scrolled.toFloat() / maxScroll.toFloat()).coerceIn(0f, 1f)
 }
 
+private data class EpgUiItem(
+    val absoluteIndex: Int,
+    val key: String,
+    val payload: Any
+)
+
 private fun LazyListState.isItemFullyVisible(index: Int): Boolean {
     val layout = this.layoutInfo
     if (layout.visibleItemsInfo.isEmpty()) return false
@@ -1785,10 +1803,21 @@ private fun LazyListState.isItemFullyVisible(index: Int): Boolean {
 
 private suspend fun LazyListState.scrollByIfPossible(delta: Float): Boolean {
     if (delta == 0f) return false
-    val startIndex = firstVisibleItemIndex
-    val startOffset = firstVisibleItemScrollOffset
-    animateScrollBy(delta)
-    return startIndex != firstVisibleItemIndex || startOffset != firstVisibleItemScrollOffset
+    val layoutInfo = layoutInfo
+    val totalItems = layoutInfo.totalItemsCount
+    if (totalItems <= 0) return false
+
+    val direction = if (delta > 0) 1 else -1
+    val targetIndex = (firstVisibleItemIndex + direction).coerceIn(0, totalItems - 1)
+
+    if (targetIndex == firstVisibleItemIndex) {
+        if (direction < 0 && firstVisibleItemIndex == 0 && firstVisibleItemScrollOffset == 0) {
+            return false
+        }
+    }
+
+    animateScrollToItem(targetIndex)
+    return true
 }
 
 private suspend fun LazyListState.centerOn(index: Int) {
@@ -1833,7 +1862,6 @@ private fun DebugLogPanel(
 
                 LazyColumn(
                     state = listState,
-                    beyondBoundsItemCount = 1,
                     modifier = Modifier
                     .fillMaxSize()
                     .padding(LayoutConstants.SmallPadding)
@@ -2168,3 +2196,7 @@ private fun PlayerView.focusOnControl(vararg controlNames: String) {
 private fun View.setVerticalOffsetDp(offsetDp: Float) {
     translationY = offsetDp * resources.displayMetrics.density
 }
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.compose.collectAsLazyPagingItems
+import com.rutv.data.paging.StaticPagingSource
