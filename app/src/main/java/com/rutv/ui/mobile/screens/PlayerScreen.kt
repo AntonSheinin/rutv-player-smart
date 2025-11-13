@@ -1481,17 +1481,7 @@ private fun EpgPanel(
                         },
                     contentPadding = PaddingValues(start = 12.dp, top = 4.dp, end = 20.dp, bottom = 4.dp) // Extra padding for 4dp focus border
                 ) {
-                    items(
-                        count = items.size,
-                        key = { items[it].first },
-                        contentType = { index -> // OPTIMIZATION: ContentType for better item reuse
-                            when (items[index].second) {
-                                is String -> "date_delimiter"
-                                is EpgProgram -> "epg_program"
-                                else -> null
-                            }
-                        }
-                    ) { index ->
+                    items(items.size, key = { items[it].first }) { index ->
                         val item = items[index]
                         when (val data = item.second) {
                             is String -> {
