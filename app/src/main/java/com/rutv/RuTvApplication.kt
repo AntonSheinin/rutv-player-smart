@@ -50,14 +50,18 @@ class RuTvApplication : Application(), ImageLoaderFactory {
                 }
             }
             .memoryCache {
+                // OPTIMIZATION: Reduced from 25% to 10% for STB devices
+                // Saves 50-150MB on devices with 1GB RAM
                 MemoryCache.Builder(this)
-                    .maxSizePercent(0.25)
+                    .maxSizePercent(0.10)
+                    .maxSizeBytes(50 * 1024 * 1024) // Cap at 50MB absolute
                     .build()
             }
             .diskCache {
+                // OPTIMIZATION: Increased disk cache to compensate
                 DiskCache.Builder()
                     .directory(cacheDir.resolve("image_cache"))
-                    .maxSizePercent(0.02)
+                    .maxSizePercent(0.05) // Increased from 2% to 5%
                     .build()
             }
             .build()
