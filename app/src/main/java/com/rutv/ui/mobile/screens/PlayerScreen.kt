@@ -892,7 +892,6 @@ private fun PlaylistPanel(
 
                 LazyColumn(
                     state = listState,
-                    beyondBoundsItemCount = 2,
                     modifier = Modifier
                         .fillMaxSize()
                         .focusRequester(lazyColumnFocusRequester)
@@ -1351,7 +1350,6 @@ private fun EpgPanel(
 
                 LazyColumn(
                     state = listState,
-                    beyondBoundsItemCount = 2,
                     modifier = Modifier
                         .fillMaxSize()
                         .focusRequester(lazyColumnFocusRequester)
@@ -1605,7 +1603,6 @@ private fun ProgramDetailsPanel(
 
                 LazyColumn(
                     state = listState,
-                    beyondBoundsItemCount = 1,
                     modifier = Modifier
                         .fillMaxSize()
                         .focusRequester(contentFocusRequester)
@@ -1776,10 +1773,21 @@ private fun LazyListState.isItemFullyVisible(index: Int): Boolean {
 
 private suspend fun LazyListState.scrollByIfPossible(delta: Float): Boolean {
     if (delta == 0f) return false
-    val startIndex = firstVisibleItemIndex
-    val startOffset = firstVisibleItemScrollOffset
-    animateScrollBy(delta)
-    return startIndex != firstVisibleItemIndex || startOffset != firstVisibleItemScrollOffset
+    val layoutInfo = layoutInfo
+    val totalItems = layoutInfo.totalItemsCount
+    if (totalItems <= 0) return false
+
+    val direction = if (delta > 0) 1 else -1
+    val targetIndex = (firstVisibleItemIndex + direction).coerceIn(0, totalItems - 1)
+
+    if (targetIndex == firstVisibleItemIndex) {
+        if (direction < 0 && firstVisibleItemIndex == 0 && firstVisibleItemScrollOffset == 0) {
+            return false
+        }
+    }
+
+    animateScrollToItem(targetIndex)
+    return true
 }
 
 private suspend fun LazyListState.centerOn(index: Int) {
