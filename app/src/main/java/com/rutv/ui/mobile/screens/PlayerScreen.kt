@@ -707,10 +707,15 @@ private fun PlaylistPanel(
             focusedChannelIndex = targetIndex
             onChannelFocused?.invoke(targetIndex)
             playlistHasFocus = true
-            val shouldScroll = listState.layoutInfo.visibleItemsInfo.none { it.index == targetIndex }
+            val shouldScroll = !listState.isItemFullyVisible(targetIndex)
             if (shouldScroll) {
+                val scrollOffset = when {
+                    targetIndex <= 0 -> 0
+                    targetIndex >= channels.lastIndex -> 0
+                    else -> -160
+                }
                 coroutineScope.launch {
-                    listState.animateScrollToItem(targetIndex, scrollOffset = -160)
+                    listState.animateScrollToItem(targetIndex, scrollOffset = scrollOffset)
                 }
             }
             if (play) {
@@ -1806,6 +1811,17 @@ private fun calculateScrollProgress(listState: LazyListState): Float {
     val maxScroll = (totalContentHeight - viewportSize).coerceAtLeast(1)
     val scrolled = (listState.firstVisibleItemIndex * averageItemSize + listState.firstVisibleItemScrollOffset).toInt()
     return (scrolled.toFloat() / maxScroll.toFloat()).coerceIn(0f, 1f)
+}
+
+private fun LazyListState.isItemFullyVisible(index: Int): Boolean {
+    val layout = this.layoutInfo
+    if (layout.visibleItemsInfo.isEmpty()) return false
+    val viewportStart = layout.viewportStartOffset
+    val viewportEnd = layout.viewportEndOffset
+    val itemInfo = layout.visibleItemsInfo.firstOrNull { it.index == index } ?: return false
+    val itemStart = itemInfo.offset
+    val itemEnd = itemStart + itemInfo.size
+    return itemStart >= viewportStart && itemEnd <= viewportEnd
 }
 
 private suspend fun LazyListState.centerOn(index: Int) {
