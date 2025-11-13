@@ -52,7 +52,7 @@ class RuTvApplication : Application(), ImageLoaderFactory {
             .memoryCache {
                 MemoryCache.Builder(this)
                     .maxSizePercent(0.10)
-                    .maxSizeBytes(50L * 1024L * 1024L)
+                    .maxSizeBytes(50 * 1024 * 1024)
                     .build()
             }
             .diskCache {
