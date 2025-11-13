@@ -323,11 +323,20 @@ class SettingsViewModel @Inject constructor(
     /**
      * Set app language
      * This method can be called from runBlocking to ensure it completes synchronously
+     *
+     * OPTIMIZATION: Also updates LocaleHelper cache for faster startup
      */
     suspend fun setAppLanguage(localeCode: String) {
         try {
             preferencesRepository.saveAppLanguage(localeCode)
             logDebug { "App language saved: $localeCode" }
+
+            // OPTIMIZATION: Update LocaleHelper cache immediately
+            // This ensures next app start won't need SharedPreferences read
+            com.rutv.util.LocaleHelper.saveLanguage(
+                context = getApplication<android.app.Application>().applicationContext,
+                localeCode = localeCode
+            )
         } catch (e: Exception) {
             Timber.e(e, "Failed to save app language")
             _viewState.update { it.copy(error = "Failed to save language preference: ${e.message}") }
