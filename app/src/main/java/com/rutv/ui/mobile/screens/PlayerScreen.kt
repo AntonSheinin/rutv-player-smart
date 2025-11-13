@@ -47,6 +47,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalDensity
 import com.rutv.util.DeviceHelper
 import com.rutv.ui.shared.components.focusIndicatorModifier
 import com.rutv.ui.shared.components.RemoteDialog
@@ -78,6 +79,7 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Job
 import kotlin.math.max
 import java.util.*
 
@@ -365,7 +367,6 @@ fun PlayerScreen(
                 onShowPrograms = actions.onShowEpgForChannel,
                 onClose = actions.onClosePlaylist,
                 onUpdateScrollIndex = actions.onUpdatePlaylistScrollIndex,
-                onLogDebug = debugLogger,
                 onProvideFocusController = { controller -> focusCoordinator.registerPlaylistController(controller) },
                 onProvideFocusRequester = { requester -> focusCoordinator.registerPlaylistRequester(requester) },
                 onChannelFocused = { index ->
@@ -404,7 +405,6 @@ fun PlayerScreen(
                 focusRequestToken = epgFocusRequestToken,
                 focusRequestTargetIndex = epgFocusRequestTargetIndex,
                 onFocusRequestHandled = { epgFocusRequestTargetIndex = null },
-                onLogDebug = debugLogger,
                 modifier = Modifier.align(Alignment.CenterEnd)
             )
         }
@@ -649,7 +649,6 @@ private fun PlaylistPanel(
     onShowPrograms: (String) -> Unit,
     onClose: () -> Unit,
     onUpdateScrollIndex: (Int) -> Unit,
-    onLogDebug: (String) -> Unit = {},
     onProvideFocusController: (((Int, Boolean) -> Boolean)?) -> Unit = {},
     onProvideFocusRequester: ((FocusRequester?) -> Unit)? = null,
     onChannelFocused: ((Int) -> Unit)? = null,
@@ -696,14 +695,13 @@ private fun PlaylistPanel(
 
     // Track which channel opened EPG for focus restoration
     var channelThatOpenedEpg by remember { mutableStateOf<Int?>(null) }
+    var pendingScrollJob by remember { mutableStateOf<Job?>(null) }
 
 
     val focusChannel: (Int, Boolean) -> Boolean = { targetIndex, play ->
         if (targetIndex !in channels.indices) {
-            onLogDebug("?? focusChannel($targetIndex) out of range [0..${channels.lastIndex}]")
             false
         } else {
-            onLogDebug("?? focusChannel($targetIndex, play=$play) updating index")
             focusedChannelIndex = targetIndex
             onChannelFocused?.invoke(targetIndex)
             playlistHasFocus = true
@@ -714,8 +712,11 @@ private fun PlaylistPanel(
                     targetIndex >= channels.lastIndex -> 0
                     else -> -160
                 }
-                coroutineScope.launch {
+                pendingScrollJob?.cancel()
+                pendingScrollJob = coroutineScope.launch {
                     listState.animateScrollToItem(targetIndex, scrollOffset = scrollOffset)
+                }.apply {
+                    invokeOnCompletion { pendingScrollJob = null }
                 }
             }
             if (play) {
@@ -887,11 +888,11 @@ private fun PlaylistPanel(
                     delay(150) // Wait for composition
                     lazyColumnFocusRequester.requestFocus()
                     playlistHasFocus = true
-                    onLogDebug("🎯 Requesting focus on Playlist LazyColumn")
                 }
 
                 LazyColumn(
                     state = listState,
+                    beyondBoundsItemCount = 2,
                     modifier = Modifier
                         .fillMaxSize()
                         .focusRequester(lazyColumnFocusRequester)
@@ -917,44 +918,24 @@ private fun PlaylistPanel(
                                 return@onPreviewKeyEvent true
                             }
 
-                            val keyName = when (event.key.keyCode.toInt()) {
-                                19 -> "UP"
-                                20 -> "DOWN"
-                                21 -> "LEFT"
-                                22 -> "RIGHT"
-                                23 -> "OK"
-                                else -> event.key.keyCode.toString()
-                            }
-                            onLogDebug("\uD83D\uDCCB LazyColumn $keyName focus=$focusedChannelIndex")
-
                             when (event.key) {
                                 Key.DirectionUp -> {
-                                    onLogDebug("  \u2B06 LazyColumn UP")
                                     if (focusedChannelIndex > 0) {
                                         focusChannel(focusedChannelIndex - 1, false)
-                                        true
-                                    } else {
-                                        onLogDebug("    \u2192 at top")
-                                        true
                                     }
+                                    true
                                 }
                                 Key.DirectionDown -> {
-                                    onLogDebug("  \u2B07 LazyColumn DOWN")
                                     if (focusedChannelIndex < channels.lastIndex) {
                                         focusChannel(focusedChannelIndex + 1, false)
-                                        true
-                                    } else {
-                                        onLogDebug("    \u2192 at bottom")
-                                        true
                                     }
+                                    true
                                 }
                                 Key.DirectionCenter, Key.Enter -> {
-                                    onLogDebug("  \u2713 LazyColumn OK")
                                     focusChannel(focusedChannelIndex, true)
                                     true
                                 }
                                 Key.DirectionRight -> {
-                                    onLogDebug("  \u2192 LazyColumn RIGHT")
                                     val channel = channels.getOrNull(focusedChannelIndex)
                                     if (channel?.hasEpg == true) {
                                         playlistHasFocus = false
@@ -966,7 +947,6 @@ private fun PlaylistPanel(
                                     }
                                 }
                                 Key.DirectionLeft -> {
-                                    onLogDebug("  \u2190 LazyColumn LEFT -> Search")
                                     showSearchDialog = true
                                     true
                                 }
@@ -991,7 +971,6 @@ private fun PlaylistPanel(
                             onChannelClick = { focusChannel(index, true) },
                             onFavoriteClick = { onFavoriteClick(channel.url) },
                             onShowPrograms = { onShowPrograms(channel.tvgId) },
-                            onLogDebug = onLogDebug,
                             modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp)
                         )
                     }
@@ -1164,7 +1143,6 @@ private fun EpgPanel(
     focusRequestToken: Int = 0,
     focusRequestTargetIndex: Int? = null,
     onFocusRequestHandled: () -> Unit = {},
-    onLogDebug: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -1282,15 +1260,12 @@ private fun EpgPanel(
 
     fun focusProgram(targetIndex: Int): Boolean {
         if (targetIndex !in programs.indices) {
-            onLogDebug("❌ focusProgram($targetIndex) out of range [0..${programs.lastIndex}]")
             return false
         }
         val itemIndex = programItemIndices.getOrNull(targetIndex)
         if (itemIndex == null) {
-            onLogDebug("❌ focusProgram($targetIndex) no item index")
             return false
         }
-        onLogDebug("🎯 focusProgram($targetIndex) updating index")
         focusedProgramIndex = targetIndex
         val shouldScroll = listState.layoutInfo.visibleItemsInfo.none { it.index == itemIndex }
         coroutineScope.launch {
@@ -1372,11 +1347,11 @@ private fun EpgPanel(
                     delay(50)
                     lazyColumnFocusRequester.requestFocus()
                     epgListHasFocus = true
-                    onLogDebug("🎯 Requesting focus on EPG LazyColumn (token=$focusRequestToken)")
                 }
 
                 LazyColumn(
                     state = listState,
+                    beyondBoundsItemCount = 2,
                     modifier = Modifier
                         .fillMaxSize()
                         .focusRequester(lazyColumnFocusRequester)
@@ -1401,39 +1376,20 @@ private fun EpgPanel(
                                 return@onPreviewKeyEvent true
                             }
 
-                            val keyName = when (event.key.keyCode.toInt()) {
-                                19 -> "UP"
-                                20 -> "DOWN"
-                                21 -> "LEFT"
-                                22 -> "RIGHT"
-                                23 -> "OK"
-                                else -> event.key.keyCode.toString()
-                            }
-                            onLogDebug("\uD83D\uDCFA EPG LazyColumn $keyName focus=$focusedProgramIndex")
-
                             when (event.key) {
                                 Key.DirectionUp -> {
-                                    onLogDebug("  \u2B06 EPG LazyColumn UP")
                                     if (focusedProgramIndex > 0) {
                                         focusProgram(focusedProgramIndex - 1)
-                                        true
-                                    } else {
-                                        onLogDebug("    \u2192 at top")
-                                        true
                                     }
+                                    true
                                 }
                                 Key.DirectionDown -> {
-                                    onLogDebug("  \u2B07 EPG LazyColumn DOWN")
                                     if (focusedProgramIndex < programs.lastIndex) {
                                         focusProgram(focusedProgramIndex + 1)
-                                        true
-                                    } else {
-                                        onLogDebug("    \u2192 at bottom")
-                                        true
                                     }
+                                    true
                                 }
                                 Key.DirectionCenter, Key.Enter -> {
-                                    onLogDebug("  \u2713 EPG LazyColumn OK")
                                     val program = programs.getOrNull(focusedProgramIndex)
                                     if (program != null) {
                                         val isPast = program.stopTimeMillis > 0 && program.stopTimeMillis <= currentTime
@@ -1447,16 +1403,12 @@ private fun EpgPanel(
                                         val canPlayArchive = isArchiveCandidate && !isArchivePlayback
 
                                         if (canPlayArchive) {
-                                            onLogDebug("    \u2192 Playing archive program")
                                             onPlayArchive(program)
-                                        } else {
-                                            onLogDebug("    \u2192 Program not in archive or not past")
                                         }
                                     }
                                     true
                                 }
                                 Key.DirectionLeft -> {
-                                    onLogDebug("  \u2190 EPG LazyColumn LEFT (playlist=${if (isPlaylistOpen) "open" else "closed"})")
                                     if (isPlaylistOpen) {
                                         onNavigateLeftToChannels?.invoke()
                                     } else {
@@ -1467,7 +1419,6 @@ private fun EpgPanel(
                                     true
                                 }
                                 Key.DirectionRight -> {
-                                    onLogDebug("  \u2192 EPG LazyColumn RIGHT (details)")
                                     val program = programs.getOrNull(focusedProgramIndex)
                                     if (program != null) {
                                         onProgramClick(program)
@@ -1586,6 +1537,8 @@ private fun ProgramDetailsPanel(
     val startTimeFormatted = program.startTimeMillis.takeIf { it > 0L }?.let {
         TimeFormatter.formatProgramDateTime(Date(it))
     } ?: stringResource(R.string.time_placeholder)
+    val density = LocalDensity.current
+    val scrollStepPx = remember(density) { with(density) { 200.dp.toPx() } }
 
     Card(
         modifier = modifier
@@ -1652,6 +1605,7 @@ private fun ProgramDetailsPanel(
 
                 LazyColumn(
                     state = listState,
+                    beyondBoundsItemCount = 1,
                     modifier = Modifier
                         .fillMaxSize()
                         .focusRequester(contentFocusRequester)
@@ -1666,9 +1620,7 @@ private fun ProgramDetailsPanel(
                             when (event.key) {
                                 Key.DirectionDown -> {
                                     coroutineScope.launch {
-                                        val targetIndex = (listState.firstVisibleItemIndex + 1)
-                                            .coerceAtMost(totalItems - 1)
-                                        listState.animateScrollToItem(targetIndex)
+                                        listState.scrollByIfPossible(scrollStepPx)
                                     }
                                     true
                                 }
@@ -1679,9 +1631,7 @@ private fun ProgramDetailsPanel(
                                         closeButtonFocus.requestFocus()
                                     } else {
                                         coroutineScope.launch {
-                                            val targetIndex = (listState.firstVisibleItemIndex - 1)
-                                                .coerceAtLeast(0)
-                                            listState.animateScrollToItem(targetIndex)
+                                            listState.scrollByIfPossible(-scrollStepPx)
                                         }
                                     }
                                     true
@@ -1822,6 +1772,14 @@ private fun LazyListState.isItemFullyVisible(index: Int): Boolean {
     val itemStart = itemInfo.offset
     val itemEnd = itemStart + itemInfo.size
     return itemStart >= viewportStart && itemEnd <= viewportEnd
+}
+
+private suspend fun LazyListState.scrollByIfPossible(delta: Float): Boolean {
+    if (delta == 0f) return false
+    val startIndex = firstVisibleItemIndex
+    val startOffset = firstVisibleItemScrollOffset
+    animateScrollBy(delta)
+    return startIndex != firstVisibleItemIndex || startOffset != firstVisibleItemScrollOffset
 }
 
 private suspend fun LazyListState.centerOn(index: Int) {

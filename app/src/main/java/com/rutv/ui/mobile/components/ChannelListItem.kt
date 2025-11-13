@@ -56,7 +56,6 @@ fun ChannelListItem(
     onChannelClick: () -> Unit,
     onFavoriteClick: () -> Unit,
     onShowPrograms: () -> Unit,
-    onLogDebug: ((String) -> Unit)? = null,
     isItemFocused: Boolean = false, // Visual focus indicator for state-based focus
     modifier: Modifier = Modifier
 ) {

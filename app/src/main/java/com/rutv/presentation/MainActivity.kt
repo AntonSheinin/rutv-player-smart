@@ -498,16 +498,10 @@ class MainActivity : ComponentActivity() {
         val hasRemote = DeviceHelper.hasRemoteControl(this)
         val currentState = viewModel.viewState.value
 
-        // Log entry point for UP/DOWN keys
-        if (keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
-            val symbol = if (keyCode == KeyEvent.KEYCODE_DPAD_UP) "▲" else "▼"
-            viewModel.logDebug("$symbol onKeyDown: isRemote=$isRemote, hasRemote=$hasRemote, keyCode=$keyCode")
-
-            // If panels or controls are open, DON'T handle UP/DOWN at all - let Compose handle it
-            if (currentState.showPlaylist || currentState.showEpgPanel || areControlsVisible) {
-                viewModel.logDebug("$symbol → skip MainActivity (panels/controls open)")
-                return super.onKeyDown(keyCode, event)
-            }
+        if ((keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_DOWN) &&
+            (currentState.showPlaylist || currentState.showEpgPanel || areControlsVisible)
+        ) {
+            return super.onKeyDown(keyCode, event)
         }
 
         // Only handle remote keys if remote is active or detected
@@ -637,12 +631,10 @@ class MainActivity : ComponentActivity() {
                 // Up/Down arrows - switch channels in fullscreen mode
                 // Note: When panels/controls are open, these are filtered out before we get here
                 KeyEvent.KEYCODE_DPAD_UP -> {
-                    viewModel.logDebug("▲ UP → switch channel (fullscreen)")
                     switchChannelUp()
                     return true
                 }
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
-                    viewModel.logDebug("▼ DOWN → switch channel (fullscreen)")
                     switchChannelDown()
                     return true
                 }
