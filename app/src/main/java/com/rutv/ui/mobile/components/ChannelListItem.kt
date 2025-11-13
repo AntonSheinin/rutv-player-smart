@@ -29,6 +29,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import coil.size.Precision
 import coil.size.Scale
+import android.graphics.Bitmap
 import com.rutv.R
 import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
@@ -118,6 +119,7 @@ fun ChannelListItem(
                         .size(logoSizePx)
                         .scale(Scale.FILL)
                         .precision(Precision.INEXACT)
+                        .bitmapConfig(Bitmap.Config.RGB_565)
                         .allowHardware(false)
                         .crossfade(false)
                         .diskCacheKey(logoUrl)

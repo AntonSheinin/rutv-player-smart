@@ -958,15 +958,24 @@ private fun PlaylistPanel(
                     itemsIndexed(
                         items = channels,
                         key = { _, channel -> channel.url },
-                        contentType = { _, _ -> "channel_item" } // Add content type for better item reuse
+                        contentType = { _, channel ->
+                            when {
+                                channel.isFavorite -> "channel_favorite"
+                                channel.hasEpg -> "channel_with_epg"
+                                else -> "channel_basic"
+                            }
+                        }
                     ) { index, channel ->
+                        val programInfo = remember(channel.tvgId, currentProgramsMap[channel.tvgId]) {
+                            currentProgramsMap[channel.tvgId]
+                        }
                         ChannelListItem(
                             channel = channel,
                             channelNumber = index + 1,
                             isPlaying = index == currentChannelIndex,
                             isEpgOpen = index == epgOpenIndex,
                             isEpgPanelVisible = isEpgPanelVisible,
-                            currentProgram = currentProgramsMap[channel.tvgId],
+                            currentProgram = programInfo,
                             isItemFocused = playlistHasFocus && index == focusedChannelIndex,
                             onChannelClick = { focusChannel(index, true) },
                             onFavoriteClick = { onFavoriteClick(channel.url) },
@@ -977,15 +986,15 @@ private fun PlaylistPanel(
                 }
 
                 // Scroll indicator
-                val showScrollbar = remember {
+                val showScrollbar by remember {
                     derivedStateOf { listState.canScrollForward || listState.canScrollBackward }
                 }
 
-                if (showScrollbar.value) {
-                    val scrollProgress = remember { derivedStateOf { calculateScrollProgress(listState) } }
+                if (showScrollbar) {
+                    val scrollProgress by remember { derivedStateOf { calculateScrollProgress(listState) } }
                     val thumbFraction = 0.18f
                     val trackFraction = 1f - thumbFraction
-                    val topWeight = (scrollProgress.value * trackFraction).coerceIn(0f, trackFraction)
+                    val topWeight = (scrollProgress * trackFraction).coerceIn(0f, trackFraction)
                     val bottomWeight = (trackFraction - topWeight).coerceAtLeast(0f)
 
                     Column(
