@@ -1,6 +1,5 @@
 package com.rutv.presentation.settings
 
-import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -13,7 +12,6 @@ import com.rutv.util.Constants
 import com.rutv.util.PlayerConstants
 import com.rutv.util.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,7 +24,6 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    @ApplicationContext private val context: Context,
     private val preferencesRepository: PreferencesRepository,
     private val channelRepository: ChannelRepository,
     private val loadPlaylistUseCase: LoadPlaylistUseCase,
@@ -326,20 +323,11 @@ class SettingsViewModel @Inject constructor(
     /**
      * Set app language
      * This method can be called from runBlocking to ensure it completes synchronously
-     *
-     * OPTIMIZATION: Also updates LocaleHelper cache for faster startup
      */
     suspend fun setAppLanguage(localeCode: String) {
         try {
             preferencesRepository.saveAppLanguage(localeCode)
             logDebug { "App language saved: $localeCode" }
-
-            // OPTIMIZATION: Update LocaleHelper cache immediately
-            // This ensures next app start won't need SharedPreferences read
-            com.rutv.util.LocaleHelper.saveLanguage(
-                context = context,
-                localeCode = localeCode
-            )
         } catch (e: Exception) {
             Timber.e(e, "Failed to save app language")
             _viewState.update { it.copy(error = "Failed to save language preference: ${e.message}") }

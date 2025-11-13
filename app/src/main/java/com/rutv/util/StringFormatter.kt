@@ -37,10 +37,6 @@ object StringFormatter {
         return "EPG: Playlist load failed ($error)"
     }
 
-    fun formatEpgPlaylistUpdated(channels: Int): String {
-        return "Playlist: Background update completed ($channels channels)"
-    }
-
     fun formatEpgFetchStarted(): String {
         return "EPG: Fetch started"
     }

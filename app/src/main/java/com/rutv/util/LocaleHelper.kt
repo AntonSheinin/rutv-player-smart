@@ -9,15 +9,8 @@ import java.util.Locale
 /**
  * Utility class for managing locale configuration
  * Allows dynamic language switching independent of system locale
- *
- * OPTIMIZATION: Cached locale to reduce SharedPreferences reads during startup
  */
 object LocaleHelper {
-
-    // OPTIMIZATION: Cache the saved language to avoid repeated SharedPreferences reads
-    // This reduces startup time by 50-150ms on weak devices
-    @Volatile
-    private var cachedLanguage: String? = null
 
     /**
      * Set locale for the given context
@@ -33,41 +26,12 @@ object LocaleHelper {
     }
 
     /**
-     * Get saved language from SharedPreferences (synchronous, cached)
+     * Get saved language from SharedPreferences (synchronous)
      * For use in attachBaseContext where DataStore cannot be accessed
-     *
-     * OPTIMIZATION: Uses cache to avoid SharedPreferences read on repeated calls
      */
     fun getSavedLanguage(context: Context): String {
-        // Return cached value if available (fast path)
-        cachedLanguage?.let { return it }
-
-        // Cache miss - read from SharedPreferences (slow path, first time only)
         val prefs: SharedPreferences = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-        val language = prefs.getString("app_language", "en") ?: "en"
-
-        // Cache for future calls
-        cachedLanguage = language
-        return language
-    }
-
-    /**
-     * Save language to SharedPreferences and update cache
-     * Call this when user changes language in settings
-     */
-    fun saveLanguage(context: Context, localeCode: String) {
-        val prefs: SharedPreferences = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-        prefs.edit().putString("app_language", localeCode).apply()
-
-        // Update cache to keep it in sync
-        cachedLanguage = localeCode
-    }
-
-    /**
-     * Clear the cached language (for testing/development)
-     */
-    fun clearCache() {
-        cachedLanguage = null
+        return prefs.getString("app_language", "en") ?: "en"
     }
 
     /**
