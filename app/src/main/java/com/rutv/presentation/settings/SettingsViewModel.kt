@@ -1,5 +1,6 @@
 package com.rutv.presentation.settings
 
+import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -12,6 +13,7 @@ import com.rutv.util.Constants
 import com.rutv.util.PlayerConstants
 import com.rutv.util.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,6 +26,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val preferencesRepository: PreferencesRepository,
     private val channelRepository: ChannelRepository,
     private val loadPlaylistUseCase: LoadPlaylistUseCase,
@@ -334,7 +337,7 @@ class SettingsViewModel @Inject constructor(
             // OPTIMIZATION: Update LocaleHelper cache immediately
             // This ensures next app start won't need SharedPreferences read
             com.rutv.util.LocaleHelper.saveLanguage(
-                context = getApplication<android.app.Application>().applicationContext,
+                context = context,
                 localeCode = localeCode
             )
         } catch (e: Exception) {
