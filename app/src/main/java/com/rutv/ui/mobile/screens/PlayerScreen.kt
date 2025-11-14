@@ -1,4 +1,8 @@
 package com.rutv.ui.mobile.screens
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.compose.collectAsLazyPagingItems
+import com.rutv.data.paging.StaticPagingSource
 
 import android.view.View
 import android.view.ViewGroup
@@ -13,6 +17,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -882,6 +887,18 @@ private fun PlaylistPanel(
             // Channel List with scrollbar
             Box(modifier = Modifier.fillMaxSize()) {
                 val isEpgPanelVisible = epgOpenIndex >= 0
+                val channelPagingFlow = remember(channels) {
+                    Pager(
+                        PagingConfig(
+                            pageSize = 40,
+                            initialLoadSize = 40,
+                            enablePlaceholders = false
+                        )
+                    ) {
+                        StaticPagingSource(channels)
+                    }.flow
+                }
+                val channelPagingItems = channelPagingFlow.collectAsLazyPagingItems()
 
                 // Request focus on LazyColumn when it first appears
                 LaunchedEffect(Unit) {
@@ -954,17 +971,23 @@ private fun PlaylistPanel(
                         },
                     contentPadding = PaddingValues(start = 0.dp, top = 4.dp, end = 12.dp, bottom = 4.dp)
                 ) {
-                    itemsIndexed(
-                        items = channels,
-                        key = { _, channel -> channel.url },
-                        contentType = { _, channel ->
+                    items(
+                        count = channelPagingItems.itemCount,
+                        key = { index ->
+                            channelPagingItems.peek(index)?.url
+                                ?: channels.getOrNull(index)?.url
+                                ?: "channel_$index"
+                        },
+                        contentType = { index ->
+                            val channel = channelPagingItems.peek(index) ?: channels.getOrNull(index)
                             when {
-                                channel.isFavorite -> "channel_favorite"
-                                channel.hasEpg -> "channel_with_epg"
+                                channel?.isFavorite == true -> "channel_favorite"
+                                channel?.hasEpg == true -> "channel_with_epg"
                                 else -> "channel_basic"
                             }
                         }
-                    ) { index, channel ->
+                    ) { index ->
+                        val channel = channelPagingItems[index] ?: return@items
                         val programInfo = remember(channel.tvgId, currentProgramsMap[channel.tvgId]) {
                             currentProgramsMap[channel.tvgId]
                         }
@@ -2196,7 +2219,3 @@ private fun PlayerView.focusOnControl(vararg controlNames: String) {
 private fun View.setVerticalOffsetDp(offsetDp: Float) {
     translationY = offsetDp * resources.displayMetrics.density
 }
-import androidx.paging.Pager
-import androidx.paging.PagingConfig
-import androidx.paging.compose.collectAsLazyPagingItems
-import com.rutv.data.paging.StaticPagingSource

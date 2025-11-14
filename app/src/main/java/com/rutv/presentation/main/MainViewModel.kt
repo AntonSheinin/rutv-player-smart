@@ -565,11 +565,14 @@ class MainViewModel @Inject constructor(
             val hoursSinceLastFetch = (currentTime - lastFetchTimestamp) / (1000 * 60 * 60)
             val coverageSufficient = epgRepository.coversWindow(window)
 
+            logDebug {
+                "EPG cache check -> cached=${cachedEpg != null}, coverage=$coverageSufficient, hoursSinceLastFetch=$hoursSinceLastFetch"
+            }
             if (cachedEpg != null && coverageSufficient && lastFetchTimestamp > 0 && hoursSinceLastFetch < 24) {
                 appendDebugMessage(
                     DebugMessage(StringFormatter.formatEpgCachedCoveringWindow(hoursSinceLastFetch.toInt(), cachedEpg.totalPrograms))
                 )
-                logDebug { "EPG: Cached data covers desired window; skipping fetch" }
+                logDebug { "EPG: Cached data covers desired window; skipping fetch (hoursSinceLastFetch=$hoursSinceLastFetch)" }
 
                 _viewState.value.currentChannel?.let { channel ->
                     updateCurrentProgram(channel)
