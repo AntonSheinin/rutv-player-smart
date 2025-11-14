@@ -11,15 +11,11 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.AspectRatioFrameLayout
 import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
-import com.rutv.data.model.EpgResponse
 import com.rutv.data.model.PlaylistSource
 import com.rutv.data.repository.ChannelRepository
 import com.rutv.data.repository.EpgRepository
 import com.rutv.data.repository.PreferencesRepository
-import com.rutv.domain.usecase.CalculateEpgWindowUseCase
-import com.rutv.domain.usecase.FetchEpgUseCase
 import com.rutv.domain.usecase.FilterChannelsUseCase
-import com.rutv.domain.usecase.LoadEpgForChannelUseCase
 import com.rutv.domain.usecase.LoadPlaylistUseCase
 import com.rutv.domain.usecase.PlayArchiveProgramUseCase
 import com.rutv.domain.usecase.ToggleFavoriteUseCase
@@ -51,13 +47,10 @@ class MainViewModel @Inject constructor(
     private val epgRepository: EpgRepository,
     private val preferencesRepository: PreferencesRepository,
     private val loadPlaylistUseCase: LoadPlaylistUseCase,
-    private val fetchEpgUseCase: FetchEpgUseCase,
     private val toggleFavoriteUseCase: ToggleFavoriteUseCase,
     private val updateAspectRatioUseCase: UpdateAspectRatioUseCase,
     private val playArchiveProgramUseCase: PlayArchiveProgramUseCase,
     private val watchFromBeginningUseCase: WatchFromBeginningUseCase,
-    private val loadEpgForChannelUseCase: LoadEpgForChannelUseCase,
-    private val calculateEpgWindowUseCase: CalculateEpgWindowUseCase,
     private val filterChannelsUseCase: FilterChannelsUseCase
 ) : ViewModel() {
 
@@ -67,10 +60,8 @@ class MainViewModel @Inject constructor(
     private val debugMessageList = mutableListOf<DebugMessage>()
     private val debugMessageMutex = Mutex()
     private val epgProgramCache = mutableMapOf<String, List<EpgProgram>>()
-    private var pendingCurrentProgramsSnapshot: Map<String, EpgProgram?>? = null
-    private var pendingEpgTimestamp: Long? = null
-    private var epgPreloadJob: Job? = null
     private var channelFilterJob: Job? = null
+    private var currentChannelEpgJob: Job? = null
 
     private fun postEpgNotification() {
         viewModelScope.launch(Dispatchers.Main) {
@@ -185,42 +176,8 @@ class MainViewModel @Inject constructor(
      * This prevents race conditions and ensures EPG is ready
      */
     private fun initializeApp() {
-        // Kick off cached EPG loading on a background thread so it never blocks playlist/player startup.
-        epgPreloadJob = viewModelScope.launch(Dispatchers.IO) {
-            preloadCachedEpg()
-        }
-
-        // Load playlist and initialise the player in parallel with the EPG preload.
         viewModelScope.launch(Dispatchers.IO) {
             loadPlaylistAndPlayer()
-        }
-    }
-
-    private suspend fun preloadCachedEpg() {
-        try {
-            logDebug { "App Init: Background EPG preload - Loading cached EPG" }
-            val cachedEpg = epgRepository.loadEpgData()
-            if (cachedEpg != null) {
-                logDebug { "App Init: Cached EPG loaded (${cachedEpg.totalPrograms} programs)" }
-                appendDebugMessage(
-                    DebugMessage(StringFormatter.formatEpgLoadedCached(cachedEpg.totalPrograms, cachedEpg.channelsFound))
-                )
-
-                val loadedAt = System.currentTimeMillis()
-                epgRepository.refreshCurrentProgramsCache()
-                deliverCurrentProgramsSnapshot(
-                    epgRepository.getCurrentProgramsSnapshot(),
-                    loadedAt
-                )
-            } else {
-                logDebug { "App Init: No cached EPG found" }
-                appendDebugMessage(DebugMessage(StringFormatter.formatEpgNoCached()))
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "App Init: Error loading cached EPG")
-            appendDebugMessage(
-                DebugMessage(StringFormatter.formatEpgFailedLoad(e.message ?: StringFormatter.formatErrorUnknown()))
-            )
         }
     }
 
@@ -283,14 +240,13 @@ class MainViewModel @Inject constructor(
                         appendDebugMessage(DebugMessage(StringFormatter.formatEpgPlaylistEmpty()))
                     }
 
-                    flushPendingCurrentProgramsIfReady()
 
                     if (channels.isNotEmpty()) {
                         logDebug { "App Init: Step 3 - Initializing player" }
-                        initializePlayer(channels)
+                        val startChannel = initializePlayer(channels)
 
-                        logDebug { "App Init: Step 4 - Checking EPG freshness" }
-                        fetchEpgIfNeeded()
+                        logDebug { "App Init: Step 4 - Preloading current channel EPG" }
+                        startChannel?.let { preloadChannelEpg(it) }
                     }
                 }
                 is Result.Error -> {
@@ -328,57 +284,6 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    private fun deliverCurrentProgramsSnapshot(
-        snapshot: Map<String, EpgProgram?>,
-        loadedAt: Long
-    ) {
-        viewModelScope.launch(Dispatchers.Main) {
-            if (_viewState.value.channels.isEmpty()) {
-                pendingCurrentProgramsSnapshot = snapshot
-                pendingEpgTimestamp = loadedAt
-            } else {
-                pendingCurrentProgramsSnapshot = null
-                pendingEpgTimestamp = null
-                _viewState.update {
-                    val currentChannel = it.currentChannel
-                    val updatedCurrentProgram = currentChannel?.tvgId?.let(snapshot::get)
-                    it.copy(
-                        currentProgramsMap = snapshot,
-                        currentProgram = updatedCurrentProgram,
-                        epgLoadedTimestamp = loadedAt
-                    )
-                }
-                if (snapshot.isNotEmpty()) {
-                    postEpgNotification()
-                }
-            }
-        }
-    }
-
-    private fun flushPendingCurrentProgramsIfReady() {
-        val pendingSnapshot = pendingCurrentProgramsSnapshot ?: return
-        val timestamp = pendingEpgTimestamp ?: System.currentTimeMillis()
-        viewModelScope.launch(Dispatchers.Main) {
-            if (_viewState.value.channels.isEmpty()) return@launch
-            pendingCurrentProgramsSnapshot = null
-            pendingEpgTimestamp = null
-            // Refresh snapshot with latest data from repository to ensure current programs are up-to-date
-            val freshSnapshot = epgRepository.getCurrentProgramsSnapshot()
-            val snapshot = freshSnapshot.ifEmpty { pendingSnapshot }
-            _viewState.update {
-                val currentChannel = it.currentChannel
-                val updatedCurrentProgram = currentChannel?.tvgId?.let(snapshot::get)
-                it.copy(
-                    currentProgramsMap = snapshot,
-                    currentProgram = updatedCurrentProgram,
-                    epgLoadedTimestamp = timestamp
-                )
-            }
-            if (snapshot.isNotEmpty()) {
-                postEpgNotification()
-            }
-        }
-    }
 
     /**
      * Load playlist from saved source
@@ -407,20 +312,11 @@ class MainViewModel @Inject constructor(
                         val channels = result.data
 
                         val programsMapToUse = if (forceReload) {
+                            epgProgramCache.clear()
                             epgRepository.clearCache()
-                            preferencesRepository.saveLastEpgFetchTimestamp(0L)
                             emptyMap()
                         } else {
-                            // Refresh current programs cache if EPG data exists
-                            // Note: After "Force EPG Fetch", cache will be empty until fetch completes
-                            // So we preserve the existing currentProgramsMap to avoid showing empty state
-                            val existingProgramsMap = _viewState.value.currentProgramsMap
-                            val cachedEpg = epgRepository.loadEpgData()
-                            if (cachedEpg != null) {
-                                epgRepository.refreshCurrentProgramsCache()
-                            }
-                            val newProgramsMap = epgRepository.getCurrentProgramsSnapshot()
-                            newProgramsMap.ifEmpty { existingProgramsMap }
+                            _viewState.value.currentProgramsMap
                         }
 
                         withContext(Dispatchers.Main) {
@@ -452,7 +348,7 @@ class MainViewModel @Inject constructor(
                         refreshFilteredChannels(channels, _viewState.value.showFavoritesOnly)
 
                         if (channels.isNotEmpty()) {
-                            initializePlayer(channels)
+                            val startChannel = initializePlayer(channels)
 
                             val resumeChannel = when {
                                 wasArchivePlayback && archiveProgramToResume != null -> {
@@ -471,11 +367,8 @@ class MainViewModel @Inject constructor(
                                 }
                             }
 
-                            if (forceReload) {
-                                fetchEpg(forceUpdate = true)
-                            } else {
-                                fetchEpgIfNeeded()
-                            }
+                            val channelForPreload = resumeChannel ?: startChannel ?: channels.first()
+                            preloadChannelEpg(channelForPreload)
                         }
                     }
                     is Result.Error -> {
@@ -521,8 +414,8 @@ class MainViewModel @Inject constructor(
     /**
      * Initialize player with current channels
      */
-    private suspend fun initializePlayer(channels: List<Channel>) {
-        if (channels.isEmpty()) return
+    private suspend fun initializePlayer(channels: List<Channel>): Channel? {
+        if (channels.isEmpty()) return null
 
         // Read preferences on IO thread
         val config = preferencesRepository.playerConfig.first()
@@ -535,112 +428,12 @@ class MainViewModel @Inject constructor(
         }
 
         playerManager.initialize(channels, config, startIndex)
+        return channels.getOrNull(startIndex)
     }
 
     /**
      * Fetch EPG data only if needed (not more than once per day)
      */
-    private fun fetchEpgIfNeeded() {
-        viewModelScope.launch(Dispatchers.IO) {
-            // Ensure any background preload has completed so we reuse the cached data it loaded.
-            epgPreloadJob?.join()
-            val channels = _viewState.value.channels
-            if (channels.isEmpty()) {
-                appendDebugMessage(DebugMessage(StringFormatter.formatEpgNoChannels()))
-                return@launch
-            }
-
-            val channelsWithEpg = channels.filter { it.hasEpg }
-            if (channelsWithEpg.isEmpty()) {
-                appendDebugMessage(DebugMessage(StringFormatter.formatEpgNoChannelsSupport()))
-                return@launch
-            }
-
-            val epgDaysAhead = preferencesRepository.epgDaysAhead.first()
-            val window = calculateEpgWindowUseCase(channelsWithEpg, epgDaysAhead)
-
-            val cachedEpg = epgRepository.loadEpgData()
-            val lastFetchTimestamp = preferencesRepository.lastEpgFetchTimestamp.first()
-            val currentTime = System.currentTimeMillis()
-            val hoursSinceLastFetch = (currentTime - lastFetchTimestamp) / (1000 * 60 * 60)
-            val coverageSufficient = epgRepository.coversWindow(window)
-
-            logDebug {
-                "EPG cache check -> cached=${cachedEpg != null}, coverage=$coverageSufficient, hoursSinceLastFetch=$hoursSinceLastFetch"
-            }
-            if (cachedEpg != null && coverageSufficient && lastFetchTimestamp > 0 && hoursSinceLastFetch < 24) {
-                appendDebugMessage(
-                    DebugMessage(StringFormatter.formatEpgCachedCoveringWindow(hoursSinceLastFetch.toInt(), cachedEpg.totalPrograms))
-                )
-                logDebug { "EPG: Cached data covers desired window; skipping fetch (hoursSinceLastFetch=$hoursSinceLastFetch)" }
-
-                _viewState.value.currentChannel?.let { channel ->
-                    updateCurrentProgram(channel)
-                }
-                return@launch
-            }
-
-            if (!coverageSufficient) {
-                appendDebugMessage(DebugMessage(StringFormatter.formatEpgWindowNotCovered()))
-            } else if (cachedEpg == null) {
-                appendDebugMessage(DebugMessage(StringFormatter.formatEpgNoCachedFetching()))
-            } else {
-                appendDebugMessage(DebugMessage(StringFormatter.formatEpgCachedOldRefresh(hoursSinceLastFetch.toInt())))
-            }
-
-            fetchEpg(forceUpdate = true)
-        }
-    }
-
-    /**
-     * Fetch EPG data from service
-     */
-    fun fetchEpg(forceUpdate: Boolean = false) {
-        viewModelScope.launch(Dispatchers.IO) {
-            if (!forceUpdate) {
-                appendDebugMessage(DebugMessage(StringFormatter.formatEpgFetchManual()))
-            }
-            appendDebugMessage(DebugMessage(StringFormatter.formatEpgFetchStarted()))
-
-            val fetchResult: Result<EpgResponse> = try {
-                fetchEpgUseCase()
-            } catch (e: Exception) {
-                Timber.e(e, "EPG fetch threw an exception")
-                Result.Error(exception = e)
-            }
-
-            when (fetchResult) {
-                is Result.Success -> {
-                    logDebug { "EPG fetched successfully" }
-                    val response = fetchResult.data
-                    appendDebugMessage(
-                        DebugMessage(
-                            StringFormatter.formatEpgFetchComplete(response.totalPrograms, response.channelsFound, response.channelsRequested)
-                        )
-                    )
-
-                    val timestamp = System.currentTimeMillis()
-                    preferencesRepository.saveLastEpgFetchTimestamp(timestamp)
-
-                    val snapshot = withContext(Dispatchers.Default) {
-                        epgRepository.refreshCurrentProgramsCache()
-                        epgRepository.getCurrentProgramsSnapshot()
-                    }
-                    deliverCurrentProgramsSnapshot(snapshot, timestamp)
-
-                    _viewState.value.currentChannel?.let { channel ->
-                        updateCurrentProgram(channel)
-                    }
-                }
-                is Result.Error -> {
-                    Timber.w("EPG fetch failed: ${fetchResult.message}")
-                    val message = fetchResult.message ?: fetchResult.exception.message ?: StringFormatter.formatErrorUnknown()
-                    appendDebugMessage(DebugMessage(StringFormatter.formatEpgFetchFailed(message)))
-                }
-                Result.Loading -> Unit
-            }
-        }
-    }
 
     fun onSystemTimeOrTimezoneChanged(action: String?) {
         viewModelScope.launch {
@@ -651,11 +444,9 @@ class MainViewModel @Inject constructor(
 
             when (result) {
                 EpgRepository.TimeChangeResult.TIMEZONE_CHANGED -> {
-                    Timber.i("System timezone change detected (action=$action); clearing EPG cache and refetching")
+                    Timber.i("System timezone change detected (action=$action); clearing EPG cache")
                     appendDebugMessage(DebugMessage(StringFormatter.formatEpgTimezoneChanged()))
-                    withContext(Dispatchers.IO) {
-                        preferencesRepository.saveLastEpgFetchTimestamp(0L)
-                    }
+                    epgProgramCache.clear()
                     _viewState.update {
                         it.copy(
                             currentProgram = null,
@@ -663,22 +454,14 @@ class MainViewModel @Inject constructor(
                             epgLoadedTimestamp = 0L
                         )
                     }
-                    fetchEpg(forceUpdate = true)
+                    _viewState.value.currentChannel?.let { preloadChannelEpg(it) }
                 }
                 EpgRepository.TimeChangeResult.CLOCK_CHANGED -> {
                     Timber.i("System clock changed (action=$action); refreshing current program cache")
                     appendDebugMessage(DebugMessage(StringFormatter.formatEpgClockChanged()))
-                    withContext(Dispatchers.Default) {
-                        epgRepository.refreshCurrentProgramsCache()
-                    }
-                    _viewState.update {
-                        it.copy(
-                            currentProgramsMap = epgRepository.getCurrentProgramsSnapshot()
-                        )
-                    }
-                    _viewState.value.currentChannel?.let { channel ->
-                        updateCurrentProgram(channel)
-                    }
+                    epgProgramCache.clear()
+                    _viewState.update { it.copy(currentProgramsMap = emptyMap()) }
+                    _viewState.value.currentChannel?.let { preloadChannelEpg(it) }
                 }
                 EpgRepository.TimeChangeResult.NONE -> {
                     logDebug { "Ignoring system time change broadcast (action=$action, trigger=$trigger)" }
@@ -825,6 +608,74 @@ class MainViewModel @Inject constructor(
             current.copy(
                 showEpgPanel = false,
                 selectedProgramDetails = null
+            )
+        }
+    }
+
+    private suspend fun preloadChannelEpg(channel: Channel) {
+        if (!channel.hasEpg || channel.tvgId.isBlank()) {
+            return
+        }
+
+        val epgUrl = preferencesRepository.epgUrl.first().trim()
+        if (epgUrl.isBlank()) {
+            Timber.w("Skipping EPG preload for ${channel.title}: EPG URL not configured")
+            return
+        }
+
+        val nowZoned = java.time.ZonedDateTime.now()
+        val zone = nowZoned.zone
+        val preferredPastDays = preferencesRepository.epgDaysPast.first().coerceAtLeast(0)
+        val channelPastDays = channel.catchupDays.coerceAtLeast(0)
+        val windowPastDays = maxOf(preferredPastDays, channelPastDays).toLong()
+        val preferredAheadDays = preferencesRepository.epgDaysAhead.first().coerceAtLeast(0).toLong()
+
+        val windowStart = nowZoned.toLocalDate()
+            .minusDays(windowPastDays)
+            .atStartOfDay(zone)
+            .toInstant()
+            .toEpochMilli()
+        val windowEnd = nowZoned.toLocalDate()
+            .plusDays(preferredAheadDays)
+            .atTime(java.time.LocalTime.of(23, 59, 59))
+            .atZone(zone)
+            .toInstant()
+            .toEpochMilli()
+
+        try {
+            val programs = epgRepository.getWindowedProgramsForChannel(
+                epgUrl = epgUrl,
+                tvgId = channel.tvgId,
+                fromUtcMillis = windowStart,
+                toUtcMillis = windowEnd
+            )
+            val currentProgram = programs.firstOrNull { it.isCurrent() }
+            if (programs.isNotEmpty()) {
+                epgProgramCache[channel.tvgId] = programs
+                postEpgNotification()
+            }
+
+            withContext(Dispatchers.Main) {
+                _viewState.update { state ->
+                    val updatedMap = state.currentProgramsMap.toMutableMap().apply {
+                        this[channel.tvgId] = currentProgram
+                    }
+                    val shouldUpdateCurrent = state.currentChannel?.tvgId == channel.tvgId
+                    state.copy(
+                        currentProgramsMap = updatedMap,
+                        currentProgram = if (shouldUpdateCurrent) currentProgram ?: state.currentProgram else state.currentProgram
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to preload EPG for ${channel.title}")
+            appendDebugMessage(
+                DebugMessage(
+                    StringFormatter.formatEpgLoadFailed(
+                        channel.tvgId,
+                        e.message ?: StringFormatter.formatErrorUnknown()
+                    )
+                )
             )
         }
     }

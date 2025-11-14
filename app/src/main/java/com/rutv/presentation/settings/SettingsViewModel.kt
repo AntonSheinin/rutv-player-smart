@@ -6,7 +6,6 @@ import androidx.lifecycle.viewModelScope
 import com.rutv.data.model.PlayerConfig
 import com.rutv.data.repository.ChannelRepository
 import com.rutv.data.repository.PreferencesRepository
-import com.rutv.domain.usecase.FetchEpgUseCase
 import com.rutv.domain.usecase.LoadPlaylistUseCase
 import com.rutv.util.Constants
 import com.rutv.util.PlayerConstants
@@ -26,9 +25,7 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     private val preferencesRepository: PreferencesRepository,
     private val channelRepository: ChannelRepository,
-    private val loadPlaylistUseCase: LoadPlaylistUseCase,
-    private val epgRepository: com.rutv.data.repository.EpgRepository,
-    private val fetchEpgUseCase: FetchEpgUseCase
+    private val loadPlaylistUseCase: LoadPlaylistUseCase
 ) : ViewModel() {
 
     private val _viewState = MutableStateFlow(SettingsViewState())

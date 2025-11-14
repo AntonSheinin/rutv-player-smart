@@ -2,68 +2,63 @@
 
 package com.rutv.data.repository
 
-import android.content.Context
 import androidx.media3.common.util.UnstableApi
 import com.google.gson.Gson
 import com.google.gson.stream.JsonReader
 import com.google.gson.stream.JsonToken
-import com.rutv.data.model.*
+import com.rutv.data.model.EpgChannelRequest
+import com.rutv.data.model.EpgHealthResponse
+import com.rutv.data.model.EpgProgram
+import com.rutv.data.model.EpgRequest
+import com.rutv.data.model.EpgResponse
 import com.rutv.util.EpgConstants
-import com.rutv.util.logDebug
 import com.rutv.util.Result
-import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.Dispatchers
+import com.rutv.util.logDebug
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.yield
 import timber.log.Timber
-import java.io.BufferedOutputStream
-import java.io.File
-import java.io.FileOutputStream
 import java.io.Reader
 import java.net.HttpURLConnection
 import java.net.URL
 import java.time.Instant
-import java.time.LocalTime
-import java.time.ZoneOffset
 import java.util.TimeZone
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.jvm.Volatile
 import kotlin.math.abs
-import kotlin.math.max
-import kotlin.math.min
 
-
-/**
- * Repository for EPG data
- */
 @UnstableApi
 @Singleton
 class EpgRepository @Inject constructor(
-    @ApplicationContext private val context: Context,
     private val gson: Gson
 ) {
 
-    private val epgFile = File(context.filesDir, "epg_data.json")
-    private var cachedEpgData: EpgResponse? = null
-    @Volatile private var cachedBounds: EpgBounds? = null
+    private val windowCacheLock = Any()
+    private val windowCache =
+        object : LinkedHashMap<WindowKey, List<EpgProgram>>(WINDOW_CACHE_CAPACITY, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<WindowKey, List<EpgProgram>>?): Boolean {
+                return size > WINDOW_CACHE_CAPACITY
+            }
+        }
+    private val windowInFlight = mutableMapOf<WindowKey, Deferred<List<EpgProgram>>>()
 
-    // Cache for current programs only (lightweight)
+    private val channelProgramsLock = Any()
+    private val channelPrograms =
+        object : LinkedHashMap<String, MutableList<EpgProgram>>(CHANNEL_CACHE_CAPACITY, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, MutableList<EpgProgram>>?): Boolean {
+                return size > CHANNEL_CACHE_CAPACITY
+            }
+        }
+
     private var currentProgramsCache: Map<String, EpgProgram?>? = null
-    private var currentProgramsCacheTime: Long = 0
-    private val currentProgramsCacheTtl = 60_000L // 1 minute
+    private var currentProgramsCacheTime: Long = 0L
+    private val currentProgramsCacheTtl = 60_000L
+
     private var lastKnownTimezoneId: String = TimeZone.getDefault().id
     private var lastKnownUtcOffsetMinutes: Int = TimeZone.getDefault().getOffset(System.currentTimeMillis()) / 60_000
-
-    // ─────────────────────────────────────────────────────────────────────────────
-    // Session in-memory cache for windowed, per-channel EPG (lazy loading)
-    // Keyed by (epgUrl, tvgId, from, to) to avoid cross-endpoint mix-ups
-    private data class WindowKey(val epgUrl: String, val tvgId: String, val from: Long, val to: Long)
-    private val windowCache = mutableMapOf<WindowKey, List<EpgProgram>>()
-    private val windowInFlight = mutableMapOf<WindowKey, Deferred<List<EpgProgram>>>()
 
     enum class TimeChangeTrigger {
         TIMEZONE,
@@ -78,29 +73,24 @@ class EpgRepository @Inject constructor(
         TIMEZONE_CHANGED
     }
 
-    /**
-     * Check if EPG service is healthy
-     */
     suspend fun checkHealth(epgUrl: String): Result<Boolean> = withContext(Dispatchers.IO) {
         try {
             logDebug { "Checking EPG service health: $epgUrl/health" }
-            val healthUrl = URL("$epgUrl/health")
-            val connection = healthUrl.openConnection() as HttpURLConnection
-            connection.requestMethod = "GET"
-            connection.connectTimeout = EpgConstants.EPG_HEALTH_TIMEOUT_MS
-            connection.readTimeout = EpgConstants.EPG_HEALTH_TIMEOUT_MS
+            val connection = (URL("$epgUrl/health").openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = EpgConstants.EPG_HEALTH_TIMEOUT_MS
+                readTimeout = EpgConstants.EPG_HEALTH_TIMEOUT_MS
+            }
 
             val responseCode = connection.responseCode
             if (responseCode == 200) {
                 val response = connection.inputStream.bufferedReader().use { it.readText() }
                 val healthResponse = gson.fromJson(response, EpgHealthResponse::class.java)
                 connection.disconnect()
-
-                logDebug { "EPG health check: ${if (healthResponse.isHealthy) "OK" else "NOT OK"}" }
                 Result.Success(healthResponse.isHealthy)
             } else {
-                Timber.w("EPG health check failed with code: $responseCode")
                 connection.disconnect()
+                Timber.w("EPG health check failed with code: $responseCode")
                 Result.Error(Exception("Health check failed: $responseCode"))
             }
         } catch (e: javax.net.ssl.SSLException) {
@@ -110,131 +100,173 @@ class EpgRepository @Inject constructor(
             Timber.e(e, "Network error during EPG health check")
             Result.Error(Exception("Network error. Please check your connection.", e))
         } catch (e: java.net.UnknownHostException) {
-            Timber.e(e, "Host resolution error during EPG health check")
-            Result.Error(Exception("Cannot reach EPG server. Please check the URL.", e))
+            Timber.e(e, "Host resolution error for EPG URL")
+            Result.Error(Exception("Cannot reach EPG server. Please verify the URL.", e))
         } catch (e: Exception) {
-            Timber.e(e, "EPG service health check error")
-            // Check if it's an SSL-related error in the message
-            val errorMessage = if (e.message?.contains("tls", ignoreCase = true) == true ||
-                e.message?.contains("ssl", ignoreCase = true) == true ||
-                e.message?.contains("parse", ignoreCase = true) == true) {
-                "Network error: ${e.message ?: "Connection failed"}"
-            } else {
-                e.message ?: "Health check failed"
-            }
-            Result.Error(Exception(errorMessage, e))
+            Timber.e(e, "Unexpected error during EPG health check")
+            Result.Error(e)
         }
     }
 
-    /**
-     * Fetch EPG data from server
-     */
-    suspend fun fetchEpgData(
-        epgUrl: String,
-        channels: List<Channel>,
-        window: EpgWindow
-    ): Result<EpgResponse> = withContext(Dispatchers.IO) {
-        if (epgUrl.isBlank()) {
-            Timber.w("EPG URL not configured")
-            return@withContext Result.Error(Exception("EPG URL is empty"))
+    fun handleSystemTimeOrTimezoneChange(
+        trigger: TimeChangeTrigger,
+        now: Long = System.currentTimeMillis()
+    ): TimeChangeResult {
+        val timezone = TimeZone.getDefault()
+        val offsetMinutes = timezone.getOffset(now) / 60_000
+        val timezoneChanged = timezone.id != lastKnownTimezoneId
+        val offsetChanged = offsetMinutes != lastKnownUtcOffsetMinutes
+
+        if (timezoneChanged || offsetChanged) {
+            val previousId = lastKnownTimezoneId
+            val previousOffset = lastKnownUtcOffsetMinutes
+            lastKnownTimezoneId = timezone.id
+            lastKnownUtcOffsetMinutes = offsetMinutes
+            Timber.i(
+                "Device timezone changed from $previousId (UTC${formatUtcOffset(previousOffset)}) " +
+                    "to ${timezone.id} (UTC${formatUtcOffset(offsetMinutes)})"
+            )
+            clearCache()
+            return TimeChangeResult.TIMEZONE_CHANGED
         }
 
-        val channelsWithEpg = channels.filter { it.hasEpg }
-        if (channelsWithEpg.isEmpty()) {
-            Timber.w("No channels with EPG identifiers")
-            return@withContext Result.Error(Exception("No channels with EPG identifiers"))
+        if (trigger == TimeChangeTrigger.TIMEZONE) {
+            logDebug { "Timezone change broadcast received but timezone snapshot unchanged; ignoring" }
+            return TimeChangeResult.NONE
         }
 
-        val batchSize = max(1, EpgConstants.EPG_FETCH_BATCH_SIZE)
-        val totalBatches = (channelsWithEpg.size + batchSize - 1) / batchSize
-        logDebug { "Fetching EPG for ${channelsWithEpg.size} channels in $totalBatches batch(es)" }
-
-        val deviceTimezone = TimeZone.getDefault().id
-        val timezoneOffsetHours = TimeZone.getDefault().getOffset(System.currentTimeMillis()) / (1000 * 60 * 60)
-        logDebug { "EPG request timezone: $deviceTimezone (UTC${if (timezoneOffsetHours >= 0) "+" else ""}$timezoneOffsetHours)" }
-
-        val fromUtcMillis = window.fromUtcMillis
-        val toUtcMillis = window.toUtcMillis
-        val fromIso = Instant.ofEpochMilli(fromUtcMillis).toString()
-        val toIso = Instant.ofEpochMilli(toUtcMillis).toString()
-        logDebug { "EPG window request: from=$fromIso to=$toIso" }
-
-        val aggregationState = EpgAggregationState()
-        val overallStartTime = System.currentTimeMillis()
-        var batchIndex = 0
-
-        for (chunk in channelsWithEpg.chunked(batchSize)) {
-            batchIndex++
-            logDebug { "Fetching EPG batch $batchIndex/$totalBatches (${chunk.size} channels)" }
-            when (
-                val batchResult = fetchEpgBatch(
-                    epgUrl = epgUrl,
-                    channels = chunk,
-                    fromUtcMillis = fromUtcMillis,
-                    toUtcMillis = toUtcMillis,
-                    fromIso = fromIso,
-                    toIso = toIso,
-                    deviceTimezone = deviceTimezone,
-                    timezoneOffsetHours = timezoneOffsetHours
-                )
-            ) {
-                is Result.Success -> {
-                    val batchResponse = batchResult.data
-                    updateCachesWithBatch(aggregationState, batchResponse, channelsWithEpg.size)
-                    logDebug {
-                        "EPG batch $batchIndex parsed ${batchResponse.epg.size} channels (${batchResponse.totalPrograms} programs)"
-                    }
-                    yield()
-                }
-                is Result.Error -> {
-                    Timber.e("EPG batch $batchIndex failed: ${batchResult.message}")
-                    return@withContext batchResult
-                }
-                is Result.Loading -> {
-                    Timber.w("EPG batch $batchIndex returned unexpected loading state")
-                    return@withContext Result.Error(Exception("Unexpected loading state"))
-                }
-            }
+        if (trigger == TimeChangeTrigger.TIME_SET || trigger == TimeChangeTrigger.DATE) {
+            Timber.i("System clock adjusted (${trigger.name.lowercase()}), clearing current-program cache")
+            currentProgramsCache = null
+            currentProgramsCacheTime = 0
+            return TimeChangeResult.CLOCK_CHANGED
         }
-
-        val totalDuration = System.currentTimeMillis() - overallStartTime
-        val aggregatedResponse = aggregationState.toResponse(channelsWithEpg.size)
 
         logDebug {
-            "EPG batches complete: ${aggregatedResponse.channelsFound}/${aggregatedResponse.channelsRequested} channels, ${aggregatedResponse.totalPrograms} programs collected in ${totalDuration}ms"
+            "Ignoring time change trigger $trigger (timezone=${timezone.id}, offsetMinutes=$offsetMinutes, " +
+                "cachedTimezone=$lastKnownTimezoneId, cachedOffset=$lastKnownUtcOffsetMinutes)"
         }
-
-        saveEpgData(aggregatedResponse)
-        Result.Success(aggregatedResponse)
+        return TimeChangeResult.NONE
     }
 
-    private fun fetchEpgBatch(
+    suspend fun getWindowedProgramsForChannel(
         epgUrl: String,
-        channels: List<Channel>,
+        tvgId: String,
         fromUtcMillis: Long,
-        toUtcMillis: Long,
-        fromIso: String,
-        toIso: String,
-        deviceTimezone: String,
-        timezoneOffsetHours: Int
-    ): Result<EpgResponse> {
+        toUtcMillis: Long
+    ): List<EpgProgram> = coroutineScope {
+        val key = WindowKey(epgUrl, tvgId, fromUtcMillis, toUtcMillis)
+        synchronized(windowCacheLock) {
+            windowCache[key]?.let { return@coroutineScope it }
+        }
+
+        val deferred = synchronized(windowCacheLock) {
+            windowInFlight[key] ?: async(Dispatchers.IO) {
+                fetchSingleChannelWindow(epgUrl, tvgId, fromUtcMillis, toUtcMillis)
+            }.also { windowInFlight[key] = it }
+        }
+
+        try {
+            val result = deferred.await()
+            synchronized(windowCacheLock) {
+                windowCache[key] = result
+            }
+            rememberProgramsForChannel(tvgId, result)
+            cacheCurrentProgramSnapshot(tvgId, result)
+            result
+        } finally {
+            synchronized(windowCacheLock) {
+                windowInFlight.remove(key)
+            }
+        }
+    }
+
+    fun getCurrentProgram(tvgId: String): EpgProgram? {
+        val now = System.currentTimeMillis()
+        currentProgramsCache?.let { cache ->
+            if (now - currentProgramsCacheTime < currentProgramsCacheTtl) {
+                return cache[tvgId]
+            }
+        }
+
+        val programs = synchronized(channelProgramsLock) {
+            channelPrograms[tvgId]?.toList()
+        } ?: return null
+
+        val current = programs.firstOrNull { it.isCurrent(now) }
+        val cache = (currentProgramsCache ?: emptyMap()).toMutableMap()
+        cache[tvgId] = current
+        currentProgramsCache = cache
+        currentProgramsCacheTime = now
+        return current
+    }
+
+    fun getProgramsForChannel(tvgId: String): List<EpgProgram> {
+        return synchronized(channelProgramsLock) {
+            channelPrograms[tvgId]?.toList()
+        } ?: emptyList()
+    }
+
+    fun clearCache() {
+        synchronized(windowCacheLock) {
+            windowCache.clear()
+            windowInFlight.clear()
+        }
+        synchronized(channelProgramsLock) {
+            channelPrograms.clear()
+        }
+        currentProgramsCache = null
+        currentProgramsCacheTime = 0
+        logDebug { "EPG cache cleared (lazy windows + current programs)" }
+    }
+
+    private fun cacheCurrentProgramSnapshot(tvgId: String, programs: List<EpgProgram>) {
+        val now = System.currentTimeMillis()
+        val cache = currentProgramsCache?.toMutableMap() ?: mutableMapOf()
+        cache[tvgId] = programs.firstOrNull { it.isCurrent(now) }
+        currentProgramsCache = cache
+        currentProgramsCacheTime = now
+    }
+
+    private fun rememberProgramsForChannel(tvgId: String, programs: List<EpgProgram>) {
+        if (programs.isEmpty()) return
+        synchronized(channelProgramsLock) {
+            val existing = channelPrograms[tvgId]?.toList() ?: emptyList()
+            val merged = LinkedHashMap<String, EpgProgram>(existing.size + programs.size)
+            fun key(program: EpgProgram) = program.id.ifBlank { "${program.startUtcMillis}:${program.title}" }
+            existing.forEach { merged[key(it)] = it }
+            programs.forEach { merged[key(it)] = it }
+            val sorted = merged.values.sortedBy { it.startUtcMillis }
+            val clamped = if (sorted.size > MAX_PROGRAMS_PER_CHANNEL) {
+                sorted.takeLast(MAX_PROGRAMS_PER_CHANNEL)
+            } else {
+                sorted
+            }
+            channelPrograms[tvgId] = clamped.toMutableList()
+        }
+    }
+
+    private fun fetchSingleChannelWindow(
+        epgUrl: String,
+        tvgId: String,
+        fromUtcMillis: Long,
+        toUtcMillis: Long
+    ): List<EpgProgram> {
         var connection: HttpURLConnection? = null
         return try {
-            val epgRequest = EpgRequest(
-                channels = channels.map { EpgChannelRequest(xmltvId = it.tvgId) },
+            val deviceTimezone = TimeZone.getDefault().id
+            val fromIso = Instant.ofEpochMilli(fromUtcMillis).toString()
+            val toIso = Instant.ofEpochMilli(toUtcMillis).toString()
+
+            val request = EpgRequest(
+                channels = listOf(EpgChannelRequest(xmltvId = tvgId)),
                 timezone = deviceTimezone,
                 fromDate = fromIso,
                 toDate = toIso
             )
+            val body = gson.toJson(request)
 
-            val requestBody = gson.toJson(epgRequest)
-            logDebug {
-                val sample = channels.take(3).joinToString { "${it.title}(${it.tvgId})" }
-                "EPG batch payload: ${channels.size} channels, body=${requestBody.length} bytes. Sample: $sample"
-            }
-
-            val url = URL("$epgUrl/epg")
-            connection = (url.openConnection() as HttpURLConnection).apply {
+            connection = (URL("$epgUrl/epg").openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
                 setRequestProperty("Content-Type", "application/json")
                 connectTimeout = EpgConstants.EPG_CONNECT_TIMEOUT_MS
@@ -242,141 +274,70 @@ class EpgRepository @Inject constructor(
                 doOutput = true
             }
 
-            connection.outputStream.use { os ->
-                os.write(requestBody.toByteArray())
+            connection.outputStream.use { os -> os.write(body.toByteArray()) }
+
+            val code = connection.responseCode
+            if (code != 200) {
+                Timber.e("EPG single-channel HTTP error: $code")
+                return emptyList()
             }
 
-            logDebug { "EPG batch request sent (timezone=$deviceTimezone, UTC${if (timezoneOffsetHours >= 0) "+" else ""}$timezoneOffsetHours)" }
+            val response = connection.inputStream.bufferedReader().use { reader ->
+                parseEpgResponseStreaming(reader)
+            } ?: return emptyList()
 
-            val responseStart = System.currentTimeMillis()
-            val responseCode = connection.responseCode
-            val fetchDuration = System.currentTimeMillis() - responseStart
-            logDebug { "EPG batch HTTP $responseCode in ${fetchDuration}ms for ${channels.size} channels" }
-
-            if (responseCode == 200) {
-                val parseStart = System.currentTimeMillis()
-                val epgResponse = connection.inputStream.bufferedReader().use { reader ->
-                    parseEpgResponseStreaming(reader)
-                }
-                val parseDuration = System.currentTimeMillis() - parseStart
-
-                if (epgResponse != null) {
-                    logDebug {
-                        "EPG batch parsed in ${parseDuration}ms: ${epgResponse.channelsFound}/${epgResponse.channelsRequested} channels"
-                    }
-                    val trimmedResponse = trimEpgToWindow(
-                        epgResponse,
-                        fromUtcMillis,
-                        toUtcMillis
-                    )
-                    Result.Success(trimmedResponse)
-                } else {
-                    Timber.e("EPG batch response is null")
-                    Result.Error(Exception("EPG response is null"))
-                }
-            } else {
-                Timber.e("EPG batch failed with HTTP $responseCode")
-                Result.Error(Exception("HTTP error: $responseCode"))
-            }
+            val programs = response.epg[tvgId] ?: emptyList()
+            trimProgramsToWindow(programs, fromUtcMillis, toUtcMillis)
         } catch (e: javax.net.ssl.SSLException) {
-            Timber.e(e, "SSL/TLS error fetching EPG batch")
-            val errorMessage = if (e.message?.contains("parse", ignoreCase = true) == true) {
-                "SSL connection error. Please check your network connection or try again."
-            } else {
-                "SSL error: ${e.message ?: "Connection failed"}"
-            }
-            Result.Error(Exception(errorMessage, e))
+            Timber.e(e, "SSL/TLS error fetching single-channel EPG")
+            emptyList()
         } catch (e: java.net.SocketException) {
-            Timber.e(e, "Network error fetching EPG batch")
-            Result.Error(Exception("Network error. Please check your connection and try again.", e))
+            Timber.e(e, "Network error fetching single-channel EPG")
+            emptyList()
         } catch (e: java.net.UnknownHostException) {
             Timber.e(e, "Host resolution error for EPG URL")
-            Result.Error(Exception("Cannot reach EPG server. Please check the URL and your internet connection.", e))
-        } catch (e: OutOfMemoryError) {
-            Timber.e(e, "Out of memory fetching EPG batch")
-            Result.Error(Exception("Out of memory: ${e.message}"))
+            emptyList()
         } catch (e: Exception) {
-            Timber.e(e, "Error fetching EPG batch")
-            // Check if it's an SSL-related error in the message
-            val errorMessage = if (e.message?.contains("tls", ignoreCase = true) == true ||
-                e.message?.contains("ssl", ignoreCase = true) == true ||
-                e.message?.contains("parse", ignoreCase = true) == true) {
-                "Network error: ${e.message ?: "Connection failed"}. Please try again."
-            } else {
-                e.message ?: "Failed to fetch EPG data"
-            }
-            Result.Error(Exception(errorMessage, e))
+            Timber.e(e, "Failed to fetch single-channel EPG window")
+            emptyList()
         } finally {
             connection?.disconnect()
         }
     }
 
-    private fun updateCachesWithBatch(
-        aggregationState: EpgAggregationState,
-        batchResponse: EpgResponse,
-        channelsRequested: Int,
-        now: Long = System.currentTimeMillis()
-    ) {
-        aggregationState.applyBatch(batchResponse)
-        val aggregatedResponse = aggregationState.toResponse(channelsRequested)
-        cachedEpgData = aggregatedResponse
-        cachedBounds = calculateBounds(aggregatedResponse)
-        updateCurrentProgramsCacheWithBatch(batchResponse, now)
-    }
-
-    private fun updateCurrentProgramsCacheWithBatch(
-        batchResponse: EpgResponse,
-        now: Long
-    ) {
-        val cache = currentProgramsCache?.toMutableMap() ?: mutableMapOf()
-        batchResponse.epg.forEach { (tvgId, programs) ->
-            val currentProgram = programs.firstOrNull { it.isCurrent(now) }
-            cache[tvgId] = currentProgram
+    private fun trimProgramsToWindow(
+        programs: List<EpgProgram>,
+        fromUtcMillis: Long,
+        toUtcMillis: Long
+    ): List<EpgProgram> {
+        if (programs.isEmpty()) return emptyList()
+        return programs.filter { program ->
+            val start = program.startUtcMillis
+            val stop = program.stopUtcMillis
+            stop >= fromUtcMillis && start <= toUtcMillis
         }
-        currentProgramsCache = cache
-        currentProgramsCacheTime = now
     }
 
-    private class EpgAggregationState {
-        private val epgMap = linkedMapOf<String, List<EpgProgram>>()
-        private val channelProgramCounts = mutableMapOf<String, Int>()
-        private var totalProgramsCount: Int = 0
-        private var firstUpdateMode: String? = null
-        private var firstTimestamp: String? = null
+    private fun formatUtcOffset(totalMinutes: Int): String {
+        val sign = if (totalMinutes >= 0) "+" else "-"
+        val absolute = abs(totalMinutes)
+        val hours = absolute / 60
+        val minutes = absolute % 60
+        return "$sign${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}"
+    }
 
-        fun applyBatch(batch: EpgResponse) {
-            if (firstUpdateMode.isNullOrEmpty() && batch.updateMode.isNotEmpty()) {
-                firstUpdateMode = batch.updateMode
+    private fun JsonReader.safeNextString(maxLength: Int): String {
+        val value = nextString()
+        if (value.length > maxLength) {
+            if (!truncationWarningLogged) {
+                Timber.w("EPG field at $path truncated to $maxLength characters (further truncation messages suppressed)")
+                truncationWarningLogged = true
             }
-            if (firstTimestamp.isNullOrEmpty() && batch.timestamp.isNotEmpty()) {
-                firstTimestamp = batch.timestamp
-            }
-
-            batch.epg.forEach { (channelId, programs) ->
-                val previousCount = channelProgramCounts[channelId]
-                if (previousCount != null) {
-                    totalProgramsCount -= previousCount
-                }
-                channelProgramCounts[channelId] = programs.size
-                epgMap[channelId] = programs
-                totalProgramsCount += programs.size
-            }
+            return value.take(maxLength)
         }
-
-        fun toResponse(channelsRequested: Int): EpgResponse = EpgResponse(
-            updateMode = firstUpdateMode.orEmpty(),
-            timestamp = firstTimestamp ?: Instant.ofEpochMilli(System.currentTimeMillis()).toString(),
-            channelsRequested = channelsRequested,
-            channelsFound = epgMap.size,
-            totalPrograms = totalProgramsCount,
-            epg = epgMap.toMap()
-        )
+        return value
     }
 
-    /**
-     * Parse EPG response using streaming JSON parser
-     * This avoids loading the entire 255MB response into memory at once
-     */
     private fun parseEpgResponseStreaming(reader: Reader): EpgResponse? {
         truncationWarningLogged = false
         val jsonReader = JsonReader(reader)
@@ -397,7 +358,6 @@ class EpgRepository @Inject constructor(
                     "channels_found" -> channelsFound = jsonReader.nextInt()
                     "total_programs" -> totalPrograms = jsonReader.nextInt()
                     "epg" -> {
-                        // Parse epg object incrementally - one channel at a time
                         logDebug { "Parsing EPG map with streaming parser..." }
                         var channelCount = 0
                         jsonReader.beginObject()
@@ -406,8 +366,6 @@ class EpgRepository @Inject constructor(
                             val programs = parsePrograms(jsonReader)
                             epgMap[channelId] = programs
                             channelCount++
-
-                            // Log progress every 50 channels to track memory usage
                             if (channelCount % 50 == 0) {
                                 logDebug { "Parsed $channelCount channels so far..." }
                             }
@@ -419,7 +377,6 @@ class EpgRepository @Inject constructor(
                 }
             }
             jsonReader.endObject()
-
             return EpgResponse(updateMode, timestamp, channelsRequested, channelsFound, totalPrograms, epgMap)
         } catch (e: Exception) {
             Timber.e(e, "Error in streaming JSON parser")
@@ -429,9 +386,6 @@ class EpgRepository @Inject constructor(
         }
     }
 
-    /**
-     * Parse programs array for a single channel
-     */
     private fun parsePrograms(jsonReader: JsonReader): List<EpgProgram> {
         val programs = mutableListOf<EpgProgram>()
         jsonReader.beginArray()
@@ -442,9 +396,6 @@ class EpgRepository @Inject constructor(
         return programs
     }
 
-    /**
-     * Parse a single EPG program
-     */
     private fun parseProgram(jsonReader: JsonReader): EpgProgram {
         var id = ""
         var startTime = ""
@@ -478,487 +429,20 @@ class EpgRepository @Inject constructor(
         return EpgProgram(id, startTime, stopTime, title, description)
     }
 
-    /**
-     * Save EPG data to cache using streaming + GZIP compression
-     *
-     * Best practices implemented:
-     * 1. Streaming JSON write - avoids loading full JSON string in memory
-     * 2. GZIP compression - reduces 144MB to ~10-20MB
-     * 3. Buffered IO - efficient disk writes
-     */
-    private fun saveEpgData(epgResponse: EpgResponse) {
-        try {
-            // Cache in memory first
-            cachedEpgData = epgResponse
-            cachedBounds = calculateBounds(epgResponse)
-            val programCount = epgResponse.totalPrograms
-            val channelCount = epgResponse.epg.size
-        logDebug { "EPG data cached in memory: $programCount programs across $channelCount channels" }
-
-            try {
-            logDebug { "Saving EPG to disk with streaming + GZIP..." }
-                val startTime = System.currentTimeMillis()
-
-                val tempFile = File(epgFile.parentFile, "${epgFile.name}.tmp")
-                if (tempFile.exists() && !tempFile.delete()) {
-                    Timber.w("Failed to delete existing temp EPG file before saving")
-                }
-
-                FileOutputStream(tempFile).use { fileOut ->
-                    BufferedOutputStream(fileOut).use { bufferedOut ->
-                        java.util.zip.GZIPOutputStream(bufferedOut).buffered().use { gzipOut ->
-                            gzipOut.writer().use { writer ->
-                                gson.toJson(epgResponse, writer)
-                                writer.flush()
-                            }
-                        }
-                        bufferedOut.flush()
-                    }
-                    try {
-                        fileOut.fd.sync()
-                    } catch (syncError: Exception) {
-                        Timber.w(syncError, "Failed to sync EPG temp file descriptor")
-                    }
-                }
-
-                if (epgFile.exists() && !epgFile.delete()) {
-                    Timber.w("Failed to delete previous EPG cache before rename")
-                }
-                if (!tempFile.renameTo(epgFile)) {
-                    Timber.e("Failed to rename temp EPG file to final cache file")
-                    tempFile.delete()
-                } else {
-                    val duration = System.currentTimeMillis() - startTime
-                    val fileSizeKB = epgFile.length() / 1024
-                    val fileSizeMB = fileSizeKB / 1024
-                    logDebug { "EPG saved to disk: ${fileSizeMB}MB (${fileSizeKB}KB) in ${duration}ms" }
-                    if (fileSizeKB > 0) {
-                        val compressionRatio = (programCount * 500L) / (fileSizeKB * 1024L)
-                        logDebug { "Compression ratio: ~$compressionRatio:1" }
-                    }
-                }
-            } catch (e: OutOfMemoryError) {
-                Timber.w("Out of memory saving EPG to disk (${e.message}) - keeping memory cache only")
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to write EPG to disk - keeping memory cache only")
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to save EPG data")
-        }
-    }
-    /**
-     * Load EPG data from cache (with GZIP decompression support)
-     * Uses streaming parser to avoid OutOfMemoryError
-     */
-    fun loadEpgData(): EpgResponse? {
-        cachedEpgData?.let { return it }
-
-        return try {
-            if (!epgFile.exists()) {
-            logDebug { "No EPG data file found" }
-                return null
-            }
-
-        logDebug { "Loading EPG from disk with streaming parser..." }
-            val startTime = System.currentTimeMillis()
-
-            val epgResponse = epgFile.inputStream().buffered().use { fileIn ->
-                java.util.zip.GZIPInputStream(fileIn).buffered().use { gzipIn ->
-                    gzipIn.reader().use { reader ->
-                        parseEpgResponseStreaming(reader)
-                    }
-                }
-            }
-
-            val duration = System.currentTimeMillis() - startTime
-            cachedEpgData = epgResponse
-            cachedBounds = epgResponse?.let { calculateBounds(it) }
-            if (epgResponse != null) {
-                logDebug { "Loaded EPG data: ${epgResponse.totalPrograms} programs in ${duration}ms" }
-            } else {
-                Timber.e("Failed to parse EPG data from disk")
-            }
-            epgResponse
-        } catch (e: java.util.zip.ZipException) {
-            Timber.w("EPG file is not GZIP compressed, attempting plain JSON load with streaming...")
-            try {
-                val epgResponse = epgFile.inputStream().bufferedReader().use { reader ->
-                    parseEpgResponseStreaming(reader)
-                }
-                cachedEpgData = epgResponse
-                cachedBounds = epgResponse?.let { calculateBounds(it) }
-                if (epgResponse != null) {
-                    logDebug { "Loaded EPG data (legacy format): ${epgResponse.totalPrograms} programs" }
-                } else {
-                    Timber.e("Failed to parse legacy EPG data")
-                }
-                epgResponse
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to load legacy EPG data")
-                if (epgFile.exists() && !epgFile.delete()) {
-                    Timber.w("Failed to delete legacy EPG cache file after parse error")
-                }
-                cachedEpgData = null
-                cachedBounds = null
-                currentProgramsCache = null
-                currentProgramsCacheTime = 0
-                null
-            }
-        } catch (e: OutOfMemoryError) {
-            Timber.e(e, "Out of memory while loading cached EPG data (file size=${epgFile.length()} bytes). Clearing cache.")
-            cachedEpgData = null
-            cachedBounds = null
-            if (epgFile.exists() && !epgFile.delete()) {
-                Timber.w("Failed to delete EPG cache file after OOM")
-            }
-            null
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to load EPG data")
-            cachedEpgData = null
-            cachedBounds = null
-            currentProgramsCache = null
-            currentProgramsCacheTime = 0
-            if (epgFile.exists() && !epgFile.delete()) {
-                Timber.w("Failed to delete corrupted EPG cache file after parse error")
-            }
-            null
-        }
-    }
-
-    /**
-     * Get current program for a channel (optimized with caching)
-     * This is called frequently from channel list, so we cache results
-     */
-    fun getCurrentProgram(tvgId: String): EpgProgram? {
-        // Check cache first (avoids loading full EPG repeatedly)
-        val now = System.currentTimeMillis()
-        if (currentProgramsCache != null && now - currentProgramsCacheTime < currentProgramsCacheTtl) {
-            return currentProgramsCache?.get(tvgId)
-        }
-
-        // Cache miss - need to load from EPG data
-        val epgData = cachedEpgData ?: loadEpgData()
-        if (epgData == null) {
-            return null
-        }
-
-        val programs = epgData.epg[tvgId]
-        if (programs == null || programs.isEmpty()) {
-            return null
-        }
-
-        return programs.firstOrNull { it.isCurrent() }
-    }
-
-    /**
-     * Rebuild the current-program cache in batches to avoid long blocking work.
-     * Processes channels incrementally so UI can stay responsive.
-     */
-    suspend fun refreshCurrentProgramsCache(batchSize: Int = 100) {
-        val epgData = cachedEpgData ?: loadEpgData() ?: return
-
-        val cache = mutableMapOf<String, EpgProgram?>()
-        val now = System.currentTimeMillis()
-
-        for ((tvgId, programs) in epgData.epg) {
-            val current = programs.firstOrNull { it.isCurrent(now) }
-            cache[tvgId] = current
-            if (cache.size % batchSize == 0) {
-                yield()
-            }
-        }
-
-        currentProgramsCache = cache
-        currentProgramsCacheTime = System.currentTimeMillis()
-        logDebug { "EPG: Rebuilt current programs cache for ${cache.size} channels" }
-    }
-
-    /**
-     * Get all programs for a channel
-     */
-    fun getProgramsForChannel(tvgId: String): List<EpgProgram> {
-        val epgData = cachedEpgData ?: loadEpgData() ?: return emptyList()
-        return epgData.epg[tvgId] ?: emptyList()
-    }
-
-    /**
-     * Snapshot of current programs for all channels.
-     * Ensures the cache is populated before returning.
-     */
-    fun getCurrentProgramsSnapshot(): Map<String, EpgProgram?> {
-        return currentProgramsCache ?: emptyMap()
-    }
-
-    fun calculateWindow(
-        channels: List<Channel>,
-        epgDaysAhead: Int,
-        now: Instant = Instant.now()
-    ): EpgWindow {
-        val utcZone = ZoneOffset.UTC
-        val zonedNow = now.atZone(utcZone)
-        val maxCatchupDays = channels
-            .filter { it.hasEpg }
-            .maxOfOrNull { max(0, it.catchupDays) }
-            ?: 0
-        val sanitizedDaysAhead = max(0, epgDaysAhead)
-        val fromInstant = zonedNow.toLocalDate()
-            .minusDays(maxCatchupDays.toLong())
-            .atStartOfDay()
-            .toInstant(utcZone)
-        val toInstant = zonedNow.toLocalDate()
-            .plusDays(sanitizedDaysAhead.toLong())
-            .atTime(LocalTime.of(23, 59, 59))
-            .toInstant(utcZone)
-        return EpgWindow(
-            fromUtcMillis = fromInstant.toEpochMilli(),
-            toUtcMillis = toInstant.toEpochMilli()
-        )
-    }
-
-    fun getCachedEpgBounds(): EpgBounds? {
-        cachedBounds?.let { return it }
-        val data = cachedEpgData ?: loadEpgData() ?: return null
-        val bounds = calculateBounds(data) ?: return null
-        cachedBounds = bounds
-        return bounds
-    }
-
-    fun coversWindow(window: EpgWindow, toleranceMillis: Long = 60_000L): Boolean {
-        val bounds = getCachedEpgBounds() ?: return false
-        val adjustedEarliest = bounds.earliestUtcMillis <= window.fromUtcMillis + toleranceMillis
-        val adjustedLatest = bounds.latestUtcMillis >= window.toUtcMillis - toleranceMillis
-        return adjustedEarliest && adjustedLatest
-    }
-
-    /**
-     * Lazy windowed fetch for a single channel, cached for the app session.
-     * Returns only the programs in [fromUtcMillis, toUtcMillis] for tvgId.
-     */
-    suspend fun getWindowedProgramsForChannel(
-        epgUrl: String,
-        tvgId: String,
-        fromUtcMillis: Long,
-        toUtcMillis: Long
-    ): List<EpgProgram> = coroutineScope {
-        val key = WindowKey(epgUrl, tvgId, fromUtcMillis, toUtcMillis)
-        windowCache[key]?.let { return@coroutineScope it }
-
-        val deferred: Deferred<List<EpgProgram>> = windowInFlight[key]
-            ?: async(Dispatchers.IO) { fetchSingleChannelWindow(epgUrl, tvgId, fromUtcMillis, toUtcMillis) }
-                .also { windowInFlight[key] = it }
-
-        try {
-            val result = deferred.await()
-            windowCache[key] = result
-            result
-        } finally {
-            windowInFlight.remove(key)
-        }
-    }
-
-    private fun fetchSingleChannelWindow(
-        epgUrl: String,
-        tvgId: String,
-        fromUtcMillis: Long,
-        toUtcMillis: Long
-    ): List<EpgProgram> {
-        var connection: HttpURLConnection? = null
-        return try {
-            val deviceTimezone = TimeZone.getDefault().id
-            val fromIso = Instant.ofEpochMilli(fromUtcMillis).toString()
-            val toIso = Instant.ofEpochMilli(toUtcMillis).toString()
-
-            val request = EpgRequest(
-                channels = listOf(EpgChannelRequest(xmltvId = tvgId)),
-                timezone = deviceTimezone,
-                fromDate = fromIso,
-                toDate = toIso
-            )
-            val body = gson.toJson(request)
-
-            val url = URL("$epgUrl/epg")
-            connection = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                setRequestProperty("Content-Type", "application/json")
-                connectTimeout = EpgConstants.EPG_CONNECT_TIMEOUT_MS
-                readTimeout = EpgConstants.EPG_READ_TIMEOUT_MS
-                doOutput = true
-            }
-
-            connection.outputStream.use { os -> os.write(body.toByteArray()) }
-
-            val code = connection.responseCode
-            if (code != 200) {
-                Timber.e("EPG single-channel HTTP error: $code")
-                return emptyList()
-            }
-
-            val response = connection.inputStream.bufferedReader().use { reader ->
-                parseEpgResponseStreaming(reader)
-            } ?: return emptyList()
-
-            val programs = response.epg[tvgId] ?: emptyList()
-            // Trim defensively to requested window
-            programs.filter { p ->
-                val start = p.startUtcMillis
-                val stop = p.stopUtcMillis
-                stop >= fromUtcMillis && start <= toUtcMillis
-            }
-        } catch (e: javax.net.ssl.SSLException) {
-            Timber.e(e, "SSL/TLS error fetching single-channel EPG")
-            // Return empty list - this is a background operation, don't interrupt user
-            emptyList()
-        } catch (e: java.net.SocketException) {
-            Timber.e(e, "Network error fetching single-channel EPG")
-            emptyList()
-        } catch (e: java.net.UnknownHostException) {
-            Timber.e(e, "Host resolution error for EPG URL")
-            emptyList()
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to fetch single-channel EPG window")
-            emptyList()
-        } finally {
-            connection?.disconnect()
-        }
-    }
-
-    private fun trimEpgToWindow(
-        response: EpgResponse,
-        fromUtcMillis: Long,
-        toUtcMillis: Long
-    ): EpgResponse {
-        val filteredMap = response.epg.mapNotNull { (channelId, programs) ->
-            val filtered = programs.filter { program ->
-                val start = program.startUtcMillis
-                val stop = program.stopUtcMillis
-                val afterFrom = stop >= fromUtcMillis
-                val beforeTo = start <= toUtcMillis
-                afterFrom && beforeTo
-            }
-            if (filtered.isEmpty()) null else channelId to filtered
-        }.toMap()
-        val totalPrograms = filteredMap.values.sumOf { it.size }
-        return response.copy(
-            channelsFound = filteredMap.size,
-            totalPrograms = totalPrograms,
-            epg = filteredMap
-        )
-    }
-
-    private fun calculateBounds(response: EpgResponse): EpgBounds? {
-        var earliest = Long.MAX_VALUE
-        var latest = Long.MIN_VALUE
-        response.epg.values.forEach { programs ->
-            programs.forEach { program ->
-                val start = program.startUtcMillis
-                val stop = program.stopUtcMillis
-                if (start > 0) {
-                    earliest = min(earliest, start)
-                }
-                if (stop > 0) {
-                    latest = max(latest, stop)
-                }
-            }
-        }
-        if (earliest == Long.MAX_VALUE || latest == Long.MIN_VALUE) return null
-        return EpgBounds(earliest, latest)
-    }
-
-    fun handleSystemTimeOrTimezoneChange(
-        trigger: TimeChangeTrigger,
-        now: Long = System.currentTimeMillis()
-    ): TimeChangeResult {
-        val timezone = TimeZone.getDefault()
-        val offsetMinutes = timezone.getOffset(now) / 60_000
-        val timezoneIdChanged = timezone.id != lastKnownTimezoneId
-        val offsetChanged = offsetMinutes != lastKnownUtcOffsetMinutes
-
-        if (timezoneIdChanged || offsetChanged) {
-            val previousId = lastKnownTimezoneId
-            val previousOffset = lastKnownUtcOffsetMinutes
-            lastKnownTimezoneId = timezone.id
-            lastKnownUtcOffsetMinutes = offsetMinutes
-            Timber.i(
-                "Device timezone changed from $previousId (UTC${formatUtcOffset(previousOffset)}) " +
-                    "to ${timezone.id} (UTC${formatUtcOffset(offsetMinutes)})"
-            )
-            clearCache()
-            return TimeChangeResult.TIMEZONE_CHANGED
-        }
-
-        if (trigger == TimeChangeTrigger.TIMEZONE) {
-            logDebug { "Timezone change broadcast received but timezone snapshot unchanged; no cache updates needed" }
-            return TimeChangeResult.NONE
-        }
-
-        if (trigger == TimeChangeTrigger.TIME_SET || trigger == TimeChangeTrigger.DATE) {
-            Timber.i("System clock adjusted (${trigger.name.lowercase()}), refreshing cached programs")
-            currentProgramsCache = null
-            currentProgramsCacheTime = 0
-            cachedBounds = null
-            return TimeChangeResult.CLOCK_CHANGED
-        }
-
-        logDebug {
-            "Ignoring time change trigger $trigger (timezone=${timezone.id}, offsetMinutes=$offsetMinutes, " +
-                "cachedTimezone=$lastKnownTimezoneId, cachedOffset=$lastKnownUtcOffsetMinutes)"
-        }
-        return TimeChangeResult.NONE
-    }
-
-    private fun formatUtcOffset(totalMinutes: Int): String {
-        val sign = if (totalMinutes >= 0) "+" else "-"
-        val absolute = abs(totalMinutes)
-        val hours = absolute / 60
-        val minutes = absolute % 60
-        return "$sign${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}"
-    }
-
-    private fun JsonReader.safeNextString(maxLength: Int): String {
-        val value = nextString()
-        if (value.length > maxLength) {
-            if (!truncationWarningLogged) {
-                Timber.w("EPG field at $path truncated to $maxLength characters (further truncation messages suppressed)")
-                truncationWarningLogged = true
-            }
-            return value.take(maxLength)
-        }
-        return value
-    }
-
-    /**
-     * Clear EPG cache
-     */
-    fun clearCache() {
-        cachedEpgData = null
-        cachedBounds = null
-        currentProgramsCache = null
-        currentProgramsCacheTime = 0
-        if (epgFile.exists()) {
-            epgFile.delete()
-        }
-        logDebug { "EPG cache cleared (including current programs cache)" }
-    }
-
+    private data class WindowKey(
+        val epgUrl: String,
+        val tvgId: String,
+        val fromUtcMillis: Long,
+        val toUtcMillis: Long
+    )
 }
 
+private const val WINDOW_CACHE_CAPACITY = 32
+private const val CHANNEL_CACHE_CAPACITY = 48
+private const val MAX_PROGRAMS_PER_CHANNEL = 512
 private const val MAX_FIELD_LENGTH_ID = 128
 private const val MAX_FIELD_LENGTH_TIME = 64
 private const val MAX_FIELD_LENGTH_TITLE = 256
 private const val MAX_FIELD_LENGTH_DESCRIPTION = 1_024
+@Volatile
 private var truncationWarningLogged = false
-
-data class EpgWindow(
-    val fromUtcMillis: Long,
-    val toUtcMillis: Long
-) {
-    val fromInstant: Instant
-        get() = Instant.ofEpochMilli(fromUtcMillis)
-    val toInstant: Instant
-        get() = Instant.ofEpochMilli(toUtcMillis)
-}
-
-data class EpgBounds(
-    val earliestUtcMillis: Long,
-    val latestUtcMillis: Long
-)

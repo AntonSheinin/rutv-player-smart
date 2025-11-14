@@ -54,7 +54,6 @@ class PreferencesRepository @Inject constructor(
         val SHOW_DEBUG_LOG = booleanPreferencesKey("show_debug_log")
 
         val LAST_PLAYED_INDEX = intPreferencesKey("last_played_index")
-        val LAST_EPG_FETCH_TIMESTAMP = longPreferencesKey("last_epg_fetch_timestamp")
 
         val APP_LANGUAGE = stringPreferencesKey("app_language")
     }
@@ -220,21 +219,6 @@ class PreferencesRepository @Inject constructor(
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.LAST_PLAYED_INDEX] = index
         }
-    }
-
-    /**
-     * Last EPG fetch timestamp
-     */
-    val lastEpgFetchTimestamp: Flow<Long> = dataStore.data
-        .map { preferences ->
-            preferences[PreferencesKeys.LAST_EPG_FETCH_TIMESTAMP] ?: 0L
-        }
-
-    suspend fun saveLastEpgFetchTimestamp(timestamp: Long) {
-        dataStore.edit { preferences ->
-            preferences[PreferencesKeys.LAST_EPG_FETCH_TIMESTAMP] = timestamp
-        }
-        logDebug { "Saved last EPG fetch timestamp: $timestamp" }
     }
 
     /**
