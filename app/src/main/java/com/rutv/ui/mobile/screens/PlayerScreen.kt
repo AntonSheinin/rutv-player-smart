@@ -1991,7 +1991,7 @@ private fun calculateScrollProgress(listState: LazyListState): Float {
     return (scrolled.toFloat() / maxScroll.toFloat()).coerceIn(0f, 1f)
 }
 
-private fun programStableKey(program: EpgProgram, _: Int): String {
+private fun programStableKey(program: EpgProgram, indexForHash: Int): String {
     if (program.id.isNotBlank()) {
         return program.id
     }
@@ -2000,7 +2000,7 @@ private fun programStableKey(program: EpgProgram, _: Int): String {
     } else {
         ""
     }
-    return "${program.startTimeMillis}_${program.stopTimeMillis}_${program.title}$descriptionPart"
+    return "${program.startTimeMillis}_${program.stopTimeMillis}_${program.title}_$indexForHash$descriptionPart"
 }
 
 private const val PLAYLIST_PREFETCH_MARGIN = 8
