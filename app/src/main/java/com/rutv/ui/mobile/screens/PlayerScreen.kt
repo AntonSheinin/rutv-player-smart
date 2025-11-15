@@ -475,23 +475,6 @@ fun PlayerScreen(
             )
         }
     }
-
-    if (showDatePicker) {
-        EpgDatePickerDialog(
-            anchors = availableDateAnchors,
-            initialSelection = datePickerSelectionIndex,
-            currentTimeMillis = currentTime,
-            onSelect = { anchor ->
-                val targetIndex = anchor.programIndex
-                if (targetIndex in programs.indices) {
-                    focusProgram(targetIndex)
-                }
-                datePickerSelectionIndex = availableDateAnchors.indexOf(anchor).takeIf { it >= 0 } ?: 0
-                showDatePicker = false
-            },
-            onDismiss = { showDatePicker = false }
-        )
-    }
 }
 
 @UnstableApi
@@ -1212,6 +1195,8 @@ private fun PlaylistPanel(
             }
         }
     }
+
+}
 
 @UnstableApi
 @Composable
