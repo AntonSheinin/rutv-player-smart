@@ -1338,6 +1338,25 @@ private fun EpgPanel(
     var pendingFocusDateRange by remember(channel?.tvgId) {
         mutableStateOf<LongRange?>(null)
     }
+
+    fun focusProgram(targetIndex: Int): Boolean {
+        if (targetIndex !in programs.indices) {
+            return false
+        }
+        val itemIndex = programItemIndices.getOrNull(targetIndex)
+        if (itemIndex == null) {
+            return false
+        }
+        focusedProgramIndex = targetIndex
+        focusedProgramKey = programs.getOrNull(targetIndex)?.let { programStableKey(it, targetIndex) }
+        val shouldScroll = !listState.isItemFullyVisible(itemIndex)
+        coroutineScope.launch {
+            if (shouldScroll) {
+                listState.animateScrollToItem(itemIndex, scrollOffset = -200)
+            }
+        }
+        return true
+    }
     LaunchedEffect(channel?.tvgId) {
         pendingProgramCenterIndex = resolvedInitialItemIndex
     }
@@ -1478,25 +1497,6 @@ private fun EpgPanel(
         epgListHasFocus = true
         pendingProgramCenterIndex = null
         onFocusRequestHandled()
-    }
-
-    fun focusProgram(targetIndex: Int): Boolean {
-        if (targetIndex !in programs.indices) {
-            return false
-        }
-        val itemIndex = programItemIndices.getOrNull(targetIndex)
-        if (itemIndex == null) {
-            return false
-        }
-        focusedProgramIndex = targetIndex
-        focusedProgramKey = programs.getOrNull(targetIndex)?.let { programStableKey(it, targetIndex) }
-        val shouldScroll = !listState.isItemFullyVisible(itemIndex)
-        coroutineScope.launch {
-            if (shouldScroll) {
-                listState.animateScrollToItem(itemIndex, scrollOffset = -200)
-            }
-        }
-        return true
     }
 
     // Lazy paging triggers near list edges
