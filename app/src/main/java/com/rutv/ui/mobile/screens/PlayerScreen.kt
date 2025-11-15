@@ -637,6 +637,27 @@ private fun ChannelInfoOverlay(
                     }
                 }
             }
+
+            if (showDatePicker && dateAnchors.isNotEmpty()) {
+                val safeSelection = datePickerSelectionIndex.coerceIn(0, dateAnchors.lastIndex)
+                EpgDatePickerDialog(
+                    anchors = dateAnchors,
+                    initialSelection = safeSelection,
+                    onSelect = { anchor ->
+                        val index = dateAnchors.indexOf(anchor).takeIf { it >= 0 } ?: safeSelection
+                        datePickerSelectionIndex = index
+                        val targetItemIndex = programItemIndices.getOrNull(anchor.programIndex)
+                        if (targetItemIndex != null) {
+                            focusedProgramIndex = anchor.programIndex
+                            focusedProgramKey = programs.getOrNull(anchor.programIndex)
+                                ?.let { programStableKey(it, anchor.programIndex) }
+                            pendingProgramCenterIndex = targetItemIndex
+                        }
+                        showDatePicker = false
+                    },
+                    onDismiss = { showDatePicker = false }
+                )
+            }
         }
     }
 }
@@ -1213,6 +1234,8 @@ private fun EpgPanel(
     val currentTime = System.currentTimeMillis()
     val isRemoteMode = DeviceHelper.isRemoteInputActive()
     var epgListHasFocus by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var datePickerSelectionIndex by remember { mutableIntStateOf(0) }
     DisposableEffect(Unit) {
         onDispose { epgListHasFocus = false }
     }
@@ -1225,9 +1248,10 @@ private fun EpgPanel(
     }
 
     // Build items list with date delimiters to calculate correct scroll position
-    val (epgItems, programItemIndices) = remember(programs) {
+    val (epgItems, programItemIndices, dateAnchors) = remember(programs) {
         val itemsList = mutableListOf<EpgUiItem>()
         val indexMap = MutableList(programs.size) { -1 }
+        val anchors = mutableListOf<DateAnchor>()
         var lastDate = ""
         programs.forEachIndexed { index, program ->
             val programDate = TimeFormatter.formatEpgDate(Date(program.startTimeMillis))
@@ -1235,6 +1259,7 @@ private fun EpgPanel(
                 val absoluteIndex = itemsList.size
                 itemsList.add(EpgUiItem(absoluteIndex, "date_$programDate", programDate))
                 lastDate = programDate
+                anchors.add(DateAnchor(programDate, index))
             }
             val baseKey = when {
                 program.id.isNotBlank() -> program.id
@@ -1244,7 +1269,7 @@ private fun EpgPanel(
             itemsList.add(EpgUiItem(absoluteIndex, "program_$baseKey", program))
             indexMap[index] = absoluteIndex
         }
-        itemsList to indexMap
+        Triple(itemsList, indexMap, anchors)
     }
 
     val resolvedInitialProgramIndex = when {
@@ -1271,7 +1296,9 @@ private fun EpgPanel(
     var pendingProgramCenterIndex by remember(channel?.tvgId) {
         mutableStateOf(resolvedInitialItemIndex)
     }
-
+    var pendingFocusAfterLoad by remember(channel?.tvgId) {
+        mutableStateOf<Int?>(null)
+    }
     LaunchedEffect(channel?.tvgId) {
         pendingProgramCenterIndex = resolvedInitialItemIndex
     }
@@ -1315,6 +1342,18 @@ private fun EpgPanel(
             focusedProgramKey = programs.getOrNull(fallback)?.let { programStableKey(it, fallback) }
         } else if (focusedProgramKey == null && focusedProgramIndex in programs.indices) {
             focusedProgramKey = programStableKey(programs[focusedProgramIndex], focusedProgramIndex)
+        }
+    }
+
+    LaunchedEffect(programs.size, pendingFocusAfterLoad) {
+        val target = pendingFocusAfterLoad
+        if (target != null) {
+            if (target in programs.indices) {
+                focusProgram(target)
+                pendingFocusAfterLoad = null
+            } else if (target < 0 || programs.isEmpty()) {
+                pendingFocusAfterLoad = null
+            }
         }
     }
 
@@ -1467,30 +1506,42 @@ private fun EpgPanel(
                                 Key.DirectionUp -> {
                                     if (focusedProgramIndex > 0) {
                                         focusProgram(focusedProgramIndex - 1)
+                                    } else {
+                                        pendingFocusAfterLoad = (focusedProgramIndex - 1).takeIf { it >= 0 }
+                                        onLoadMorePast()
                                     }
                                     true
                                 }
                                 Key.DirectionDown -> {
-                                    if (focusedProgramIndex < programs.lastIndex) {
-                                        focusProgram(focusedProgramIndex + 1)
+                                    val nextIndex = focusedProgramIndex + 1
+                                    if (nextIndex < programs.size) {
+                                        focusProgram(nextIndex)
+                                    } else {
+                                        pendingFocusAfterLoad = nextIndex
+                                        onLoadMoreFuture()
                                     }
                                     true
                                 }
                                 Key.DirectionCenter, Key.Enter -> {
                                     val program = programs.getOrNull(focusedProgramIndex)
                                     if (program != null) {
-                                        val isPast = program.stopTimeMillis > 0 && program.stopTimeMillis <= currentTime
-                                        val catchupWindowMillis = channel
-                                            ?.takeIf { it.supportsCatchup() }
-                                            ?.let { java.util.concurrent.TimeUnit.DAYS.toMillis(it.catchupDays.toLong()) }
-                                        val isArchiveCandidate = catchupWindowMillis != null &&
-                                            isPast &&
-                                            program.startTimeMillis > 0 &&
-                                            currentTime - program.startTimeMillis <= catchupWindowMillis
-                                        val canPlayArchive = isArchiveCandidate && !isArchivePlayback
+                                        val isLongPress = (event.nativeKeyEvent?.repeatCount ?: 0) > 0
+                                        if (isLongPress) {
+                                            onProgramClick(program)
+                                        } else {
+                                            val isPast = program.stopTimeMillis > 0 && program.stopTimeMillis <= currentTime
+                                            val catchupWindowMillis = channel
+                                                ?.takeIf { it.supportsCatchup() }
+                                                ?.let { java.util.concurrent.TimeUnit.DAYS.toMillis(it.catchupDays.toLong()) }
+                                            val isArchiveCandidate = catchupWindowMillis != null &&
+                                                isPast &&
+                                                program.startTimeMillis > 0 &&
+                                                currentTime - program.startTimeMillis <= catchupWindowMillis
+                                            val canPlayArchive = isArchiveCandidate && !isArchivePlayback
 
-                                        if (canPlayArchive) {
-                                            onPlayArchive(program)
+                                            if (canPlayArchive) {
+                                                onPlayArchive(program)
+                                            }
                                         }
                                     }
                                     true
@@ -1506,9 +1557,11 @@ private fun EpgPanel(
                                     true
                                 }
                                 Key.DirectionRight -> {
-                                    val program = programs.getOrNull(focusedProgramIndex)
-                                    if (program != null) {
-                                        onProgramClick(program)
+                                    if (dateAnchors.isNotEmpty()) {
+                                        val defaultIndex = dateAnchors.indexOfLast { it.programIndex <= focusedProgramIndex }
+                                            .takeIf { it >= 0 } ?: 0
+                                        datePickerSelectionIndex = defaultIndex
+                                        showDatePicker = true
                                         true
                                     } else {
                                         false
@@ -1862,6 +1915,133 @@ private data class EpgUiItem(
     val key: String,
     val payload: Any
 )
+
+private data class DateAnchor(
+    val label: String,
+    val programIndex: Int
+)
+
+@Composable
+private fun EpgDatePickerDialog(
+    anchors: List<DateAnchor>,
+    initialSelection: Int,
+    onSelect: (DateAnchor) -> Unit,
+    onDismiss: () -> Unit
+) {
+    if (anchors.isEmpty()) {
+        onDismiss()
+        return
+    }
+    val isRemoteMode = DeviceHelper.isRemoteInputActive()
+    val boundedInitial = initialSelection.coerceIn(0, anchors.lastIndex)
+    var selectedIndex by remember(anchors) { mutableIntStateOf(boundedInitial) }
+    val listState = rememberLazyListState()
+    val listFocusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(isRemoteMode) {
+        if (isRemoteMode) {
+            listFocusRequester.requestFocus()
+        }
+    }
+
+    LaunchedEffect(selectedIndex, anchors.size) {
+        listState.animateScrollToItem(selectedIndex.coerceIn(0, anchors.lastIndex))
+    }
+
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .width(LayoutConstants.PlaylistPanelWidth)
+                .wrapContentHeight(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f)
+            ),
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(2.dp, MaterialTheme.ruTvColors.gold.copy(alpha = 0.7f))
+        ) {
+            Column(modifier = Modifier.padding(24.dp)) {
+                Text(
+                    text = stringResource(R.string.dialog_title_epg_date_picker),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.ruTvColors.gold
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 320.dp)
+                        .focusable(enabled = isRemoteMode)
+                        .focusRequester(listFocusRequester)
+                        .onPreviewKeyEvent { event ->
+                            if (!isRemoteMode) return@onPreviewKeyEvent false
+                            if (event.type != KeyEventType.KeyDown) {
+                                return@onPreviewKeyEvent true
+                            }
+                            when (event.key) {
+                                Key.DirectionDown -> {
+                                    selectedIndex = (selectedIndex + 1).coerceAtMost(anchors.lastIndex)
+                                    true
+                                }
+                                Key.DirectionUp -> {
+                                    selectedIndex = (selectedIndex - 1).coerceAtLeast(0)
+                                    true
+                                }
+                                Key.DirectionCenter, Key.Enter -> {
+                                    onSelect(anchors[selectedIndex])
+                                    true
+                                }
+                                Key.Back -> {
+                                    onDismiss()
+                                    true
+                                }
+                                else -> false
+                            }
+                        }
+                ) {
+                    LazyColumn(state = listState) {
+                        itemsIndexed(anchors) { index, anchor ->
+                            val isSelected = index == selectedIndex
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(
+                                        if (isSelected) MaterialTheme.ruTvColors.selectedBackground
+                                        else Color.Transparent
+                                    )
+                                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                            ) {
+                                Text(
+                                    text = anchor.label,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = if (isSelected) {
+                                        MaterialTheme.ruTvColors.gold
+                                    } else {
+                                        MaterialTheme.ruTvColors.textPrimary
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(20.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text(text = stringResource(R.string.button_cancel))
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    TextButton(onClick = { onSelect(anchors[selectedIndex]) }) {
+                        Text(text = stringResource(R.string.button_select))
+                    }
+                }
+            }
+        }
+    }
+}
 
 private fun LazyListState.isItemFullyVisible(index: Int): Boolean {
     val layout = this.layoutInfo

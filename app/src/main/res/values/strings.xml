@@ -9,6 +9,7 @@
     <string name="dialog_title_no_playlist_loaded">No Playlist</string>
     <string name="dialog_title_reload_playlist">Reload Playlist?</string>
     <string name="dialog_title_close_app">Close App?</string>
+    <string name="dialog_title_epg_date_picker">Select Date</string>
     <!-- Dialog Messages -->
     <string name="dialog_message_no_playlist">Please go to Settings to configure your playlist source (URL or file) to start watching channels.</string>
     <string name="dialog_message_no_playlist_loaded">No playlist is currently loaded. Please load a playlist first.</string>
@@ -21,6 +22,7 @@
     <string name="button_open_settings">Open Settings</string>
     <string name="button_exit">Exit</string>
     <string name="button_save">Save</string>
+    <string name="button_select">Select</string>
 
     <!-- Input Hints -->
     <string name="hint_channel_number">Enter channel number (1-%1$d)</string>
