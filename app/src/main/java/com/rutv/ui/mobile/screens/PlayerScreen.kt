@@ -475,6 +475,23 @@ fun PlayerScreen(
             )
         }
     }
+
+    if (showDatePicker) {
+        EpgDatePickerDialog(
+            anchors = availableDateAnchors,
+            initialSelection = datePickerSelectionIndex,
+            currentTimeMillis = currentTime,
+            onSelect = { anchor ->
+                val targetIndex = anchor.programIndex
+                if (targetIndex in programs.indices) {
+                    focusProgram(targetIndex)
+                }
+                datePickerSelectionIndex = availableDateAnchors.indexOf(anchor).takeIf { it >= 0 } ?: 0
+                showDatePicker = false
+            },
+            onDismiss = { showDatePicker = false }
+        )
+    }
 }
 
 @UnstableApi
@@ -1195,7 +1212,6 @@ private fun PlaylistPanel(
             }
         }
     }
-}
 
 @UnstableApi
 @Composable
@@ -1261,10 +1277,7 @@ private fun EpgPanel(
                     )
                 )
             }
-            val baseKey = when {
-                program.id.isNotBlank() -> program.id
-                else -> "${program.startTimeMillis}_${program.stopTimeMillis}_${program.title}_$index"
-            }
+            val baseKey = programStableKey(program, index)
             val absoluteIndex = itemsList.size
             itemsList.add(EpgUiItem(absoluteIndex, "program_$baseKey", program))
             indexMap[index] = absoluteIndex
@@ -1299,6 +1312,13 @@ private fun EpgPanel(
     var pendingFocusAfterLoad by remember(channel?.tvgId) {
         mutableStateOf<Int?>(null)
     }
+    data class CenterKeyAction(val program: EpgProgram, val canPlayArchive: Boolean)
+    var pendingCenterKeyAction by remember(channel?.tvgId) {
+        mutableStateOf<CenterKeyAction?>(null)
+    }
+    var centerKeyConsumedAsLongPress by remember(channel?.tvgId) {
+        mutableStateOf(false)
+    }
     val availableDateAnchors = remember(dateAnchors, epgWindowStart, epgWindowEnd) {
         dateAnchors.filter { anchor ->
             val afterStart = epgWindowStart?.let { anchor.dateMillis >= it } ?: true
@@ -1331,24 +1351,60 @@ private fun EpgPanel(
         pendingProgramCenterIndex = targetItemIndex
     }
 
-    LaunchedEffect(programs, channel?.tvgId, currentProgramIndex) {
+    LaunchedEffect(programs, channel?.tvgId, currentProgramIndex, programItemIndices) {
         if (programs.isEmpty()) {
             focusedProgramIndex = -1
             focusedProgramKey = null
-        } else if (focusedProgramIndex !in programs.indices) {
-            val fallback = when {
-                focusedProgramKey != null -> {
+            pendingProgramCenterIndex = null
+            return@LaunchedEffect
+        }
+
+        fun applyFocus(index: Int, recenter: Boolean) {
+            if (index !in programs.indices) return
+            focusedProgramIndex = index
+            focusedProgramKey = programStableKey(programs[index], index)
+            if (recenter) {
+                pendingProgramCenterIndex = programItemIndices.getOrNull(index)
+            }
+        }
+
+        val storedKey = focusedProgramKey
+        val currentIndex = focusedProgramIndex
+
+        if (currentIndex !in programs.indices) {
+            val fallbackIndex = when {
+                storedKey != null -> {
                     programs.withIndex()
-                        .firstOrNull { programStableKey(it.value, it.index) == focusedProgramKey }
-                        ?.index ?: -1
+                        .firstOrNull { programStableKey(it.value, it.index) == storedKey }
+                        ?.index
                 }
                 currentProgramIndex in programs.indices -> currentProgramIndex
                 else -> 0
-            }.takeIf { it >= 0 } ?: 0
-            focusedProgramIndex = fallback
-            focusedProgramKey = programs.getOrNull(fallback)?.let { programStableKey(it, fallback) }
-        } else if (focusedProgramKey == null && focusedProgramIndex in programs.indices) {
-            focusedProgramKey = programStableKey(programs[focusedProgramIndex], focusedProgramIndex)
+            } ?: 0
+            applyFocus(fallbackIndex, recenter = false)
+            return@LaunchedEffect
+        }
+
+        val currentKey = programStableKey(programs[currentIndex], currentIndex)
+        if (storedKey == null) {
+            focusedProgramKey = currentKey
+            return@LaunchedEffect
+        }
+
+        if (currentKey != storedKey) {
+            val restoredIndex = programs.withIndex()
+                .firstOrNull { programStableKey(it.value, it.index) == storedKey }
+                ?.index
+
+            if (restoredIndex != null) {
+                applyFocus(restoredIndex, recenter = true)
+            } else {
+                val fallbackIndex = when {
+                    currentProgramIndex in programs.indices -> currentProgramIndex
+                    else -> 0
+                }
+                applyFocus(fallbackIndex, recenter = true)
+            }
         }
     }
 
@@ -1510,76 +1566,95 @@ private fun EpgPanel(
                             if (!handlesKey) {
                                 return@onPreviewKeyEvent false
                             }
-                            if (event.type != KeyEventType.KeyDown) {
-                                return@onPreviewKeyEvent true
-                            }
-
-                            when (event.key) {
-                                Key.DirectionUp -> {
-                                    if (focusedProgramIndex > 0) {
-                                        focusProgram(focusedProgramIndex - 1)
-                                    } else {
-                                        pendingFocusAfterLoad = (focusedProgramIndex - 1).takeIf { it >= 0 }
-                                        onLoadMorePast()
-                                    }
-                                    true
-                                }
-                                Key.DirectionDown -> {
-                                    val nextIndex = focusedProgramIndex + 1
-                                    if (nextIndex < programs.size) {
-                                        focusProgram(nextIndex)
-                                    } else {
-                                        pendingFocusAfterLoad = nextIndex
-                                        onLoadMoreFuture()
-                                    }
-                                    true
-                                }
-                                Key.DirectionCenter, Key.Enter -> {
-                                    val program = programs.getOrNull(focusedProgramIndex)
-                                    if (program != null) {
-                                        val isLongPress = (event.nativeKeyEvent?.repeatCount ?: 0) > 0
-                                        if (isLongPress) {
-                                            onProgramClick(program)
-                                        } else {
-                                            val isPast = program.stopTimeMillis > 0 && program.stopTimeMillis <= currentTime
-                                            val catchupWindowMillis = channel
-                                                ?.takeIf { it.supportsCatchup() }
-                                                ?.let { java.util.concurrent.TimeUnit.DAYS.toMillis(it.catchupDays.toLong()) }
-                                            val isArchiveCandidate = catchupWindowMillis != null &&
-                                                isPast &&
-                                                program.startTimeMillis > 0 &&
-                                                currentTime - program.startTimeMillis <= catchupWindowMillis
-                                            val canPlayArchive = isArchiveCandidate && !isArchivePlayback
-
-                                            if (canPlayArchive) {
-                                                onPlayArchive(program)
+                            val isCenterKey = event.key == Key.DirectionCenter || event.key == Key.Enter
+                            when (event.type) {
+                                KeyEventType.KeyDown -> {
+                                    when (event.key) {
+                                        Key.DirectionUp -> {
+                                            if (focusedProgramIndex > 0) {
+                                                focusProgram(focusedProgramIndex - 1)
+                                            } else {
+                                                pendingFocusAfterLoad = (focusedProgramIndex - 1).takeIf { it >= 0 }
+                                                onLoadMorePast()
+                                            }
+                                            true
+                                        }
+                                        Key.DirectionDown -> {
+                                            val nextIndex = focusedProgramIndex + 1
+                                            if (nextIndex < programs.size) {
+                                                focusProgram(nextIndex)
+                                            } else {
+                                                pendingFocusAfterLoad = nextIndex
+                                                onLoadMoreFuture()
+                                            }
+                                            true
+                                        }
+                                        Key.DirectionCenter, Key.Enter -> {
+                                            val program = programs.getOrNull(focusedProgramIndex)
+                                            if (program != null) {
+                                                val isPast = program.stopTimeMillis > 0 && program.stopTimeMillis <= currentTime
+                                                val catchupWindowMillis = channel
+                                                    ?.takeIf { it.supportsCatchup() }
+                                                    ?.let { java.util.concurrent.TimeUnit.DAYS.toMillis(it.catchupDays.toLong()) }
+                                                val isArchiveCandidate = catchupWindowMillis != null &&
+                                                    isPast &&
+                                                    program.startTimeMillis > 0 &&
+                                                    currentTime - program.startTimeMillis <= catchupWindowMillis
+                                                val canPlayArchive = isArchiveCandidate && !isArchivePlayback
+                                                val isLongPress = (event.nativeKeyEvent?.repeatCount ?: 0) > 0
+                                                if (isLongPress) {
+                                                    if (!centerKeyConsumedAsLongPress) {
+                                                        onProgramClick(program)
+                                                        centerKeyConsumedAsLongPress = true
+                                                    }
+                                                    pendingCenterKeyAction = null
+                                                } else {
+                                                    pendingCenterKeyAction = CenterKeyAction(program, canPlayArchive)
+                                                    centerKeyConsumedAsLongPress = false
+                                                }
+                                            }
+                                            true
+                                        }
+                                        Key.DirectionLeft -> {
+                                            if (isPlaylistOpen) {
+                                                onNavigateLeftToChannels?.invoke()
+                                            } else {
+                                                onOpenPlaylist?.invoke()
+                                            }
+                                            epgListHasFocus = false
+                                            onClose()
+                                            true
+                                        }
+                                        Key.DirectionRight -> {
+                                            if (availableDateAnchors.isNotEmpty()) {
+                                                val defaultIndex = availableDateAnchors.indexOfLast { it.programIndex <= focusedProgramIndex }
+                                                    .takeIf { it >= 0 } ?: 0
+                                                datePickerSelectionIndex = defaultIndex
+                                                showDatePicker = true
+                                                true
+                                            } else {
+                                                false
                                             }
                                         }
+                                        else -> false
+                                    }
+                                }
+                                KeyEventType.KeyUp -> {
+                                    if (isCenterKey) {
+                                        val pendingAction = pendingCenterKeyAction
+                                        if (pendingAction != null && !centerKeyConsumedAsLongPress) {
+                                            if (pendingAction.canPlayArchive) {
+                                                onPlayArchive(pendingAction.program)
+                                            } else {
+                                                onProgramClick(pendingAction.program)
+                                            }
+                                        }
+                                        pendingCenterKeyAction = null
+                                        centerKeyConsumedAsLongPress = false
                                     }
                                     true
                                 }
-                                Key.DirectionLeft -> {
-                                    if (isPlaylistOpen) {
-                                        onNavigateLeftToChannels?.invoke()
-                                    } else {
-                                        onOpenPlaylist?.invoke()
-                                    }
-                                    epgListHasFocus = false
-                                    onClose()
-                                    true
-                                }
-                                Key.DirectionRight -> {
-                                    if (availableDateAnchors.isNotEmpty()) {
-                                        val defaultIndex = availableDateAnchors.indexOfLast { it.programIndex <= focusedProgramIndex }
-                                            .takeIf { it >= 0 } ?: 0
-                                        datePickerSelectionIndex = defaultIndex
-                                        showDatePicker = true
-                                        true
-                                    } else {
-                                        false
-                                    }
-                                }
-                                else -> false
+                                else -> true
                             }
                         },
                     contentPadding = PaddingValues(start = 12.dp, top = 4.dp, end = 20.dp, bottom = 4.dp) // Extra padding for 4dp focus border
@@ -1665,6 +1740,23 @@ private fun EpgPanel(
                 }
             }
         }
+    }
+
+    if (showDatePicker) {
+        EpgDatePickerDialog(
+            anchors = availableDateAnchors,
+            initialSelection = datePickerSelectionIndex,
+            currentTimeMillis = currentTime,
+            onSelect = { anchor ->
+                val targetIndex = anchor.programIndex
+                if (targetIndex in programs.indices) {
+                    focusProgram(targetIndex)
+                }
+                datePickerSelectionIndex = availableDateAnchors.indexOf(anchor).takeIf { it >= 0 } ?: 0
+                showDatePicker = false
+            },
+            onDismiss = { showDatePicker = false }
+        )
     }
 }
 
@@ -1915,9 +2007,16 @@ private fun calculateScrollProgress(listState: LazyListState): Float {
     return (scrolled.toFloat() / maxScroll.toFloat()).coerceIn(0f, 1f)
 }
 
-private fun programStableKey(program: EpgProgram, index: Int): String {
-    return program.id.takeIf { it.isNotBlank() }
-        ?: "${program.startTimeMillis}_${program.stopTimeMillis}_${program.title}_$index"
+private fun programStableKey(program: EpgProgram, _: Int): String {
+    if (program.id.isNotBlank()) {
+        return program.id
+    }
+    val descriptionPart = if (program.description.isNotEmpty()) {
+        "_${program.description.hashCode()}"
+    } else {
+        ""
+    }
+    return "${program.startTimeMillis}_${program.stopTimeMillis}_${program.title}$descriptionPart"
 }
 
 private const val PLAYLIST_PREFETCH_MARGIN = 8
