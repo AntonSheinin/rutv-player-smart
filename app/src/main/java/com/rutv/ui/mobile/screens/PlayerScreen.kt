@@ -1312,7 +1312,6 @@ private fun EpgPanel(
     var pendingFocusAfterLoad by remember(channel?.tvgId) {
         mutableStateOf<Int?>(null)
     }
-    data class CenterKeyAction(val program: EpgProgram, val canPlayArchive: Boolean)
     var pendingCenterKeyAction by remember(channel?.tvgId) {
         mutableStateOf<CenterKeyAction?>(null)
     }
@@ -2020,6 +2019,11 @@ private fun programStableKey(program: EpgProgram, _: Int): String {
 }
 
 private const val PLAYLIST_PREFETCH_MARGIN = 8
+
+private data class CenterKeyAction(
+    val program: EpgProgram,
+    val canPlayArchive: Boolean
+)
 
 private data class EpgUiItem(
     val absoluteIndex: Int,
