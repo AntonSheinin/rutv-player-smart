@@ -397,6 +397,8 @@ fun PlayerScreen(
                 onPlayArchive = actions.onPlayArchiveProgram,
                 isArchivePlayback = uiState.isArchivePlayback,
                 isPlaylistOpen = uiState.showPlaylist,
+                epgWindowStart = uiState.epgPrograms.minOfOrNull { it.startTimeMillis },
+                epgWindowEnd = uiState.epgPrograms.maxOfOrNull { it.stopTimeMillis },
                 onLoadMorePast = actions.onLoadMoreEpgPast,
                 onLoadMoreFuture = actions.onLoadMoreEpgFuture,
                 onClose = actions.onCloseEpgPanel,
@@ -1220,6 +1222,8 @@ private fun EpgPanel(
     onPlayArchive: (EpgProgram) -> Unit,
     isArchivePlayback: Boolean,
     isPlaylistOpen: Boolean,
+    epgWindowStart: Long?,
+    epgWindowEnd: Long?,
     onLoadMorePast: () -> Unit,
     onLoadMoreFuture: () -> Unit,
     onClose: () -> Unit,
@@ -1248,6 +1252,12 @@ private fun EpgPanel(
     }
 
     // Build items list with date delimiters to calculate correct scroll position
+    val epgWindowStart = remember(programs, currentProgramIndex) {
+        programs.minOfOrNull { it.startTimeMillis }
+    }
+    val epgWindowEnd = remember(programs, currentProgramIndex) {
+        programs.maxOfOrNull { it.stopTimeMillis }
+    }
     val (epgItems, programItemIndices, dateAnchors) = remember(programs) {
         val itemsList = mutableListOf<EpgUiItem>()
         val indexMap = MutableList(programs.size) { -1 }
@@ -1259,7 +1269,13 @@ private fun EpgPanel(
                 val absoluteIndex = itemsList.size
                 itemsList.add(EpgUiItem(absoluteIndex, "date_$programDate", programDate))
                 lastDate = programDate
-                anchors.add(DateAnchor(programDate, index))
+                anchors.add(
+                    DateAnchor(
+                        label = programDate,
+                        programIndex = index,
+                        dateMillis = program.startTimeMillis
+                    )
+                )
             }
             val baseKey = when {
                 program.id.isNotBlank() -> program.id
@@ -1918,7 +1934,8 @@ private data class EpgUiItem(
 
 private data class DateAnchor(
     val label: String,
-    val programIndex: Int
+    val programIndex: Int,
+    val dateMillis: Long
 )
 
 @Composable
