@@ -1466,8 +1466,10 @@ private fun EpgPanel(
         if (targetIndex >= 0) {
             focusProgram(targetIndex)
             pendingFocusDateRange = null
+            suppressFallbackEpgFocus = false
         } else if (coverageSatisfied) {
             pendingFocusDateRange = null
+            suppressFallbackEpgFocus = false
         }
     }
 
@@ -1775,9 +1777,11 @@ private fun EpgPanel(
                 val entryIndex = dateEntries.indexOf(entry).takeIf { it >= 0 } ?: 0
                 datePickerSelectionIndex = entryIndex
                 val dayRange = entry.startMillis..entry.endMillis
+                suppressFallbackEpgFocus = true
                 val targetIndex = programs.indexOfFirst { it.startTimeMillis in dayRange }
                 if (targetIndex >= 0) {
                     focusProgram(targetIndex)
+                    suppressFallbackEpgFocus = false
                 } else {
                     pendingFocusDateRange = dayRange
                 }
@@ -2140,6 +2144,7 @@ private fun EpgDatePickerDialog(
                                         true
                                     }
                                     Key.DirectionDown -> {
+                                        selectedIndex = 0
                                         listFocusRequester.requestFocus()
                                         true
                                     }
