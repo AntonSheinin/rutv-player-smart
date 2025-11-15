@@ -1345,7 +1345,12 @@ private fun EpgPanel(
         val target = pendingFocusAfterLoad
         if (target != null) {
             if (target in programs.indices) {
-                focusProgram(target)
+                val itemIndex = programItemIndices.getOrNull(target)
+                if (itemIndex != null) {
+                    focusedProgramIndex = target
+                    focusedProgramKey = programs.getOrNull(target)?.let { programStableKey(it, target) }
+                    pendingProgramCenterIndex = itemIndex
+                }
                 pendingFocusAfterLoad = null
             } else if (target < 0 || programs.isEmpty()) {
                 pendingFocusAfterLoad = null
