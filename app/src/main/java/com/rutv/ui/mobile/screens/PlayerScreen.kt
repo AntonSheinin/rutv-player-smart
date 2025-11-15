@@ -2069,28 +2069,6 @@ private fun EpgDatePickerDialog(
             }
         }
     }
-
-    if (showDatePicker && availableDateAnchors.isNotEmpty()) {
-        val safeSelection = datePickerSelectionIndex.coerceIn(0, availableDateAnchors.lastIndex)
-        EpgDatePickerDialog(
-            anchors = availableDateAnchors,
-            initialSelection = safeSelection,
-            currentTimeMillis = currentTime,
-            onSelect = { anchor ->
-                val index = availableDateAnchors.indexOf(anchor).takeIf { it >= 0 } ?: safeSelection
-                datePickerSelectionIndex = index
-                val targetItemIndex = programItemIndices.getOrNull(anchor.programIndex)
-                if (targetItemIndex != null) {
-                    focusedProgramIndex = anchor.programIndex
-                    focusedProgramKey = programs.getOrNull(anchor.programIndex)
-                        ?.let { programStableKey(it, anchor.programIndex) }
-                    pendingProgramCenterIndex = targetItemIndex
-                }
-                showDatePicker = false
-            },
-            onDismiss = { showDatePicker = false }
-        )
-    }
 }
 
 private fun LazyListState.isItemFullyVisible(index: Int): Boolean {
