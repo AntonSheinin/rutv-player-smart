@@ -791,13 +791,18 @@ private fun PlaylistPanel(
         }
     }
 
-    LaunchedEffect(pendingInitialCenterIndex) {
+    LaunchedEffect(pendingInitialCenterIndex, displayedList.size) {
         val targetIndex = pendingInitialCenterIndex ?: return@LaunchedEffect
-        if (channels.isEmpty() || targetIndex !in displayedList.indices) {
-            if (targetIndex in channels.indices) {
-                onRequestMoreChannels(targetIndex + PLAYLIST_PREFETCH_MARGIN)
-            }
+        if (channels.isEmpty()) {
             pendingInitialCenterIndex = null
+            return@LaunchedEffect
+        }
+        if (targetIndex !in channels.indices) {
+            pendingInitialCenterIndex = null
+            return@LaunchedEffect
+        }
+        if (targetIndex !in displayedList.indices) {
+            onRequestMoreChannels(targetIndex + PLAYLIST_PREFETCH_MARGIN)
             return@LaunchedEffect
         }
         snapshotFlow { listState.layoutInfo.visibleItemsInfo.isNotEmpty() }
@@ -818,25 +823,24 @@ private fun PlaylistPanel(
     }
 
     // Restore focus to channel list when EPG closes
-    LaunchedEffect(epgOpenIndex, isRemoteMode) {
+    LaunchedEffect(epgOpenIndex, isRemoteMode, displayedList.size) {
         if (epgOpenIndex >= 0 && epgOpenIndex < channels.size) {
             channelThatOpenedEpg = epgOpenIndex
             if (epgOpenIndex !in displayedList.indices) {
                 onRequestMoreChannels(epgOpenIndex + PLAYLIST_PREFETCH_MARGIN)
             }
         } else if (epgOpenIndex < 0 && channelThatOpenedEpg != null) {
-            // EPG closed, restore focus to the channel that opened it
             val channelIndex = channelThatOpenedEpg!!
             if (channelIndex >= 0 && channelIndex < channels.size && isRemoteMode) {
                 if (channelIndex !in displayedList.indices) {
                     onRequestMoreChannels(channelIndex + PLAYLIST_PREFETCH_MARGIN)
-                    delay(50)
+                    pendingInitialCenterIndex = channelIndex
                 } else {
                     delay(50)
+                    focusChannel(channelIndex, false)
+                    lazyColumnFocusRequester.requestFocus()
+                    playlistHasFocus = true
                 }
-                focusChannel(channelIndex, false)
-                lazyColumnFocusRequester.requestFocus()
-                playlistHasFocus = true
             }
             channelThatOpenedEpg = null
         }
@@ -1261,6 +1265,9 @@ private fun EpgPanel(
     var focusedProgramIndex by remember(channel?.tvgId) {
         mutableIntStateOf(resolvedInitialProgramIndex.coerceAtLeast(0))
     }
+    var focusedProgramKey by remember(channel?.tvgId) {
+        mutableStateOf(programs.getOrNull(resolvedInitialProgramIndex)?.let { programStableKey(it, resolvedInitialProgramIndex) })
+    }
     var pendingProgramCenterIndex by remember(channel?.tvgId) {
         mutableStateOf(resolvedInitialItemIndex)
     }
@@ -1290,21 +1297,36 @@ private fun EpgPanel(
         pendingProgramCenterIndex = targetItemIndex
     }
 
-    LaunchedEffect(programs.size, channel?.tvgId, currentProgramIndex) {
+    LaunchedEffect(programs, channel?.tvgId, currentProgramIndex) {
         if (programs.isEmpty()) {
             focusedProgramIndex = -1
+            focusedProgramKey = null
         } else if (focusedProgramIndex !in programs.indices) {
             val fallback = when {
+                focusedProgramKey != null -> {
+                    programs.withIndex()
+                        .firstOrNull { programStableKey(it.value, it.index) == focusedProgramKey }
+                        ?.index ?: -1
+                }
                 currentProgramIndex in programs.indices -> currentProgramIndex
                 else -> 0
-            }
+            }.takeIf { it >= 0 } ?: 0
             focusedProgramIndex = fallback
+            focusedProgramKey = programs.getOrNull(fallback)?.let { programStableKey(it, fallback) }
+        } else if (focusedProgramKey == null && focusedProgramIndex in programs.indices) {
+            focusedProgramKey = programStableKey(programs[focusedProgramIndex], focusedProgramIndex)
         }
     }
 
-    LaunchedEffect(pendingProgramCenterIndex) {
+    LaunchedEffect(pendingProgramCenterIndex, programs, programItemIndices) {
         val targetItemIndex = pendingProgramCenterIndex ?: return@LaunchedEffect
         if (programs.isEmpty()) {
+            pendingProgramCenterIndex = null
+            onFocusRequestHandled()
+            return@LaunchedEffect
+        }
+        val programIndex = programItemIndices.indexOf(targetItemIndex).takeIf { it >= 0 }
+        if (programIndex == null) {
             pendingProgramCenterIndex = null
             onFocusRequestHandled()
             return@LaunchedEffect
@@ -1313,8 +1335,12 @@ private fun EpgPanel(
             .filter { it }
             .first()
         listState.centerOn(targetItemIndex)
-        val programIndex = programItemIndices.indexOf(targetItemIndex).takeIf { it >= 0 }
-        programIndex?.let { focusedProgramIndex = it }
+        programIndex?.let {
+            focusedProgramIndex = it
+            focusedProgramKey = programs.getOrNull(it)?.let { program ->
+                programStableKey(program, it)
+            }
+        }
         epgListHasFocus = true
         pendingProgramCenterIndex = null
         onFocusRequestHandled()
@@ -1329,6 +1355,7 @@ private fun EpgPanel(
             return false
         }
         focusedProgramIndex = targetIndex
+        focusedProgramKey = programs.getOrNull(targetIndex)?.let { programStableKey(it, targetIndex) }
         val shouldScroll = listState.layoutInfo.visibleItemsInfo.none { it.index == itemIndex }
         coroutineScope.launch {
             if (shouldScroll) {
@@ -1821,6 +1848,11 @@ private fun calculateScrollProgress(listState: LazyListState): Float {
     val maxScroll = (totalContentHeight - viewportSize).coerceAtLeast(1)
     val scrolled = (listState.firstVisibleItemIndex * averageItemSize + listState.firstVisibleItemScrollOffset).toInt()
     return (scrolled.toFloat() / maxScroll.toFloat()).coerceIn(0f, 1f)
+}
+
+private fun programStableKey(program: EpgProgram, index: Int): String {
+    return program.id.takeIf { it.isNotBlank() }
+        ?: "${program.startTimeMillis}_${program.stopTimeMillis}_${program.title}_$index"
 }
 
 private const val PLAYLIST_PREFETCH_MARGIN = 8
