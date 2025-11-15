@@ -81,6 +81,14 @@ fun rememberPlayerUiState(viewState: MainViewState): PlayerUiState {
             ?: viewState.currentChannel
     }
 
+    val visibleChannels = remember(viewState.filteredChannels, viewState.visibleChannelCount) {
+        if (viewState.visibleChannelCount >= viewState.filteredChannels.size) {
+            viewState.filteredChannels
+        } else {
+            viewState.filteredChannels.take(viewState.visibleChannelCount)
+        }
+    }
+
     return remember(
         viewState.filteredChannels,
         viewState.visibleChannelCount,
@@ -107,14 +115,6 @@ fun rememberPlayerUiState(viewState: MainViewState): PlayerUiState {
         viewState.playerState,
         viewState.lastPlaylistScrollIndex
     ) {
-        val visibleChannels = remember(viewState.filteredChannels, viewState.visibleChannelCount) {
-            if (viewState.visibleChannelCount >= viewState.filteredChannels.size) {
-                viewState.filteredChannels
-            } else {
-                viewState.filteredChannels.take(viewState.visibleChannelCount)
-            }
-        }
-
         PlayerUiState(
             allChannels = viewState.channels,
             filteredChannels = viewState.filteredChannels,
