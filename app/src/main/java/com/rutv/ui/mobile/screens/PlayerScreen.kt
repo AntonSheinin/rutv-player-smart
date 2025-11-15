@@ -1480,7 +1480,7 @@ private fun EpgPanel(
         onFocusRequestHandled()
     }
 
-    fun focusProgram(targetIndex: Int): Boolean {
+    private fun focusProgram(targetIndex: Int): Boolean {
         if (targetIndex !in programs.indices) {
             return false
         }
