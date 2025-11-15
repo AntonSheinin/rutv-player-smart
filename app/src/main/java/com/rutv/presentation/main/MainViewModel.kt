@@ -778,6 +778,7 @@ class MainViewModel @Inject constructor(
             val epgUrl = preferencesRepository.epgUrl.first().ifBlank { return@launch }
             val pastDays = preferencesRepository.epgDaysPast.first().coerceAtLeast(0)
             val stepDays = preferencesRepository.epgPageDays.first().coerceAtLeast(1)
+            val extensionDays = stepDays + 1
 
             val zone = java.time.ZonedDateTime.now().zone
             val globalFrom = java.time.ZonedDateTime.now()
@@ -792,7 +793,7 @@ class MainViewModel @Inject constructor(
             val newFromZoned = java.time.Instant.ofEpochMilli(currentFrom)
                 .atZone(zone)
                 .toLocalDate()
-                .minusDays(stepDays.toLong())
+                .minusDays(extensionDays.toLong())
                 .atStartOfDay(zone)
             val newFrom = maxOf(globalFrom, newFromZoned.toInstant().toEpochMilli())
             val newTo = currentFrom - 1
@@ -818,6 +819,7 @@ class MainViewModel @Inject constructor(
             val epgUrl = preferencesRepository.epgUrl.first().ifBlank { return@launch }
             val daysAhead = preferencesRepository.epgDaysAhead.first().coerceAtLeast(0)
             val stepDays = preferencesRepository.epgPageDays.first().coerceAtLeast(1)
+            val extensionDays = stepDays + 1
 
             val zone = java.time.ZonedDateTime.now().zone
             val globalTo = java.time.ZonedDateTime.now()
@@ -841,7 +843,7 @@ class MainViewModel @Inject constructor(
                 java.time.Instant.ofEpochMilli(currentTo)
                     .atZone(zone)
                     .toLocalDate()
-                    .plusDays(stepDays.toLong())
+                    .plusDays(extensionDays.toLong())
                     .atTime(java.time.LocalTime.of(23, 59, 59))
                     .atZone(zone)
                     .toInstant().toEpochMilli()

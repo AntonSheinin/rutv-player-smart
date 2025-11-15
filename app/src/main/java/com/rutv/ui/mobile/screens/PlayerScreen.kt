@@ -78,6 +78,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.util.Date
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.Job
@@ -1295,6 +1299,13 @@ private fun EpgPanel(
     var pendingFocusAfterLoad by remember(channel?.tvgId) {
         mutableStateOf<Int?>(null)
     }
+    val availableDateAnchors = remember(dateAnchors, epgWindowStart, epgWindowEnd) {
+        dateAnchors.filter { anchor ->
+            val afterStart = epgWindowStart?.let { anchor.dateMillis >= it } ?: true
+            val beforeEnd = epgWindowEnd?.let { anchor.dateMillis <= it } ?: true
+            afterStart && beforeEnd
+        }
+    }
     LaunchedEffect(channel?.tvgId) {
         pendingProgramCenterIndex = resolvedInitialItemIndex
     }
@@ -1396,7 +1407,7 @@ private fun EpgPanel(
         }
         focusedProgramIndex = targetIndex
         focusedProgramKey = programs.getOrNull(targetIndex)?.let { programStableKey(it, targetIndex) }
-        val shouldScroll = listState.layoutInfo.visibleItemsInfo.none { it.index == itemIndex }
+        val shouldScroll = !listState.isItemFullyVisible(itemIndex)
         coroutineScope.launch {
             if (shouldScroll) {
                 listState.animateScrollToItem(itemIndex, scrollOffset = -200)
@@ -1558,8 +1569,8 @@ private fun EpgPanel(
                                     true
                                 }
                                 Key.DirectionRight -> {
-                                    if (dateAnchors.isNotEmpty()) {
-                                        val defaultIndex = dateAnchors.indexOfLast { it.programIndex <= focusedProgramIndex }
+                                    if (availableDateAnchors.isNotEmpty()) {
+                                        val defaultIndex = availableDateAnchors.indexOfLast { it.programIndex <= focusedProgramIndex }
                                             .takeIf { it >= 0 } ?: 0
                                         datePickerSelectionIndex = defaultIndex
                                         showDatePicker = true
@@ -1669,10 +1680,10 @@ private fun ProgramDetailsPanel(
     val coroutineScope = rememberCoroutineScope()
     var closeButtonFocused by remember { mutableStateOf(false) }
 
-    // Request focus on close button when panel opens in remote mode
+    // Request initial focus on content when panel opens so OK doesn't immediately close
     LaunchedEffect(isRemoteMode) {
         if (isRemoteMode) {
-            closeButtonFocus.requestFocus()
+            contentFocusRequester.requestFocus()
         }
     }
 
@@ -1927,6 +1938,7 @@ private data class DateAnchor(
 private fun EpgDatePickerDialog(
     anchors: List<DateAnchor>,
     initialSelection: Int,
+    currentTimeMillis: Long,
     onSelect: (DateAnchor) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -1939,6 +1951,14 @@ private fun EpgDatePickerDialog(
     var selectedIndex by remember(anchors) { mutableIntStateOf(boundedInitial) }
     val listState = rememberLazyListState()
     val listFocusRequester = remember { FocusRequester() }
+    val zoneId = remember { ZoneId.systemDefault() }
+    val todayRange = remember(currentTimeMillis) {
+        val today = Instant.ofEpochMilli(currentTimeMillis).atZone(zoneId).toLocalDate()
+        val start = today.atStartOfDay(zoneId).toInstant().toEpochMilli()
+        val end = today.plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli() - 1
+        start to end
+    }
+    val (todayStart, todayEnd) = todayRange
 
     LaunchedEffect(isRemoteMode) {
         if (isRemoteMode) {
@@ -2003,6 +2023,15 @@ private fun EpgDatePickerDialog(
                     LazyColumn(state = listState) {
                         itemsIndexed(anchors) { index, anchor ->
                             val isSelected = index == selectedIndex
+                            val isToday = anchor.dateMillis in todayStart..todayEnd
+                            val isPast = anchor.dateMillis < todayStart
+                            val rowAlpha = if (isPast && !isToday) 0.6f else 1f
+                            val textColor = when {
+                                isSelected -> MaterialTheme.ruTvColors.gold
+                                isToday -> MaterialTheme.ruTvColors.gold
+                                isPast -> MaterialTheme.ruTvColors.textSecondary
+                                else -> MaterialTheme.ruTvColors.textPrimary
+                            }
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -2012,16 +2041,13 @@ private fun EpgDatePickerDialog(
                                         if (isSelected) MaterialTheme.ruTvColors.selectedBackground
                                         else Color.Transparent
                                     )
+                                    .alpha(rowAlpha)
                                     .padding(horizontal = 12.dp, vertical = 10.dp)
                             ) {
                                 Text(
                                     text = anchor.label,
                                     style = MaterialTheme.typography.bodyLarge,
-                                    color = if (isSelected) {
-                                        MaterialTheme.ruTvColors.gold
-                                    } else {
-                                        MaterialTheme.ruTvColors.textPrimary
-                                    }
+                                    color = textColor
                                 )
                             }
                         }
@@ -2042,6 +2068,28 @@ private fun EpgDatePickerDialog(
                 }
             }
         }
+    }
+
+    if (showDatePicker && availableDateAnchors.isNotEmpty()) {
+        val safeSelection = datePickerSelectionIndex.coerceIn(0, availableDateAnchors.lastIndex)
+        EpgDatePickerDialog(
+            anchors = availableDateAnchors,
+            initialSelection = safeSelection,
+            currentTimeMillis = currentTime,
+            onSelect = { anchor ->
+                val index = availableDateAnchors.indexOf(anchor).takeIf { it >= 0 } ?: safeSelection
+                datePickerSelectionIndex = index
+                val targetItemIndex = programItemIndices.getOrNull(anchor.programIndex)
+                if (targetItemIndex != null) {
+                    focusedProgramIndex = anchor.programIndex
+                    focusedProgramKey = programs.getOrNull(anchor.programIndex)
+                        ?.let { programStableKey(it, anchor.programIndex) }
+                    pendingProgramCenterIndex = targetItemIndex
+                }
+                showDatePicker = false
+            },
+            onDismiss = { showDatePicker = false }
+        )
     }
 }
 
