@@ -34,6 +34,10 @@ data class PlayerUiState(
     val epgPrograms: List<EpgProgram>,
     val epgChannelTvgId: String,
     val epgChannel: Channel?,
+    val epgDaysPast: Int,
+    val epgDaysAhead: Int,
+    val epgLoadedFromUtc: Long,
+    val epgLoadedToUtc: Long,
     val currentProgramsMap: Map<String, EpgProgram?>,
     val showDebugLog: Boolean,
     val debugMessages: List<DebugMessage>,
@@ -71,7 +75,8 @@ data class PlayerUiActions(
     val onLoadMoreEpgFuture: () -> Unit,
     val onClearEpgNotification: () -> Unit,
     val onUpdatePlaylistScrollIndex: (Int) -> Unit,
-    val onRequestMoreChannels: (Int) -> Unit
+    val onRequestMoreChannels: (Int) -> Unit,
+    val onEnsureEpgDateRange: (Long, Long) -> Unit
 )
 
 @Composable
@@ -106,6 +111,10 @@ fun rememberPlayerUiState(viewState: MainViewState): PlayerUiState {
         viewState.epgPrograms,
         viewState.epgChannelTvgId,
         epgChannel,
+        viewState.epgDaysPast,
+        viewState.epgDaysAhead,
+        viewState.epgLoadedFromUtc,
+        viewState.epgLoadedToUtc,
         viewState.currentProgramsMap,
         viewState.showDebugLog,
         viewState.debugMessages,
@@ -133,6 +142,10 @@ fun rememberPlayerUiState(viewState: MainViewState): PlayerUiState {
             epgPrograms = viewState.epgPrograms,
             epgChannelTvgId = viewState.epgChannelTvgId,
             epgChannel = epgChannel,
+            epgDaysPast = viewState.epgDaysPast,
+            epgDaysAhead = viewState.epgDaysAhead,
+            epgLoadedFromUtc = viewState.epgLoadedFromUtc,
+            epgLoadedToUtc = viewState.epgLoadedToUtc,
             currentProgramsMap = viewState.currentProgramsMap,
             showDebugLog = viewState.showDebugLog,
             debugMessages = viewState.debugMessages,

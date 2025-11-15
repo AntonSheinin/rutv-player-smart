@@ -9,6 +9,7 @@
     <string name="dialog_title_no_playlist_loaded">Нет плейлиста</string>
     <string name="dialog_title_reload_playlist">Перезагрузить плейлист?</string>
     <string name="dialog_title_close_app">Закрыть приложение?</string>
+    <string name="dialog_title_epg_date_picker">Выбор даты</string>
     <!-- Dialog Messages -->
     <string name="dialog_message_no_playlist">Пожалуйста, перейдите в Настройки для настройки источника плейлиста (URL или файл), чтобы начать просмотр каналов.</string>
     <string name="dialog_message_no_playlist_loaded">Плейлист не загружен. Пожалуйста, сначала загрузите плейлист.</string>

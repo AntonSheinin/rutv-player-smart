@@ -29,6 +29,8 @@ data class MainViewState(
     val epgPrograms: List<EpgProgram> = emptyList(),
     val epgLoadedFromUtc: Long = 0L,
     val epgLoadedToUtc: Long = 0L,
+    val epgDaysPast: Int = 0,
+    val epgDaysAhead: Int = 0,
     val currentProgram: EpgProgram? = null,
     val selectedProgramDetails: EpgProgram? = null, // Program selected for details view
     val currentProgramsMap: Map<String, EpgProgram?> = emptyMap(),

@@ -169,6 +169,18 @@ class MainViewModel @Inject constructor(
             }
         }
 
+        viewModelScope.launch {
+            preferencesRepository.epgDaysPast.collect { days ->
+                _viewState.update { it.copy(epgDaysPast = days.coerceAtLeast(0)) }
+            }
+        }
+
+        viewModelScope.launch {
+            preferencesRepository.epgDaysAhead.collect { days ->
+                _viewState.update { it.copy(epgDaysAhead = days.coerceAtLeast(0)) }
+            }
+        }
+
         // Initialize app: load EPG cache FIRST, then playlist
         // This ensures EPG data is ready before player starts
         initializeApp()
@@ -1191,6 +1203,57 @@ class MainViewModel @Inject constructor(
             .coerceAtMost(filtered.size)
         if (newVisible != currentVisible) {
             _viewState.update { it.copy(visibleChannelCount = newVisible) }
+        }
+    }
+
+    fun ensureEpgForDateRange(startUtcMillis: Long, endUtcMillis: Long) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val tvgId = _viewState.value.epgChannelTvgId.ifBlank { return@launch }
+            val epgUrl = preferencesRepository.epgUrl.first().ifBlank { return@launch }
+
+            val currentFrom = _viewState.value.epgLoadedFromUtc
+            val currentTo = _viewState.value.epgLoadedToUtc
+            val alreadyCovered = currentFrom != 0L && currentTo != 0L &&
+                startUtcMillis >= currentFrom && endUtcMillis <= currentTo
+            if (alreadyCovered) return@launch
+
+            val programs = epgRepository.getWindowedProgramsForChannel(
+                epgUrl = epgUrl,
+                tvgId = tvgId,
+                fromUtcMillis = startUtcMillis,
+                toUtcMillis = endUtcMillis
+            )
+
+            withContext(Dispatchers.Main) {
+                val existing = _viewState.value
+                val newFrom = when {
+                    existing.epgLoadedFromUtc == 0L -> startUtcMillis
+                    existing.epgLoadedFromUtc == Long.MAX_VALUE -> startUtcMillis
+                    else -> minOf(existing.epgLoadedFromUtc, startUtcMillis)
+                }
+                val newTo = when {
+                    existing.epgLoadedToUtc == 0L -> endUtcMillis
+                    else -> maxOf(existing.epgLoadedToUtc, endUtcMillis)
+                }
+                if (programs.isEmpty()) {
+                    _viewState.update {
+                        it.copy(
+                            epgLoadedFromUtc = newFrom,
+                            epgLoadedToUtc = newTo
+                        )
+                    }
+                    return@withContext
+                }
+                val merged = mergePrograms(existing.epgPrograms, programs)
+                _viewState.update {
+                    it.copy(
+                        epgPrograms = merged,
+                        epgLoadedFromUtc = newFrom,
+                        epgLoadedToUtc = newTo
+                    )
+                }
+                epgProgramCache[tvgId] = merged
+            }
         }
     }
 

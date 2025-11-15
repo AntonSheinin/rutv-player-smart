@@ -198,7 +198,8 @@ class MainActivity : ComponentActivity() {
             onLoadMoreEpgFuture = { viewModel.loadMoreEpgFuture() },
             onClearEpgNotification = { viewModel.clearEpgNotification() },
             onUpdatePlaylistScrollIndex = { index -> viewModel.updatePlaylistScrollIndex(index) },
-            onRequestMoreChannels = { index -> viewModel.requestMoreChannels(index) }
+            onRequestMoreChannels = { index -> viewModel.requestMoreChannels(index) },
+            onEnsureEpgDateRange = { start, end -> viewModel.ensureEpgForDateRange(start, end) }
         )
 
         // Coil will automatically use the ImageLoader from RuTvApplication's ImageLoaderFactory
