@@ -418,6 +418,7 @@ fun PlayerScreen(
                     }
                 },
                 onEnsureDateRange = actions.onEnsureEpgDateRange,
+                onSetFallbackFocusSuppressed = { suppressFallbackEpgFocus = it },
                 focusRequestToken = epgFocusRequestToken,
                 focusRequestTargetIndex = epgFocusRequestTargetIndex,
                 onFocusRequestHandled = { epgFocusRequestTargetIndex = null },
@@ -1221,6 +1222,7 @@ private fun EpgPanel(
     onNavigateLeftToChannels: (() -> Unit)? = null,
     onOpenPlaylist: (() -> Unit)? = null,
     onEnsureDateRange: (Long, Long) -> Unit,
+    onSetFallbackFocusSuppressed: (Boolean) -> Unit,
     focusRequestToken: Int = 0,
     focusRequestTargetIndex: Int? = null,
     onFocusRequestHandled: () -> Unit = {},
@@ -1466,8 +1468,10 @@ private fun EpgPanel(
         if (targetIndex >= 0) {
             focusProgram(targetIndex)
             pendingFocusDateRange = null
+            onSetFallbackFocusSuppressed(false)
         } else if (coverageSatisfied) {
             pendingFocusDateRange = null
+            onSetFallbackFocusSuppressed(false)
         }
     }
 
@@ -1778,8 +1782,10 @@ private fun EpgPanel(
                 val targetIndex = programs.indexOfFirst { it.startTimeMillis in dayRange }
                 if (targetIndex >= 0) {
                     focusProgram(targetIndex)
+                    onSetFallbackFocusSuppressed(false)
                 } else {
                     pendingFocusDateRange = dayRange
+                    onSetFallbackFocusSuppressed(true)
                 }
                 onEnsureDateRange(entry.startMillis, entry.endMillis)
                 showDatePicker = false
@@ -2089,6 +2095,7 @@ private fun EpgDatePickerDialog(
     val listFocusRequester = remember { FocusRequester() }
     val closeButtonFocusRequester = remember { FocusRequester() }
     var closeButtonFocused by remember { mutableStateOf(false) }
+    var requestListFocusFromClose by remember { mutableStateOf(false) }
 
     LaunchedEffect(isRemoteMode) {
         if (isRemoteMode) {
@@ -2098,6 +2105,13 @@ private fun EpgDatePickerDialog(
 
     LaunchedEffect(selectedIndex, entries.size) {
         listState.animateScrollToItem(selectedIndex.coerceIn(0, entries.lastIndex))
+    }
+
+    LaunchedEffect(requestListFocusFromClose) {
+        if (requestListFocusFromClose) {
+            listFocusRequester.requestFocus()
+            requestListFocusFromClose = false
+        }
     }
 
     androidx.compose.ui.window.Dialog(onDismissRequest = onClose) {
@@ -2141,7 +2155,7 @@ private fun EpgDatePickerDialog(
                                     }
                                     Key.DirectionDown -> {
                                         selectedIndex = 0
-                                        listFocusRequester.requestFocus()
+                                        requestListFocusFromClose = true
                                         true
                                     }
                                     else -> false
