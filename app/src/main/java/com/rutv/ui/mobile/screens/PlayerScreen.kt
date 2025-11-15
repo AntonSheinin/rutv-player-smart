@@ -1,8 +1,4 @@
 package com.rutv.ui.mobile.screens
-import androidx.paging.Pager
-import androidx.paging.PagingConfig
-import androidx.paging.compose.collectAsLazyPagingItems
-import com.rutv.data.paging.StaticPagingSource
 
 import android.view.View
 import android.view.ViewGroup
@@ -330,6 +326,9 @@ fun PlayerScreen(
             }
         }
 
+        val allChannels = uiState.filteredChannels
+        val displayedChannels = uiState.visibleChannels
+
         // Focus management for panel transitions
         val focusPlaylistFromEpg: () -> Unit = {
             debugLogger("← EPG→Playlist: Transferring focus")
@@ -344,8 +343,8 @@ fun PlayerScreen(
                 else -> -1
             }
             val resolvedIndex = when {
-                targetIndex >= 0 && targetIndex < uiState.filteredChannels.size -> targetIndex
-                uiState.filteredChannels.isNotEmpty() -> 0
+                targetIndex >= 0 && targetIndex < allChannels.size -> targetIndex
+                allChannels.isNotEmpty() -> 0
                 else -> -1
             }
             if (resolvedIndex >= 0) {
@@ -356,13 +355,14 @@ fun PlayerScreen(
 
         if (uiState.showPlaylist) {
             PlaylistPanel(
-                channels = uiState.filteredChannels,
+                allChannels = allChannels,
+                visibleChannels = displayedChannels,
                 playlistTitleResId = uiState.playlistTitleResId,
                 currentChannelIndex = uiState.currentChannelIndex,
                 initialScrollIndex = uiState.lastPlaylistScrollIndex,
                 epgOpenIndex = if (uiState.showEpgPanel) {
                     // Find the index of the channel whose EPG is open
-                    uiState.filteredChannels.indexOfFirst { it.tvgId == uiState.epgChannelTvgId }
+                    allChannels.indexOfFirst { it.tvgId == uiState.epgChannelTvgId }
                 } else {
                     -1
                 },
@@ -372,6 +372,7 @@ fun PlayerScreen(
                 onShowPrograms = actions.onShowEpgForChannel,
                 onClose = actions.onClosePlaylist,
                 onUpdateScrollIndex = actions.onUpdatePlaylistScrollIndex,
+                onRequestMoreChannels = actions.onRequestMoreChannels,
                 onProvideFocusController = { controller -> focusCoordinator.registerPlaylistController(controller) },
                 onProvideFocusRequester = { requester -> focusCoordinator.registerPlaylistRequester(requester) },
                 onChannelFocused = { index ->
@@ -643,7 +644,8 @@ private fun ChannelInfoOverlay(
 @UnstableApi
 @Composable
 private fun PlaylistPanel(
-    channels: List<Channel>,
+    allChannels: List<Channel>,
+    visibleChannels: List<Channel>,
     playlistTitleResId: Int,
     currentChannelIndex: Int,
     initialScrollIndex: Int,
@@ -654,26 +656,33 @@ private fun PlaylistPanel(
     onShowPrograms: (String) -> Unit,
     onClose: () -> Unit,
     onUpdateScrollIndex: (Int) -> Unit,
+    onRequestMoreChannels: (Int) -> Unit,
     onProvideFocusController: (((Int, Boolean) -> Boolean)?) -> Unit = {},
     onProvideFocusRequester: ((FocusRequester?) -> Unit)? = null,
     onChannelFocused: ((Int) -> Unit)? = null,
     onRequestEpgFocus: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    val channels = allChannels
+    val displayedList = visibleChannels
+
     val resolvedInitialIndex = when {
         channels.isEmpty() -> -1
         currentChannelIndex in channels.indices -> currentChannelIndex
         initialScrollIndex in channels.indices -> initialScrollIndex
         else -> 0
     }
+    val initialListIndex = if (displayedList.isEmpty()) 0 else resolvedInitialIndex.coerceIn(0, displayedList.lastIndex)
     val listState = rememberLazyListState(
-        initialFirstVisibleItemIndex = max(resolvedInitialIndex, 0),
+        initialFirstVisibleItemIndex = max(initialListIndex, 0),
         initialFirstVisibleItemScrollOffset = 0
     )
     val coroutineScope = rememberCoroutineScope()
     var playlistHasFocus by remember { mutableStateOf(false) }
-    var pendingInitialCenterIndex by remember(channels, currentChannelIndex) {
-        mutableStateOf(resolvedInitialIndex.takeIf { it in channels.indices })
+    var pendingInitialCenterIndex by remember(channels, displayedList.size, currentChannelIndex) {
+        mutableStateOf(
+            resolvedInitialIndex.takeIf { displayedList.isNotEmpty() && it in displayedList.indices }
+        )
     }
     var showSearchDialog by remember { mutableStateOf(false) }
     var searchText by remember { mutableStateOf("") }
@@ -705,6 +714,9 @@ private fun PlaylistPanel(
 
     val focusChannel: (Int, Boolean) -> Boolean = { targetIndex, play ->
         if (targetIndex !in channels.indices) {
+            false
+        } else if (targetIndex !in displayedList.indices) {
+            onRequestMoreChannels(targetIndex + PLAYLIST_PREFETCH_MARGIN)
             false
         } else {
             focusedChannelIndex = targetIndex
@@ -773,9 +785,18 @@ private fun PlaylistPanel(
         }
     }
 
+    LaunchedEffect(displayedList.size, focusedChannelIndex, channels.size) {
+        if (focusedChannelIndex in channels.indices && focusedChannelIndex !in displayedList.indices) {
+            onRequestMoreChannels(focusedChannelIndex + PLAYLIST_PREFETCH_MARGIN)
+        }
+    }
+
     LaunchedEffect(pendingInitialCenterIndex) {
         val targetIndex = pendingInitialCenterIndex ?: return@LaunchedEffect
-        if (channels.isEmpty()) {
+        if (channels.isEmpty() || targetIndex !in displayedList.indices) {
+            if (targetIndex in channels.indices) {
+                onRequestMoreChannels(targetIndex + PLAYLIST_PREFETCH_MARGIN)
+            }
             pendingInitialCenterIndex = null
             return@LaunchedEffect
         }
@@ -800,12 +821,19 @@ private fun PlaylistPanel(
     LaunchedEffect(epgOpenIndex, isRemoteMode) {
         if (epgOpenIndex >= 0 && epgOpenIndex < channels.size) {
             channelThatOpenedEpg = epgOpenIndex
+            if (epgOpenIndex !in displayedList.indices) {
+                onRequestMoreChannels(epgOpenIndex + PLAYLIST_PREFETCH_MARGIN)
+            }
         } else if (epgOpenIndex < 0 && channelThatOpenedEpg != null) {
             // EPG closed, restore focus to the channel that opened it
             val channelIndex = channelThatOpenedEpg!!
             if (channelIndex >= 0 && channelIndex < channels.size && isRemoteMode) {
-                // Small delay to ensure EPG panel is removed first
-                delay(50)
+                if (channelIndex !in displayedList.indices) {
+                    onRequestMoreChannels(channelIndex + PLAYLIST_PREFETCH_MARGIN)
+                    delay(50)
+                } else {
+                    delay(50)
+                }
                 focusChannel(channelIndex, false)
                 lazyColumnFocusRequester.requestFocus()
                 playlistHasFocus = true
@@ -887,18 +915,6 @@ private fun PlaylistPanel(
             // Channel List with scrollbar
             Box(modifier = Modifier.fillMaxSize()) {
                 val isEpgPanelVisible = epgOpenIndex >= 0
-                val channelPagingFlow = remember(channels) {
-                    Pager(
-                        PagingConfig(
-                            pageSize = 40,
-                            initialLoadSize = 40,
-                            enablePlaceholders = false
-                        )
-                    ) {
-                        StaticPagingSource(channels)
-                    }.flow
-                }
-                val channelPagingItems = channelPagingFlow.collectAsLazyPagingItems()
 
                 // Request focus on LazyColumn when it first appears
                 LaunchedEffect(Unit) {
@@ -971,23 +987,17 @@ private fun PlaylistPanel(
                         },
                     contentPadding = PaddingValues(start = 0.dp, top = 4.dp, end = 12.dp, bottom = 4.dp)
                 ) {
-                    items(
-                        count = channelPagingItems.itemCount,
-                        key = { index ->
-                            channelPagingItems.peek(index)?.url
-                                ?: channels.getOrNull(index)?.url
-                                ?: "channel_$index"
-                        },
-                        contentType = { index ->
-                            val channel = channelPagingItems.peek(index) ?: channels.getOrNull(index)
+                    itemsIndexed(
+                        items = displayedList,
+                        key = { index, channel -> channel.url.ifBlank { "channel_$index" } },
+                        contentType = { _, channel ->
                             when {
-                                channel?.isFavorite == true -> "channel_favorite"
-                                channel?.hasEpg == true -> "channel_with_epg"
+                                channel.isFavorite -> "channel_favorite"
+                                channel.hasEpg -> "channel_with_epg"
                                 else -> "channel_basic"
                             }
                         }
-                    ) { index ->
-                        val channel = channelPagingItems[index] ?: return@items
+                    ) { index, channel ->
                         val programInfo = remember(channel.tvgId, currentProgramsMap[channel.tvgId]) {
                             currentProgramsMap[channel.tvgId]
                         }
@@ -1005,6 +1015,25 @@ private fun PlaylistPanel(
                             modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp)
                         )
                     }
+                }
+
+                LaunchedEffect(listState, displayedList.size, channels.size) {
+                    if (channels.isEmpty()) return@LaunchedEffect
+                    var lastRequestedForSize = -1
+                    snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
+                        .collect { lastVisible ->
+                            val renderedCount = displayedList.size
+                            if (renderedCount < channels.size &&
+                                lastVisible >= renderedCount - PLAYLIST_PREFETCH_MARGIN &&
+                                renderedCount > 0 &&
+                                lastRequestedForSize != renderedCount
+                            ) {
+                                lastRequestedForSize = renderedCount
+                                onRequestMoreChannels(renderedCount + PLAYLIST_PREFETCH_MARGIN)
+                            } else if (renderedCount > lastRequestedForSize) {
+                                lastRequestedForSize = -1
+                            }
+                        }
                 }
 
                 // Scroll indicator
@@ -1192,7 +1221,7 @@ private fun EpgPanel(
     }
 
     // Build items list with date delimiters to calculate correct scroll position
-    val (items, programItemIndices) = remember(programs) {
+    val (epgItems, programItemIndices) = remember(programs) {
         val itemsList = mutableListOf<EpgUiItem>()
         val indexMap = MutableList(programs.size) { -1 }
         var lastDate = ""
@@ -1373,18 +1402,6 @@ private fun EpgPanel(
             Box(modifier = Modifier.fillMaxSize()) {
                 // Focus requester for LazyColumn
                 val lazyColumnFocusRequester = remember { FocusRequester() }
-                val pagingItems = remember(items) {
-                    Pager(
-                        PagingConfig(
-                            pageSize = 40,
-                            initialLoadSize = 40,
-                            enablePlaceholders = false
-                        )
-                    ) {
-                        StaticPagingSource(items)
-                    }
-                }.flow.collectAsLazyPagingItems()
-
                 // Request focus on LazyColumn when signaled
                 LaunchedEffect(focusRequestToken, isRemoteMode) {
                     if (!isRemoteMode) return@LaunchedEffect
@@ -1476,10 +1493,9 @@ private fun EpgPanel(
                     contentPadding = PaddingValues(start = 12.dp, top = 4.dp, end = 20.dp, bottom = 4.dp) // Extra padding for 4dp focus border
                 ) {
                     items(
-                        count = pagingItems.itemCount,
-                        key = { index -> pagingItems.peek(index)?.key ?: "epg_placeholder_$index" }
-                    ) { index ->
-                        val entry = pagingItems[index] ?: return@items
+                        items = epgItems,
+                        key = { item -> item.key }
+                    ) { entry ->
                         when (val data = entry.payload) {
                             is String -> {
                                 EpgDateDelimiter(date = data)
@@ -1806,6 +1822,8 @@ private fun calculateScrollProgress(listState: LazyListState): Float {
     val scrolled = (listState.firstVisibleItemIndex * averageItemSize + listState.firstVisibleItemScrollOffset).toInt()
     return (scrolled.toFloat() / maxScroll.toFloat()).coerceIn(0f, 1f)
 }
+
+private const val PLAYLIST_PREFETCH_MARGIN = 8
 
 private data class EpgUiItem(
     val absoluteIndex: Int,

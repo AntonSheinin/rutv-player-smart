@@ -18,6 +18,7 @@ import com.rutv.presentation.player.PlayerState
 data class MainViewState(
     val channels: List<Channel> = emptyList(),
     val filteredChannels: List<Channel> = emptyList(),
+    val visibleChannelCount: Int = DEFAULT_VISIBLE_CHANNELS,
     val currentChannel: Channel? = null,
     val currentChannelIndex: Int = -1,
     val playerState: PlayerState = PlayerState.Idle,
@@ -62,3 +63,5 @@ data class ArchivePrompt(
     val currentProgram: EpgProgram,
     val nextProgram: EpgProgram?
 )
+
+const val DEFAULT_VISIBLE_CHANNELS = 60

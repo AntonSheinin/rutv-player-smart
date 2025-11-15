@@ -117,6 +117,7 @@ class MainViewModel @Inject constructor(
                                 archivePrompt = null
                             )
                         }
+                        ensureChannelVisibility(state.index)
                         // Update current program (will wait if EPG not loaded yet)
                         viewModelScope.launch(Dispatchers.Default) {
                             updateCurrentProgram(state.channel)
@@ -134,6 +135,8 @@ class MainViewModel @Inject constructor(
                                     archivePrompt = null
                                 )
                             }
+                            val archiveIndex = _viewState.value.channels.indexOfFirst { it.url == state.channel.url }
+                            ensureChannelVisibility(archiveIndex)
                         } else {
                             viewModelScope.launch {
                                 handleArchiveCompletion(state.channel, state.program)
@@ -190,10 +193,27 @@ class MainViewModel @Inject constructor(
             val filtered = filterChannelsUseCase(channels, showFavoritesOnly)
             withContext(Dispatchers.Main) {
                 _viewState.update { current ->
-                    if (current.filteredChannels === filtered) current else current.copy(filteredChannels = filtered)
+                    val visibleCount = filtered.size.coerceAtMost(DEFAULT_VISIBLE_CHANNELS)
+                    if (current.filteredChannels === filtered && current.visibleChannelCount == visibleCount) {
+                        current
+                    } else {
+                        current.copy(
+                            filteredChannels = filtered,
+                            visibleChannelCount = visibleCount
+                        )
+                    }
+                }
+                val currentChannelUrl = _viewState.value.currentChannel?.url
+                if (!currentChannelUrl.isNullOrBlank()) {
+                    val playingIndex = filtered.indexOfFirst { it.url == currentChannelUrl }
+                    ensureChannelVisibility(playingIndex)
                 }
             }
         }
+    }
+
+    fun requestMoreChannels(targetIndex: Int) {
+        ensureChannelVisibility(targetIndex)
     }
 
     private suspend fun loadPlaylistAndPlayer() {
@@ -247,6 +267,10 @@ class MainViewModel @Inject constructor(
 
                         logDebug { "App Init: Step 4 - Preloading current channel EPG" }
                         startChannel?.let { preloadChannelEpg(it) }
+                        val startIndex = startChannel?.let { ch ->
+                            channels.indexOf(ch).takeIf { idx -> idx >= 0 }
+                        } ?: 0
+                        ensureChannelVisibility(startIndex)
                     }
                 }
                 is Result.Error -> {
@@ -369,6 +393,8 @@ class MainViewModel @Inject constructor(
 
                             val channelForPreload = resumeChannel ?: startChannel ?: channels.first()
                             preloadChannelEpg(channelForPreload)
+                            val preloadIndex = channels.indexOf(channelForPreload).takeIf { it >= 0 } ?: 0
+                            ensureChannelVisibility(preloadIndex)
                         }
                     }
                     is Result.Error -> {
@@ -1152,7 +1178,23 @@ class MainViewModel @Inject constructor(
         playerManager.release()
     }
 
+    private fun ensureChannelVisibility(targetIndex: Int) {
+        if (targetIndex < 0) return
+        val filtered = _viewState.value.filteredChannels
+        if (targetIndex >= filtered.size) return
+        val currentVisible = _viewState.value.visibleChannelCount
+        val desiredVisible = (targetIndex + 1 + CHANNEL_PREFETCH_MARGIN).coerceAtMost(filtered.size)
+        if (desiredVisible <= currentVisible) return
+        val newVisible = (((desiredVisible + CHANNEL_PAGE_SIZE - 1) / CHANNEL_PAGE_SIZE) * CHANNEL_PAGE_SIZE)
+            .coerceAtMost(filtered.size)
+        if (newVisible != currentVisible) {
+            _viewState.update { it.copy(visibleChannelCount = newVisible) }
+        }
+    }
+
     private companion object {
         const val EPG_LOADED_MESSAGE = "EPG loaded"
+        private const val CHANNEL_PAGE_SIZE = 60
+        private const val CHANNEL_PREFETCH_MARGIN = 8
     }
 }

@@ -19,6 +19,7 @@ import com.rutv.presentation.player.PlayerState
 data class PlayerUiState(
     val allChannels: List<Channel>,
     val filteredChannels: List<Channel>,
+    val visibleChannels: List<Channel>,
     val playlistTitleResId: Int,
     val hasChannels: Boolean,
     val currentChannel: Channel?,
@@ -69,7 +70,8 @@ data class PlayerUiActions(
     val onLoadMoreEpgPast: () -> Unit,
     val onLoadMoreEpgFuture: () -> Unit,
     val onClearEpgNotification: () -> Unit,
-    val onUpdatePlaylistScrollIndex: (Int) -> Unit
+    val onUpdatePlaylistScrollIndex: (Int) -> Unit,
+    val onRequestMoreChannels: (Int) -> Unit
 )
 
 @Composable
@@ -81,6 +83,7 @@ fun rememberPlayerUiState(viewState: MainViewState): PlayerUiState {
 
     return remember(
         viewState.filteredChannels,
+        viewState.visibleChannelCount,
         viewState.playlistTitleResId,
         viewState.hasChannels,
         viewState.currentChannel,
@@ -104,9 +107,18 @@ fun rememberPlayerUiState(viewState: MainViewState): PlayerUiState {
         viewState.playerState,
         viewState.lastPlaylistScrollIndex
     ) {
+        val visibleChannels = remember(viewState.filteredChannels, viewState.visibleChannelCount) {
+            if (viewState.visibleChannelCount >= viewState.filteredChannels.size) {
+                viewState.filteredChannels
+            } else {
+                viewState.filteredChannels.take(viewState.visibleChannelCount)
+            }
+        }
+
         PlayerUiState(
             allChannels = viewState.channels,
             filteredChannels = viewState.filteredChannels,
+            visibleChannels = visibleChannels,
             playlistTitleResId = viewState.playlistTitleResId,
             hasChannels = viewState.hasChannels,
             currentChannel = viewState.currentChannel,
