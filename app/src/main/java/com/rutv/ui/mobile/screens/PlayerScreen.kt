@@ -640,26 +640,6 @@ private fun ChannelInfoOverlay(
                 }
             }
 
-            if (showDatePicker && dateAnchors.isNotEmpty()) {
-                val safeSelection = datePickerSelectionIndex.coerceIn(0, dateAnchors.lastIndex)
-                EpgDatePickerDialog(
-                    anchors = dateAnchors,
-                    initialSelection = safeSelection,
-                    onSelect = { anchor ->
-                        val index = dateAnchors.indexOf(anchor).takeIf { it >= 0 } ?: safeSelection
-                        datePickerSelectionIndex = index
-                        val targetItemIndex = programItemIndices.getOrNull(anchor.programIndex)
-                        if (targetItemIndex != null) {
-                            focusedProgramIndex = anchor.programIndex
-                            focusedProgramKey = programs.getOrNull(anchor.programIndex)
-                                ?.let { programStableKey(it, anchor.programIndex) }
-                            pendingProgramCenterIndex = targetItemIndex
-                        }
-                        showDatePicker = false
-                    },
-                    onDismiss = { showDatePicker = false }
-                )
-            }
         }
     }
 }
