@@ -7,6 +7,7 @@ import com.rutv.data.model.PlayerConfig
 import com.rutv.data.repository.ChannelRepository
 import com.rutv.data.repository.PreferencesRepository
 import com.rutv.domain.usecase.LoadPlaylistUseCase
+import com.rutv.data.repository.EpgRepository
 import com.rutv.util.Constants
 import com.rutv.util.PlayerConstants
 import com.rutv.util.Result
@@ -25,7 +26,8 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     private val preferencesRepository: PreferencesRepository,
     private val channelRepository: ChannelRepository,
-    private val loadPlaylistUseCase: LoadPlaylistUseCase
+    private val loadPlaylistUseCase: LoadPlaylistUseCase,
+    private val epgRepository: EpgRepository
 ) : ViewModel() {
 
     private val _viewState = MutableStateFlow(SettingsViewState())
@@ -193,6 +195,19 @@ class SettingsViewModel @Inject constructor(
             } catch (e: Exception) {
                 Timber.e(e, "Failed to save EPG URL")
             }
+        }
+    }
+
+    fun clearEpgCache() {
+        viewModelScope.launch(Dispatchers.Default) {
+            epgRepository.clearCache()
+            _viewState.update {
+                it.copy(
+                    successMessage = "EPG cache cleared",
+                    error = null
+                )
+            }
+            logDebug { "EPG cache cleared from settings" }
         }
     }
 

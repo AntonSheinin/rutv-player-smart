@@ -110,6 +110,7 @@ class SettingsActivity : ComponentActivity() {
             onEpgPageDaysChanged = { days: Int ->
                 viewModel.setEpgPageDays(days)
             },
+            onClearEpgCache = { viewModel.clearEpgCache() },
             onLanguageChanged = { localeCode: String ->
                 // Wait for language to be saved synchronously before recreating
                 runBlocking {

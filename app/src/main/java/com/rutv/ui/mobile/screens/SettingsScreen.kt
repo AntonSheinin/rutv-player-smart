@@ -60,6 +60,7 @@ fun SettingsScreen(
     onEpgDaysAheadChanged: (Int) -> Unit,
     onEpgDaysPastChanged: (Int) -> Unit,
     onEpgPageDaysChanged: (Int) -> Unit,
+    onClearEpgCache: () -> Unit,
     onLanguageChanged: (String) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
@@ -343,6 +344,15 @@ fun SettingsScreen(
                     minValue = 1,
                     maxValue = 14
                 )
+            }
+
+            item {
+                Button(
+                    onClick = onClearEpgCache,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(text = stringResource(R.string.settings_clear_epg_cache))
+                }
             }
 
             item { Spacer(modifier = Modifier.height(24.dp)) }
