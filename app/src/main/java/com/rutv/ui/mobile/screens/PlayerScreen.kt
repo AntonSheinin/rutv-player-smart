@@ -38,7 +38,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.annotation.StringRes
+import androidx.activity.compose.BackHandler
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.focusable
@@ -1782,6 +1784,7 @@ private fun EpgPanel(
                 val targetIndex = programs.indexOfFirst { it.startTimeMillis in dayRange }
                 if (targetIndex >= 0) {
                     focusProgram(targetIndex)
+                    requestEpgFocus(targetIndex)
                     onSetFallbackFocusSuppressed(false)
                 } else {
                     pendingFocusDateRange = dayRange
@@ -1806,6 +1809,8 @@ private fun ProgramDetailsPanel(
     val contentFocusRequester = remember { FocusRequester() }
     val coroutineScope = rememberCoroutineScope()
     var closeButtonFocused by remember { mutableStateOf(false) }
+
+    BackHandler(enabled = true) { onClose() }
 
     // Request initial focus on content when panel opens so OK doesn't immediately close
     LaunchedEffect(isRemoteMode) {
@@ -1897,6 +1902,10 @@ private fun ProgramDetailsPanel(
                             val totalItems = listState.layoutInfo.totalItemsCount
                             if (totalItems <= 0) return@onKeyEvent false
                             when (event.key) {
+                                Key.Back -> {
+                                    onClose()
+                                    true
+                                }
                                 Key.DirectionDown -> {
                                     coroutineScope.launch {
                                         listState.scrollByIfPossible(scrollStepPx)
@@ -2094,7 +2103,6 @@ private fun EpgDatePickerDialog(
     val listFocusRequester = remember { FocusRequester() }
     val closeButtonFocusRequester = remember { FocusRequester() }
     var closeButtonFocused by remember { mutableStateOf(false) }
-    var requestListFocusFromClose by remember { mutableStateOf(false) }
 
     LaunchedEffect(entries) {
         listFocusRequester.requestFocus()
@@ -2102,13 +2110,6 @@ private fun EpgDatePickerDialog(
 
     LaunchedEffect(selectedIndex, entries.size) {
         listState.animateScrollToItem(selectedIndex.coerceIn(0, entries.lastIndex))
-    }
-
-    LaunchedEffect(requestListFocusFromClose) {
-        if (requestListFocusFromClose) {
-            listFocusRequester.requestFocus()
-            requestListFocusFromClose = false
-        }
     }
 
     androidx.compose.ui.window.Dialog(onDismissRequest = onClose) {
@@ -2141,6 +2142,7 @@ private fun EpgDatePickerDialog(
                         modifier = Modifier
                             .focusable()
                             .focusRequester(closeButtonFocusRequester)
+                            .focusProperties { down = listFocusRequester }
                             .onFocusChanged { closeButtonFocused = it.isFocused }
                             .then(focusIndicatorModifier(isFocused = closeButtonFocused))
                             .onKeyEvent { event ->
@@ -2152,7 +2154,7 @@ private fun EpgDatePickerDialog(
                                     }
                                     Key.DirectionDown -> {
                                         selectedIndex = 0
-                                        requestListFocusFromClose = true
+                                        listFocusRequester.requestFocus()
                                         true
                                     }
                                     else -> false
@@ -2174,37 +2176,40 @@ private fun EpgDatePickerDialog(
                         .fillMaxWidth()
                         .heightIn(max = 360.dp)
                         .padding(16.dp)
-                        .focusable()
-                        .focusRequester(listFocusRequester)
-                        .onPreviewKeyEvent { event ->
-                            if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                            when (event.key) {
-                                Key.DirectionDown -> {
-                                    selectedIndex = (selectedIndex + 1).coerceAtMost(entries.lastIndex)
-                                    true
-                                }
-                                Key.DirectionUp -> {
-                                    if (selectedIndex == 0) {
-                                        closeButtonFocusRequester.requestFocus()
-                                        true
-                                    } else {
-                                        selectedIndex = (selectedIndex - 1).coerceAtLeast(0)
+                ) {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier
+                            .focusRequester(listFocusRequester)
+                            .focusable()
+                            .onPreviewKeyEvent { event ->
+                                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                                when (event.key) {
+                                    Key.DirectionDown -> {
+                                        selectedIndex = (selectedIndex + 1).coerceAtMost(entries.lastIndex)
                                         true
                                     }
+                                    Key.DirectionUp -> {
+                                        if (selectedIndex == 0) {
+                                            closeButtonFocusRequester.requestFocus()
+                                            true
+                                        } else {
+                                            selectedIndex = (selectedIndex - 1).coerceAtLeast(0)
+                                            true
+                                        }
+                                    }
+                                    Key.DirectionCenter, Key.Enter -> {
+                                        onSelect(entries[selectedIndex])
+                                        true
+                                    }
+                                    Key.Back -> {
+                                        onClose()
+                                        true
+                                    }
+                                    else -> false
                                 }
-                                Key.DirectionCenter, Key.Enter -> {
-                                    onSelect(entries[selectedIndex])
-                                    true
-                                }
-                                Key.Back -> {
-                                    onClose()
-                                    true
-                                }
-                                else -> false
                             }
-                        }
-                ) {
-                    LazyColumn(state = listState) {
+                    ) {
                         itemsIndexed(entries) { index, entry ->
                             val isSelected = index == selectedIndex
                             val rowAlpha = if (entry.isPast) 0.6f else 1f
