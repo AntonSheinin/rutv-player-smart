@@ -694,6 +694,7 @@ private fun PlaylistPanel(
     )
     val coroutineScope = rememberCoroutineScope()
     var playlistHasFocus by remember { mutableStateOf(false) }
+    var okDownTimestampMs by remember { mutableLongStateOf(0L) }
     var pendingInitialCenterIndex by remember(channels, displayedList.size, currentChannelIndex) {
         mutableStateOf(
             resolvedInitialIndex.takeIf { displayedList.isNotEmpty() && it in displayedList.indices }
@@ -934,6 +935,7 @@ private fun PlaylistPanel(
             // Channel List with scrollbar
             Box(modifier = Modifier.fillMaxSize()) {
                 val isEpgPanelVisible = epgOpenIndex >= 0
+                val longPressThresholdMs = 450L
 
                 // Request focus on LazyColumn when it first appears
                 LaunchedEffect(Unit) {
@@ -965,41 +967,59 @@ private fun PlaylistPanel(
                             if (!handlesKey) {
                                 return@onPreviewKeyEvent false
                             }
-                            if (event.type != KeyEventType.KeyDown) {
-                                return@onPreviewKeyEvent true
-                            }
-
-                            when (event.key) {
-                                Key.DirectionUp -> {
-                                    if (focusedChannelIndex > 0) {
-                                        focusChannel(focusedChannelIndex - 1, false)
+                            when (event.type) {
+                                KeyEventType.KeyDown -> {
+                                    when (event.key) {
+                                        Key.DirectionUp -> {
+                                            if (focusedChannelIndex > 0) {
+                                                focusChannel(focusedChannelIndex - 1, false)
+                                            }
+                                            true
+                                        }
+                                        Key.DirectionDown -> {
+                                            if (focusedChannelIndex < channels.lastIndex) {
+                                                focusChannel(focusedChannelIndex + 1, false)
+                                            }
+                                            true
+                                        }
+                                        Key.DirectionCenter, Key.Enter -> {
+                                            okDownTimestampMs = event.nativeKeyEvent?.eventTime ?: System.currentTimeMillis()
+                                            true
+                                        }
+                                        Key.DirectionRight -> {
+                                            val channel = channels.getOrNull(focusedChannelIndex)
+                                            if (channel?.hasEpg == true) {
+                                                playlistHasFocus = false
+                                                onShowPrograms(channel.tvgId)
+                                                onRequestEpgFocus?.invoke()
+                                                true
+                                            } else {
+                                                false
+                                            }
+                                        }
+                                        Key.DirectionLeft -> {
+                                            showSearchDialog = true
+                                            true
+                                        }
+                                        else -> false
                                     }
-                                    true
                                 }
-                                Key.DirectionDown -> {
-                                    if (focusedChannelIndex < channels.lastIndex) {
-                                        focusChannel(focusedChannelIndex + 1, false)
+                                KeyEventType.KeyUp -> {
+                                    when (event.key) {
+                                        Key.DirectionCenter, Key.Enter -> {
+                                            val upTime = event.nativeKeyEvent?.eventTime ?: System.currentTimeMillis()
+                                            val pressDuration = upTime - okDownTimestampMs
+                                            val channel = channels.getOrNull(focusedChannelIndex)
+                                            if (channel != null && pressDuration >= longPressThresholdMs) {
+                                                onFavoriteClick(channel.url)
+                                            } else {
+                                                focusChannel(focusedChannelIndex, true)
+                                            }
+                                            okDownTimestampMs = 0L
+                                            true
+                                        }
+                                        else -> false
                                     }
-                                    true
-                                }
-                                Key.DirectionCenter, Key.Enter -> {
-                                    focusChannel(focusedChannelIndex, true)
-                                    true
-                                }
-                                Key.DirectionRight -> {
-                                    val channel = channels.getOrNull(focusedChannelIndex)
-                                    if (channel?.hasEpg == true) {
-                                        playlistHasFocus = false
-                                        onShowPrograms(channel.tvgId)
-                                        onRequestEpgFocus?.invoke()
-                                        true
-                                    } else {
-                                        false
-                                    }
-                                }
-                                Key.DirectionLeft -> {
-                                    showSearchDialog = true
-                                    true
                                 }
                                 else -> false
                             }
@@ -1471,6 +1491,7 @@ private fun EpgPanel(
             range.first >= epgLoadedFromUtc && range.last <= epgLoadedToUtc
         if (targetIndex >= 0) {
             focusProgram(targetIndex)
+            onRequestFocus(targetIndex)
             pendingFocusDateRange = null
             onSetFallbackFocusSuppressed(false)
         } else if (coverageSatisfied) {
