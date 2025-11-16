@@ -59,6 +59,9 @@ class EpgRepository @Inject constructor(
 
     private var lastKnownTimezoneId: String = TimeZone.getDefault().id
     private var lastKnownUtcOffsetMinutes: Int = TimeZone.getDefault().getOffset(System.currentTimeMillis()) / 60_000
+    private val cacheStalenessLock = Any()
+    @Volatile
+    private var lastCacheEpochDay: Long = currentEpochDay()
 
     enum class TimeChangeTrigger {
         TIMEZONE,
@@ -155,6 +158,7 @@ class EpgRepository @Inject constructor(
         fromUtcMillis: Long,
         toUtcMillis: Long
     ): List<EpgProgram> = coroutineScope {
+        ensureCacheFresh()
         val key = WindowKey(epgUrl, tvgId, fromUtcMillis, toUtcMillis)
         synchronized(windowCacheLock) {
             windowCache[key]?.let { return@coroutineScope it }
@@ -182,6 +186,7 @@ class EpgRepository @Inject constructor(
     }
 
     fun getCurrentProgram(tvgId: String): EpgProgram? {
+        ensureCacheFresh()
         val now = System.currentTimeMillis()
         currentProgramsCache?.let { cache ->
             if (now - currentProgramsCacheTime < currentProgramsCacheTtl) {
@@ -202,12 +207,14 @@ class EpgRepository @Inject constructor(
     }
 
     fun getProgramsForChannel(tvgId: String): List<EpgProgram> {
+        ensureCacheFresh()
         return synchronized(channelProgramsLock) {
             channelPrograms[tvgId]?.toList()
         } ?: emptyList()
     }
 
     fun clearCache() {
+        lastCacheEpochDay = currentEpochDay()
         synchronized(windowCacheLock) {
             windowCache.clear()
             windowInFlight.clear()
@@ -218,6 +225,24 @@ class EpgRepository @Inject constructor(
         currentProgramsCache = null
         currentProgramsCacheTime = 0
         logDebug { "EPG cache cleared (lazy windows + current programs)" }
+    }
+
+    private fun ensureCacheFresh(now: Long = System.currentTimeMillis()) {
+        val epochDay = currentEpochDay(now)
+        if (epochDay == lastCacheEpochDay) return
+        synchronized(cacheStalenessLock) {
+            if (epochDay != lastCacheEpochDay) {
+                Timber.i("EPG cache stale (day changed from $lastCacheEpochDay to $epochDay); forcing refresh")
+                clearCache()
+            }
+        }
+    }
+
+    private fun currentEpochDay(now: Long = System.currentTimeMillis()): Long {
+        return Instant.ofEpochMilli(now)
+            .atZone(TimeZone.getDefault().toZoneId())
+            .toLocalDate()
+            .toEpochDay()
     }
 
     private fun cacheCurrentProgramSnapshot(tvgId: String, programs: List<EpgProgram>) {

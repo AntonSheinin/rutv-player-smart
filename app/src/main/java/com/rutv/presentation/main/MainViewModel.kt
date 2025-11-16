@@ -484,11 +484,15 @@ class MainViewModel @Inject constructor(
                 EpgRepository.TimeChangeResult.TIMEZONE_CHANGED -> {
                     Timber.i("System timezone change detected (action=$action); clearing EPG cache")
                     appendDebugMessage(DebugMessage(StringFormatter.formatEpgTimezoneChanged()))
+                    epgRepository.clearCache()
                     epgProgramCache.clear()
                     _viewState.update {
                         it.copy(
                             currentProgram = null,
                             currentProgramsMap = emptyMap(),
+                            epgPrograms = emptyList(),
+                            epgLoadedFromUtc = 0L,
+                            epgLoadedToUtc = 0L,
                             epgLoadedTimestamp = 0L
                         )
                     }
@@ -497,8 +501,17 @@ class MainViewModel @Inject constructor(
                 EpgRepository.TimeChangeResult.CLOCK_CHANGED -> {
                     Timber.i("System clock changed (action=$action); refreshing current program cache")
                     appendDebugMessage(DebugMessage(StringFormatter.formatEpgClockChanged()))
+                    epgRepository.clearCache()
                     epgProgramCache.clear()
-                    _viewState.update { it.copy(currentProgramsMap = emptyMap()) }
+                    _viewState.update {
+                        it.copy(
+                            currentProgramsMap = emptyMap(),
+                            epgPrograms = emptyList(),
+                            epgLoadedFromUtc = 0L,
+                            epgLoadedToUtc = 0L,
+                            epgLoadedTimestamp = 0L
+                        )
+                    }
                     _viewState.value.currentChannel?.let { preloadChannelEpg(it) }
                 }
                 EpgRepository.TimeChangeResult.NONE -> {

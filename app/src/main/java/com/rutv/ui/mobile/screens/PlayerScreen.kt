@@ -743,7 +743,7 @@ private fun PlaylistPanel(
                 }
                 pendingScrollJob?.cancel()
                 pendingScrollJob = coroutineScope.launch {
-                    listState.animateScrollToItem(targetIndex, scrollOffset = scrollOffset)
+                    listState.scrollToItem(targetIndex, scrollOffset = scrollOffset)
                 }.apply {
                     invokeOnCompletion { pendingScrollJob = null }
                 }
@@ -1354,7 +1354,7 @@ private fun EpgPanel(
         val shouldScroll = !listState.isItemFullyVisible(itemIndex)
         coroutineScope.launch {
             if (shouldScroll) {
-                listState.animateScrollToItem(itemIndex, scrollOffset = -200)
+                listState.scrollToItem(itemIndex, scrollOffset = -200)
             }
         }
         return true
@@ -2088,7 +2088,6 @@ private fun EpgDatePickerDialog(
         onClose()
         return
     }
-    val isRemoteMode = DeviceHelper.isRemoteInputActive()
     val boundedInitial = initialSelection.coerceIn(0, entries.lastIndex)
     var selectedIndex by remember(entries) { mutableIntStateOf(boundedInitial) }
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = boundedInitial)
@@ -2097,10 +2096,8 @@ private fun EpgDatePickerDialog(
     var closeButtonFocused by remember { mutableStateOf(false) }
     var requestListFocusFromClose by remember { mutableStateOf(false) }
 
-    LaunchedEffect(isRemoteMode) {
-        if (isRemoteMode) {
-            listFocusRequester.requestFocus()
-        }
+    LaunchedEffect(entries) {
+        listFocusRequester.requestFocus()
     }
 
     LaunchedEffect(selectedIndex, entries.size) {
@@ -2177,13 +2174,10 @@ private fun EpgDatePickerDialog(
                         .fillMaxWidth()
                         .heightIn(max = 360.dp)
                         .padding(16.dp)
-                        .focusable(enabled = isRemoteMode)
+                        .focusable()
                         .focusRequester(listFocusRequester)
                         .onPreviewKeyEvent { event ->
-                            if (!isRemoteMode) return@onPreviewKeyEvent false
-                            if (event.type != KeyEventType.KeyDown) {
-                                return@onPreviewKeyEvent true
-                            }
+                            if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                             when (event.key) {
                                 Key.DirectionDown -> {
                                     selectedIndex = (selectedIndex + 1).coerceAtMost(entries.lastIndex)
@@ -2281,7 +2275,7 @@ private suspend fun LazyListState.scrollByIfPossible(delta: Float): Boolean {
         }
     }
 
-    animateScrollToItem(targetIndex)
+    scrollToItem(targetIndex)
     return true
 }
 
