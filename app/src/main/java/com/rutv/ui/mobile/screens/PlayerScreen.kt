@@ -419,6 +419,7 @@ fun PlayerScreen(
                         actions.onTogglePlaylist()
                     }
                 },
+                onRequestFocus = { target -> requestEpgFocus(target) },
                 onEnsureDateRange = actions.onEnsureEpgDateRange,
                 onSetFallbackFocusSuppressed = { suppressFallbackEpgFocus = it },
                 focusRequestToken = epgFocusRequestToken,
@@ -1225,6 +1226,7 @@ private fun EpgPanel(
     onOpenPlaylist: (() -> Unit)? = null,
     onEnsureDateRange: (Long, Long) -> Unit,
     onSetFallbackFocusSuppressed: (Boolean) -> Unit,
+    onRequestFocus: (Int?) -> Unit = {},
     focusRequestToken: Int = 0,
     focusRequestTargetIndex: Int? = null,
     onFocusRequestHandled: () -> Unit = {},
@@ -1784,7 +1786,7 @@ private fun EpgPanel(
                 val targetIndex = programs.indexOfFirst { it.startTimeMillis in dayRange }
                 if (targetIndex >= 0) {
                     focusProgram(targetIndex)
-                    requestEpgFocus(targetIndex)
+                    onRequestFocus(targetIndex)
                     onSetFallbackFocusSuppressed(false)
                 } else {
                     pendingFocusDateRange = dayRange
