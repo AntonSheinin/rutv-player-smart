@@ -696,6 +696,7 @@ private fun PlaylistPanel(
     var playlistHasFocus by remember { mutableStateOf(false) }
     var okDownTimestampMs by remember { mutableLongStateOf(0L) }
     var okLongPressHandled by remember { mutableStateOf(false) }
+    var okLongPressJob by remember { mutableStateOf<Job?>(null) }
     var pendingInitialCenterIndex by remember(channels, displayedList.size, currentChannelIndex) {
         mutableStateOf(
             resolvedInitialIndex.takeIf { displayedList.isNotEmpty() && it in displayedList.indices }
@@ -984,17 +985,17 @@ private fun PlaylistPanel(
                                             true
                                         }
                                         Key.DirectionCenter, Key.Enter -> {
-                                            val native = event.nativeKeyEvent
-                                            val isRepeat = native?.repeatCount ?: 0 > 0
-                                            val isNativeLongPress = native?.isLongPress == true
-                                            if (isRepeat || isNativeLongPress) {
-                                                channels.getOrNull(focusedChannelIndex)?.let { ch ->
-                                                    onFavoriteClick(ch.url)
-                                                }
-                                                okLongPressHandled = true
-                                            } else if (okDownTimestampMs == 0L) {
-                                                okDownTimestampMs = native?.downTime ?: System.currentTimeMillis()
+                                            if (okDownTimestampMs == 0L) {
+                                                okDownTimestampMs = event.nativeKeyEvent?.downTime ?: System.currentTimeMillis()
                                                 okLongPressHandled = false
+                                                okLongPressJob?.cancel()
+                                                okLongPressJob = coroutineScope.launch {
+                                                    delay(longPressThresholdMs.toLong())
+                                                    channels.getOrNull(focusedChannelIndex)?.let { ch ->
+                                                        onFavoriteClick(ch.url)
+                                                        okLongPressHandled = true
+                                                    }
+                                                }
                                             }
                                             true
                                         }
@@ -1019,6 +1020,7 @@ private fun PlaylistPanel(
                                 KeyEventType.KeyUp -> {
                                     when (event.key) {
                                         Key.DirectionCenter, Key.Enter -> {
+                                            okLongPressJob?.cancel()
                                             val upTime = event.nativeKeyEvent?.eventTime ?: System.currentTimeMillis()
                                             val downTime = okDownTimestampMs.takeIf { it > 0 } ?: upTime
                                             val pressDuration = upTime - downTime
@@ -1032,6 +1034,7 @@ private fun PlaylistPanel(
                                             }
                                             okDownTimestampMs = 0L
                                             okLongPressHandled = false
+                                            okLongPressJob = null
                                             true
                                         }
                                         else -> false

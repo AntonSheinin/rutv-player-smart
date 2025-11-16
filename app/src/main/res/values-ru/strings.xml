@@ -59,6 +59,7 @@
     <string name="settings_epg_days_ahead">Дни EPG вперед</string>
     <string name="settings_epg_days_past">Глубина EPG (прошедшие дни)</string>
     <string name="settings_epg_page_days">Размер страницы EPG (дней на странице)</string>
+    <string name="settings_clear_epg_cache">Очистить кэш EPG</string>
     <string name="settings_back">Назад</string>
     <string name="settings_current_file">Файл</string>
     <string name="settings_current_url">URL</string>
