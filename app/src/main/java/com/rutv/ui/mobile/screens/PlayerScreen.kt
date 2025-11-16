@@ -936,6 +936,7 @@ private fun PlaylistPanel(
             Box(modifier = Modifier.fillMaxSize()) {
                 val isEpgPanelVisible = epgOpenIndex >= 0
                 val longPressThresholdMs = 450L
+                var okLongPressHandled by remember { mutableStateOf(false) }
 
                 // Request focus on LazyColumn when it first appears
                 LaunchedEffect(Unit) {
@@ -983,8 +984,20 @@ private fun PlaylistPanel(
                                             true
                                         }
                                         Key.DirectionCenter, Key.Enter -> {
-                                            okDownTimestampMs = event.nativeKeyEvent?.eventTime ?: System.currentTimeMillis()
-                                            true
+                                            val native = event.nativeKeyEvent
+                                            val isRepeat = native?.repeatCount ?: 0 > 0
+                                            val isLongPress = native?.isLongPress == true || isRepeat
+                                            if (isLongPress) {
+                                                channels.getOrNull(focusedChannelIndex)?.let { ch ->
+                                                    onFavoriteClick(ch.url)
+                                                }
+                                                okLongPressHandled = true
+                                                true
+                                            } else {
+                                                okDownTimestampMs = native?.downTime ?: System.currentTimeMillis()
+                                                okLongPressHandled = false
+                                                true
+                                            }
                                         }
                                         Key.DirectionRight -> {
                                             val channel = channels.getOrNull(focusedChannelIndex)
@@ -1010,12 +1023,15 @@ private fun PlaylistPanel(
                                             val upTime = event.nativeKeyEvent?.eventTime ?: System.currentTimeMillis()
                                             val pressDuration = upTime - okDownTimestampMs
                                             val channel = channels.getOrNull(focusedChannelIndex)
-                                            if (channel != null && pressDuration >= longPressThresholdMs) {
-                                                onFavoriteClick(channel.url)
-                                            } else {
-                                                focusChannel(focusedChannelIndex, true)
+                                            if (channel != null && !okLongPressHandled) {
+                                                if (pressDuration >= longPressThresholdMs) {
+                                                    onFavoriteClick(channel.url)
+                                                } else {
+                                                    focusChannel(focusedChannelIndex, true)
+                                                }
                                             }
                                             okDownTimestampMs = 0L
+                                            okLongPressHandled = false
                                             true
                                         }
                                         else -> false
@@ -1490,6 +1506,7 @@ private fun EpgPanel(
         val coverageSatisfied = epgLoadedFromUtc != 0L && epgLoadedToUtc != 0L &&
             range.first >= epgLoadedFromUtc && range.last <= epgLoadedToUtc
         if (targetIndex >= 0) {
+            programItemIndices.getOrNull(targetIndex)?.let { pendingProgramCenterIndex = it }
             focusProgram(targetIndex)
             onRequestFocus(targetIndex)
             pendingFocusDateRange = null
