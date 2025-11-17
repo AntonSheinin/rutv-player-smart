@@ -115,6 +115,7 @@ fun PlayerScreen(
     val focusCoordinator = rememberRemoteFocusCoordinator(debugLogger)
     var showControls by remember { mutableStateOf(false) }
     var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
+    var lastControlsInteractionAt by remember { mutableStateOf(System.currentTimeMillis()) }
     val controllerVisibilityCallback by rememberUpdatedState<(Boolean) -> Unit> { visible ->
         showControls = visible
     }
@@ -137,9 +138,14 @@ fun PlayerScreen(
     var navigateToRotateCallback by remember { mutableStateOf<(() -> Unit)?>(null) }
 
     // Toggle controls function - exposed to MainActivity for OK button
+    val registerControlsInteraction: () -> Unit = {
+        lastControlsInteractionAt = System.currentTimeMillis()
+    }
+
     val toggleControls: () -> Unit = {
         val newValue = !showControls
         showControls = newValue
+        if (newValue) registerControlsInteraction()
         playerViewRef?.post {
             if (newValue) {
                 playerViewRef?.showController()
@@ -180,13 +186,15 @@ fun PlayerScreen(
         onControlsVisibilityChanged?.invoke(showControls)
     }
 
-    LaunchedEffect(showControls, playerViewRef) {
-       if (!showControls) return@LaunchedEffect
-       val playerView = playerViewRef ?: return@LaunchedEffect
-        val timeoutMs = PlayerConstants.CONTROLLER_AUTO_HIDE_TIMEOUT_MS.toLong()
+    LaunchedEffect(showControls, lastControlsInteractionAt, playerViewRef) {
+        if (!showControls) return@LaunchedEffect
+        val playerView = playerViewRef ?: return@LaunchedEffect
+        val timeoutMs = 3000L
+        val startAt = lastControlsInteractionAt
         delay(timeoutMs)
-        if (showControls) {
+        if (showControls && startAt == lastControlsInteractionAt) {
             playerView.hideController()
+            showControls = false
         }
     }
 
@@ -215,6 +223,10 @@ fun PlayerScreen(
                 val isRemote = DeviceHelper.isRemoteInputActive()
                 if (!isRemote || event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
 
+                if (showControls) {
+                    registerControlsInteraction()
+                }
+
                 val panelsOpen = uiState.showPlaylist ||
                     uiState.showEpgPanel ||
                     uiState.selectedProgramDetails != null ||
@@ -224,6 +236,7 @@ fun PlayerScreen(
                     Key.DirectionCenter, Key.Enter -> {
                         if (!showControls && !panelsOpen) {
                             showControls = true
+                            registerControlsInteraction()
                             playerViewRef?.post { playerViewRef?.showController() }
                             true
                         } else {
@@ -236,6 +249,7 @@ fun PlayerScreen(
                             if (!uiState.showPlaylist) {
                                 actions.onTogglePlaylist()
                             }
+                            registerControlsInteraction()
                             true
                         } else {
                             false
@@ -248,6 +262,7 @@ fun PlayerScreen(
                                 actions.onTogglePlaylist()
                             }
                             uiState.currentChannel?.tvgId?.let { actions.onShowEpgForChannel(it) }
+                            registerControlsInteraction()
                             true
                         } else {
                             false
@@ -316,7 +331,8 @@ fun PlayerScreen(
                             uiState = uiState,
                             actions = actions,
                             onNavigateLeftToFavorites = navigateToFavoritesCallback,
-                            onNavigateRightToRotate = navigateToRotateCallback
+                            onNavigateRightToRotate = navigateToRotateCallback,
+                            onControlsInteraction = { registerControlsInteraction() }
                         )
                         lastControlsSignature = controlsSignature
                     }
@@ -2554,7 +2570,8 @@ private fun PlayerView.bindControls(
     uiState: PlayerUiState,
     actions: PlayerUiActions,
     onNavigateLeftToFavorites: (() -> Unit)?,
-    onNavigateRightToRotate: (() -> Unit)?
+    onNavigateRightToRotate: (() -> Unit)?,
+    onControlsInteraction: (() -> Unit)?
 ) {
     applyControlCustomizations(
         isArchivePlayback = uiState.isArchivePlayback,
@@ -2565,7 +2582,8 @@ private fun PlayerView.bindControls(
         onPausePlayback = actions.onPausePlayback,
         onResumePlayback = actions.onResumePlayback,
         onNavigateLeftToFavorites = onNavigateLeftToFavorites,
-        onNavigateRightToRotate = onNavigateRightToRotate
+        onNavigateRightToRotate = onNavigateRightToRotate,
+        onControlsInteraction = onControlsInteraction
     )
 }
 
@@ -2578,30 +2596,47 @@ private fun PlayerView.applyControlCustomizations(
     onPausePlayback: () -> Unit,
     onResumePlayback: () -> Unit,
     onNavigateLeftToFavorites: (() -> Unit)? = null,
-    onNavigateRightToRotate: (() -> Unit)? = null
+    onNavigateRightToRotate: (() -> Unit)? = null,
+    onControlsInteraction: (() -> Unit)? = null
 ) {
     setShowPreviousButton(true)
     setShowNextButton(true)
     setShowRewindButton(true)
     setShowFastForwardButton(true)
 
+    // Intercept DPAD at PlayerView level to allow long-press escape to custom controls
+    setOnKeyListener { _, keyCode, event ->
+        if (event.action != android.view.KeyEvent.ACTION_DOWN) return@setOnKeyListener false
+        onControlsInteraction?.invoke()
+        when (keyCode) {
+            android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
+                if (event.repeatCount > 0) {
+                    onNavigateLeftToFavorites?.invoke()
+                    return@setOnKeyListener true
+                }
+            }
+            android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                if (event.repeatCount > 0) {
+                    onNavigateRightToRotate?.invoke()
+                    return@setOnKeyListener true
+                }
+            }
+        }
+        false
+    }
+
     findControlView("exo_prev")?.apply {
         visibility = View.VISIBLE
         enableControl()
         setOnClickListener { onRestartPlayback() }
-        // LEFT from leftmost Exo control should move to Favorites button
         isFocusable = true
         isFocusableInTouchMode = false
-        setOnKeyListener { _, keyCode, event ->
-            if (event.action == android.view.KeyEvent.ACTION_DOWN &&
-                keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT &&
-                hasFocus()) {
+        setOnKeyListener { _, _, event ->
+            if (event.action == android.view.KeyEvent.ACTION_DOWN) {
                 DeviceHelper.updateLastInputMethod(event)
-                onNavigateLeftToFavorites?.invoke()
-                true
-            } else {
-                false
+                onControlsInteraction?.invoke()
             }
+            false
         }
     }
 
@@ -2612,17 +2647,12 @@ private fun PlayerView.applyControlCustomizations(
         // Make focusable so OK can activate it (even though disabled, for navigation)
         isFocusable = true
         isFocusableInTouchMode = false
-        setOnKeyListener { _, keyCode, event ->
-            if (event.action == android.view.KeyEvent.ACTION_DOWN &&
-                keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT &&
-                hasFocus()
-            ) {
+        setOnKeyListener { _, _, event ->
+            if (event.action == android.view.KeyEvent.ACTION_DOWN) {
                 DeviceHelper.updateLastInputMethod(event)
-                post { onNavigateRightToRotate?.invoke() }
-                true
-            } else {
-                false
+                onControlsInteraction?.invoke()
             }
+            false
         }
     }
 
@@ -2634,17 +2664,12 @@ private fun PlayerView.applyControlCustomizations(
             // Make focusable so OK can activate it
             isFocusable = true
             isFocusableInTouchMode = false
-            setOnKeyListener { _, keyCode, event ->
-                if (event.action == android.view.KeyEvent.ACTION_DOWN &&
-                    keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT &&
-                    hasFocus()
-                ) {
+            setOnKeyListener { _, _, event ->
+                if (event.action == android.view.KeyEvent.ACTION_DOWN) {
                     DeviceHelper.updateLastInputMethod(event)
-                    post { onNavigateLeftToFavorites?.invoke() }
-                    true
-                } else {
-                    false
+                    onControlsInteraction?.invoke()
                 }
+                false
             }
         }
     }
@@ -2662,22 +2687,12 @@ private fun PlayerView.applyControlCustomizations(
             // RIGHT from rightmost Exo control should move to Rotate button
             isFocusable = true
             isFocusableInTouchMode = false
-            setOnKeyListener { _, keyCode, event ->
-                if (event.action == android.view.KeyEvent.ACTION_DOWN &&
-                    keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT) {
-                    // Check if this view has focus before navigating
-                    if (hasFocus()) {
-                        DeviceHelper.updateLastInputMethod(event)
-                        post {
-                            onNavigateRightToRotate?.invoke()
-                        }
-                        true
-                    } else {
-                        false
-                    }
-                } else {
-                    false
+            setOnKeyListener { _, _, event ->
+                if (event.action == android.view.KeyEvent.ACTION_DOWN) {
+                    DeviceHelper.updateLastInputMethod(event)
+                    onControlsInteraction?.invoke()
                 }
+                false
             }
         }
     }
