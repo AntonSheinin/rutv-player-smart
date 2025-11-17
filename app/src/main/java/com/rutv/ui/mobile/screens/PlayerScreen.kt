@@ -2615,25 +2615,37 @@ private fun PlayerView.applyControlCustomizations(
     setShowRewindButton(true)
     setShowFastForwardButton(true)
 
-    // Intercept DPAD at PlayerView level to allow long-press escape to custom controls
+    // Intercept DPAD at PlayerView level to keep arrow keys within controls and enable long-press escape
     setOnKeyListener { _, keyCode, event ->
         if (event.action != android.view.KeyEvent.ACTION_DOWN) return@setOnKeyListener false
         onControlsInteraction?.invoke()
         when (keyCode) {
-            android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
-                if (event.repeatCount > 0 || event.isLongPress) {
-                    onNavigateLeftToFavorites?.invoke()
-                    return@setOnKeyListener true
-                }
-            }
+            android.view.KeyEvent.KEYCODE_DPAD_LEFT,
             android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                val isLeft = keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT
                 if (event.repeatCount > 0 || event.isLongPress) {
-                    onNavigateRightToRotate?.invoke()
+                    if (isLeft) onNavigateLeftToFavorites?.invoke() else onNavigateRightToRotate?.invoke()
                     return@setOnKeyListener true
                 }
+                val focused = findFocus()
+                val direction = if (isLeft) View.FOCUS_LEFT else View.FOCUS_RIGHT
+                val next = focused?.focusSearch(direction)
+                if (next != null && next != focused) {
+                    next.requestFocus()
+                    return@setOnKeyListener true
+                }
+                false
             }
+            android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
+                val timeBar = findControlView("exo_timebar") ?: findControlView("exo_progress")
+                if (timeBar?.isShown == true && timeBar.isFocusable) {
+                    timeBar.requestFocus()
+                    return@setOnKeyListener true
+                }
+                false
+            }
+            else -> false
         }
-        false
     }
 
     findControlView("exo_prev")?.apply {
