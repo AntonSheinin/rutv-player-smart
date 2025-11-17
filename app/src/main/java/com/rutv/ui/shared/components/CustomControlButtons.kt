@@ -36,6 +36,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.nativeKeyEvent
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.res.stringResource
@@ -64,6 +65,14 @@ fun CustomControlButtons(
     onRegisterFocusRequesters: ((List<FocusRequester>, List<FocusRequester>) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    var isRemoteMode by remember { mutableStateOf(DeviceHelper.isRemoteInputActive()) }
+
+    val updateRemoteMode: (Boolean) -> Unit = { active ->
+        if (isRemoteMode != active) {
+            isRemoteMode = active
+        }
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -170,7 +179,9 @@ fun CustomControlButtons(
                 )
             ),
             focusRequesters = leftColumnFocusRequesters,
-            onKeyHandler = leftColumnKeyHandler
+            onKeyHandler = leftColumnKeyHandler,
+            isRemoteMode = isRemoteMode,
+            onRemoteModeChange = updateRemoteMode
         )
 
         ControlColumn(
@@ -193,7 +204,9 @@ fun CustomControlButtons(
                 )
             ),
             focusRequesters = rightColumnFocusRequesters,
-            onKeyHandler = rightColumnKeyHandler
+            onKeyHandler = rightColumnKeyHandler,
+            isRemoteMode = isRemoteMode,
+            onRemoteModeChange = updateRemoteMode
         )
     }
 }
@@ -209,10 +222,10 @@ private fun ControlColumn(
     modifier: Modifier,
     buttons: List<ControlButtonData>,
     focusRequesters: List<FocusRequester>,
-    onKeyHandler: ((Int, KeyEvent) -> Boolean)? = null
+    onKeyHandler: ((Int, KeyEvent) -> Boolean)? = null,
+    isRemoteMode: Boolean,
+    onRemoteModeChange: (Boolean) -> Unit
 ) {
-    val isRemoteMode = DeviceHelper.isRemoteInputActive()
-
     Surface(
         modifier = modifier,
         color = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.55f),
@@ -238,12 +251,19 @@ private fun ControlColumn(
                         .size(LayoutConstants.ControlButtonSize)
                         .alpha(alpha)
                         // Make Rotate button focusable for navigation, even though it's disabled
-                        .focusable(enabled = isRemoteMode)
+                        .focusable()
                         .focusRequester(focusRequesters[index])
-                        .onFocusChanged { isFocused = it.isFocused }
+                        .onFocusChanged {
+                            isFocused = it.isFocused
+                            if (it.isFocused) {
+                                onRemoteModeChange(DeviceHelper.isRemoteInputActive())
+                            }
+                        }
                         .then(if (isRemoteMode) focusIndicatorModifier(isFocused = isFocused) else Modifier)
                         .onKeyEvent { event ->
-                            if (event.type == KeyEventType.KeyDown && isFocused && isRemoteMode) {
+                            if (event.type == KeyEventType.KeyDown && isFocused) {
+                                DeviceHelper.updateLastInputMethod(event.nativeKeyEvent)
+                                onRemoteModeChange(DeviceHelper.isRemoteInputActive())
                                 if (onKeyHandler?.invoke(index, event) == true) {
                                     return@onKeyEvent true
                                 }
