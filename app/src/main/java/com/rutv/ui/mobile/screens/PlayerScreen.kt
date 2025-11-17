@@ -2538,7 +2538,7 @@ private fun PlayerView.configurePlayerView(
     onControllerVisibilityChanged: (Boolean) -> Unit
 ) {
     useController = true
-    controllerShowTimeoutMs = PlayerConstants.CONTROLLER_AUTO_HIDE_TIMEOUT_MS
+    controllerShowTimeoutMs = 3000
     controllerHideOnTouch = true
     resizeMode = uiState.currentResizeMode
     setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
@@ -2631,10 +2631,14 @@ private fun PlayerView.applyControlCustomizations(
         setOnClickListener { onRestartPlayback() }
         isFocusable = true
         isFocusableInTouchMode = false
-        setOnKeyListener { _, _, event ->
+        setOnKeyListener { _, keyCode, event ->
             if (event.action == android.view.KeyEvent.ACTION_DOWN) {
                 DeviceHelper.updateLastInputMethod(event)
                 onControlsInteraction?.invoke()
+                if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT && event.repeatCount > 0) {
+                    onNavigateLeftToFavorites?.invoke()
+                    return@setOnKeyListener true
+                }
             }
             false
         }
@@ -2647,10 +2651,14 @@ private fun PlayerView.applyControlCustomizations(
         // Make focusable so OK can activate it (even though disabled, for navigation)
         isFocusable = true
         isFocusableInTouchMode = false
-        setOnKeyListener { _, _, event ->
+        setOnKeyListener { _, keyCode, event ->
             if (event.action == android.view.KeyEvent.ACTION_DOWN) {
                 DeviceHelper.updateLastInputMethod(event)
                 onControlsInteraction?.invoke()
+                if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT && event.repeatCount > 0) {
+                    post { onNavigateRightToRotate?.invoke() }
+                    return@setOnKeyListener true
+                }
             }
             false
         }
@@ -2664,10 +2672,14 @@ private fun PlayerView.applyControlCustomizations(
             // Make focusable so OK can activate it
             isFocusable = true
             isFocusableInTouchMode = false
-            setOnKeyListener { _, _, event ->
+            setOnKeyListener { _, keyCode, event ->
                 if (event.action == android.view.KeyEvent.ACTION_DOWN) {
                     DeviceHelper.updateLastInputMethod(event)
                     onControlsInteraction?.invoke()
+                    if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT && event.repeatCount > 0) {
+                        post { onNavigateLeftToFavorites?.invoke() }
+                        return@setOnKeyListener true
+                    }
                 }
                 false
             }
@@ -2687,10 +2699,14 @@ private fun PlayerView.applyControlCustomizations(
             // RIGHT from rightmost Exo control should move to Rotate button
             isFocusable = true
             isFocusableInTouchMode = false
-            setOnKeyListener { _, _, event ->
+            setOnKeyListener { _, keyCode, event ->
                 if (event.action == android.view.KeyEvent.ACTION_DOWN) {
                     DeviceHelper.updateLastInputMethod(event)
                     onControlsInteraction?.invoke()
+                    if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT && event.repeatCount > 0) {
+                        post { onNavigateRightToRotate?.invoke() }
+                        return@setOnKeyListener true
+                    }
                 }
                 false
             }
