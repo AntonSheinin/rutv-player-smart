@@ -100,43 +100,27 @@ fun CustomControlButtons(
                         rightColumnFocusRequesters.getOrNull(0)?.requestFocus()
                         true
                     }
-                    Key.DirectionDown -> {
-                        leftColumnFocusRequesters.getOrNull(1)?.requestFocus()
-                        true
-                    }
                     Key.DirectionLeft, Key.DirectionUp -> true
                     else -> false
                 }
                 1 -> when (event.key) {
+                    Key.DirectionLeft -> true
                     Key.DirectionRight -> {
                         onNavigateRightFromFavorites?.invoke()
                         true
                     }
-                    Key.DirectionUp -> {
-                        leftColumnFocusRequesters.getOrNull(0)?.requestFocus()
-                        true
-                    }
-                    Key.DirectionDown -> {
-                        leftColumnFocusRequesters.getOrNull(2)?.requestFocus()
-                        true
-                    }
-                    Key.DirectionLeft -> true
                     else -> false
                 }
                 2 -> when (event.key) {
+                    Key.DirectionLeft -> true
                     Key.DirectionRight -> {
                         rightColumnFocusRequesters.getOrNull(2)?.requestFocus()
                         true
                     }
-                    Key.DirectionUp -> {
-                        leftColumnFocusRequesters.getOrNull(1)?.requestFocus()
-                        true
-                    }
                     Key.DirectionDown -> {
                         leftColumnFocusRequesters.getOrNull(1)?.requestFocus()
                         true
                     }
-                    Key.DirectionLeft -> true
                     else -> false
                 }
                 else -> false
@@ -151,10 +135,6 @@ fun CustomControlButtons(
                         leftColumnFocusRequesters.getOrNull(0)?.requestFocus()
                         true
                     }
-                    Key.DirectionDown -> {
-                        rightColumnFocusRequesters.getOrNull(1)?.requestFocus()
-                        true
-                    }
                     Key.DirectionRight, Key.DirectionUp -> true
                     else -> false
                 }
@@ -163,24 +143,12 @@ fun CustomControlButtons(
                         onNavigateLeftFromRotate?.invoke()
                         true
                     }
-                    Key.DirectionUp -> {
-                        rightColumnFocusRequesters.getOrNull(0)?.requestFocus()
-                        true
-                    }
-                    Key.DirectionDown -> {
-                        rightColumnFocusRequesters.getOrNull(2)?.requestFocus()
-                        true
-                    }
                     Key.DirectionRight -> true
                     else -> false
                 }
                 2 -> when (event.key) {
                     Key.DirectionLeft -> {
                         leftColumnFocusRequesters.getOrNull(2)?.requestFocus()
-                        true
-                    }
-                    Key.DirectionUp -> {
-                        rightColumnFocusRequesters.getOrNull(1)?.requestFocus()
                         true
                     }
                     Key.DirectionRight, Key.DirectionDown -> true
