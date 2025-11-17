@@ -171,6 +171,14 @@ fun PlayerScreen(
         val currentPlayerView = playerViewRef ?: return@LaunchedEffect
         currentPlayerView.post {
             if (showControls) {
+                currentPlayerView.focusOnControl(
+                    "exo_prev",
+                    "exo_rew",
+                    "exo_rew_with_amount",
+                    "exo_play_pause",
+                    "exo_play",
+                    "exo_pause"
+                )
                 if (!currentPlayerView.isControllerFullyVisible) {
                     currentPlayerView.showController()
                 }
@@ -2610,13 +2618,13 @@ private fun PlayerView.applyControlCustomizations(
         onControlsInteraction?.invoke()
         when (keyCode) {
             android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
-                if (event.repeatCount > 0) {
+                if (event.repeatCount > 0 || event.isLongPress) {
                     onNavigateLeftToFavorites?.invoke()
                     return@setOnKeyListener true
                 }
             }
             android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                if (event.repeatCount > 0) {
+                if (event.repeatCount > 0 || event.isLongPress) {
                     onNavigateRightToRotate?.invoke()
                     return@setOnKeyListener true
                 }
@@ -2635,7 +2643,8 @@ private fun PlayerView.applyControlCustomizations(
             if (event.action == android.view.KeyEvent.ACTION_DOWN) {
                 DeviceHelper.updateLastInputMethod(event)
                 onControlsInteraction?.invoke()
-                if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT && event.repeatCount > 0) {
+                if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT &&
+                    (event.repeatCount > 0 || event.isLongPress)) {
                     onNavigateLeftToFavorites?.invoke()
                     return@setOnKeyListener true
                 }
@@ -2655,7 +2664,8 @@ private fun PlayerView.applyControlCustomizations(
             if (event.action == android.view.KeyEvent.ACTION_DOWN) {
                 DeviceHelper.updateLastInputMethod(event)
                 onControlsInteraction?.invoke()
-                if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT && event.repeatCount > 0) {
+                if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT &&
+                    (event.repeatCount > 0 || event.isLongPress)) {
                     post { onNavigateRightToRotate?.invoke() }
                     return@setOnKeyListener true
                 }
@@ -2676,7 +2686,8 @@ private fun PlayerView.applyControlCustomizations(
                 if (event.action == android.view.KeyEvent.ACTION_DOWN) {
                     DeviceHelper.updateLastInputMethod(event)
                     onControlsInteraction?.invoke()
-                    if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT && event.repeatCount > 0) {
+                    if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT &&
+                        (event.repeatCount > 0 || event.isLongPress)) {
                         post { onNavigateLeftToFavorites?.invoke() }
                         return@setOnKeyListener true
                     }
@@ -2703,7 +2714,8 @@ private fun PlayerView.applyControlCustomizations(
                 if (event.action == android.view.KeyEvent.ACTION_DOWN) {
                     DeviceHelper.updateLastInputMethod(event)
                     onControlsInteraction?.invoke()
-                    if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT && event.repeatCount > 0) {
+                    if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT &&
+                        (event.repeatCount > 0 || event.isLongPress)) {
                         post { onNavigateRightToRotate?.invoke() }
                         return@setOnKeyListener true
                     }
