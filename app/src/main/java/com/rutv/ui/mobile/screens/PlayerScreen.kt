@@ -201,8 +201,8 @@ fun PlayerScreen(
         val startAt = lastControlsInteractionAt
         delay(timeoutMs)
         if (showControls && startAt == lastControlsInteractionAt) {
-            playerView.hideController()
             showControls = false
+            playerView.hideController()
         }
     }
 
@@ -387,16 +387,18 @@ fun PlayerScreen(
                 onGoToChannelClick = actions.onGoToChannel,
                 onAspectRatioClick = actions.onCycleAspectRatio,
                 onSettingsClick = actions.onOpenSettings,
-                onNavigateRightFromFavorites = { focusLeftmostExoControl() },
-                onNavigateLeftFromRotate = { focusRightmostExoControl() },
+                onNavigateRightFromFavorites = { registerControlsInteraction(); focusLeftmostExoControl() },
+                onNavigateLeftFromRotate = { registerControlsInteraction(); focusRightmostExoControl() },
                 onRegisterFocusRequesters = { left, right ->
                     leftColumnFocusRequesters = left
                     rightColumnFocusRequesters = right
                     // Update callbacks for ExoPlayer navigation
                     navigateToFavoritesCallback = {
+                        registerControlsInteraction()
                         left.getOrNull(1)?.requestFocus()
                     }
                     navigateToRotateCallback = {
+                        registerControlsInteraction()
                         right.getOrNull(1)?.requestFocus() // Rotate is index 1 in right column
                     }
                 },
@@ -2546,8 +2548,9 @@ private fun PlayerView.configurePlayerView(
     onControllerVisibilityChanged: (Boolean) -> Unit
 ) {
     useController = true
-    controllerShowTimeoutMs = 3000
-    controllerHideOnTouch = true
+    // Keep controller visible until we explicitly hide it (we manage timeout ourselves)
+    controllerShowTimeoutMs = Int.MAX_VALUE
+    controllerHideOnTouch = false
     resizeMode = uiState.currentResizeMode
     setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
     setShowShuffleButton(false)
