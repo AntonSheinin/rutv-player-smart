@@ -64,12 +64,10 @@ fun CustomControlButtons(
     onRegisterFocusRequesters: ((List<FocusRequester>, List<FocusRequester>) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    var isRemoteMode by remember { mutableStateOf(true) }
+    var isRemoteMode by remember { mutableStateOf(DeviceHelper.isRemoteInputActive()) }
 
     val updateRemoteMode: (Boolean) -> Unit = { active ->
-        if (!isRemoteMode && active) {
-            isRemoteMode = true
-        } else if (active != isRemoteMode) {
+        if (isRemoteMode != active) {
             isRemoteMode = active
         }
     }
@@ -289,14 +287,14 @@ private fun ControlColumn(
                         .onFocusChanged {
                             isFocused = it.isFocused
                             if (it.isFocused) {
-                                onRemoteModeChange(true)
+                                onRemoteModeChange(DeviceHelper.isRemoteInputActive())
                             }
                         }
                         .then(if (isRemoteMode) focusIndicatorModifier(isFocused = isFocused) else Modifier)
                         .onKeyEvent { event ->
                             if (event.type == KeyEventType.KeyDown && isFocused) {
                                 DeviceHelper.updateLastInputMethod(event.nativeKeyEvent)
-                                onRemoteModeChange(true)
+                                onRemoteModeChange(DeviceHelper.isRemoteInputActive())
                                 if (onKeyHandler?.invoke(index, event) == true) {
                                     return@onKeyEvent true
                                 }
