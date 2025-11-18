@@ -3,7 +3,6 @@ package com.rutv.ui.mobile.screens
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
-import android.widget.TextView
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -27,7 +26,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -74,7 +72,6 @@ import com.rutv.ui.shared.components.CustomControlButtons
 import com.rutv.ui.theme.ruTvColors
 import com.rutv.ui.shared.presentation.TimeFormatter
 import com.rutv.ui.shared.presentation.LayoutConstants
-import com.rutv.util.PlayerConstants
 import android.annotation.SuppressLint
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -88,7 +85,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.Job
 import kotlin.math.max
-import java.util.*
 import kotlin.math.abs
 
 /**
@@ -126,6 +122,7 @@ fun PlayerScreen(
     var playlistFocusReady by remember { mutableStateOf(false) }
     var lastFocusedPlaylistIndex by remember { mutableIntStateOf(uiState.currentChannelIndex.coerceAtLeast(0)) }
     var lastControlsSignature by remember { mutableStateOf<ControlsSignature?>(null) }
+    var pendingCustomControlFocus by remember { mutableStateOf<CustomControlFocusTarget?>(null) }
     var epgFocusRequestToken by remember { mutableIntStateOf(0) }
     var epgFocusRequestTargetIndex by remember { mutableStateOf<Int?>(null) }
     var suppressFallbackEpgFocus by remember { mutableStateOf(false) }
@@ -403,15 +400,27 @@ fun PlayerScreen(
                     // Update callbacks for ExoPlayer navigation
                     navigateToFavoritesCallback = {
                         registerControlsInteraction()
-                        left.getOrNull(1)?.requestFocus()
+                        pendingCustomControlFocus = CustomControlFocusTarget.Favorites
                     }
                     navigateToRotateCallback = {
                         registerControlsInteraction()
-                        right.getOrNull(1)?.requestFocus() // Rotate is index 1 in right column
+                        pendingCustomControlFocus = CustomControlFocusTarget.Rotate // Rotate is index 1 in right column
                     }
                 },
                 modifier = Modifier.fillMaxSize()
             )
+        }
+
+        LaunchedEffect(pendingCustomControlFocus, leftColumnFocusRequesters, rightColumnFocusRequesters) {
+            val targetRequester = when (pendingCustomControlFocus) {
+                CustomControlFocusTarget.Favorites -> leftColumnFocusRequesters?.getOrNull(1)
+                CustomControlFocusTarget.Rotate -> rightColumnFocusRequesters?.getOrNull(1)
+                null -> null
+            }
+            if (targetRequester != null) {
+                targetRequester.requestFocus()
+                pendingCustomControlFocus = null
+            }
         }
 
         // Channel Info Overlay (top center) - hide with controls
@@ -441,12 +450,9 @@ fun PlayerScreen(
 
         // Focus management for panel transitions
         val focusPlaylistFromEpg: () -> Unit = {
-            debugLogger("← EPG→Playlist: Transferring focus")
+            debugLogger("EPG->Playlist: Transferring focus")
+            requestPlaylistFocusSafe()
 
-            // Request focus on playlist LazyColumn
-                    requestPlaylistFocusSafe()
-
-            // Also update the focused channel index
             val targetIndex = when {
                 lastFocusedPlaylistIndex >= 0 -> lastFocusedPlaylistIndex
                 uiState.currentChannelIndex >= 0 -> uiState.currentChannelIndex
@@ -458,9 +464,9 @@ fun PlayerScreen(
                 else -> -1
             }
             if (resolvedIndex >= 0) {
-                debugLogger("← EPG→Playlist: Focusing channel $resolvedIndex")
+                debugLogger("EPG->Playlist: Focusing channel $resolvedIndex")
                 focusCoordinator.focusPlaylist(resolvedIndex, false)
-        }
+            }
         }
 
         if (uiState.showPlaylist) {
@@ -821,11 +827,6 @@ private fun PlaylistPanel(
         mutableIntStateOf(
             resolvedInitialIndex.takeIf { it >= 0 } ?: -1
         )
-    }
-    LaunchedEffect(showSearchDialog) {
-        if (showSearchDialog) {
-            playlistHasFocus = false
-        }
     }
 
     // Focus requesters for header buttons
@@ -2546,6 +2547,11 @@ private fun String.truncateForOverlay(maxChars: Int = MAX_PROGRAM_TITLE_CHARS): 
     return if (trimmed.isEmpty()) "…" else "$trimmed…"
 }
 
+private enum class CustomControlFocusTarget {
+    Favorites,
+    Rotate
+}
+
 
 private data class ControlsSignature(
     val isArchivePlayback: Boolean,
@@ -2778,7 +2784,6 @@ private fun PlayerView.applyControlCustomizations(
     }
 
     // Refactor progress bar: center it and position times on left/right sides
-    val progressVerticalOffsetDp = 12f
     val horizontalMarginDp = 120f // Leave space for custom buttons on sides
     val horizontalMarginPx = (horizontalMarginDp * resources.displayMetrics.density).toInt()
 
@@ -2792,7 +2797,6 @@ private fun PlayerView.applyControlCustomizations(
             marginStart = horizontalMarginPx
             marginEnd = horizontalMarginPx
         }
-        setVerticalOffsetDp(progressVerticalOffsetDp)
     }
 
     // Position time text views - they should already be in the layout on left/right
@@ -2800,30 +2804,8 @@ private fun PlayerView.applyControlCustomizations(
     val positionView = findControlView("exo_position")
     val durationView = findControlView("exo_duration")
 
-    positionView?.let { view ->
-        setVerticalOffsetDp(progressVerticalOffsetDp)
-    }
-
-    durationView?.let { view ->
-        setVerticalOffsetDp(progressVerticalOffsetDp)
-    }
-}
-
-/**
- * Setup navigation from ExoPlayer controls to custom control buttons
- * Store references to focus requesters for MainActivity to use
- */
-private fun setupExoPlayerNavigationToCustomControls(
-    playerView: PlayerView,
-    leftFocusRequesters: List<FocusRequester>?,
-    rightFocusRequesters: List<FocusRequester>?
-) {
-    // Store references in playerView tag for MainActivity to access
-    // This is a bridge between View (ExoPlayer) and Compose (CustomControlButtons)
-    playerView.tag = mapOf(
-        "leftFocusRequesters" to leftFocusRequesters,
-        "rightFocusRequesters" to rightFocusRequesters
-    )
+    positionView?.translationY = 0f
+    durationView?.translationY = 0f
 }
 
 private fun PlayerView.focusOnControl(vararg controlNames: String) {
@@ -2838,7 +2820,3 @@ private fun PlayerView.focusOnControl(vararg controlNames: String) {
         }
 }
 
-private fun View.setVerticalOffsetDp(offsetDp: Float) {
-    // No vertical translation to avoid shifting elements from the top
-    translationY = 0f
-}
