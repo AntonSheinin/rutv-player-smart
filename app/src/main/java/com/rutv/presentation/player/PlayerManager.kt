@@ -88,9 +88,30 @@ class PlayerManager @Inject constructor(
     private var pendingArchiveSeek: Boolean = false
     private var networkScope = newNetworkScope()
     private lateinit var httpDataSourceFactory: DefaultHttpDataSource.Factory
+    private var sourceErrorRetryCount: Int = 0
+    private var lastSourceErrorAtMs: Long = 0L
+
+    private val SOURCE_RETRY_MAX = 2
+    private val SOURCE_RETRY_WINDOW_MS = 30_000L
 
     private fun newNetworkScope(): CoroutineScope =
         CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    private fun isRetryableSourceError(error: PlaybackException): Boolean {
+        val cause = error.cause
+        if (cause is HttpDataSource.InvalidResponseCodeException) {
+            val code = cause.responseCode
+            return code in listOf(403, 404, 408, 429, 500, 502, 503, 504)
+        }
+        return when (error.errorCode) {
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT,
+            PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS,
+            PlaybackException.ERROR_CODE_TIMEOUT,
+            PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND -> true
+            else -> false
+        }
+    }
 
     /**
      * Initialize player with channels
@@ -391,13 +412,15 @@ class PlayerManager @Inject constructor(
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
-                when (playbackState) {
-                    Player.STATE_READY -> {
-                        if (isArchivePlayback) {
-                            val channel = archiveChannel
-                            val program = archiveProgram
-                            if (channel != null && program != null) {
-                                if (pendingArchiveSeek) {
+                    when (playbackState) {
+                        Player.STATE_READY -> {
+                            sourceErrorRetryCount = 0
+                            lastSourceErrorAtMs = 0L
+                            if (isArchivePlayback) {
+                                val channel = archiveChannel
+                                val program = archiveProgram
+                                if (channel != null && program != null) {
+                                    if (pendingArchiveSeek) {
                                     player?.seekTo(0L)
                                     pendingArchiveSeek = false
                                 }
@@ -452,6 +475,28 @@ class PlayerManager @Inject constructor(
 
                 addDebugMessage("✗ Error: ${channel?.title ?: "Unknown"}")
                 addDebugMessage("  → $errorMsg")
+
+                val now = System.currentTimeMillis()
+                if (isRetryableSourceError(error)) {
+                    if (now - lastSourceErrorAtMs > SOURCE_RETRY_WINDOW_MS) {
+                        sourceErrorRetryCount = 0
+                    }
+                    if (sourceErrorRetryCount < SOURCE_RETRY_MAX) {
+                        sourceErrorRetryCount++
+                        lastSourceErrorAtMs = now
+                        addDebugMessage("  ↩ Retrying source (${sourceErrorRetryCount}/$SOURCE_RETRY_MAX)...")
+                        val idx = currentIndex.coerceAtLeast(0)
+                        val pos = player?.currentPosition ?: C.TIME_UNSET
+                        player?.apply {
+                            seekTo(idx, pos)
+                            prepare()
+                            playWhenReady = true
+                        }
+                        return
+                    } else {
+                        addDebugMessage("  �+' Retry limit reached for source errors")
+                    }
+                }
 
                 _playerState.value = PlayerState.Error(errorMsg, channel)
 
