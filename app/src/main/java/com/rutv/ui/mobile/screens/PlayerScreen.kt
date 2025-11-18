@@ -2839,5 +2839,6 @@ private fun PlayerView.focusOnControl(vararg controlNames: String) {
 }
 
 private fun View.setVerticalOffsetDp(offsetDp: Float) {
-    translationY = offsetDp * resources.displayMetrics.density
+    // No vertical translation to avoid shifting elements from the top
+    translationY = 0f
 }
