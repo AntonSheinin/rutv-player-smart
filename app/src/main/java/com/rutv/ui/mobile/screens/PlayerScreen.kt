@@ -86,6 +86,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.Job
 import kotlin.math.max
 import kotlin.math.abs
+import timber.log.Timber
 
 /**
  * Main Player Screen with Compose UI
@@ -362,6 +363,20 @@ fun PlayerScreen(
             exit = fadeOut(),
             modifier = Modifier.fillMaxSize()
         ) {
+            val focusCustomControl: (CustomControlFocusTarget) -> Unit = { target ->
+                val requester = when (target) {
+                    CustomControlFocusTarget.Favorites -> leftColumnFocusRequesters?.getOrNull(1)
+                    CustomControlFocusTarget.Rotate -> rightColumnFocusRequesters?.getOrNull(1)
+                }
+                if (requester != null) {
+                    Timber.d("CustomControlFocus | focusing immediate: %s", target)
+                    requester.requestFocus()
+                    pendingCustomControlFocus = null
+                } else {
+                    Timber.d("CustomControlFocus | requesters missing, pending: %s", target)
+                    pendingCustomControlFocus = target
+                }
+            }
             val focusLeftmostExoControl = {
                 playerViewRef?.post {
                     playerViewRef?.focusOnControl(
@@ -400,11 +415,13 @@ fun PlayerScreen(
                     // Update callbacks for ExoPlayer navigation
                     navigateToFavoritesCallback = {
                         registerControlsInteraction()
-                        pendingCustomControlFocus = CustomControlFocusTarget.Favorites
+                        Timber.d("CustomControlFocus | navigateToFavoritesCallback triggered")
+                        focusCustomControl(CustomControlFocusTarget.Favorites)
                     }
                     navigateToRotateCallback = {
                         registerControlsInteraction()
-                        pendingCustomControlFocus = CustomControlFocusTarget.Rotate // Rotate is index 1 in right column
+                        Timber.d("CustomControlFocus | navigateToRotateCallback triggered")
+                        focusCustomControl(CustomControlFocusTarget.Rotate) // Rotate is index 1 in right column
                     }
                 },
                 modifier = Modifier.fillMaxSize()
@@ -412,14 +429,18 @@ fun PlayerScreen(
         }
 
         LaunchedEffect(pendingCustomControlFocus, leftColumnFocusRequesters, rightColumnFocusRequesters) {
-            val targetRequester = when (pendingCustomControlFocus) {
-                CustomControlFocusTarget.Favorites -> leftColumnFocusRequesters?.getOrNull(1)
-                CustomControlFocusTarget.Rotate -> rightColumnFocusRequesters?.getOrNull(1)
-                null -> null
-            }
-            if (targetRequester != null) {
-                targetRequester.requestFocus()
-                pendingCustomControlFocus = null
+            pendingCustomControlFocus?.let { target ->
+                val requester = when (target) {
+                    CustomControlFocusTarget.Favorites -> leftColumnFocusRequesters?.getOrNull(1)
+                    CustomControlFocusTarget.Rotate -> rightColumnFocusRequesters?.getOrNull(1)
+                }
+                if (requester != null) {
+                    Timber.d("CustomControlFocus | pending resolved, focusing: %s", target)
+                    requester.requestFocus()
+                    pendingCustomControlFocus = null
+                } else {
+                    Timber.d("CustomControlFocus | still waiting for requesters for: %s", target)
+                }
             }
         }
 
@@ -2641,6 +2662,7 @@ private fun PlayerView.applyControlCustomizations(
             android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
                 val isLeft = keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT
                 if (event.repeatCount > 0 || event.isLongPress) {
+                    Timber.d("CustomControlFocus | PlayerView long-press %s -> custom controls", if (isLeft) "LEFT" else "RIGHT")
                     if (isLeft) onNavigateLeftToFavorites?.invoke() else onNavigateRightToRotate?.invoke()
                     return@setOnKeyListener true
                 }
@@ -2720,6 +2742,7 @@ private fun PlayerView.applyControlCustomizations(
                     onControlsInteraction?.invoke()
                     if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT &&
                         (event.repeatCount > 0 || event.isLongPress)) {
+                        Timber.d("CustomControlFocus | rewind control long-press LEFT -> Favorites")
                         post { onNavigateLeftToFavorites?.invoke() }
                         return@setOnKeyListener true
                     }
@@ -2748,6 +2771,7 @@ private fun PlayerView.applyControlCustomizations(
                     onControlsInteraction?.invoke()
                     if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT &&
                         (event.repeatCount > 0 || event.isLongPress)) {
+                        Timber.d("CustomControlFocus | ffwd control long-press RIGHT -> Rotate")
                         post { onNavigateRightToRotate?.invoke() }
                         return@setOnKeyListener true
                     }
