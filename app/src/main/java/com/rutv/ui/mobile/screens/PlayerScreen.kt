@@ -123,6 +123,7 @@ fun PlayerScreen(
     // Store focus requesters for custom controls (for ExoPlayer navigation)
     var leftColumnFocusRequesters by remember { mutableStateOf<List<FocusRequester>?>(null) }
     var rightColumnFocusRequesters by remember { mutableStateOf<List<FocusRequester>?>(null) }
+    var playlistFocusReady by remember { mutableStateOf(false) }
     var lastFocusedPlaylistIndex by remember { mutableIntStateOf(uiState.currentChannelIndex.coerceAtLeast(0)) }
     var lastControlsSignature by remember { mutableStateOf<ControlsSignature?>(null) }
     var epgFocusRequestToken by remember { mutableIntStateOf(0) }
@@ -131,6 +132,13 @@ fun PlayerScreen(
     val requestEpgFocus: (Int?) -> Unit = { targetIndex ->
         epgFocusRequestTargetIndex = targetIndex
         epgFocusRequestToken++
+    }
+    val requestPlaylistFocusSafe: () -> Unit = {
+        if (playlistFocusReady) {
+            focusCoordinator.requestPlaylistFocus()
+        } else {
+            debugLogger("requestPlaylistFocus() deferred - requester missing")
+        }
     }
 
     // Callbacks to move focus to custom controls (used by ExoPlayer controls)
@@ -206,11 +214,11 @@ fun PlayerScreen(
         }
     }
 
-    LaunchedEffect(uiState.showEpgPanel, uiState.showPlaylist) {
+    LaunchedEffect(uiState.showEpgPanel, uiState.showPlaylist, playlistFocusReady) {
         if (uiState.showEpgPanel) {
             requestEpgFocus(null)
-        } else if (uiState.showPlaylist) {
-            focusCoordinator.requestPlaylistFocus()
+        } else if (uiState.showPlaylist && playlistFocusReady) {
+            requestPlaylistFocusSafe()
         }
     }
 
@@ -436,7 +444,7 @@ fun PlayerScreen(
             debugLogger("← EPG→Playlist: Transferring focus")
 
             // Request focus on playlist LazyColumn
-            focusCoordinator.requestPlaylistFocus()
+                    requestPlaylistFocusSafe()
 
             // Also update the focused channel index
             val targetIndex = when {
@@ -476,7 +484,10 @@ fun PlayerScreen(
                 onUpdateScrollIndex = actions.onUpdatePlaylistScrollIndex,
                 onRequestMoreChannels = actions.onRequestMoreChannels,
                 onProvideFocusController = { controller -> focusCoordinator.registerPlaylistController(controller) },
-                onProvideFocusRequester = { requester -> focusCoordinator.registerPlaylistRequester(requester) },
+                onProvideFocusRequester = { requester ->
+                    playlistFocusReady = requester != null
+                    focusCoordinator.registerPlaylistRequester(requester)
+                },
                 onChannelFocused = { index ->
                     if (index >= 0) {
                         lastFocusedPlaylistIndex = index
