@@ -1,44 +1,82 @@
 package com.rutv.ui.mobile.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.key.*
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.media3.common.util.UnstableApi
 import com.rutv.R
 import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
 import com.rutv.ui.mobile.components.EpgDateDelimiter
 import com.rutv.ui.mobile.components.EpgProgramItem
-import com.rutv.ui.shared.components.RemoteDialog
 import com.rutv.ui.shared.components.focusIndicatorModifier
 import com.rutv.ui.shared.presentation.LayoutConstants
 import com.rutv.ui.shared.presentation.TimeFormatter
 import com.rutv.ui.theme.ruTvColors
 import com.rutv.util.DeviceHelper
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlin.math.abs
+import kotlin.math.max
 import java.time.Instant
 import java.time.ZoneId
 import java.util.Date
@@ -652,241 +690,6 @@ private fun programStableKey(program: EpgProgram, indexForHash: Int): String {
     return "${program.startTimeMillis}_${program.stopTimeMillis}_${program.title}_$indexForHash$descriptionPart"
 }
 
-
-private data class CenterKeyAction(
-    val program: EpgProgram,
-    val canPlayArchive: Boolean
-)
-
-private data class EpgUiItem(
-    val absoluteIndex: Int,
-    val key: String,
-    val payload: Any
-)
-
-private data class EpgDateEntry(
-    val label: String,
-    val startMillis: Long,
-    val endMillis: Long,
-    val isToday: Boolean,
-    val isPast: Boolean,
-    val hasArchive: Boolean,
-    val isLoaded: Boolean
-)
-
-
-@Composable
-internal fun EpgDatePickerDialog(
-    entries: List<EpgDateEntry>,
-    initialSelection: Int,
-    onSelect: (EpgDateEntry) -> Unit,
-    onClose: () -> Unit
-) {
-    if (entries.isEmpty()) {
-        onClose()
-        return
-    }
-    val boundedInitial = initialSelection.coerceIn(0, entries.lastIndex)
-    var selectedIndex by remember(entries) { mutableIntStateOf(boundedInitial) }
-    val listState = rememberLazyListState(initialFirstVisibleItemIndex = boundedInitial)
-    val listFocusRequester = remember { FocusRequester() }
-    val closeButtonFocusRequester = remember { FocusRequester() }
-    var closeButtonFocused by remember { mutableStateOf(false) }
-
-    LaunchedEffect(entries) {
-        listFocusRequester.requestFocus()
-    }
-
-    LaunchedEffect(selectedIndex, entries.size) {
-        listState.animateScrollToItem(selectedIndex.coerceIn(0, entries.lastIndex))
-    }
-
-    androidx.compose.ui.window.Dialog(onDismissRequest = onClose) {
-        Card(
-            modifier = Modifier
-                .width(LayoutConstants.PlaylistPanelWidth)
-                .wrapContentHeight(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f)
-            ),
-            shape = RoundedCornerShape(16.dp),
-            border = BorderStroke(2.dp, MaterialTheme.ruTvColors.gold.copy(alpha = 0.7f))
-        ) {
-            Column {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(LayoutConstants.ToolbarHeight)
-                        .padding(horizontal = LayoutConstants.HeaderHorizontalPadding),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = stringResource(R.string.dialog_title_epg_date_picker),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.ruTvColors.gold
-                    )
-                    IconButton(
-                        onClick = onClose,
-                        modifier = Modifier
-                            .focusable()
-                            .focusRequester(closeButtonFocusRequester)
-                            .focusProperties { down = listFocusRequester }
-                            .onFocusChanged { closeButtonFocused = it.isFocused }
-                            .then(focusIndicatorModifier(isFocused = closeButtonFocused))
-                            .onKeyEvent { event ->
-                                if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
-                                when (event.key) {
-                                    Key.DirectionCenter, Key.Enter, Key.Back -> {
-                                        onClose()
-                                        true
-                                    }
-                                    Key.DirectionDown -> {
-                                        selectedIndex = 0
-                                        listFocusRequester.requestFocus()
-                                        true
-                                    }
-                                    else -> false
-                                }
-                            }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = stringResource(R.string.cd_close_playlist),
-                            tint = MaterialTheme.ruTvColors.textPrimary
-                        )
-                    }
-                }
-
-                HorizontalDivider(color = MaterialTheme.ruTvColors.textDisabled)
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 360.dp)
-                        .padding(16.dp)
-                ) {
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier
-                            .focusRequester(listFocusRequester)
-                            .focusable()
-                            .onPreviewKeyEvent { event ->
-                                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                                when (event.key) {
-                                    Key.DirectionDown -> {
-                                        selectedIndex = (selectedIndex + 1).coerceAtMost(entries.lastIndex)
-                                        true
-                                    }
-                                    Key.DirectionUp -> {
-                                        if (selectedIndex == 0) {
-                                            closeButtonFocusRequester.requestFocus()
-                                            true
-                                        } else {
-                                            selectedIndex = (selectedIndex - 1).coerceAtLeast(0)
-                                            true
-                                        }
-                                    }
-                                    Key.DirectionCenter, Key.Enter -> {
-                                        onSelect(entries[selectedIndex])
-                                        true
-                                    }
-                                    Key.Back -> {
-                                        onClose()
-                                        true
-                                    }
-                                    else -> false
-                                }
-                            }
-                    ) {
-                        itemsIndexed(entries) { index, entry ->
-                            val isSelected = index == selectedIndex
-                            val rowAlpha = if (entry.isPast) 0.6f else 1f
-                            val textColor = when {
-                                isSelected -> MaterialTheme.ruTvColors.gold
-                                entry.isToday -> MaterialTheme.ruTvColors.gold
-                                entry.isPast -> MaterialTheme.ruTvColors.textSecondary
-                                else -> MaterialTheme.ruTvColors.textPrimary
-                            }
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(
-                                        if (isSelected) MaterialTheme.ruTvColors.selectedBackground
-                                        else Color.Transparent
-                                    )
-                                    .alpha(rowAlpha)
-                                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = entry.label,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = textColor
-                                )
-                                if (entry.hasArchive) {
-                                    Icon(
-                                        imageVector = Icons.Filled.History,
-                                        contentDescription = stringResource(R.string.cd_epg_archive_indicator),
-                                        tint = MaterialTheme.ruTvColors.gold
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-private const val MEDIA3_UI_PACKAGE = "androidx.media3.ui"
-private fun View.enableControl() {
-    alpha = 1f
-    isEnabled = true
-}
-
-private fun View.disableControl() {
-    alpha = 0.4f
-    isEnabled = false
-}
-
-@SuppressLint("DiscouragedApi")
-private fun PlayerView.findControlView(name: String): View? {
-    val candidateIds = buildList {
-        resources.getIdentifier(name, "id", context.packageName)
-            .takeIf { it != 0 }?.let(::add)
-        resources.getIdentifier(name, "id", MEDIA3_UI_PACKAGE)
-            .takeIf { it != 0 }?.let(::add)
-        try {
-            Media3UiR.id::class.java.getField(name).getInt(null)
-        } catch (_: Exception) {
-            null
-        }?.let(::add)
-    }
-    candidateIds.forEach { id ->
-        findViewById<View>(id)?.let { return it }
-    }
-    return null
-}
-
-
-private fun programStableKey(program: EpgProgram, indexForHash: Int): String {
-    if (program.id.isNotBlank()) {
-        return program.id
-    }
-    val descriptionPart = if (program.description.isNotEmpty()) {
-        "_${program.description.hashCode()}"
-    } else {
-        ""
-    }
-    return "${program.startTimeMillis}_${program.stopTimeMillis}_${program.title}_$indexForHash$descriptionPart"
-}
-
-
 private data class CenterKeyAction(
     val program: EpgProgram,
     val canPlayArchive: Boolean
@@ -934,7 +737,7 @@ internal fun EpgDatePickerDialog(
         listState.animateScrollToItem(selectedIndex.coerceIn(0, entries.lastIndex))
     }
 
-    androidx.compose.ui.window.Dialog(onDismissRequest = onClose) {
+    Dialog(onDismissRequest = onClose) {
         Card(
             modifier = Modifier
                 .width(LayoutConstants.PlaylistPanelWidth)
