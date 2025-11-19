@@ -1799,18 +1799,6 @@ private fun EpgPanel(
 }
 
 
-        ?.map { it.size }
-        ?.average()
-        ?.coerceAtLeast(1.0)
-        ?: return 0f
-
-    val viewportSize = (layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset).coerceAtLeast(1)
-    val totalContentHeight = (averageItemSize * totalItems).toInt()
-    val maxScroll = (totalContentHeight - viewportSize).coerceAtLeast(1)
-    val scrolled = (listState.firstVisibleItemIndex * averageItemSize + listState.firstVisibleItemScrollOffset).toInt()
-    return (scrolled.toFloat() / maxScroll.toFloat()).coerceIn(0f, 1f)
-}
-
 private fun programStableKey(program: EpgProgram, indexForHash: Int): String {
     if (program.id.isNotBlank()) {
         return program.id
