@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Button
@@ -141,21 +142,25 @@ private fun ChannelOverlayButtons(
     secondaryProgram: EpgProgram?,
     onSecondary: (EpgProgram) -> Unit
 ) {
-    Row(
-        modifier = Modifier.align(Alignment.CenterHorizontally),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center
     ) {
-        ReturnToLiveButton(
-            onClick = onPrimary,
-            buttonHeight = CHANNEL_BUTTON_HEIGHT
-        )
-        secondaryProgram?.let { program ->
-            ProgramInfoButton(
-                program = program,
-                buttonHeight = CHANNEL_BUTTON_HEIGHT,
-                onShowProgramInfo = onSecondary
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            ReturnToLiveButton(
+                onClick = onPrimary,
+                buttonHeight = CHANNEL_BUTTON_HEIGHT
             )
+            secondaryProgram?.let { program ->
+                ProgramInfoButton(
+                    program = program,
+                    buttonHeight = CHANNEL_BUTTON_HEIGHT,
+                    onShowProgramInfo = onSecondary
+                )
+            }
         }
     }
 }

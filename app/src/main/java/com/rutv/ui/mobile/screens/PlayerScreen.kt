@@ -2002,45 +2002,6 @@ private fun EpgDatePickerDialog(
     }
 }
 
-private fun LazyListState.isItemFullyVisible(index: Int): Boolean {
-    val layout = this.layoutInfo
-    if (layout.visibleItemsInfo.isEmpty()) return false
-    val viewportStart = layout.viewportStartOffset
-    val viewportEnd = layout.viewportEndOffset
-    val itemInfo = layout.visibleItemsInfo.firstOrNull { it.index == index } ?: return false
-    val itemStart = itemInfo.offset
-    val itemEnd = itemStart + itemInfo.size
-    return itemStart >= viewportStart && itemEnd <= viewportEnd
-}
-
-private suspend fun LazyListState.scrollByIfPossible(delta: Float): Boolean {
-    if (delta == 0f) return false
-    val layoutInfo = layoutInfo
-    val totalItems = layoutInfo.totalItemsCount
-    if (totalItems <= 0) return false
-
-    val direction = if (delta > 0) 1 else -1
-    val targetIndex = (firstVisibleItemIndex + direction).coerceIn(0, totalItems - 1)
-
-    if (targetIndex == firstVisibleItemIndex) {
-        if (direction < 0 && firstVisibleItemIndex == 0 && firstVisibleItemScrollOffset == 0) {
-            return false
-        }
-    }
-
-    scrollToItem(targetIndex)
-    return true
-}
-
-private suspend fun LazyListState.centerOn(index: Int) {
-    if (index < 0) return
-    scrollToItem(index)
-    val viewportSize = (layoutInfo.viewportEndOffset - layoutInfo.viewportStartOffset).coerceAtLeast(1)
-    val targetInfo = layoutInfo.visibleItemsInfo.firstOrNull { it.index == index } ?: return
-    val desiredOffset = (viewportSize / 2) - (targetInfo.size / 2)
-    scrollToItem(index, -desiredOffset)
-}
-
 private const val MEDIA3_UI_PACKAGE = "androidx.media3.ui"
 private fun View.enableControl() {
     alpha = 1f

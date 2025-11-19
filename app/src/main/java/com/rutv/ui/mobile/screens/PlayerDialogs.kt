@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -48,6 +49,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -68,7 +70,8 @@ import java.util.Date
 @Composable
 internal fun ProgramDetailsPanel(
     program: EpgProgram,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val isRemoteMode = DeviceHelper.isRemoteInputActive()
     val closeButtonFocus = remember { FocusRequester() }
@@ -91,7 +94,7 @@ internal fun ProgramDetailsPanel(
     val scrollStepPx = remember(density) { with(density) { 200.dp.toPx() } }
 
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxHeight(LayoutConstants.ProgramDetailsPanelMaxHeight)
             .width(LayoutConstants.ProgramDetailsPanelWidth)
             .padding(LayoutConstants.DefaultPadding),
@@ -299,7 +302,7 @@ internal fun DebugLogPanel(
 }
 
 @Composable
-private fun FocusedScrollBar(
+private fun BoxScope.FocusedScrollBar(
     listState: LazyListState
 ) {
     val showScrollbar = remember {
