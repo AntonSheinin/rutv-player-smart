@@ -703,6 +703,7 @@ private fun PlayerView.applyControlCustomizations(
     // Intercept DPAD at PlayerView level to keep arrow keys within controls and enable long-press escape
     setOnKeyListener { _, keyCode, event ->
         if (event.action != android.view.KeyEvent.ACTION_DOWN) return@setOnKeyListener false
+        DeviceHelper.updateLastInputMethod(event)
         onControlsInteraction?.invoke()
         when (keyCode) {
             android.view.KeyEvent.KEYCODE_DPAD_LEFT,
