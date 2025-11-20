@@ -132,6 +132,17 @@ object DeviceHelper {
     }
 
     /**
+     * Explicitly mark a remote interaction when we know DPAD navigation occurred but
+     * don't have a reliable KeyEvent source to inspect (e.g., focus jumps triggered
+     * from legacy views).
+     */
+    fun markRemoteInteraction() {
+        val now = System.currentTimeMillis()
+        lastRemoteInputTime.set(now)
+        isRemoteInputActive.set(true)
+    }
+
+    /**
      * Get list of connected remote-capable devices
      * For debugging/logging purposes
      */
