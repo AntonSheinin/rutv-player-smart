@@ -282,7 +282,34 @@ internal fun PlaylistPanel(
         modifier = modifier
             .fillMaxHeight()
             .width(LayoutConstants.PlaylistPanelWidth)
-            .padding(LayoutConstants.DefaultPadding),
+            .padding(LayoutConstants.DefaultPadding)
+            .onPreviewKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                DeviceHelper.updateLastInputMethod(event.nativeKeyEvent)
+                when (event.key) {
+                    Key.DirectionLeft -> {
+                        showSearchDialog = true
+                        true
+                    }
+                    Key.DirectionRight -> {
+                        val currentIdx = when {
+                            focusedChannelIndex >= 0 -> focusedChannelIndex
+                            currentChannelIndex in channels.indices -> currentChannelIndex
+                            else -> -1
+                        }
+                        val channel = channels.getOrNull(currentIdx)
+                        if (channel?.hasEpg == true) {
+                            playlistHasFocus = false
+                            onShowPrograms(channel.tvgId)
+                            onRequestEpgFocus?.invoke()
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    else -> false
+                }
+            },
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f)
         ),
