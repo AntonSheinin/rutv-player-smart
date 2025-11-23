@@ -365,9 +365,7 @@ internal fun PlaylistPanel(
                         .focusable()
                         .onFocusChanged { playlistHasFocus = it.isFocused }
                         .onPreviewKeyEvent { event ->
-                            if (!isRemoteMode) {
-                                return@onPreviewKeyEvent false
-                            }
+                            DeviceHelper.updateLastInputMethod(event.nativeKeyEvent)
                             val handlesKey = when (event.key) {
                                 Key.DirectionUp,
                                 Key.DirectionDown,
