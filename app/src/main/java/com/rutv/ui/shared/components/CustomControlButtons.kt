@@ -62,6 +62,7 @@ fun CustomControlButtons(
     onNavigateRightFromFavorites: (() -> Unit)? = null,
     onNavigateLeftFromRotate: (() -> Unit)? = null,
     onRegisterFocusRequesters: ((List<FocusRequester>, List<FocusRequester>) -> Unit)? = null,
+    onRegisterExternalFocusControllers: ((setLeft: (Int?) -> Unit, setRight: (Int?) -> Unit) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var isRemoteMode by remember { mutableStateOf(true) }
@@ -87,9 +88,15 @@ fun CustomControlButtons(
         val rightColumnFocusRequesters = remember {
             List(3) { FocusRequester() }
         }
+        var externalLeftFocus by remember { mutableStateOf<Int?>(null) }
+        var externalRightFocus by remember { mutableStateOf<Int?>(null) }
 
         LaunchedEffect(Unit) {
             onRegisterFocusRequesters?.invoke(leftColumnFocusRequesters, rightColumnFocusRequesters)
+            onRegisterExternalFocusControllers?.invoke(
+                { externalLeftFocus = it },
+                { externalRightFocus = it }
+            )
         }
 
         val leftColumnKeyHandler: (Int, KeyEvent) -> Boolean = leftHandler@{ index, event ->
@@ -212,7 +219,9 @@ fun CustomControlButtons(
             focusRequesters = leftColumnFocusRequesters,
             onKeyHandler = leftColumnKeyHandler,
             isRemoteMode = isRemoteMode,
-            onRemoteModeChange = updateRemoteMode
+            onRemoteModeChange = updateRemoteMode,
+            externalForcedIndex = externalLeftFocus,
+            onExternalCleared = { externalLeftFocus = null }
         )
 
         ControlColumn(
@@ -237,7 +246,9 @@ fun CustomControlButtons(
             focusRequesters = rightColumnFocusRequesters,
             onKeyHandler = rightColumnKeyHandler,
             isRemoteMode = isRemoteMode,
-            onRemoteModeChange = updateRemoteMode
+            onRemoteModeChange = updateRemoteMode,
+            externalForcedIndex = externalRightFocus,
+            onExternalCleared = { externalRightFocus = null }
         )
     }
 }
@@ -255,7 +266,9 @@ private fun ControlColumn(
     focusRequesters: List<FocusRequester>,
     onKeyHandler: ((Int, KeyEvent) -> Boolean)? = null,
     isRemoteMode: Boolean,
-    onRemoteModeChange: (Boolean) -> Unit
+    onRemoteModeChange: (Boolean) -> Unit,
+    externalForcedIndex: Int? = null,
+    onExternalCleared: () -> Unit = {}
 ) {
     Surface(
         modifier = modifier,
@@ -275,6 +288,8 @@ private fun ControlColumn(
                 val isRotation = button.description == R.string.cd_orientation_button
                 val alpha = if (isRotation) DISABLED_CONTROL_ALPHA else 1f
                 var isFocused by remember { mutableStateOf(false) }
+                val forced = externalForcedIndex == index
+                val showFocus = isFocused || forced
 
                 IconButton(
                     onClick = if (isRotation) ({}) else button.onClick,
@@ -288,10 +303,12 @@ private fun ControlColumn(
                             isFocused = it.isFocused
                             if (it.isFocused) {
                                 onRemoteModeChange(true)
+                            } else if (forced) {
+                                onExternalCleared()
                             }
                         }
                         .then(
-                            if (isFocused) {
+                            if (showFocus) {
                                 focusIndicatorModifier(isFocused = true, forceShow = true)
                             } else {
                                 Modifier
