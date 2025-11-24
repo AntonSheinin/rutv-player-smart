@@ -7,7 +7,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.focus.FocusRequester
-import com.rutv.util.DeviceHelper
 
 internal enum class CustomControlFocusTarget {
     Favorites,
@@ -35,8 +34,6 @@ internal class CustomControlFocusCoordinator(
         leftRequesters: List<FocusRequester>?,
         rightRequesters: List<FocusRequester>?
     ) {
-        // Mark remote interaction to ensure focus visuals use remote mode immediately.
-        DeviceHelper.markRemoteInteraction()
         val requester = resolveRequester(target, leftRequesters, rightRequesters)
         if (requester != null) {
             requester.requestFocus()
@@ -53,7 +50,6 @@ internal class CustomControlFocusCoordinator(
             if (pending != null) {
                 val requester = resolveRequester(pending, leftRequesters, rightRequesters)
                 if (requester != null) {
-                    DeviceHelper.markRemoteInteraction()
                     requester.requestFocus()
                     setPendingTarget(null)
                 }

@@ -285,7 +285,6 @@ internal fun PlaylistPanel(
             .padding(LayoutConstants.DefaultPadding)
             .onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                DeviceHelper.updateLastInputMethod(event.nativeKeyEvent)
                 when (event.key) {
                     Key.DirectionLeft -> {
                         showSearchDialog = true
@@ -392,7 +391,6 @@ internal fun PlaylistPanel(
                         .focusable()
                         .onFocusChanged { playlistHasFocus = it.isFocused }
                         .onPreviewKeyEvent { event ->
-                            DeviceHelper.updateLastInputMethod(event.nativeKeyEvent)
                             val handlesKey = when (event.key) {
                                 Key.DirectionUp,
                                 Key.DirectionDown,

@@ -302,7 +302,6 @@ private fun ControlColumn(
                         )
                         .onKeyEvent { event ->
                             if (event.type == KeyEventType.KeyDown && isFocused) {
-                                DeviceHelper.updateLastInputMethod(event.nativeKeyEvent)
                                 if (onKeyHandler?.invoke(index, event) == true) {
                                     return@onKeyEvent true
                                 }

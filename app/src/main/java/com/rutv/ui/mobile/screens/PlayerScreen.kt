@@ -122,11 +122,9 @@ fun PlayerScreen(
     var setRotateFocusHint by remember { mutableStateOf<((Boolean) -> Unit)?>(null) }
 
     val forceFavoritesHighlight: () -> Unit = {
-        DeviceHelper.markRemoteInteraction()
         setFavoritesFocusHint?.invoke(true)
     }
     val forceRotateHighlight: () -> Unit = {
-        DeviceHelper.markRemoteInteraction()
         setRotateFocusHint?.invoke(true)
     }
 
@@ -220,7 +218,6 @@ fun PlayerScreen(
             .background(MaterialTheme.ruTvColors.darkBackground)
             .onPreviewKeyEvent { event ->
                 // Fullscreen playback DPAD handling
-                DeviceHelper.updateLastInputMethod(event.nativeKeyEvent)
                 val isRemote = DeviceHelper.isRemoteInputActive()
                 if (!isRemote || event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
 
@@ -740,7 +737,6 @@ private fun PlayerView.applyControlCustomizations(
     // Intercept DPAD at PlayerView level to keep arrow keys within controls and enable long-press escape
     setOnKeyListener { _, keyCode, event ->
         if (event.action != android.view.KeyEvent.ACTION_DOWN) return@setOnKeyListener false
-        DeviceHelper.updateLastInputMethod(event)
         onControlsInteraction?.invoke()
         when (keyCode) {
             android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
@@ -777,7 +773,6 @@ private fun PlayerView.applyControlCustomizations(
         isFocusableInTouchMode = false
         setOnKeyListener { _, keyCode, event ->
             if (event.action == android.view.KeyEvent.ACTION_DOWN) {
-                DeviceHelper.updateLastInputMethod(event)
                 onControlsInteraction?.invoke()
                 if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT && hasFocus()) {
                     if (event.repeatCount > 0 || event.isLongPress) {
@@ -810,7 +805,6 @@ private fun PlayerView.applyControlCustomizations(
         isFocusableInTouchMode = false
         setOnKeyListener { _, keyCode, event ->
             if (event.action == android.view.KeyEvent.ACTION_DOWN) {
-                DeviceHelper.updateLastInputMethod(event)
                 onControlsInteraction?.invoke()
                 if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT && hasFocus()) {
                     if (event.repeatCount > 0 || event.isLongPress) {
@@ -844,7 +838,6 @@ private fun PlayerView.applyControlCustomizations(
             isFocusableInTouchMode = false
             setOnKeyListener { _, keyCode, event ->
                 if (event.action == android.view.KeyEvent.ACTION_DOWN) {
-                    DeviceHelper.updateLastInputMethod(event)
                     onControlsInteraction?.invoke()
                     if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT && hasFocus()) {
                         if (event.repeatCount > 0 || event.isLongPress) {
@@ -885,7 +878,6 @@ private fun PlayerView.applyControlCustomizations(
             isFocusableInTouchMode = false
             setOnKeyListener { _, keyCode, event ->
                 if (event.action == android.view.KeyEvent.ACTION_DOWN) {
-                    DeviceHelper.updateLastInputMethod(event)
                     onControlsInteraction?.invoke()
                     if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT && hasFocus()) {
                         if (event.repeatCount > 0 || event.isLongPress) {
@@ -955,7 +947,6 @@ private fun PlayerView.applyControlCustomizations(
         bar.isFocusableInTouchMode = false
         bar.setOnKeyListener { _, keyCode, event ->
             if (event.action == android.view.KeyEvent.ACTION_DOWN) {
-                DeviceHelper.updateLastInputMethod(event)
                 onControlsInteraction?.invoke()
                 val isLeft = keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT
                 val isRight = keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT

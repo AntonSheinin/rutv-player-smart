@@ -496,11 +496,7 @@ class MainActivity : ComponentActivity() {
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         event ?: return super.onKeyDown(keyCode, event)
 
-        // Detect and track input method
-        val isRemote = DeviceHelper.detectInputMethod(event)
-        if (isRemote) {
-            DeviceHelper.updateLastInputMethod(event)
-        }
+        val isRemote = DeviceHelper.isRemoteInputActive()
 
         val hasRemote = DeviceHelper.hasRemoteControl(this)
         val currentState = viewModel.viewState.value
