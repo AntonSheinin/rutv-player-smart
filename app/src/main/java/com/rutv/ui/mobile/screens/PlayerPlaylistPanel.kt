@@ -1,4 +1,4 @@
-﻿package com.rutv.ui.mobile.screens
+package com.rutv.ui.mobile.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -62,7 +62,6 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -677,4 +676,3 @@ internal fun PlaylistPanel(
 }
 
 private const val PLAYLIST_PREFETCH_MARGIN = 8
-
