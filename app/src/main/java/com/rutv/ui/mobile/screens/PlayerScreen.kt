@@ -873,6 +873,23 @@ private fun PlayerView.applyControlCustomizations(
             marginStart = horizontalMarginPx
             marginEnd = horizontalMarginPx
         }
+        bar.isFocusable = true
+        bar.isFocusableInTouchMode = false
+        bar.setOnKeyListener { _, keyCode, event ->
+            if (event.action == android.view.KeyEvent.ACTION_DOWN) {
+                DeviceHelper.updateLastInputMethod(event)
+                onControlsInteraction?.invoke()
+                val isLeft = keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT
+                val isRight = keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT
+                if (isLeft || isRight) {
+                    if (event.repeatCount > 0 || event.isLongPress) {
+                        if (isLeft) onNavigateLeftToFavorites?.invoke() else onNavigateRightToRotate?.invoke()
+                        return@setOnKeyListener true
+                    }
+                }
+            }
+            false
+        }
     }
 
     // Position time text views - they should already be in the layout on left/right
