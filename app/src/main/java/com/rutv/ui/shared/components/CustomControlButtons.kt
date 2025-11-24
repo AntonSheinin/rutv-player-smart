@@ -65,13 +65,7 @@ fun CustomControlButtons(
     onRegisterForcedFocusHints: ((setFavoritesHint: (Boolean) -> Unit, setRotateHint: (Boolean) -> Unit) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    var isRemoteMode by remember { mutableStateOf(true) }
-
-    val updateRemoteMode: (Boolean) -> Unit = { active ->
-        if (isRemoteMode != active) {
-            isRemoteMode = active
-        }
-    }
+    val isRemoteMode = DeviceHelper.isRemoteInputActive()
 
     Box(
         modifier = modifier
@@ -219,7 +213,6 @@ fun CustomControlButtons(
             focusRequesters = leftColumnFocusRequesters,
             onKeyHandler = leftColumnKeyHandler,
             isRemoteMode = isRemoteMode,
-            onRemoteModeChange = updateRemoteMode,
             externalForceIndex = if (forceFavoritesVisual) 1 else null,
             onExternalConsumed = { forceFavoritesVisual = false }
         )
@@ -246,7 +239,6 @@ fun CustomControlButtons(
             focusRequesters = rightColumnFocusRequesters,
             onKeyHandler = rightColumnKeyHandler,
             isRemoteMode = isRemoteMode,
-            onRemoteModeChange = updateRemoteMode,
             externalForceIndex = if (forceRotateVisual) 1 else null,
             onExternalConsumed = { forceRotateVisual = false }
         )
@@ -266,7 +258,6 @@ private fun ControlColumn(
     focusRequesters: List<FocusRequester>,
     onKeyHandler: ((Int, KeyEvent) -> Boolean)? = null,
     isRemoteMode: Boolean,
-    onRemoteModeChange: (Boolean) -> Unit,
     externalForceIndex: Int? = null,
     onExternalConsumed: () -> Unit = {}
 ) {
@@ -300,10 +291,7 @@ private fun ControlColumn(
                         .focusRequester(focusRequesters[index])
                         .onFocusChanged {
                             isFocused = it.isFocused
-                            if (it.isFocused) {
-                                onRemoteModeChange(true)
-                                if (forced) onExternalConsumed()
-                            }
+                            if (it.isFocused && forced) onExternalConsumed()
                         }
                         .then(
                             if (isFocused || forced) {

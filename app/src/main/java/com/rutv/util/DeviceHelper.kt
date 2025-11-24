@@ -14,6 +14,7 @@ object DeviceHelper {
     private val lastRemoteInputTime = AtomicLong(0L)
     private val lastTouchInputTime = AtomicLong(0L)
     private val isRemoteInputActive = AtomicBoolean(false)
+    private val forceRemoteMode = AtomicBoolean(false)
 
     private const val INPUT_METHOD_TIMEOUT_MS = 5000L // 5 seconds timeout
 
@@ -115,6 +116,7 @@ object DeviceHelper {
      * Returns true if remote was last used input method
      */
     fun isRemoteInputActive(): Boolean {
+        if (forceRemoteMode.get()) return true
         val now = System.currentTimeMillis()
         val timeSinceRemote = now - lastRemoteInputTime.get()
         val timeSinceTouch = now - lastTouchInputTime.get()
@@ -140,6 +142,19 @@ object DeviceHelper {
         val now = System.currentTimeMillis()
         lastRemoteInputTime.set(now)
         isRemoteInputActive.set(true)
+    }
+
+    /**
+     * Force remote mode regardless of last input method.
+     * Useful for TV/STB devices where DPAD is the primary input.
+     */
+    fun setForceRemoteMode(enabled: Boolean) {
+        forceRemoteMode.set(enabled)
+        if (enabled) {
+            val now = System.currentTimeMillis()
+            lastRemoteInputTime.set(now)
+            isRemoteInputActive.set(true)
+        }
     }
 
     /**

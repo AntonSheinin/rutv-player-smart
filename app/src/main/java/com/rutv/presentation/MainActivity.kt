@@ -88,6 +88,11 @@ class MainActivity : ComponentActivity() {
             requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         }
 
+        // Force remote mode once for TV/STB devices that report a DPAD-capable remote.
+        if (DeviceHelper.hasRemoteControl(this)) {
+            DeviceHelper.setForceRemoteMode(true)
+        }
+
         // Switch from splash screen theme to regular theme
         setTheme(R.style.Theme_RuTV)
 
