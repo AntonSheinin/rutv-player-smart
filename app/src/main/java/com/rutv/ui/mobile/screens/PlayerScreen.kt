@@ -1001,10 +1001,3 @@ private fun PlayerView.focusOnControl(vararg controlNames: String) {
             (target.parent as? ViewGroup)?.requestChildFocus(target, target)
         }
 }
-
-
-
-
-
-
-
