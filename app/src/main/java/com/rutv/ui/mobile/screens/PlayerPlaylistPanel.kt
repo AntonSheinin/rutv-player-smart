@@ -62,6 +62,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -573,11 +574,13 @@ internal fun PlaylistPanel(
                 val okButtonFocusRequester = remember { FocusRequester() }
                 val searchFieldFocusRequester = remember { FocusRequester() }
                 var pendingOkFocus by remember { mutableStateOf(false) }
+                val keyboardController = LocalSoftwareKeyboardController.current
                 LaunchedEffect(showSearchDialog) {
                     if (showSearchDialog) {
                         pendingOkFocus = false
                         delay(50)
                         searchFieldFocusRequester.requestFocus()
+                        keyboardController?.show()
                     }
                 }
                 LaunchedEffect(pendingOkFocus) {
@@ -592,9 +595,6 @@ internal fun PlaylistPanel(
                     onDismissRequest = {
                         showSearchDialog = false
                         searchText = ""
-                    },
-                    onShowRequest = {
-                        searchFieldFocusRequester.requestFocus()
                     },
                     containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f),
                     title = {
