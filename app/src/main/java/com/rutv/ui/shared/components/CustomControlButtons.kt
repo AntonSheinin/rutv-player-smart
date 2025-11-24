@@ -62,7 +62,7 @@ fun CustomControlButtons(
     onNavigateRightFromFavorites: (() -> Unit)? = null,
     onNavigateLeftFromRotate: (() -> Unit)? = null,
     onRegisterFocusRequesters: ((List<FocusRequester>, List<FocusRequester>) -> Unit)? = null,
-    onRegisterExternalFocusControllers: ((setLeft: (Int?) -> Unit, setRight: (Int?) -> Unit) -> Unit)? = null,
+    onRegisterForcedFocusHints: ((setFavoritesHint: (Boolean) -> Unit, setRotateHint: (Boolean) -> Unit) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var isRemoteMode by remember { mutableStateOf(true) }
@@ -88,14 +88,14 @@ fun CustomControlButtons(
         val rightColumnFocusRequesters = remember {
             List(3) { FocusRequester() }
         }
-        var externalLeftFocus by remember { mutableStateOf<Int?>(null) }
-        var externalRightFocus by remember { mutableStateOf<Int?>(null) }
+        var forceFavoritesVisual by remember { mutableStateOf(false) }
+        var forceRotateVisual by remember { mutableStateOf(false) }
 
         LaunchedEffect(Unit) {
             onRegisterFocusRequesters?.invoke(leftColumnFocusRequesters, rightColumnFocusRequesters)
-            onRegisterExternalFocusControllers?.invoke(
-                { externalLeftFocus = it },
-                { externalRightFocus = it }
+            onRegisterForcedFocusHints?.invoke(
+                { hint -> forceFavoritesVisual = hint },
+                { hint -> forceRotateVisual = hint }
             )
         }
 
@@ -220,8 +220,8 @@ fun CustomControlButtons(
             onKeyHandler = leftColumnKeyHandler,
             isRemoteMode = isRemoteMode,
             onRemoteModeChange = updateRemoteMode,
-            externalForcedIndex = externalLeftFocus,
-            onExternalCleared = { externalLeftFocus = null }
+            externalForceIndex = if (forceFavoritesVisual) 1 else null,
+            onExternalConsumed = { forceFavoritesVisual = false }
         )
 
         ControlColumn(
@@ -247,8 +247,8 @@ fun CustomControlButtons(
             onKeyHandler = rightColumnKeyHandler,
             isRemoteMode = isRemoteMode,
             onRemoteModeChange = updateRemoteMode,
-            externalForcedIndex = externalRightFocus,
-            onExternalCleared = { externalRightFocus = null }
+            externalForceIndex = if (forceRotateVisual) 1 else null,
+            onExternalConsumed = { forceRotateVisual = false }
         )
     }
 }
@@ -267,8 +267,8 @@ private fun ControlColumn(
     onKeyHandler: ((Int, KeyEvent) -> Boolean)? = null,
     isRemoteMode: Boolean,
     onRemoteModeChange: (Boolean) -> Unit,
-    externalForcedIndex: Int? = null,
-    onExternalCleared: () -> Unit = {}
+    externalForceIndex: Int? = null,
+    onExternalConsumed: () -> Unit = {}
 ) {
     Surface(
         modifier = modifier,
@@ -288,8 +288,7 @@ private fun ControlColumn(
                 val isRotation = button.description == R.string.cd_orientation_button
                 val alpha = if (isRotation) DISABLED_CONTROL_ALPHA else 1f
                 var isFocused by remember { mutableStateOf(false) }
-                val forced = externalForcedIndex == index
-                val showFocus = isFocused || forced
+                val forced = externalForceIndex == index
 
                 IconButton(
                     onClick = if (isRotation) ({}) else button.onClick,
@@ -303,12 +302,11 @@ private fun ControlColumn(
                             isFocused = it.isFocused
                             if (it.isFocused) {
                                 onRemoteModeChange(true)
-                            } else if (forced) {
-                                onExternalCleared()
+                                if (forced) onExternalConsumed()
                             }
                         }
                         .then(
-                            if (showFocus) {
+                            if (isFocused || forced) {
                                 focusIndicatorModifier(isFocused = true, forceShow = true)
                             } else {
                                 Modifier

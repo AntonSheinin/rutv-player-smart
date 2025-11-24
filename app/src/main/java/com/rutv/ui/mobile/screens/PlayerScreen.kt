@@ -118,6 +118,8 @@ fun PlayerScreen(
     // Callbacks to move focus to custom controls (used by ExoPlayer controls)
     var navigateToFavoritesCallback by remember { mutableStateOf<(() -> Unit)?>(null) }
     var navigateToRotateCallback by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var setFavoritesFocusHint by remember { mutableStateOf<((Boolean) -> Unit)?>(null) }
+    var setRotateFocusHint by remember { mutableStateOf<((Boolean) -> Unit)?>(null) }
 
     // Toggle controls function - exposed to MainActivity for OK button
     val registerControlsInteraction: () -> Unit = {
@@ -378,6 +380,7 @@ fun PlayerScreen(
                     navigateToFavoritesCallback = {
                         registerControlsInteraction()
                         Timber.d("CustomControlFocus | navigateToFavoritesCallback triggered")
+                        setFavoritesFocusHint?.invoke(true)
                         customControlFocusCoordinator.requestFocus(
                             CustomControlFocusTarget.Favorites,
                             leftColumnFocusRequesters,
@@ -387,12 +390,17 @@ fun PlayerScreen(
                     navigateToRotateCallback = {
                         registerControlsInteraction()
                         Timber.d("CustomControlFocus | navigateToRotateCallback triggered")
+                        setRotateFocusHint?.invoke(true)
                         customControlFocusCoordinator.requestFocus(
                             CustomControlFocusTarget.Rotate,
                             leftColumnFocusRequesters,
                             rightColumnFocusRequesters
                         )
                     }
+                },
+                onRegisterForcedFocusHints = { setFav, setRot ->
+                    setFavoritesFocusHint = setFav
+                    setRotateFocusHint = setRot
                 },
                 modifier = Modifier.fillMaxSize()
             )
