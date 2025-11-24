@@ -615,8 +615,13 @@ internal fun PlaylistPanel(
                                 .fillMaxWidth()
                                 .focusRequester(searchFieldFocusRequester)
                                 .onFocusChanged {
-                                    if (showSearchDialog && !it.isFocused) {
-                                        pendingOkFocus = true
+                                    if (showSearchDialog) {
+                                        if (it.isFocused) {
+                                            pendingOkFocus = false
+                                            keyboardController?.show()
+                                        } else {
+                                            pendingOkFocus = true
+                                        }
                                     }
                                 },
                             colors = OutlinedTextFieldDefaults.colors(
