@@ -700,25 +700,42 @@ private fun PlayerView.applyControlCustomizations(
     setShowRewindButton(true)
     setShowFastForwardButton(true)
 
+    val orderedControlViews = listOf(
+        "exo_prev",
+        "exo_rew",
+        "exo_play_pause",
+        "exo_play",
+        "exo_pause",
+        "exo_ffwd",
+        "exo_next"
+    ).mapNotNull { findControlView(it) }.distinct()
+
+    fun moveWithinExo(from: View, toLeft: Boolean): Boolean {
+        val idx = orderedControlViews.indexOf(from).takeIf { it >= 0 } ?: return false
+        val targetIdx = if (toLeft) idx - 1 else idx + 1
+        val target = orderedControlViews.getOrNull(targetIdx)
+        return if (target != null && target.isFocusable && target.visibility == View.VISIBLE) {
+            target.requestFocus()
+            true
+        } else false
+    }
+
     // Intercept DPAD at PlayerView level to keep arrow keys within controls and enable long-press escape
     setOnKeyListener { _, keyCode, event ->
         if (event.action != android.view.KeyEvent.ACTION_DOWN) return@setOnKeyListener false
         DeviceHelper.updateLastInputMethod(event)
         onControlsInteraction?.invoke()
         when (keyCode) {
-            android.view.KeyEvent.KEYCODE_DPAD_LEFT,
-            android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                val isLeft = keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT
+            android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
                 if (event.repeatCount > 0 || event.isLongPress) {
-                    Timber.d("CustomControlFocus | PlayerView long-press %s -> custom controls", if (isLeft) "LEFT" else "RIGHT")
-                    if (isLeft) onNavigateLeftToFavorites?.invoke() else onNavigateRightToRotate?.invoke()
+                    onNavigateLeftToFavorites?.invoke()
                     return@setOnKeyListener true
                 }
-                val focused = findFocus()
-                val direction = if (isLeft) View.FOCUS_LEFT else View.FOCUS_RIGHT
-                val next = focused?.focusSearch(direction)
-                if (next != null && next != focused) {
-                    next.requestFocus()
+                false
+            }
+            android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                if (event.repeatCount > 0 || event.isLongPress) {
+                    onNavigateRightToRotate?.invoke()
                     return@setOnKeyListener true
                 }
                 false
@@ -748,8 +765,19 @@ private fun PlayerView.applyControlCustomizations(
                 if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT && hasFocus()) {
                     if (event.repeatCount > 0 || event.isLongPress) {
                         onNavigateLeftToFavorites?.invoke()
+                        return@setOnKeyListener true
                     }
-                    return@setOnKeyListener true // Always consume LEFT to avoid timebar
+                    if (moveWithinExo(this, toLeft = true)) return@setOnKeyListener true
+                    return@setOnKeyListener true // consume to prevent timebar
+                } else if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT && hasFocus()) {
+                    if (moveWithinExo(this, toLeft = false)) return@setOnKeyListener true
+                    return@setOnKeyListener true
+                } else if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_DOWN && hasFocus()) {
+                    val timeBar = findControlView("exo_timebar") ?: findControlView("exo_progress")
+                    if (timeBar?.isShown == true && timeBar.isFocusable) {
+                        timeBar.requestFocus()
+                        return@setOnKeyListener true
+                    }
                 }
             }
             false
@@ -770,8 +798,19 @@ private fun PlayerView.applyControlCustomizations(
                 if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT && hasFocus()) {
                     if (event.repeatCount > 0 || event.isLongPress) {
                         post { onNavigateRightToRotate?.invoke() }
+                        return@setOnKeyListener true
                     }
-                    return@setOnKeyListener true // Always consume RIGHT to avoid timebar
+                    if (moveWithinExo(this, toLeft = false)) return@setOnKeyListener true
+                    return@setOnKeyListener true
+                } else if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT && hasFocus()) {
+                    if (moveWithinExo(this, toLeft = true)) return@setOnKeyListener true
+                    return@setOnKeyListener true
+                } else if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_DOWN && hasFocus()) {
+                    val timeBar = findControlView("exo_timebar") ?: findControlView("exo_progress")
+                    if (timeBar?.isShown == true && timeBar.isFocusable) {
+                        timeBar.requestFocus()
+                        return@setOnKeyListener true
+                    }
                 }
             }
             false
@@ -794,8 +833,19 @@ private fun PlayerView.applyControlCustomizations(
                         if (event.repeatCount > 0 || event.isLongPress) {
                             Timber.d("CustomControlFocus | rewind control long-press LEFT -> Favorites")
                             post { onNavigateLeftToFavorites?.invoke() }
+                            return@setOnKeyListener true
                         }
-                        return@setOnKeyListener true // Consume LEFT on rew controls
+                        if (moveWithinExo(this, toLeft = true)) return@setOnKeyListener true
+                        return@setOnKeyListener true
+                    } else if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT && hasFocus()) {
+                        if (moveWithinExo(this, toLeft = false)) return@setOnKeyListener true
+                        return@setOnKeyListener true
+                    } else if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_DOWN && hasFocus()) {
+                        val timeBar = findControlView("exo_timebar") ?: findControlView("exo_progress")
+                        if (timeBar?.isShown == true && timeBar.isFocusable) {
+                            timeBar.requestFocus()
+                            return@setOnKeyListener true
+                        }
                     }
                 }
                 false
@@ -824,8 +874,19 @@ private fun PlayerView.applyControlCustomizations(
                         if (event.repeatCount > 0 || event.isLongPress) {
                             Timber.d("CustomControlFocus | ffwd control long-press RIGHT -> Rotate")
                             post { onNavigateRightToRotate?.invoke() }
+                            return@setOnKeyListener true
                         }
-                        return@setOnKeyListener true // Consume RIGHT on ffwd controls
+                        if (moveWithinExo(this, toLeft = false)) return@setOnKeyListener true
+                        return@setOnKeyListener true
+                    } else if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT && hasFocus()) {
+                        if (moveWithinExo(this, toLeft = true)) return@setOnKeyListener true
+                        return@setOnKeyListener true
+                    } else if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_DOWN && hasFocus()) {
+                        val timeBar = findControlView("exo_timebar") ?: findControlView("exo_progress")
+                        if (timeBar?.isShown == true && timeBar.isFocusable) {
+                            timeBar.requestFocus()
+                            return@setOnKeyListener true
+                        }
                     }
                 }
                 false
@@ -881,6 +942,17 @@ private fun PlayerView.applyControlCustomizations(
                 onControlsInteraction?.invoke()
                 val isLeft = keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT
                 val isRight = keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT
+                if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_UP) {
+                    // Move back to play/pause/exo controls
+                    focusOnControl(
+                        "exo_play_pause",
+                        "exo_play",
+                        "exo_pause",
+                        "exo_rew",
+                        "exo_ffwd"
+                    )
+                    return@setOnKeyListener true
+                }
                 if (isLeft || isRight) {
                     if (event.repeatCount > 0 || event.isLongPress) {
                         if (isLeft) onNavigateLeftToFavorites?.invoke() else onNavigateRightToRotate?.invoke()
