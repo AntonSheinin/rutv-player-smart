@@ -745,10 +745,11 @@ private fun PlayerView.applyControlCustomizations(
             if (event.action == android.view.KeyEvent.ACTION_DOWN) {
                 DeviceHelper.updateLastInputMethod(event)
                 onControlsInteraction?.invoke()
-                if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT &&
-                    (event.repeatCount > 0 || event.isLongPress)) {
-                    onNavigateLeftToFavorites?.invoke()
-                    return@setOnKeyListener true
+                if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT && hasFocus()) {
+                    if (event.repeatCount > 0 || event.isLongPress) {
+                        onNavigateLeftToFavorites?.invoke()
+                    }
+                    return@setOnKeyListener true // Always consume LEFT to avoid timebar
                 }
             }
             false
@@ -766,10 +767,11 @@ private fun PlayerView.applyControlCustomizations(
             if (event.action == android.view.KeyEvent.ACTION_DOWN) {
                 DeviceHelper.updateLastInputMethod(event)
                 onControlsInteraction?.invoke()
-                if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT &&
-                    (event.repeatCount > 0 || event.isLongPress)) {
-                    post { onNavigateRightToRotate?.invoke() }
-                    return@setOnKeyListener true
+                if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT && hasFocus()) {
+                    if (event.repeatCount > 0 || event.isLongPress) {
+                        post { onNavigateRightToRotate?.invoke() }
+                    }
+                    return@setOnKeyListener true // Always consume RIGHT to avoid timebar
                 }
             }
             false
@@ -788,11 +790,12 @@ private fun PlayerView.applyControlCustomizations(
                 if (event.action == android.view.KeyEvent.ACTION_DOWN) {
                     DeviceHelper.updateLastInputMethod(event)
                     onControlsInteraction?.invoke()
-                    if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT &&
-                        (event.repeatCount > 0 || event.isLongPress)) {
-                        Timber.d("CustomControlFocus | rewind control long-press LEFT -> Favorites")
-                        post { onNavigateLeftToFavorites?.invoke() }
-                        return@setOnKeyListener true
+                    if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT && hasFocus()) {
+                        if (event.repeatCount > 0 || event.isLongPress) {
+                            Timber.d("CustomControlFocus | rewind control long-press LEFT -> Favorites")
+                            post { onNavigateLeftToFavorites?.invoke() }
+                        }
+                        return@setOnKeyListener true // Consume LEFT on rew controls
                     }
                 }
                 false
@@ -817,11 +820,12 @@ private fun PlayerView.applyControlCustomizations(
                 if (event.action == android.view.KeyEvent.ACTION_DOWN) {
                     DeviceHelper.updateLastInputMethod(event)
                     onControlsInteraction?.invoke()
-                    if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT &&
-                        (event.repeatCount > 0 || event.isLongPress)) {
-                        Timber.d("CustomControlFocus | ffwd control long-press RIGHT -> Rotate")
-                        post { onNavigateRightToRotate?.invoke() }
-                        return@setOnKeyListener true
+                    if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT && hasFocus()) {
+                        if (event.repeatCount > 0 || event.isLongPress) {
+                            Timber.d("CustomControlFocus | ffwd control long-press RIGHT -> Rotate")
+                            post { onNavigateRightToRotate?.invoke() }
+                        }
+                        return@setOnKeyListener true // Consume RIGHT on ffwd controls
                     }
                 }
                 false

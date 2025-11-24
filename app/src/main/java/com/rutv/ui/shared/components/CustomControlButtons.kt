@@ -290,7 +290,13 @@ private fun ControlColumn(
                                 onRemoteModeChange(true)
                             }
                         }
-                        .then(if (isRemoteMode) focusIndicatorModifier(isFocused = isFocused) else Modifier)
+                        .then(
+                            if (isFocused) {
+                                focusIndicatorModifier(isFocused = true, forceShow = true)
+                            } else {
+                                Modifier
+                            }
+                        )
                         .onKeyEvent { event ->
                             if (event.type == KeyEventType.KeyDown && isFocused) {
                                 DeviceHelper.updateLastInputMethod(event.nativeKeyEvent)
