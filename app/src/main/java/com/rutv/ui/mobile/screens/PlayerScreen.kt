@@ -121,6 +121,15 @@ fun PlayerScreen(
     var setFavoritesFocusHint by remember { mutableStateOf<((Boolean) -> Unit)?>(null) }
     var setRotateFocusHint by remember { mutableStateOf<((Boolean) -> Unit)?>(null) }
 
+    val forceFavoritesHighlight: () -> Unit = {
+        DeviceHelper.markRemoteInteraction()
+        setFavoritesFocusHint?.invoke(true)
+    }
+    val forceRotateHighlight: () -> Unit = {
+        DeviceHelper.markRemoteInteraction()
+        setRotateFocusHint?.invoke(true)
+    }
+
     // Toggle controls function - exposed to MainActivity for OK button
     val registerControlsInteraction: () -> Unit = {
         lastControlsInteractionAt = System.currentTimeMillis()
