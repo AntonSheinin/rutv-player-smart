@@ -593,6 +593,9 @@ internal fun PlaylistPanel(
                         showSearchDialog = false
                         searchText = ""
                     },
+                    onShowRequest = {
+                        searchFieldFocusRequester.requestFocus()
+                    },
                     containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f),
                     title = {
                         Text(
