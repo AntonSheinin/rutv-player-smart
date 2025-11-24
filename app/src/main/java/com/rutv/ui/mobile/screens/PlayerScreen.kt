@@ -120,13 +120,17 @@ fun PlayerScreen(
     var navigateToRotateCallback by remember { mutableStateOf<(() -> Unit)?>(null) }
     var setFavoritesFocusHint by remember { mutableStateOf<((Boolean) -> Unit)?>(null) }
     var setRotateFocusHint by remember { mutableStateOf<((Boolean) -> Unit)?>(null) }
+    var pendingFavoritesHint by remember { mutableStateOf(false) }
+    var pendingRotateHint by remember { mutableStateOf(false) }
 
     val forceFavoritesHighlight: () -> Unit = {
         DeviceHelper.markRemoteInteraction()
+        pendingFavoritesHint = true
         setFavoritesFocusHint?.invoke(true)
     }
     val forceRotateHighlight: () -> Unit = {
         DeviceHelper.markRemoteInteraction()
+        pendingRotateHint = true
         setRotateFocusHint?.invoke(true)
     }
 
@@ -410,6 +414,14 @@ fun PlayerScreen(
                 onRegisterForcedFocusHints = { setFav, setRot ->
                     setFavoritesFocusHint = setFav
                     setRotateFocusHint = setRot
+                    if (pendingFavoritesHint) {
+                        pendingFavoritesHint = false
+                        setFav(true)
+                    }
+                    if (pendingRotateHint) {
+                        pendingRotateHint = false
+                        setRot(true)
+                    }
                 },
                 modifier = Modifier.fillMaxSize()
             )
