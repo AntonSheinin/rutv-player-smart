@@ -169,10 +169,14 @@ internal fun ProgramDetailsPanel(
                             val totalItems = listState.layoutInfo.totalItemsCount
                             if (totalItems <= 0) return@onKeyEvent false
                             when (event.key) {
-                                Key.Back -> {
+                                Key.Back,
+                                Key.DirectionCenter,
+                                Key.Enter -> {
                                     onClose()
                                     true
                                 }
+                                Key.DirectionLeft,
+                                Key.DirectionRight -> true
                                 Key.DirectionDown -> {
                                     coroutineScope.launch {
                                         listState.scrollByIfPossible(scrollStepPx)

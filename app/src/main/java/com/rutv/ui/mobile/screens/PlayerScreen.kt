@@ -330,7 +330,9 @@ fun PlayerScreen(
                             actions = actions,
                             onNavigateLeftToFavorites = navigateToFavoritesCallback,
                             onNavigateRightToRotate = navigateToRotateCallback,
-                            onControlsInteraction = { registerControlsInteraction() }
+                            onControlsInteraction = { registerControlsInteraction() },
+                            onForceFavoritesHighlight = { setFavoritesFocusHint?.invoke(true) },
+                            onForceRotateHighlight = { setRotateFocusHint?.invoke(true) }
                         )
                         lastControlsSignature = controlsSignature
                     }
@@ -681,7 +683,9 @@ private fun PlayerView.bindControls(
     actions: PlayerUiActions,
     onNavigateLeftToFavorites: (() -> Unit)?,
     onNavigateRightToRotate: (() -> Unit)?,
-    onControlsInteraction: (() -> Unit)?
+    onControlsInteraction: (() -> Unit)?,
+    onForceFavoritesHighlight: (() -> Unit)? = null,
+    onForceRotateHighlight: (() -> Unit)? = null
 ) {
     applyControlCustomizations(
         isArchivePlayback = uiState.isArchivePlayback,
@@ -693,7 +697,9 @@ private fun PlayerView.bindControls(
         onResumePlayback = actions.onResumePlayback,
         onNavigateLeftToFavorites = onNavigateLeftToFavorites,
         onNavigateRightToRotate = onNavigateRightToRotate,
-        onControlsInteraction = onControlsInteraction
+        onControlsInteraction = onControlsInteraction,
+        onForceFavoritesHighlight = onForceFavoritesHighlight,
+        onForceRotateHighlight = onForceRotateHighlight
     )
 }
 
@@ -707,7 +713,9 @@ private fun PlayerView.applyControlCustomizations(
     onResumePlayback: () -> Unit,
     onNavigateLeftToFavorites: (() -> Unit)? = null,
     onNavigateRightToRotate: (() -> Unit)? = null,
-    onControlsInteraction: (() -> Unit)? = null
+    onControlsInteraction: (() -> Unit)? = null,
+    onForceFavoritesHighlight: (() -> Unit)? = null,
+    onForceRotateHighlight: (() -> Unit)? = null
 ) {
     setShowPreviousButton(true)
     setShowNextButton(true)
@@ -741,6 +749,7 @@ private fun PlayerView.applyControlCustomizations(
         when (keyCode) {
             android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
                 if (event.repeatCount > 0 || event.isLongPress) {
+                    onForceFavoritesHighlight?.invoke()
                     onNavigateLeftToFavorites?.invoke()
                     return@setOnKeyListener true
                 }
@@ -748,6 +757,7 @@ private fun PlayerView.applyControlCustomizations(
             }
             android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
                 if (event.repeatCount > 0 || event.isLongPress) {
+                    onForceRotateHighlight?.invoke()
                     onNavigateRightToRotate?.invoke()
                     return@setOnKeyListener true
                 }
@@ -776,6 +786,7 @@ private fun PlayerView.applyControlCustomizations(
                 onControlsInteraction?.invoke()
                 if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT && hasFocus()) {
                     if (event.repeatCount > 0 || event.isLongPress) {
+                        onForceFavoritesHighlight?.invoke()
                         onNavigateLeftToFavorites?.invoke()
                         return@setOnKeyListener true
                     }
@@ -808,6 +819,7 @@ private fun PlayerView.applyControlCustomizations(
                 onControlsInteraction?.invoke()
                 if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT && hasFocus()) {
                     if (event.repeatCount > 0 || event.isLongPress) {
+                        onForceRotateHighlight?.invoke()
                         post { onNavigateRightToRotate?.invoke() }
                         return@setOnKeyListener true
                     }
@@ -841,6 +853,7 @@ private fun PlayerView.applyControlCustomizations(
                     onControlsInteraction?.invoke()
                     if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT && hasFocus()) {
                         if (event.repeatCount > 0 || event.isLongPress) {
+                            onForceFavoritesHighlight?.invoke()
                             Timber.d("CustomControlFocus | rewind control long-press LEFT -> Favorites")
                             post { onNavigateLeftToFavorites?.invoke() }
                             return@setOnKeyListener true
@@ -877,14 +890,15 @@ private fun PlayerView.applyControlCustomizations(
             isFocusable = true
             isFocusableInTouchMode = false
             setOnKeyListener { _, keyCode, event ->
-                if (event.action == android.view.KeyEvent.ACTION_DOWN) {
-                    onControlsInteraction?.invoke()
-                    if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT && hasFocus()) {
-                        if (event.repeatCount > 0 || event.isLongPress) {
-                            Timber.d("CustomControlFocus | ffwd control long-press RIGHT -> Rotate")
-                            post { onNavigateRightToRotate?.invoke() }
-                            return@setOnKeyListener true
-                        }
+            if (event.action == android.view.KeyEvent.ACTION_DOWN) {
+                onControlsInteraction?.invoke()
+                if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT && hasFocus()) {
+                    if (event.repeatCount > 0 || event.isLongPress) {
+                        onForceRotateHighlight?.invoke()
+                        Timber.d("CustomControlFocus | ffwd control long-press RIGHT -> Rotate")
+                        post { onNavigateRightToRotate?.invoke() }
+                        return@setOnKeyListener true
+                    }
                         if (moveWithinExo(this, toLeft = false)) return@setOnKeyListener true
                         return@setOnKeyListener true
                     } else if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT && hasFocus()) {
@@ -963,7 +977,13 @@ private fun PlayerView.applyControlCustomizations(
                 }
                 if (isLeft || isRight) {
                     if (event.repeatCount > 0 || event.isLongPress) {
-                        if (isLeft) onNavigateLeftToFavorites?.invoke() else onNavigateRightToRotate?.invoke()
+                        if (isLeft) {
+                            onForceFavoritesHighlight?.invoke()
+                            onNavigateLeftToFavorites?.invoke()
+                        } else {
+                            onForceRotateHighlight?.invoke()
+                            onNavigateRightToRotate?.invoke()
+                        }
                         return@setOnKeyListener true
                     }
                 }

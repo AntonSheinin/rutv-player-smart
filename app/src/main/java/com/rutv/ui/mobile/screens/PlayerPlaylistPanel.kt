@@ -484,18 +484,29 @@ internal fun PlaylistPanel(
                             }
                         }
                     ) { index, channel ->
+                        val actualIndex = remember(channel.url) {
+                            val byUrl = channels.indexOfFirst { it.url == channel.url }
+                            val byRef = channels.indexOf(channel)
+                            when {
+                                byUrl >= 0 -> byUrl
+                                byRef >= 0 -> byRef
+                                channels.isNotEmpty() -> index.coerceIn(0, channels.lastIndex)
+                                else -> -1
+                            }
+                        }
+                        val resolvedIndex = actualIndex.takeIf { it >= 0 } ?: return@itemsIndexed
                         val programInfo = remember(channel.tvgId, currentProgramsMap[channel.tvgId]) {
                             currentProgramsMap[channel.tvgId]
                         }
                         ChannelListItem(
                             channel = channel,
-                            channelNumber = index + 1,
-                            isPlaying = index == currentChannelIndex,
-                            isEpgOpen = index == epgOpenIndex,
+                            channelNumber = resolvedIndex + 1,
+                            isPlaying = resolvedIndex == currentChannelIndex,
+                            isEpgOpen = resolvedIndex == epgOpenIndex,
                             isEpgPanelVisible = isEpgPanelVisible,
                             currentProgram = programInfo,
-                            isItemFocused = playlistHasFocus && index == focusedChannelIndex,
-                            onChannelClick = { focusChannel(index, true) },
+                            isItemFocused = playlistHasFocus && resolvedIndex == focusedChannelIndex,
+                            onChannelClick = { focusChannel(resolvedIndex, true) },
                             onFavoriteClick = { onFavoriteClick(channel.url) },
                             onShowPrograms = { onShowPrograms(channel.tvgId) },
                             modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp)
