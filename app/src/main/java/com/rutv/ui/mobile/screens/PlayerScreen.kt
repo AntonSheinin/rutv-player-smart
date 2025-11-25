@@ -93,26 +93,25 @@ fun PlayerScreen(
         showControls = visible
     }
 
-    // Store focus requesters for custom controls (for ExoPlayer navigation)
-    var leftColumnFocusRequesters by remember { mutableStateOf<List<FocusRequester>?>(null) }
-    var rightColumnFocusRequesters by remember { mutableStateOf<List<FocusRequester>?>(null) }
-    var playlistFocusReady by remember { mutableStateOf(false) }
-    var lastFocusedPlaylistIndex by remember { mutableIntStateOf(uiState.currentChannelIndex.coerceAtLeast(0)) }
+    // Focus state management - grouped for better organization
+    var focusState by remember {
+        mutableStateOf(
+            PlayerFocusState(
+                compose = ComposeFocusState(
+                    lastFocusedPlaylistIndex = uiState.currentChannelIndex.coerceAtLeast(0)
+                )
+            )
+        )
+    }
     var lastControlsSignature by remember { mutableStateOf<ControlsSignature?>(null) }
     val customControlFocusCoordinator = rememberCustomControlFocusCoordinator()
-    var epgFocusRequestToken by remember { mutableIntStateOf(0) }
-    var epgFocusRequestTargetIndex by remember { mutableStateOf<Int?>(null) }
-    var suppressFallbackEpgFocus by remember { mutableStateOf(false) }
+
+    // Helper functions for focus requests
     val requestEpgFocus: (Int?) -> Unit = { targetIndex ->
-        epgFocusRequestTargetIndex = targetIndex
-        epgFocusRequestToken++
+        focusState = focusState.requestEpgFocus(targetIndex)
     }
     val requestPlaylistFocusSafe: () -> Unit = {
-        if (playlistFocusReady) {
-            focusCoordinator.requestPlaylistFocus()
-        } else {
-            debugLogger("requestPlaylistFocus() deferred - requester missing")
-        }
+        focusState = focusState.requestPlaylistFocus(focusCoordinator, debugLogger)
     }
 
     // Callbacks to move focus to custom controls (used by ExoPlayer controls)
@@ -121,10 +120,17 @@ fun PlayerScreen(
     var setFavoritesFocusHint by remember { mutableStateOf<((Boolean) -> Unit)?>(null) }
     var setRotateFocusHint by remember { mutableStateOf<((Boolean) -> Unit)?>(null) }
 
+    // Stable references to latest state for callbacks
+    val latestFocusState by rememberUpdatedState(focusState)
+    val latestSetFavoritesHint by rememberUpdatedState(setFavoritesFocusHint)
+    val latestSetRotateHint by rememberUpdatedState(setRotateFocusHint)
+
     val forceFavoritesHighlight: () -> Unit = {
+        focusState = focusState.updateVisualHint(favoritesHint = true)
         setFavoritesFocusHint?.invoke(true)
     }
     val forceRotateHighlight: () -> Unit = {
+        focusState = focusState.updateVisualHint(rotateHint = true)
         setRotateFocusHint?.invoke(true)
     }
 
@@ -197,20 +203,14 @@ fun PlayerScreen(
         }
     }
 
-    LaunchedEffect(uiState.showEpgPanel, uiState.showPlaylist, playlistFocusReady) {
-        if (uiState.showEpgPanel) {
-            requestEpgFocus(null)
-        } else if (uiState.showPlaylist && playlistFocusReady) {
-            requestPlaylistFocusSafe()
-        }
-    }
-
-    LaunchedEffect(uiState.showEpgPanel) {
-        if (!uiState.showEpgPanel) {
-            epgFocusRequestTargetIndex = null
-            suppressFallbackEpgFocus = false
-        }
-    }
+    // Focus-related LaunchedEffects consolidated for better organization
+    PlayerScreenFocusEffects(
+        uiState = uiState,
+        focusState = focusState,
+        onFocusStateChange = { focusState = it },
+        requestEpgFocus = requestEpgFocus,
+        requestPlaylistFocusSafe = requestPlaylistFocusSafe
+    )
 
     Box(
         modifier = modifier
@@ -243,7 +243,11 @@ fun PlayerScreen(
                     }
                     Key.DirectionLeft -> {
                         if (!showControls && !panelsOpen) {
-                            lastFocusedPlaylistIndex = uiState.currentChannelIndex.coerceAtLeast(0)
+                            focusState = focusState.copy(
+                                compose = focusState.compose.copy(
+                                    lastFocusedPlaylistIndex = uiState.currentChannelIndex.coerceAtLeast(0)
+                                )
+                            )
                             if (!uiState.showPlaylist) {
                                 actions.onTogglePlaylist()
                             }
@@ -255,7 +259,11 @@ fun PlayerScreen(
                     }
                     Key.DirectionRight -> {
                         if (!showControls && !panelsOpen) {
-                            lastFocusedPlaylistIndex = uiState.currentChannelIndex.coerceAtLeast(0)
+                            focusState = focusState.copy(
+                                compose = focusState.compose.copy(
+                                    lastFocusedPlaylistIndex = uiState.currentChannelIndex.coerceAtLeast(0)
+                                )
+                            )
                             if (!uiState.showPlaylist) {
                                 actions.onTogglePlaylist()
                             }
@@ -330,7 +338,9 @@ fun PlayerScreen(
                             actions = actions,
                             onNavigateLeftToFavorites = navigateToFavoritesCallback,
                             onNavigateRightToRotate = navigateToRotateCallback,
-                            onControlsInteraction = { registerControlsInteraction() }
+                            onControlsInteraction = { registerControlsInteraction() },
+                            onForceFavoritesHighlight = { setFavoritesFocusHint?.invoke(true) },
+                            onForceRotateHighlight = { setRotateFocusHint?.invoke(true) }
                         )
                         lastControlsSignature = controlsSignature
                     }
@@ -380,27 +390,34 @@ fun PlayerScreen(
                 onNavigateRightFromFavorites = { registerControlsInteraction(); focusLeftmostExoControl() },
                 onNavigateLeftFromRotate = { registerControlsInteraction(); focusRightmostExoControl() },
                 onRegisterFocusRequesters = { left, right ->
-                    leftColumnFocusRequesters = left
-                    rightColumnFocusRequesters = right
+                    focusState = focusState.copy(
+                        compose = focusState.compose.copy(
+                            leftColumnRequesters = left,
+                            rightColumnRequesters = right
+                        )
+                    )
                     // Update callbacks for ExoPlayer navigation
+                    // Use stable references that capture latest state
                     navigateToFavoritesCallback = {
                         registerControlsInteraction()
                         Timber.d("CustomControlFocus | navigateToFavoritesCallback triggered")
-                        setFavoritesFocusHint?.invoke(true)
+                        focusState = latestFocusState.updateVisualHint(favoritesHint = true)
+                        latestSetFavoritesHint?.invoke(true)
                         customControlFocusCoordinator.requestFocus(
                             CustomControlFocusTarget.Favorites,
-                            leftColumnFocusRequesters,
-                            rightColumnFocusRequesters
+                            latestFocusState.compose.leftColumnRequesters,
+                            latestFocusState.compose.rightColumnRequesters
                         )
                     }
                     navigateToRotateCallback = {
                         registerControlsInteraction()
                         Timber.d("CustomControlFocus | navigateToRotateCallback triggered")
-                        setRotateFocusHint?.invoke(true)
+                        focusState = latestFocusState.updateVisualHint(rotateHint = true)
+                        latestSetRotateHint?.invoke(true)
                         customControlFocusCoordinator.requestFocus(
                             CustomControlFocusTarget.Rotate,
-                            leftColumnFocusRequesters,
-                            rightColumnFocusRequesters
+                            latestFocusState.compose.leftColumnRequesters,
+                            latestFocusState.compose.rightColumnRequesters
                         )
                     }
                 },
@@ -412,7 +429,7 @@ fun PlayerScreen(
             )
         }
 
-        customControlFocusCoordinator.Bind(leftColumnFocusRequesters, rightColumnFocusRequesters)
+        customControlFocusCoordinator.Bind(focusState.compose.leftColumnRequesters, focusState.compose.rightColumnRequesters)
 
         // Channel Info Overlay (top center) - hide with controls
         AnimatedVisibility(
@@ -441,23 +458,12 @@ fun PlayerScreen(
 
         // Focus management for panel transitions
         val focusPlaylistFromEpg: () -> Unit = {
-            debugLogger("EPG->Playlist: Transferring focus")
-            requestPlaylistFocusSafe()
-
-            val targetIndex = when {
-                lastFocusedPlaylistIndex >= 0 -> lastFocusedPlaylistIndex
-                uiState.currentChannelIndex >= 0 -> uiState.currentChannelIndex
-                else -> -1
-            }
-            val resolvedIndex = when {
-                targetIndex >= 0 && targetIndex < allChannels.size -> targetIndex
-                allChannels.isNotEmpty() -> 0
-                else -> -1
-            }
-            if (resolvedIndex >= 0) {
-                debugLogger("EPG->Playlist: Focusing channel $resolvedIndex")
-                focusCoordinator.focusPlaylist(resolvedIndex, false)
-            }
+            focusState = focusState.transitionFromEpgToPlaylist(
+                coordinator = focusCoordinator,
+                allChannels = allChannels,
+                currentChannelIndex = uiState.currentChannelIndex,
+                debugLogger = debugLogger
+            )
         }
 
         if (uiState.showPlaylist) {
@@ -482,12 +488,21 @@ fun PlayerScreen(
                 onRequestMoreChannels = actions.onRequestMoreChannels,
                 onProvideFocusController = { controller -> focusCoordinator.registerPlaylistController(controller) },
                 onProvideFocusRequester = { requester ->
-                    playlistFocusReady = requester != null
+                    focusState = focusState.copy(
+                        compose = focusState.compose.copy(
+                            playlistRequester = requester,
+                            playlistReady = requester != null
+                        )
+                    )
                     focusCoordinator.registerPlaylistRequester(requester)
                 },
                 onChannelFocused = { index ->
                     if (index >= 0) {
-                        lastFocusedPlaylistIndex = index
+                        focusState = focusState.copy(
+                            compose = focusState.compose.copy(
+                                lastFocusedPlaylistIndex = index
+                            )
+                        )
                     }
                 },
                 onRequestEpgFocus = { requestEpgFocus(null) },
@@ -524,10 +539,18 @@ fun PlayerScreen(
                 },
                 onRequestFocus = { target -> requestEpgFocus(target) },
                 onEnsureDateRange = actions.onEnsureEpgDateRange,
-                onSetFallbackFocusSuppressed = { suppressFallbackEpgFocus = it },
-                focusRequestToken = epgFocusRequestToken,
-                focusRequestTargetIndex = epgFocusRequestTargetIndex,
-                onFocusRequestHandled = { epgFocusRequestTargetIndex = null },
+                onSetFallbackFocusSuppressed = {
+                    focusState = focusState.copy(
+                        epg = focusState.epg.copy(suppressFallback = it)
+                    )
+                },
+                focusRequestToken = focusState.epg.requestToken,
+                focusRequestTargetIndex = focusState.epg.targetIndex,
+                onFocusRequestHandled = {
+                    focusState = focusState.copy(
+                        epg = focusState.epg.copy(targetIndex = null)
+                    )
+                },
                 modifier = Modifier.align(Alignment.CenterEnd)
             )
         }
@@ -541,31 +564,16 @@ fun PlayerScreen(
                     if (uiState.showEpgPanel) {
                         val programIndex = uiState.epgPrograms.indexOf(program)
                         val targetIndex = programIndex.takeIf { it >= 0 }
-                        suppressFallbackEpgFocus = targetIndex != null
+                        focusState = focusState.copy(
+                            epg = focusState.epg.copy(
+                                suppressFallback = targetIndex != null
+                            )
+                        )
                         requestEpgFocus(targetIndex)
                     }
                 },
                 modifier = Modifier.align(Alignment.Center)
             )
-        }
-        LaunchedEffect(uiState.selectedProgramDetails) {
-            if (uiState.selectedProgramDetails != null) {
-                suppressFallbackEpgFocus = false
-            }
-        }
-        LaunchedEffect(
-            uiState.selectedProgramDetails,
-            uiState.showEpgPanel,
-            epgFocusRequestTargetIndex,
-            suppressFallbackEpgFocus
-        ) {
-            if (uiState.selectedProgramDetails == null &&
-                uiState.showEpgPanel &&
-                epgFocusRequestTargetIndex == null &&
-                !suppressFallbackEpgFocus
-            ) {
-                requestEpgFocus(null)
-            }
         }
 
         // Debug Log Panel
@@ -584,6 +592,62 @@ fun PlayerScreen(
                 onContinue = actions.onArchivePromptContinue,
                 onBackToLive = actions.onArchivePromptBackToLive
             )
+        }
+    }
+}
+
+/**
+ * Composable helper for focus-related LaunchedEffects
+ * Consolidates all focus transition logic for better organization
+ */
+@Composable
+private fun PlayerScreenFocusEffects(
+    uiState: PlayerUiState,
+    focusState: PlayerFocusState,
+    onFocusStateChange: (PlayerFocusState) -> Unit,
+    requestEpgFocus: (Int?) -> Unit,
+    requestPlaylistFocusSafe: () -> Unit
+) {
+    // Panel visibility changes
+    LaunchedEffect(uiState.showEpgPanel, uiState.showPlaylist, focusState.compose.playlistReady) {
+        if (uiState.showEpgPanel) {
+            requestEpgFocus(null)
+        } else if (uiState.showPlaylist && focusState.compose.playlistReady) {
+            requestPlaylistFocusSafe()
+        }
+    }
+
+    // EPG panel cleanup when closed
+    LaunchedEffect(uiState.showEpgPanel) {
+        if (!uiState.showEpgPanel) {
+            onFocusStateChange(focusState.copy(epg = EpgFocusState()))
+        }
+    }
+
+    // Program details focus restoration
+    LaunchedEffect(uiState.selectedProgramDetails) {
+        if (uiState.selectedProgramDetails != null) {
+            onFocusStateChange(
+                focusState.copy(
+                    epg = focusState.epg.copy(suppressFallback = false)
+                )
+            )
+        }
+    }
+
+    // EPG fallback focus when program details closes
+    LaunchedEffect(
+        uiState.selectedProgramDetails,
+        uiState.showEpgPanel,
+        focusState.epg.targetIndex,
+        focusState.epg.suppressFallback
+    ) {
+        if (uiState.selectedProgramDetails == null &&
+            uiState.showEpgPanel &&
+            focusState.epg.targetIndex == null &&
+            !focusState.epg.suppressFallback
+        ) {
+            requestEpgFocus(null)
         }
     }
 }
@@ -681,7 +745,9 @@ private fun PlayerView.bindControls(
     actions: PlayerUiActions,
     onNavigateLeftToFavorites: (() -> Unit)?,
     onNavigateRightToRotate: (() -> Unit)?,
-    onControlsInteraction: (() -> Unit)?
+    onControlsInteraction: (() -> Unit)?,
+    onForceFavoritesHighlight: (() -> Unit)? = null,
+    onForceRotateHighlight: (() -> Unit)? = null
 ) {
     applyControlCustomizations(
         isArchivePlayback = uiState.isArchivePlayback,
@@ -693,7 +759,9 @@ private fun PlayerView.bindControls(
         onResumePlayback = actions.onResumePlayback,
         onNavigateLeftToFavorites = onNavigateLeftToFavorites,
         onNavigateRightToRotate = onNavigateRightToRotate,
-        onControlsInteraction = onControlsInteraction
+        onControlsInteraction = onControlsInteraction,
+        onForceFavoritesHighlight = onForceFavoritesHighlight,
+        onForceRotateHighlight = onForceRotateHighlight
     )
 }
 
@@ -707,7 +775,9 @@ private fun PlayerView.applyControlCustomizations(
     onResumePlayback: () -> Unit,
     onNavigateLeftToFavorites: (() -> Unit)? = null,
     onNavigateRightToRotate: (() -> Unit)? = null,
-    onControlsInteraction: (() -> Unit)? = null
+    onControlsInteraction: (() -> Unit)? = null,
+    onForceFavoritesHighlight: (() -> Unit)? = null,
+    onForceRotateHighlight: (() -> Unit)? = null
 ) {
     setShowPreviousButton(true)
     setShowNextButton(true)
@@ -741,6 +811,7 @@ private fun PlayerView.applyControlCustomizations(
         when (keyCode) {
             android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
                 if (event.repeatCount > 0 || event.isLongPress) {
+                    onForceFavoritesHighlight?.invoke()
                     onNavigateLeftToFavorites?.invoke()
                     return@setOnKeyListener true
                 }
@@ -748,6 +819,7 @@ private fun PlayerView.applyControlCustomizations(
             }
             android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
                 if (event.repeatCount > 0 || event.isLongPress) {
+                    onForceRotateHighlight?.invoke()
                     onNavigateRightToRotate?.invoke()
                     return@setOnKeyListener true
                 }
@@ -776,6 +848,7 @@ private fun PlayerView.applyControlCustomizations(
                 onControlsInteraction?.invoke()
                 if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT && hasFocus()) {
                     if (event.repeatCount > 0 || event.isLongPress) {
+                        onForceFavoritesHighlight?.invoke()
                         onNavigateLeftToFavorites?.invoke()
                         return@setOnKeyListener true
                     }
@@ -808,6 +881,7 @@ private fun PlayerView.applyControlCustomizations(
                 onControlsInteraction?.invoke()
                 if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT && hasFocus()) {
                     if (event.repeatCount > 0 || event.isLongPress) {
+                        onForceRotateHighlight?.invoke()
                         post { onNavigateRightToRotate?.invoke() }
                         return@setOnKeyListener true
                     }
@@ -841,6 +915,7 @@ private fun PlayerView.applyControlCustomizations(
                     onControlsInteraction?.invoke()
                     if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT && hasFocus()) {
                         if (event.repeatCount > 0 || event.isLongPress) {
+                            onForceFavoritesHighlight?.invoke()
                             Timber.d("CustomControlFocus | rewind control long-press LEFT -> Favorites")
                             post { onNavigateLeftToFavorites?.invoke() }
                             return@setOnKeyListener true
@@ -877,14 +952,15 @@ private fun PlayerView.applyControlCustomizations(
             isFocusable = true
             isFocusableInTouchMode = false
             setOnKeyListener { _, keyCode, event ->
-                if (event.action == android.view.KeyEvent.ACTION_DOWN) {
-                    onControlsInteraction?.invoke()
-                    if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT && hasFocus()) {
-                        if (event.repeatCount > 0 || event.isLongPress) {
-                            Timber.d("CustomControlFocus | ffwd control long-press RIGHT -> Rotate")
-                            post { onNavigateRightToRotate?.invoke() }
-                            return@setOnKeyListener true
-                        }
+            if (event.action == android.view.KeyEvent.ACTION_DOWN) {
+                onControlsInteraction?.invoke()
+                if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT && hasFocus()) {
+                    if (event.repeatCount > 0 || event.isLongPress) {
+                        onForceRotateHighlight?.invoke()
+                        Timber.d("CustomControlFocus | ffwd control long-press RIGHT -> Rotate")
+                        post { onNavigateRightToRotate?.invoke() }
+                        return@setOnKeyListener true
+                    }
                         if (moveWithinExo(this, toLeft = false)) return@setOnKeyListener true
                         return@setOnKeyListener true
                     } else if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT && hasFocus()) {
@@ -963,7 +1039,13 @@ private fun PlayerView.applyControlCustomizations(
                 }
                 if (isLeft || isRight) {
                     if (event.repeatCount > 0 || event.isLongPress) {
-                        if (isLeft) onNavigateLeftToFavorites?.invoke() else onNavigateRightToRotate?.invoke()
+                        if (isLeft) {
+                            onForceFavoritesHighlight?.invoke()
+                            onNavigateLeftToFavorites?.invoke()
+                        } else {
+                            onForceRotateHighlight?.invoke()
+                            onNavigateRightToRotate?.invoke()
+                        }
                         return@setOnKeyListener true
                     }
                 }
