@@ -3,9 +3,6 @@ package com.rutv.ui.mobile.screens
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import android.annotation.SuppressLint
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -361,12 +358,8 @@ fun PlayerScreen(
 
 
         // Custom Control Buttons Overlay (bottom) - synced with ExoPlayer controls
-        AnimatedVisibility(
-            visible = showControls,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier.fillMaxSize()
-        ) {
+        // No animation - hide/show instantly together with ExoPlayer controls
+        if (showControls) {
             CustomControlButtons(
                 onPlaylistClick = actions.onTogglePlaylist,
                 onFavoritesClick = actions.onToggleFavorites,
@@ -462,12 +455,8 @@ fun PlayerScreen(
         customControlFocusCoordinator.Bind(leftColumnFocusRequesters, rightColumnFocusRequesters)
 
         // Channel Info Overlay (top center) - hide with controls
-        AnimatedVisibility(
-            visible = showControls,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier.align(Alignment.TopCenter)
-        ) {
+        // No animation - hide/show instantly together with ExoPlayer controls
+        if (showControls) {
             uiState.currentChannel?.let { channel ->
                 ChannelInfoOverlay(
                     channelNumber = uiState.currentChannelIndex + 1,

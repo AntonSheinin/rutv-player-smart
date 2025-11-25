@@ -242,6 +242,8 @@ fun SettingsScreen(
             }
 
             item {
+                val reloadButtonFocus = remember { FocusRequester() }
+                var isFocused by remember { mutableStateOf(false) }
                 Button(
                     onClick = {
                         if (viewState.playlistSource is PlaylistSource.None) {
@@ -250,7 +252,27 @@ fun SettingsScreen(
                             showReloadDialog = true
                         }
                     },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusable(enabled = DeviceHelper.isRemoteInputActive())
+                        .focusRequester(reloadButtonFocus)
+                        .onFocusChanged { isFocused = it.isFocused }
+                        .then(focusIndicatorModifier(isFocused = isFocused))
+                        .onKeyEvent { event ->
+                            if (DeviceHelper.isRemoteInputActive() && isFocused && event.type == KeyEventType.KeyDown) {
+                                when (event.key) {
+                                    Key.DirectionCenter, Key.Enter -> {
+                                        if (viewState.playlistSource is PlaylistSource.None) {
+                                            showNoPlaylistDialog = true
+                                        } else {
+                                            showReloadDialog = true
+                                        }
+                                        true
+                                    }
+                                    else -> false
+                                }
+                            } else false
+                        },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.ruTvColors.selectedBackground,
                         contentColor = MaterialTheme.ruTvColors.textPrimary
@@ -347,9 +369,31 @@ fun SettingsScreen(
             }
 
             item {
+                val clearCacheButtonFocus = remember { FocusRequester() }
+                var isFocused by remember { mutableStateOf(false) }
                 Button(
                     onClick = onClearEpgCache,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusable(enabled = DeviceHelper.isRemoteInputActive())
+                        .focusRequester(clearCacheButtonFocus)
+                        .onFocusChanged { isFocused = it.isFocused }
+                        .then(focusIndicatorModifier(isFocused = isFocused))
+                        .onKeyEvent { event ->
+                            if (DeviceHelper.isRemoteInputActive() && isFocused && event.type == KeyEventType.KeyDown) {
+                                when (event.key) {
+                                    Key.DirectionCenter, Key.Enter -> {
+                                        onClearEpgCache()
+                                        true
+                                    }
+                                    else -> false
+                                }
+                            } else false
+                        },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.ruTvColors.selectedBackground,
+                        contentColor = MaterialTheme.ruTvColors.textPrimary
+                    )
                 ) {
                     Text(text = stringResource(R.string.settings_clear_epg_cache))
                 }

@@ -149,13 +149,7 @@ fun CustomControlButtons(
                 return@leftHandler false
             }
 
-            // Check for long-press navigation to ExoPlayer (Option A)
-            val isLongPress = (event.nativeKeyEvent?.repeatCount ?: 0) > 0
-            if (isLongPress && index == 1 && event.key == Key.DirectionRight) {
-                // Long-press RIGHT from Favorites → ExoPlayer
-                onNavigateRightFromFavorites?.invoke()
-                return@leftHandler true
-            }
+            // Long-press navigation to ExoPlayer removed - no navigation from custom buttons to ExoPlayer
 
             when (index) {
                 0 -> when (event.key) {
@@ -171,8 +165,8 @@ fun CustomControlButtons(
                 1 -> when (event.key) {
                     Key.DirectionLeft -> true
                     Key.DirectionRight -> {
-                        // Single press RIGHT from Favorites - no navigation (requires long-press)
-                        false
+                        // Navigate to Rotate button (right column, index 1)
+                        moveWithinCustomButtons(1, ColumnSide.LEFT, Key.DirectionRight, toLeft = false)
                     }
                     Key.DirectionUp -> {
                         moveWithinCustomButtons(1, ColumnSide.LEFT, Key.DirectionUp, toLeft = false)
@@ -206,13 +200,7 @@ fun CustomControlButtons(
                 return@rightHandler false
             }
 
-            // Check for long-press navigation to ExoPlayer (Option A)
-            val isLongPress = (event.nativeKeyEvent?.repeatCount ?: 0) > 0
-            if (isLongPress && index == 1 && event.key == Key.DirectionLeft) {
-                // Long-press LEFT from Rotate → ExoPlayer
-                onNavigateLeftFromRotate?.invoke()
-                return@rightHandler true
-            }
+            // Long-press navigation to ExoPlayer removed - no navigation from custom buttons to ExoPlayer
 
             when (index) {
                 0 -> when (event.key) {
@@ -227,8 +215,8 @@ fun CustomControlButtons(
                 }
                 1 -> when (event.key) {
                     Key.DirectionLeft -> {
-                        // Single press LEFT from Rotate - no navigation (requires long-press)
-                        false
+                        // Navigate to Favorites button (left column, index 1)
+                        moveWithinCustomButtons(1, ColumnSide.RIGHT, Key.DirectionLeft, toLeft = true)
                     }
                     Key.DirectionUp -> {
                         moveWithinCustomButtons(1, ColumnSide.RIGHT, Key.DirectionUp, toLeft = false)

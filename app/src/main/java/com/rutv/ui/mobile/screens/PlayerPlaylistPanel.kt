@@ -421,14 +421,30 @@ internal fun PlaylistPanel(
                                 KeyEventType.KeyDown -> {
                                     when (event.key) {
                                         Key.DirectionUp -> {
-                                            if (focusedChannelIndex > 0) {
-                                                focusChannel(focusedChannelIndex - 1, false)
+                                            // Find previous channel in displayedList, then get its index in channels
+                                            val currentDisplayedIndex = displayedList.indexOfFirst {
+                                                channels.indexOf(it) == focusedChannelIndex
+                                            }
+                                            if (currentDisplayedIndex > 0) {
+                                                val prevChannel = displayedList[currentDisplayedIndex - 1]
+                                                val prevChannelIndex = channels.indexOf(prevChannel)
+                                                if (prevChannelIndex >= 0) {
+                                                    focusChannel(prevChannelIndex, false)
+                                                }
                                             }
                                             true
                                         }
                                         Key.DirectionDown -> {
-                                            if (focusedChannelIndex < channels.lastIndex) {
-                                                focusChannel(focusedChannelIndex + 1, false)
+                                            // Find next channel in displayedList, then get its index in channels
+                                            val currentDisplayedIndex = displayedList.indexOfFirst {
+                                                channels.indexOf(it) == focusedChannelIndex
+                                            }
+                                            if (currentDisplayedIndex >= 0 && currentDisplayedIndex < displayedList.lastIndex) {
+                                                val nextChannel = displayedList[currentDisplayedIndex + 1]
+                                                val nextChannelIndex = channels.indexOf(nextChannel)
+                                                if (nextChannelIndex >= 0) {
+                                                    focusChannel(nextChannelIndex, false)
+                                                }
                                             }
                                             true
                                         }
