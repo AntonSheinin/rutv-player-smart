@@ -147,40 +147,39 @@ internal fun PlaylistPanel(
     var pendingScrollJob by remember { mutableStateOf<Job?>(null) }
 
     val focusChannel: (Int, Boolean) -> Boolean = { targetIndex, play ->
-        if (targetIndex !in channels.indices) {
-            false
-        } else {
-            // If playing, always call onChannelClick even if not in displayedList
-            // This handles favorites view where displayedList is filtered
-            if (play) {
+        when {
+            targetIndex !in channels.indices -> false
+            play -> {
+                // If playing, always call onChannelClick even if not in displayedList
+                // This handles favorites view where displayedList is filtered
                 onChannelClick(targetIndex)
-                return@focusChannel true
+                true
             }
-
-            // For focus-only operations, check if in displayedList
-            if (targetIndex !in displayedList.indices) {
+            targetIndex !in displayedList.indices -> {
+                // For focus-only operations, check if in displayedList
                 onRequestMoreChannels(targetIndex + PLAYLIST_PREFETCH_MARGIN)
-                return@focusChannel false
+                false
             }
-
-            focusedChannelIndex = targetIndex
-            onChannelFocused?.invoke(targetIndex)
-            playlistHasFocus = true
-            val shouldScroll = !listState.isItemFullyVisible(targetIndex)
-            if (shouldScroll) {
-                val scrollOffset = when {
-                    targetIndex <= 0 -> 0
-                    targetIndex >= channels.lastIndex -> 0
-                    else -> -160
+            else -> {
+                focusedChannelIndex = targetIndex
+                onChannelFocused?.invoke(targetIndex)
+                playlistHasFocus = true
+                val shouldScroll = !listState.isItemFullyVisible(targetIndex)
+                if (shouldScroll) {
+                    val scrollOffset = when {
+                        targetIndex <= 0 -> 0
+                        targetIndex >= channels.lastIndex -> 0
+                        else -> -160
+                    }
+                    pendingScrollJob?.cancel()
+                    pendingScrollJob = coroutineScope.launch {
+                        listState.scrollToItem(targetIndex, scrollOffset = scrollOffset)
+                    }.apply {
+                        invokeOnCompletion { pendingScrollJob = null }
+                    }
                 }
-                pendingScrollJob?.cancel()
-                pendingScrollJob = coroutineScope.launch {
-                    listState.scrollToItem(targetIndex, scrollOffset = scrollOffset)
-                }.apply {
-                    invokeOnCompletion { pendingScrollJob = null }
-                }
+                true
             }
-            true
         }
     }
     val lazyColumnFocusRequester = remember { FocusRequester() }
