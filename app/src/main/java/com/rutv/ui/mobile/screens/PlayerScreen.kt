@@ -467,7 +467,9 @@ fun PlayerScreen(
                     archiveProgram = uiState.archiveProgram,
                     onReturnToLive = actions.onReturnToLive,
                     onShowProgramInfo = actions.onShowProgramDetails,
-                    modifier = Modifier.padding(LayoutConstants.DefaultPadding)
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(LayoutConstants.DefaultPadding)
                 )
             }
         }

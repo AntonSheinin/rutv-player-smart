@@ -531,24 +531,39 @@ class MainViewModel @Inject constructor(
     }
 
     /**
-     * Play channel at index
+     * Play channel at index.
+     * Handles filtered lists (favorites) by mapping index to main list.
      */
     fun playChannel(index: Int) {
         viewModelScope.launch {
-            playerManager.playChannel(index)
+            // Map index from current filtered list to actual channel
+            val currentState = _viewState.value
+            val channelList = if (currentState.showFavoritesOnly) currentState.filteredChannels else currentState.channels
 
-            // Save last played index
-            preferencesRepository.saveLastPlayedIndex(index)
+            if (index in channelList.indices) {
+                val channel = channelList[index]
+                // Find true index in main channel list
+                val mainIndex = currentState.channels.indexOf(channel)
 
-            // Hide playlist and EPG
-            _viewState.update {
-                it.copy(
-                    showPlaylist = false,
-                    showEpgPanel = false,
-                    isArchivePlayback = false,
-                    isTimeshiftPlayback = false,
-                    archiveProgram = null
-                )
+                if (mainIndex >= 0) {
+                    playerManager.playChannel(mainIndex)
+
+                    // Save last played index
+                    preferencesRepository.saveLastPlayedIndex(mainIndex)
+
+                    // Hide playlist and EPG
+                    _viewState.update {
+                        it.copy(
+                            showPlaylist = false,
+                            showEpgPanel = false,
+                            isArchivePlayback = false,
+                            isTimeshiftPlayback = false,
+                            archiveProgram = null,
+                            currentChannelIndex = mainIndex,
+                            currentChannel = channel
+                        )
+                    }
+                }
             }
         }
     }

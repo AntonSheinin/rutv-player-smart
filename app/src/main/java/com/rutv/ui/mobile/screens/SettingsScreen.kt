@@ -111,9 +111,27 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        val backButtonFocus = remember { FocusRequester() }
+                        var isBackFocused by remember { mutableStateOf(false) }
                         TextButton(
                             onClick = onBack,
-                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
+                            modifier = Modifier
+                                .focusable(enabled = DeviceHelper.isRemoteInputActive())
+                                .focusRequester(backButtonFocus)
+                                .onFocusChanged { isBackFocused = it.isFocused }
+                                .then(focusIndicatorModifier(isFocused = isBackFocused))
+                                .onKeyEvent { event ->
+                                    if (DeviceHelper.isRemoteInputActive() && isBackFocused && event.type == KeyEventType.KeyDown) {
+                                        when (event.key) {
+                                            Key.DirectionCenter, Key.Enter -> {
+                                                onBack()
+                                                true
+                                            }
+                                            else -> false
+                                        }
+                                    } else false
+                                }
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
