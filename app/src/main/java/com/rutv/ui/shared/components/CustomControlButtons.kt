@@ -51,6 +51,8 @@ import com.rutv.ui.shared.components.focusIndicatorModifier
 
 private const val DISABLED_CONTROL_ALPHA = 0.4f
 
+private enum class ColumnSide { LEFT, RIGHT }
+
 /**
  * Custom control buttons overlay for player
  */
@@ -139,8 +141,6 @@ fun CustomControlButtons(
                 true
             } ?: false
         }
-
-        enum class ColumnSide { LEFT, RIGHT }
 
         val leftColumnKeyHandler: (Int, KeyEvent) -> Boolean = leftHandler@{ index, event ->
             if (event.type != KeyEventType.KeyDown) return@leftHandler false

@@ -245,7 +245,7 @@ internal fun EpgPanel(
     // Register with focus manager
     val lazyColumnFocusRequester = remember { FocusRequester() }
 
-    LaunchedEffect(lazyColumnFocusRequester, focusProgram) {
+    LaunchedEffect(lazyColumnFocusRequester) {
         focusManager.registerEntry(PlayerFocusDestination.EPG_PANEL, lazyColumnFocusRequester)
         focusManager.registerFocusCallback(PlayerFocusDestination.EPG_PANEL) { index, _ ->
             focusProgram(index)

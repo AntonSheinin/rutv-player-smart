@@ -87,6 +87,7 @@ fun PlayerScreen(
         }
     }
     val focusManager = rememberPlayerFocusManager(initial = PlayerFocusDestination.NONE, log = debugLogger)
+    val coroutineScope = rememberCoroutineScope()
     var showControls by remember { mutableStateOf(false) }
     var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
     var lastControlsInteractionAt by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -102,26 +103,28 @@ fun PlayerScreen(
     val customControlFocusCoordinator = rememberCustomControlFocusCoordinator()
 
     // Helper function to focus ExoPlayer controls (consolidated logic)
-    val focusExoPlayerControls: (Boolean) -> Unit = remember(playerViewRef) { { focusLeftmost ->
-        playerViewRef?.post {
-            if (focusLeftmost) {
-                playerViewRef?.focusOnControl(
-                    "exo_prev",
-                    "exo_rew",
-                    "exo_rew_with_amount",
-                    "exo_play_pause",
-                    "exo_play",
-                    "exo_pause"
-                )
-            } else {
-                playerViewRef?.focusOnControl(
-                    "exo_ffwd",
-                    "exo_ffwd_with_amount",
-                    "exo_next",
-                    "exo_play_pause",
-                    "exo_play",
-                    "exo_pause"
-                )
+    val focusExoPlayerControls: (Boolean) -> Unit = remember(playerViewRef) { 
+        { focusLeftmost: Boolean ->
+            playerViewRef?.post {
+                if (focusLeftmost) {
+                    playerViewRef?.focusOnControl(
+                        "exo_prev",
+                        "exo_rew",
+                        "exo_rew_with_amount",
+                        "exo_play_pause",
+                        "exo_play",
+                        "exo_pause"
+                    )
+                } else {
+                    playerViewRef?.focusOnControl(
+                        "exo_ffwd",
+                        "exo_ffwd_with_amount",
+                        "exo_next",
+                        "exo_play_pause",
+                        "exo_play",
+                        "exo_pause"
+                    )
+                }
             }
         }
     }
@@ -193,7 +196,6 @@ fun PlayerScreen(
                 }
             }
         }
-    }
     }
 
     LaunchedEffect(showControls) {
@@ -379,10 +381,11 @@ fun PlayerScreen(
                         // Use post for consistent timing with ExoPlayer controls
                         playerViewRef?.post {
                             focusExoPlayerControls(true)
-                            // Reset flag after a short delay to allow focus to settle
-                            playerViewRef?.postDelayed({
-                                isNavigatingWithinPlayerControls = false
-                            }, 100)
+                        }
+                        // Reset flag after a short delay to allow focus to settle
+                        coroutineScope.launch {
+                            delay(100)
+                            isNavigatingWithinPlayerControls = false
                         }
                     }
                 },
@@ -394,10 +397,11 @@ fun PlayerScreen(
                         // Use post for consistent timing with ExoPlayer controls
                         playerViewRef?.post {
                             focusExoPlayerControls(false)
-                            // Reset flag after a short delay to allow focus to settle
-                            playerViewRef?.postDelayed({
-                                isNavigatingWithinPlayerControls = false
-                            }, 100)
+                        }
+                        // Reset flag after a short delay to allow focus to settle
+                        coroutineScope.launch {
+                            delay(100)
+                            isNavigatingWithinPlayerControls = false
                         }
                     }
                 },
@@ -419,10 +423,11 @@ fun PlayerScreen(
                                     leftColumnFocusRequesters,
                                     rightColumnFocusRequesters
                                 )
-                                // Reset flag after a short delay
-                                playerViewRef?.postDelayed({
-                                    isNavigatingWithinPlayerControls = false
-                                }, 100)
+                            }
+                            // Reset flag after a short delay
+                            coroutineScope.launch {
+                                delay(100)
+                                isNavigatingWithinPlayerControls = false
                             }
                         }
                     }
@@ -439,10 +444,11 @@ fun PlayerScreen(
                                     leftColumnFocusRequesters,
                                     rightColumnFocusRequesters
                                 )
-                                // Reset flag after a short delay
-                                playerViewRef?.postDelayed({
-                                    isNavigatingWithinPlayerControls = false
-                                }, 100)
+                            }
+                            // Reset flag after a short delay
+                            coroutineScope.launch {
+                                delay(100)
+                                isNavigatingWithinPlayerControls = false
                             }
                         }
                     }

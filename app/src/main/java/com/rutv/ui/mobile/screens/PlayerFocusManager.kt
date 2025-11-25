@@ -30,9 +30,10 @@ enum class PlayerFocusDestination {
  * Replaces imperative RemoteFocusCoordinator with declarative state machine.
  */
 class PlayerFocusManager(
-    private val log: ((String) -> Unit)?
+    private val log: ((String) -> Unit)?,
+    initial: PlayerFocusDestination = PlayerFocusDestination.NONE
 ) {
-    private val destinationState = mutableStateOf<PlayerFocusDestination>(PlayerFocusDestination.NONE)
+    private val destinationState = mutableStateOf<PlayerFocusDestination>(initial)
     val currentDestination: PlayerFocusDestination
         get() = destinationState.value
 
@@ -111,9 +112,7 @@ fun rememberPlayerFocusManager(
     initial: PlayerFocusDestination = PlayerFocusDestination.NONE,
     log: ((String) -> Unit)? = null
 ): PlayerFocusManager = remember(initial, log) {
-    PlayerFocusManager(log).apply {
-        destinationState.value = initial
-    }
+    PlayerFocusManager(log, initial)
 }
 
 /**
