@@ -1,5 +1,7 @@
 package com.rutv.ui.shared.components
 
+import com.rutv.ui.mobile.screens.PlayerFocusManager
+import com.rutv.ui.mobile.screens.PlayerFocusDestination
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -61,6 +63,7 @@ fun CustomControlButtons(
     onSettingsClick: () -> Unit,
     onNavigateRightFromFavorites: (() -> Unit)? = null,
     onNavigateLeftFromRotate: (() -> Unit)? = null,
+    focusManager: com.rutv.ui.mobile.screens.PlayerFocusManager? = null,
     onRegisterFocusRequesters: ((List<FocusRequester>, List<FocusRequester>) -> Unit)? = null,
     onRegisterForcedFocusHints: ((setFavoritesHint: (Boolean) -> Unit, setRotateHint: (Boolean) -> Unit) -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -93,17 +96,74 @@ fun CustomControlButtons(
             )
         }
 
+        // Navigation helper function - similar to moveWithinExo for ExoPlayer controls
+        fun moveWithinCustomButtons(
+            fromIndex: Int,
+            fromColumn: ColumnSide,
+            direction: Key,
+            toLeft: Boolean
+        ): Boolean {
+            val target = when {
+                direction == Key.DirectionRight && fromColumn == ColumnSide.LEFT -> {
+                    when (fromIndex) {
+                        0 -> rightColumnFocusRequesters.getOrNull(0)
+                        2 -> rightColumnFocusRequesters.getOrNull(2)
+                        else -> null
+                    }
+                }
+                direction == Key.DirectionLeft && fromColumn == ColumnSide.RIGHT -> {
+                    when (fromIndex) {
+                        0 -> leftColumnFocusRequesters.getOrNull(0)
+                        2 -> leftColumnFocusRequesters.getOrNull(2)
+                        else -> null
+                    }
+                }
+                direction == Key.DirectionDown -> {
+                    when {
+                        fromColumn == ColumnSide.LEFT && fromIndex < 2 -> leftColumnFocusRequesters.getOrNull(fromIndex + 1)
+                        fromColumn == ColumnSide.RIGHT && fromIndex < 2 -> rightColumnFocusRequesters.getOrNull(fromIndex + 1)
+                        else -> null
+                    }
+                }
+                direction == Key.DirectionUp -> {
+                    when {
+                        fromColumn == ColumnSide.LEFT && fromIndex > 0 -> leftColumnFocusRequesters.getOrNull(fromIndex - 1)
+                        fromColumn == ColumnSide.RIGHT && fromIndex > 0 -> rightColumnFocusRequesters.getOrNull(fromIndex - 1)
+                        else -> null
+                    }
+                }
+                else -> null
+            }
+            return target?.let {
+                it.requestFocus()
+                true
+            } ?: false
+        }
+
+        enum class ColumnSide { LEFT, RIGHT }
+
         val leftColumnKeyHandler: (Int, KeyEvent) -> Boolean = leftHandler@{ index, event ->
             if (event.type != KeyEventType.KeyDown) return@leftHandler false
+            // Only handle navigation if PLAYER_CONTROLS is active (or focusManager not provided)
+            if (focusManager != null && focusManager.currentDestination != PlayerFocusDestination.PLAYER_CONTROLS) {
+                return@leftHandler false
+            }
+
+            // Check for long-press navigation to ExoPlayer (Option A)
+            val isLongPress = (event.nativeKeyEvent?.repeatCount ?: 0) > 0
+            if (isLongPress && index == 1 && event.key == Key.DirectionRight) {
+                // Long-press RIGHT from Favorites → ExoPlayer
+                onNavigateRightFromFavorites?.invoke()
+                return@leftHandler true
+            }
+
             when (index) {
                 0 -> when (event.key) {
                     Key.DirectionRight -> {
-                        rightColumnFocusRequesters.getOrNull(0)?.requestFocus()
-                        true
+                        moveWithinCustomButtons(0, ColumnSide.LEFT, Key.DirectionRight, toLeft = false)
                     }
                     Key.DirectionDown -> {
-                        leftColumnFocusRequesters.getOrNull(1)?.requestFocus()
-                        true
+                        moveWithinCustomButtons(0, ColumnSide.LEFT, Key.DirectionDown, toLeft = false)
                     }
                     Key.DirectionLeft, Key.DirectionUp -> true
                     else -> false
@@ -111,32 +171,27 @@ fun CustomControlButtons(
                 1 -> when (event.key) {
                     Key.DirectionLeft -> true
                     Key.DirectionRight -> {
-                        onNavigateRightFromFavorites?.invoke()
-                        true
+                        // Single press RIGHT from Favorites - no navigation (requires long-press)
+                        false
                     }
                     Key.DirectionUp -> {
-                        leftColumnFocusRequesters.getOrNull(0)?.requestFocus()
-                        true
+                        moveWithinCustomButtons(1, ColumnSide.LEFT, Key.DirectionUp, toLeft = false)
                     }
                     Key.DirectionDown -> {
-                        leftColumnFocusRequesters.getOrNull(2)?.requestFocus()
-                        true
+                        moveWithinCustomButtons(1, ColumnSide.LEFT, Key.DirectionDown, toLeft = false)
                     }
                     else -> false
                 }
                 2 -> when (event.key) {
                     Key.DirectionLeft -> true
                     Key.DirectionRight -> {
-                        rightColumnFocusRequesters.getOrNull(2)?.requestFocus()
-                        true
+                        moveWithinCustomButtons(2, ColumnSide.LEFT, Key.DirectionRight, toLeft = false)
                     }
                     Key.DirectionDown -> {
-                        leftColumnFocusRequesters.getOrNull(1)?.requestFocus()
-                        true
+                        moveWithinCustomButtons(2, ColumnSide.LEFT, Key.DirectionDown, toLeft = false)
                     }
                     Key.DirectionUp -> {
-                        leftColumnFocusRequesters.getOrNull(1)?.requestFocus()
-                        true
+                        moveWithinCustomButtons(2, ColumnSide.LEFT, Key.DirectionUp, toLeft = false)
                     }
                     else -> false
                 }
@@ -146,43 +201,50 @@ fun CustomControlButtons(
 
         val rightColumnKeyHandler: (Int, KeyEvent) -> Boolean = rightHandler@{ index, event ->
             if (event.type != KeyEventType.KeyDown) return@rightHandler false
+            // Only handle navigation if PLAYER_CONTROLS is active (or focusManager not provided)
+            if (focusManager != null && focusManager.currentDestination != PlayerFocusDestination.PLAYER_CONTROLS) {
+                return@rightHandler false
+            }
+
+            // Check for long-press navigation to ExoPlayer (Option A)
+            val isLongPress = (event.nativeKeyEvent?.repeatCount ?: 0) > 0
+            if (isLongPress && index == 1 && event.key == Key.DirectionLeft) {
+                // Long-press LEFT from Rotate → ExoPlayer
+                onNavigateLeftFromRotate?.invoke()
+                return@rightHandler true
+            }
+
             when (index) {
                 0 -> when (event.key) {
                     Key.DirectionLeft -> {
-                        leftColumnFocusRequesters.getOrNull(0)?.requestFocus()
-                        true
+                        moveWithinCustomButtons(0, ColumnSide.RIGHT, Key.DirectionLeft, toLeft = true)
                     }
                     Key.DirectionDown -> {
-                        rightColumnFocusRequesters.getOrNull(1)?.requestFocus()
-                        true
+                        moveWithinCustomButtons(0, ColumnSide.RIGHT, Key.DirectionDown, toLeft = false)
                     }
                     Key.DirectionRight, Key.DirectionUp -> true
                     else -> false
                 }
                 1 -> when (event.key) {
                     Key.DirectionLeft -> {
-                        onNavigateLeftFromRotate?.invoke()
-                        true
+                        // Single press LEFT from Rotate - no navigation (requires long-press)
+                        false
                     }
                     Key.DirectionUp -> {
-                        rightColumnFocusRequesters.getOrNull(0)?.requestFocus()
-                        true
+                        moveWithinCustomButtons(1, ColumnSide.RIGHT, Key.DirectionUp, toLeft = false)
                     }
                     Key.DirectionDown -> {
-                        rightColumnFocusRequesters.getOrNull(2)?.requestFocus()
-                        true
+                        moveWithinCustomButtons(1, ColumnSide.RIGHT, Key.DirectionDown, toLeft = false)
                     }
                     Key.DirectionRight -> true
                     else -> false
                 }
                 2 -> when (event.key) {
                     Key.DirectionLeft -> {
-                        leftColumnFocusRequesters.getOrNull(2)?.requestFocus()
-                        true
+                        moveWithinCustomButtons(2, ColumnSide.RIGHT, Key.DirectionLeft, toLeft = true)
                     }
                     Key.DirectionUp -> {
-                        rightColumnFocusRequesters.getOrNull(1)?.requestFocus()
-                        true
+                        moveWithinCustomButtons(2, ColumnSide.RIGHT, Key.DirectionUp, toLeft = false)
                     }
                     Key.DirectionRight, Key.DirectionDown -> true
                     else -> false

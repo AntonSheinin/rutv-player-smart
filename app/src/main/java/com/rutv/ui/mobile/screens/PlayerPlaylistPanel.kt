@@ -98,8 +98,7 @@ internal fun PlaylistPanel(
     onClose: () -> Unit,
     onUpdateScrollIndex: (Int) -> Unit,
     onRequestMoreChannels: (Int) -> Unit,
-    onProvideFocusController: (((Int, Boolean) -> Boolean)?) -> Unit = {},
-    onProvideFocusRequester: ((FocusRequester?) -> Unit)? = null,
+    focusManager: PlayerFocusManager,
     onChannelFocused: ((Int) -> Unit)? = null,
     onRequestEpgFocus: (() -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -179,18 +178,19 @@ internal fun PlaylistPanel(
     }
     val lazyColumnFocusRequester = remember { FocusRequester() }
 
-    LaunchedEffect(Unit) {
-        onProvideFocusController(focusChannel)
-        onProvideFocusRequester?.invoke(lazyColumnFocusRequester)
+    // Register with focus manager
+    LaunchedEffect(lazyColumnFocusRequester, focusChannel) {
+        focusManager.registerEntry(PlayerFocusDestination.PLAYLIST_PANEL, lazyColumnFocusRequester)
+        focusManager.registerFocusCallback(PlayerFocusDestination.PLAYLIST_PANEL, focusChannel)
     }
 
-    val latestFocusedIndex by rememberUpdatedState(focusedChannelIndex)
-    val latestChannels by rememberUpdatedState(channels)
-    val latestCurrentChannelIndex by rememberUpdatedState(currentChannelIndex)
     DisposableEffect(Unit) {
         onDispose {
-            onProvideFocusController(null)
-            onProvideFocusRequester?.invoke(null)
+            focusManager.unregisterEntry(PlayerFocusDestination.PLAYLIST_PANEL)
+            focusManager.registerFocusCallback(PlayerFocusDestination.PLAYLIST_PANEL, null)
+            val latestFocusedIndex = focusedChannelIndex
+            val latestChannels = channels
+            val latestCurrentChannelIndex = currentChannelIndex
             val finalIndex = when {
                 latestChannels.isEmpty() -> -1
                 latestFocusedIndex in latestChannels.indices -> latestFocusedIndex
@@ -201,6 +201,13 @@ internal fun PlaylistPanel(
             if (finalIndex >= 0) {
                 onUpdateScrollIndex(finalIndex)
             }
+        }
+    }
+
+    // When playlist panel becomes active, ensure focus is on the list
+    LaunchedEffect(focusManager.currentDestination) {
+        if (focusManager.currentDestination == PlayerFocusDestination.PLAYLIST_PANEL) {
+            lazyColumnFocusRequester.requestFocus()
         }
     }
 

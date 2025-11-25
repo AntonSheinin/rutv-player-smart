@@ -103,12 +103,8 @@ internal fun EpgPanel(
     onClose: () -> Unit,
     onNavigateLeftToChannels: (() -> Unit)? = null,
     onOpenPlaylist: (() -> Unit)? = null,
+    focusManager: PlayerFocusManager,
     onEnsureDateRange: (Long, Long) -> Unit,
-    onSetFallbackFocusSuppressed: (Boolean) -> Unit,
-    onRequestFocus: (Int?) -> Unit = {},
-    focusRequestToken: Int = 0,
-    focusRequestTargetIndex: Int? = null,
-    onFocusRequestHandled: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -246,25 +242,37 @@ internal fun EpgPanel(
         pendingProgramCenterIndex = resolvedInitialItemIndex
     }
 
-    LaunchedEffect(focusRequestToken) {
-        if (focusRequestToken == 0) {
-            return@LaunchedEffect
+    // Register with focus manager
+    val lazyColumnFocusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(lazyColumnFocusRequester, focusProgram) {
+        focusManager.registerEntry(PlayerFocusDestination.EPG_PANEL, lazyColumnFocusRequester)
+        focusManager.registerFocusCallback(PlayerFocusDestination.EPG_PANEL) { index, _ ->
+            focusProgram(index)
         }
-        val requestTarget = focusRequestTargetIndex
-        val targetProgramIndex = when {
-            requestTarget != null && requestTarget in programs.indices ->
-                requestTarget
-            focusedProgramIndex in programs.indices -> focusedProgramIndex
-            resolvedInitialProgramIndex in programs.indices -> resolvedInitialProgramIndex
-            else -> null
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            focusManager.unregisterEntry(PlayerFocusDestination.EPG_PANEL)
+            focusManager.registerFocusCallback(PlayerFocusDestination.EPG_PANEL, null)
         }
-        val targetItemIndex = targetProgramIndex
-            ?.let { programItemIndices.getOrNull(it) }
-            ?: resolvedInitialItemIndex
-        if (targetItemIndex == null) {
-            onFocusRequestHandled()
+    }
+
+    // When EPG panel becomes active, ensure focus is on the list
+    LaunchedEffect(focusManager.currentDestination) {
+        if (focusManager.currentDestination == PlayerFocusDestination.EPG_PANEL) {
+            val targetProgramIndex = when {
+                focusedProgramIndex in programs.indices -> focusedProgramIndex
+                resolvedInitialProgramIndex in programs.indices -> resolvedInitialProgramIndex
+                else -> null
+            }
+            val targetItemIndex = targetProgramIndex
+                ?.let { programItemIndices.getOrNull(it) }
+                ?: resolvedInitialItemIndex
+            pendingProgramCenterIndex = targetItemIndex
+            lazyColumnFocusRequester.requestFocus()
         }
-        pendingProgramCenterIndex = targetItemIndex
     }
 
     LaunchedEffect(programs, channel?.tvgId, currentProgramIndex, programItemIndices) {
@@ -351,12 +359,9 @@ internal fun EpgPanel(
         if (targetIndex >= 0) {
             programItemIndices.getOrNull(targetIndex)?.let { pendingProgramCenterIndex = it }
             focusProgram(targetIndex)
-            onRequestFocus(targetIndex)
             pendingFocusDateRange = null
-            onSetFallbackFocusSuppressed(false)
         } else if (coverageSatisfied) {
             pendingFocusDateRange = null
-            onSetFallbackFocusSuppressed(false)
         }
     }
 
@@ -364,13 +369,11 @@ internal fun EpgPanel(
         val targetItemIndex = pendingProgramCenterIndex ?: return@LaunchedEffect
         if (programs.isEmpty()) {
             pendingProgramCenterIndex = null
-            onFocusRequestHandled()
             return@LaunchedEffect
         }
         val programIndex = programItemIndices.indexOf(targetItemIndex).takeIf { it >= 0 }
         if (programIndex == null) {
             pendingProgramCenterIndex = null
-            onFocusRequestHandled()
             return@LaunchedEffect
         }
         snapshotFlow { listState.layoutInfo.visibleItemsInfo.isNotEmpty() }
@@ -385,7 +388,6 @@ internal fun EpgPanel(
         }
         epgListHasFocus = true
         pendingProgramCenterIndex = null
-        onFocusRequestHandled()
     }
 
     // Lazy paging triggers near list edges
@@ -451,14 +453,7 @@ internal fun EpgPanel(
             // Programs List with scrollbar
             Box(modifier = Modifier.fillMaxSize()) {
                 // Focus requester for LazyColumn
-                val lazyColumnFocusRequester = remember { FocusRequester() }
-                // Request focus on LazyColumn when signaled
-                LaunchedEffect(focusRequestToken, isRemoteMode) {
-                    if (!isRemoteMode) return@LaunchedEffect
-                    delay(50)
-                    lazyColumnFocusRequester.requestFocus()
-                    epgListHasFocus = true
-                }
+                // Focus is managed by focusManager
 
                 LazyColumn(
                     state = listState,
@@ -667,11 +662,9 @@ internal fun EpgPanel(
                 val targetIndex = programs.indexOfFirst { it.startTimeMillis in dayRange }
                 if (targetIndex >= 0) {
                     focusProgram(targetIndex)
-                    onRequestFocus(targetIndex)
-                    onSetFallbackFocusSuppressed(false)
+                    focusManager.focusItem(PlayerFocusDestination.EPG_PANEL, targetIndex, false)
                 } else {
                     pendingFocusDateRange = dayRange
-                    onSetFallbackFocusSuppressed(true)
                 }
                 onEnsureDateRange(entry.startMillis, entry.endMillis)
                 showDatePicker = false
