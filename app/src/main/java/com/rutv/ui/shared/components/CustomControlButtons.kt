@@ -276,7 +276,13 @@ fun CustomControlButtons(
             onKeyHandler = leftColumnKeyHandler,
             isRemoteMode = isRemoteMode,
             externalForceIndex = if (forceFavoritesVisual) 1 else null,
-            onExternalConsumed = { forceFavoritesVisual = false }
+            onExternalConsumed = { forceFavoritesVisual = false },
+            onFocusChanged = { isFocused ->
+                // Clear forced visual when focus moves away from favorites button
+                if (!isFocused && forceFavoritesVisual) {
+                    forceFavoritesVisual = false
+                }
+            }
         )
 
         ControlColumn(
@@ -302,7 +308,13 @@ fun CustomControlButtons(
             onKeyHandler = rightColumnKeyHandler,
             isRemoteMode = isRemoteMode,
             externalForceIndex = if (forceRotateVisual) 1 else null,
-            onExternalConsumed = { forceRotateVisual = false }
+            onExternalConsumed = { forceRotateVisual = false },
+            onFocusChanged = { isFocused ->
+                // Clear forced visual when focus moves away from rotate button
+                if (!isFocused && forceRotateVisual) {
+                    forceRotateVisual = false
+                }
+            }
         )
     }
 }
@@ -321,7 +333,8 @@ private fun ControlColumn(
     onKeyHandler: ((Int, KeyEvent) -> Boolean)? = null,
     isRemoteMode: Boolean,
     externalForceIndex: Int? = null,
-    onExternalConsumed: () -> Unit = {}
+    onExternalConsumed: () -> Unit = {},
+    onFocusChanged: ((Boolean) -> Unit)? = null
 ) {
     Surface(
         modifier = modifier,
@@ -352,8 +365,15 @@ private fun ControlColumn(
                         .focusable()
                         .focusRequester(focusRequesters[index])
                         .onFocusChanged {
+                            val wasFocused = isFocused
                             isFocused = it.isFocused
-                            if (it.isFocused && forced) onExternalConsumed()
+                            if (it.isFocused && forced) {
+                                onExternalConsumed()
+                            }
+                            // Notify parent when focus changes, especially when losing focus
+                            if (wasFocused != it.isFocused) {
+                                onFocusChanged?.invoke(it.isFocused)
+                            }
                         }
                         .then(
                             if (isFocused || forced) {

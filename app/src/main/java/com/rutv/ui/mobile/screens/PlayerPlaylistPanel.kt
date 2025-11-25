@@ -149,10 +149,20 @@ internal fun PlaylistPanel(
     val focusChannel: (Int, Boolean) -> Boolean = { targetIndex, play ->
         if (targetIndex !in channels.indices) {
             false
-        } else if (targetIndex !in displayedList.indices) {
-            onRequestMoreChannels(targetIndex + PLAYLIST_PREFETCH_MARGIN)
-            false
         } else {
+            // If playing, always call onChannelClick even if not in displayedList
+            // This handles favorites view where displayedList is filtered
+            if (play) {
+                onChannelClick(targetIndex)
+                return@focusChannel true
+            }
+
+            // For focus-only operations, check if in displayedList
+            if (targetIndex !in displayedList.indices) {
+                onRequestMoreChannels(targetIndex + PLAYLIST_PREFETCH_MARGIN)
+                return@focusChannel false
+            }
+
             focusedChannelIndex = targetIndex
             onChannelFocused?.invoke(targetIndex)
             playlistHasFocus = true
@@ -169,9 +179,6 @@ internal fun PlaylistPanel(
                 }.apply {
                     invokeOnCompletion { pendingScrollJob = null }
                 }
-            }
-            if (play) {
-                onChannelClick(targetIndex)
             }
             true
         }

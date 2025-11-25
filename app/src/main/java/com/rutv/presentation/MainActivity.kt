@@ -26,7 +26,13 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.focusable
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onKeyEvent
 import com.rutv.ui.theme.ruTvColors
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
@@ -291,12 +297,38 @@ class MainActivity : ComponentActivity() {
                     )
                 },
                 text = {
+                    val textFieldFocus = remember { FocusRequester() }
+                    LaunchedEffect(showChannelDialog) {
+                        if (showChannelDialog && DeviceHelper.isRemoteInputActive()) {
+                            // Focus on text field first, then move to OK button
+                            kotlinx.coroutines.delay(100)
+                            textFieldFocus.requestFocus()
+                        }
+                    }
                     OutlinedTextField(
                         value = channelInput,
                         onValueChange = { new -> channelInput = new.filter { it.isDigit() }.take(4) },
                         label = { Text(getString(R.string.hint_channel_number, viewState.channels.size)) },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(textFieldFocus)
+                            .focusable(enabled = DeviceHelper.isRemoteInputActive())
+                            .onKeyEvent { event ->
+                                if (event.type == KeyEventType.KeyDown && DeviceHelper.isRemoteInputActive()) {
+                                    when (event.key) {
+                                        Key.DirectionDown, Key.DirectionRight -> {
+                                            // Move focus to OK button (handled by RemoteDialog)
+                                            false
+                                        }
+                                        Key.Back -> {
+                                            showChannelDialog = false
+                                            true
+                                        }
+                                        else -> false
+                                    }
+                                } else false
+                            },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = MaterialTheme.ruTvColors.gold,
                             unfocusedBorderColor = MaterialTheme.ruTvColors.textDisabled,

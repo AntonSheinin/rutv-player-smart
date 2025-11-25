@@ -103,7 +103,7 @@ fun PlayerScreen(
     val customControlFocusCoordinator = rememberCustomControlFocusCoordinator()
 
     // Helper function to focus ExoPlayer controls (consolidated logic)
-    val focusExoPlayerControls: (Boolean) -> Unit = remember(playerViewRef) { 
+    val focusExoPlayerControls: (Boolean) -> Unit = remember(playerViewRef) {
         { focusLeftmost: Boolean ->
             playerViewRef?.post {
                 if (focusLeftmost) {
@@ -411,45 +411,43 @@ fun PlayerScreen(
                     rightColumnFocusRequesters = right
                     // Update callbacks for ExoPlayer navigation
                     navigateToFavoritesCallback = {
-                        // Only navigate if PLAYER_CONTROLS is the active destination
-                        if (focusManager.currentDestination == PlayerFocusDestination.PLAYER_CONTROLS) {
-                            registerControlsInteraction()
-                            isNavigatingWithinPlayerControls = true
-                            setFavoritesFocusHint?.invoke(true)
-                            // Use post for consistent timing
-                            playerViewRef?.post {
-                                customControlFocusCoordinator.requestFocus(
-                                    CustomControlFocusTarget.Favorites,
-                                    leftColumnFocusRequesters,
-                                    rightColumnFocusRequesters
-                                )
-                            }
-                            // Reset flag after a short delay
-                            coroutineScope.launch {
-                                delay(100)
-                                isNavigatingWithinPlayerControls = false
-                            }
+                        // Navigate from ExoPlayer controls to custom buttons
+                        // Don't check destination - allow navigation when controls are visible
+                        registerControlsInteraction()
+                        isNavigatingWithinPlayerControls = true
+                        setFavoritesFocusHint?.invoke(true)
+                        // Use post for consistent timing
+                        playerViewRef?.post {
+                            customControlFocusCoordinator.requestFocus(
+                                CustomControlFocusTarget.Favorites,
+                                leftColumnFocusRequesters,
+                                rightColumnFocusRequesters
+                            )
+                        }
+                        // Reset flag after a short delay
+                        coroutineScope.launch {
+                            delay(100)
+                            isNavigatingWithinPlayerControls = false
                         }
                     }
                     navigateToRotateCallback = {
-                        // Only navigate if PLAYER_CONTROLS is the active destination
-                        if (focusManager.currentDestination == PlayerFocusDestination.PLAYER_CONTROLS) {
-                            registerControlsInteraction()
-                            isNavigatingWithinPlayerControls = true
-                            setRotateFocusHint?.invoke(true)
-                            // Use post for consistent timing
-                            playerViewRef?.post {
-                                customControlFocusCoordinator.requestFocus(
-                                    CustomControlFocusTarget.Rotate,
-                                    leftColumnFocusRequesters,
-                                    rightColumnFocusRequesters
-                                )
-                            }
-                            // Reset flag after a short delay
-                            coroutineScope.launch {
-                                delay(100)
-                                isNavigatingWithinPlayerControls = false
-                            }
+                        // Navigate from ExoPlayer controls to custom buttons
+                        // Don't check destination - allow navigation when controls are visible
+                        registerControlsInteraction()
+                        isNavigatingWithinPlayerControls = true
+                        setRotateFocusHint?.invoke(true)
+                        // Use post for consistent timing
+                        playerViewRef?.post {
+                            customControlFocusCoordinator.requestFocus(
+                                CustomControlFocusTarget.Rotate,
+                                leftColumnFocusRequesters,
+                                rightColumnFocusRequesters
+                            )
+                        }
+                        // Reset flag after a short delay
+                        coroutineScope.launch {
+                            delay(100)
+                            isNavigatingWithinPlayerControls = false
                         }
                     }
                 },
