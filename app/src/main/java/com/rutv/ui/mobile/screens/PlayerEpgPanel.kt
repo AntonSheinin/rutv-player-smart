@@ -511,7 +511,8 @@ internal fun EpgPanel(
                                                     isPast &&
                                                     program.startTimeMillis > 0 &&
                                                     currentTime - program.startTimeMillis <= catchupWindowMillis
-                                                val canPlayArchive = isArchiveCandidate && !isArchivePlayback
+                                                // Allow playing archive even if already in archive playback (to switch programs)
+                                                val canPlayArchive = isArchiveCandidate
                                                 val isLongPress = (event.nativeKeyEvent?.repeatCount ?: 0) > 0
                                                 if (isLongPress) {
                                                     if (!centerKeyConsumedAsLongPress) {
@@ -587,7 +588,8 @@ internal fun EpgPanel(
                                     isPast &&
                                     data.startTimeMillis > 0 &&
                                     currentTime - data.startTimeMillis <= catchupWindowMillis
-                                val canPlayArchive = isArchiveCandidate && !isArchivePlayback
+                                // Allow playing archive even if already in archive playback
+                                val canPlayArchive = isArchiveCandidate
 
                                 EpgProgramItem(
                                     program = data,
