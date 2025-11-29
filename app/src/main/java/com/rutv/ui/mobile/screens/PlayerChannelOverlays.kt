@@ -64,6 +64,8 @@ internal fun ChannelInfoOverlay(
     archiveProgram: EpgProgram?,
     onReturnToLive: () -> Unit,
     onShowProgramInfo: (EpgProgram) -> Unit,
+    returnToLiveFocusRequester: FocusRequester,
+    programInfoFocusRequester: FocusRequester,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -82,71 +84,58 @@ internal fun ChannelInfoOverlay(
                 color = MaterialTheme.ruTvColors.textPrimary,
                 textAlign = TextAlign.Center
             )
-            if (isArchivePlayback) {
-                archiveProgram?.let { program ->
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = stringResource(R.string.player_archive_label, program.title.truncateForOverlay()),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.ruTvColors.gold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    ChannelOverlayButtons(
-                        primaryLabel = R.string.player_return_to_live,
-                        onPrimary = onReturnToLive,
-                        secondaryProgram = program,
-                        onSecondary = onShowProgramInfo
-                    )
-                }
-            } else {
-                currentProgram?.let { program ->
-                    Spacer(modifier = Modifier.height(4.dp))
-                    if (isTimeshiftPlayback) {
+            
+            Spacer(modifier = Modifier.height(4.dp))
+            
+            // Program Name
+            val program = if (isArchivePlayback) archiveProgram else currentProgram
+            
+            if (program != null) {
+                if (isArchivePlayback) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.History,
+                            contentDescription = stringResource(R.string.player_archive_label, ""),
+                            tint = MaterialTheme.ruTvColors.gold,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = program.title.truncateForOverlay(),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.ruTvColors.textSecondary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                            textAlign = TextAlign.Center
                         )
-                    } else {
-                        Row(
-                            modifier = Modifier.align(Alignment.CenterHorizontally),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                text = program.title.truncateForOverlay(),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.ruTvColors.textSecondary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                textAlign = TextAlign.Center
-                            )
-                            ProgramInfoButton(
-                                program = program,
-                                buttonHeight = CHANNEL_BUTTON_HEIGHT,
-                                onShowProgramInfo = onShowProgramInfo,
-                                containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0f)
-                            )
-                        }
                     }
-                }
-                if (isTimeshiftPlayback) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    ChannelOverlayButtons(
-                        primaryLabel = R.string.player_return_to_live,
-                        onPrimary = onReturnToLive,
-                        secondaryProgram = currentProgram,
-                        onSecondary = onShowProgramInfo
+                } else {
+                    Text(
+                        text = program.title.truncateForOverlay(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.ruTvColors.textSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center
                     )
                 }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Buttons Row
+                ChannelOverlayButtons(
+                    primaryLabel = R.string.player_return_to_live,
+                    onPrimary = onReturnToLive,
+                    showPrimary = isArchivePlayback || isTimeshiftPlayback,
+                    secondaryProgram = program,
+                    onSecondary = onShowProgramInfo,
+                    returnToLiveFocusRequester = returnToLiveFocusRequester,
+                    programInfoFocusRequester = programInfoFocusRequester
+                )
             }
         }
     }
@@ -156,7 +145,8 @@ internal fun ChannelInfoOverlay(
 private fun ChannelOverlayButtons(
     @StringRes primaryLabel: Int,
     onPrimary: () -> Unit,
-    secondaryProgram: EpgProgram?,
+    showPrimary: Boolean,
+    secondaryProgram: EpgProgram,
     onSecondary: (EpgProgram) -> Unit,
     returnToLiveFocusRequester: FocusRequester,
     programInfoFocusRequester: FocusRequester
@@ -169,19 +159,20 @@ private fun ChannelOverlayButtons(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            ReturnToLiveButton(
-                onClick = onPrimary,
-                focusRequester = returnToLiveFocusRequester,
-                buttonHeight = CHANNEL_BUTTON_HEIGHT
-            )
-            secondaryProgram?.let { program ->
-                ProgramInfoButton(
-                    program = program,
-                    buttonHeight = CHANNEL_BUTTON_HEIGHT,
-                    onShowProgramInfo = onSecondary,
-                    focusRequester = programInfoFocusRequester
+            if (showPrimary) {
+                ReturnToLiveButton(
+                    onClick = onPrimary,
+                    focusRequester = returnToLiveFocusRequester,
+                    buttonHeight = CHANNEL_BUTTON_HEIGHT
                 )
             }
+            
+            ProgramInfoButton(
+                program = secondaryProgram,
+                buttonHeight = CHANNEL_BUTTON_HEIGHT,
+                onShowProgramInfo = onSecondary,
+                focusRequester = programInfoFocusRequester
+            )
         }
     }
 }
