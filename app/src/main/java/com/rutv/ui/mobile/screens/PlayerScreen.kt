@@ -470,6 +470,7 @@ fun PlayerScreen(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .padding(LayoutConstants.DefaultPadding)
+                        .fillMaxWidth(0.6f)
                 )
             }
         }
