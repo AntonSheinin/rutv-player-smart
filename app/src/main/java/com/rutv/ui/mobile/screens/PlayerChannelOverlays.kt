@@ -156,7 +156,9 @@ private fun ChannelOverlayButtons(
     @StringRes primaryLabel: Int,
     onPrimary: () -> Unit,
     secondaryProgram: EpgProgram?,
-    onSecondary: (EpgProgram) -> Unit
+    onSecondary: (EpgProgram) -> Unit,
+    returnToLiveFocusRequester: FocusRequester,
+    programInfoFocusRequester: FocusRequester
 ) {
     Box(
         modifier = Modifier.fillMaxWidth(),
@@ -168,13 +170,15 @@ private fun ChannelOverlayButtons(
         ) {
             ReturnToLiveButton(
                 onClick = onPrimary,
+                focusRequester = returnToLiveFocusRequester,
                 buttonHeight = CHANNEL_BUTTON_HEIGHT
             )
             secondaryProgram?.let { program ->
                 ProgramInfoButton(
                     program = program,
                     buttonHeight = CHANNEL_BUTTON_HEIGHT,
-                    onShowProgramInfo = onSecondary
+                    onShowProgramInfo = onSecondary,
+                    focusRequester = programInfoFocusRequester
                 )
             }
         }
