@@ -132,6 +132,10 @@ fun PlayerScreen(
     var setFavoritesFocusHint by remember { mutableStateOf<((Boolean) -> Unit)?>(null) }
     var setRotateFocusHint by remember { mutableStateOf<((Boolean) -> Unit)?>(null) }
 
+    // Focus Requesters for Channel Info Overlay buttons
+    val overlayReturnToLiveFocus = remember { FocusRequester() }
+    val overlayProgramInfoFocus = remember { FocusRequester() }
+
     // Track if we're navigating within player controls (ExoPlayer <-> Custom buttons)
     var isNavigatingWithinPlayerControls by remember { mutableStateOf(false) }
 
@@ -347,7 +351,18 @@ fun PlayerScreen(
                             onNavigateRightToRotate = navigateToRotateCallback,
                             onControlsInteraction = { registerControlsInteraction() },
                             onForceFavoritesHighlight = { setFavoritesFocusHint?.invoke(true) },
-                            onForceRotateHighlight = { setRotateFocusHint?.invoke(true) }
+                            onForceRotateHighlight = { setRotateFocusHint?.invoke(true) },
+                            onNavigateUpToOverlay = {
+                                // Navigate from ExoPlayer controls UP to Channel Info Overlay
+                                if (showControls) {
+                                    // prioritize Return to Live if visible, else Info
+                                    if (uiState.isArchivePlayback || uiState.isTimeshiftPlayback) {
+                                        overlayReturnToLiveFocus.requestFocus()
+                                    } else {
+                                        overlayProgramInfoFocus.requestFocus()
+                                    }
+                                }
+                            }
                         )
                         lastControlsSignature = controlsSignature
                     }
@@ -467,10 +482,12 @@ fun PlayerScreen(
                     archiveProgram = uiState.archiveProgram,
                     onReturnToLive = actions.onReturnToLive,
                     onShowProgramInfo = actions.onShowProgramDetails,
+                    returnToLiveFocusRequester = overlayReturnToLiveFocus,
+                    programInfoFocusRequester = overlayProgramInfoFocus,
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .padding(LayoutConstants.DefaultPadding)
-                        .fillMaxWidth(0.6f)
+                        .fillMaxWidth(0.4f)
                 )
             }
         }
@@ -689,6 +706,7 @@ private fun PlayerView.bindControls(
     actions: PlayerUiActions,
     onNavigateLeftToFavorites: (() -> Unit)?,
     onNavigateRightToRotate: (() -> Unit)?,
+    onNavigateUpToOverlay: (() -> Unit)? = null,
     onControlsInteraction: (() -> Unit)?,
     onForceFavoritesHighlight: (() -> Unit)? = null,
     onForceRotateHighlight: (() -> Unit)? = null
@@ -703,6 +721,7 @@ private fun PlayerView.bindControls(
         onResumePlayback = actions.onResumePlayback,
         onNavigateLeftToFavorites = onNavigateLeftToFavorites,
         onNavigateRightToRotate = onNavigateRightToRotate,
+        onNavigateUpToOverlay = onNavigateUpToOverlay,
         onControlsInteraction = onControlsInteraction,
         onForceFavoritesHighlight = onForceFavoritesHighlight,
         onForceRotateHighlight = onForceRotateHighlight
@@ -719,6 +738,7 @@ private fun PlayerView.applyControlCustomizations(
     onResumePlayback: () -> Unit,
     onNavigateLeftToFavorites: (() -> Unit)? = null,
     onNavigateRightToRotate: (() -> Unit)? = null,
+    onNavigateUpToOverlay: (() -> Unit)? = null,
     onControlsInteraction: (() -> Unit)? = null,
     onForceFavoritesHighlight: (() -> Unit)? = null,
     onForceRotateHighlight: (() -> Unit)? = null
@@ -731,9 +751,11 @@ private fun PlayerView.applyControlCustomizations(
     val orderedControlViews = listOf(
         "exo_prev",
         "exo_rew",
+        "exo_rew_with_amount",
         "exo_play_pause",
         "exo_play",
         "exo_pause",
+        "exo_ffwd_with_amount",
         "exo_ffwd",
         "exo_next"
     ).mapNotNull { findControlView(it) }.distinct()
@@ -776,6 +798,11 @@ private fun PlayerView.applyControlCustomizations(
                     return@setOnKeyListener true
                 }
                 false
+            }
+            android.view.KeyEvent.KEYCODE_DPAD_UP -> {
+                // Navigate UP to overlay buttons
+                onNavigateUpToOverlay?.invoke()
+                return@setOnKeyListener true
             }
             else -> false
         }

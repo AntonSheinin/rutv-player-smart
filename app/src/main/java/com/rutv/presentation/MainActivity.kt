@@ -345,14 +345,17 @@ class MainActivity : ComponentActivity() {
                     )
                 },
                 confirmButton = {
-                    TextButton(onClick = {
-                        channelInput.toIntOrNull()?.let { number ->
-                            if (number in 1..viewState.channels.size) {
-                                viewModel.playChannel(number - 1)
+                    TextButton(
+                        onClick = {
+                            channelInput.toIntOrNull()?.let { number ->
+                                if (number in 1..viewState.channels.size) {
+                                    viewModel.playChannel(number - 1)
+                                }
                             }
-                        }
-                        showChannelDialog = false
-                    }) {
+                            showChannelDialog = false
+                        },
+                        modifier = Modifier.focusable(false)
+                    ) {
                         Text(
                             text = getString(R.string.button_ok),
                             color = MaterialTheme.ruTvColors.gold
@@ -360,7 +363,10 @@ class MainActivity : ComponentActivity() {
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showChannelDialog = false }) {
+                    TextButton(
+                        onClick = { showChannelDialog = false },
+                        modifier = Modifier.focusable(false)
+                    ) {
                         Text(
                             text = getString(R.string.button_cancel),
                             color = MaterialTheme.ruTvColors.textPrimary
