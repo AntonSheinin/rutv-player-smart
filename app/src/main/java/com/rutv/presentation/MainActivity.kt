@@ -18,6 +18,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material3.AlertDialog
@@ -284,6 +287,7 @@ class MainActivity : ComponentActivity() {
         }
 
         if (showChannelDialog) {
+            val confirmButtonFocus = remember { FocusRequester() }
             // Handle number pad input for channel selection
             LaunchedEffect(showChannelDialog) {
                 // Number input is handled via MainActivity.onKeyDown() which maps KEYCODE_0-9
@@ -291,6 +295,7 @@ class MainActivity : ComponentActivity() {
             }
 
             RemoteDialog(
+                confirmButtonFocusRequester = confirmButtonFocus,
                 onDismissRequest = { showChannelDialog = false },
                 containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f),
                 title = {
@@ -302,11 +307,14 @@ class MainActivity : ComponentActivity() {
                 },
                 text = {
                     val textFieldFocus = remember { FocusRequester() }
+                    val keyboardController = LocalSoftwareKeyboardController.current
                     LaunchedEffect(showChannelDialog) {
-                        if (showChannelDialog && DeviceHelper.isRemoteInputActive()) {
-                            // Focus on text field first, then move to OK button
+                        if (showChannelDialog) {
+                            // Focus on text field first
                             kotlinx.coroutines.delay(100)
                             textFieldFocus.requestFocus()
+                            // Show keyboard explicitly
+                            keyboardController?.show()
                         }
                     }
                     OutlinedTextField(
@@ -323,7 +331,8 @@ class MainActivity : ComponentActivity() {
                                     when (event.key) {
                                         Key.DirectionDown, Key.DirectionRight -> {
                                             // Move focus to OK button (handled by RemoteDialog)
-                                            false
+                                            confirmButtonFocus.requestFocus()
+                                            true
                                         }
                                         Key.Back -> {
                                             showChannelDialog = false
@@ -333,7 +342,16 @@ class MainActivity : ComponentActivity() {
                                     }
                                 } else false
                             },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Number,
+                            imeAction = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onDone = {
+                                confirmButtonFocus.requestFocus()
+                                // default behavior closes keyboard
+                            }
+                        ),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = MaterialTheme.ruTvColors.gold,
                             unfocusedBorderColor = MaterialTheme.ruTvColors.textDisabled,

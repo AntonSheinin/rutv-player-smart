@@ -84,12 +84,12 @@ internal fun ChannelInfoOverlay(
                 color = MaterialTheme.ruTvColors.textPrimary,
                 textAlign = TextAlign.Center
             )
-            
+
             Spacer(modifier = Modifier.height(4.dp))
-            
+
             // Program Name
             val program = if (isArchivePlayback) archiveProgram else currentProgram
-            
+
             if (program != null) {
                 if (isArchivePlayback) {
                     Row(
@@ -123,7 +123,7 @@ internal fun ChannelInfoOverlay(
                         textAlign = TextAlign.Center
                     )
                 }
-                
+
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Buttons Row
@@ -166,7 +166,7 @@ private fun ChannelOverlayButtons(
                     buttonHeight = CHANNEL_BUTTON_HEIGHT
                 )
             }
-            
+
             ProgramInfoButton(
                 program = secondaryProgram,
                 buttonHeight = CHANNEL_BUTTON_HEIGHT,

@@ -31,13 +31,15 @@ fun RemoteDialog(
     dismissButton: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
     containerColor: androidx.compose.ui.graphics.Color = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f),
-    shape: RoundedCornerShape = RoundedCornerShape(16.dp)
+    shape: RoundedCornerShape = RoundedCornerShape(16.dp),
+    confirmButtonFocusRequester: FocusRequester? = null,
+    dismissButtonFocusRequester: FocusRequester? = null
 ) {
     val isRemoteMode = DeviceHelper.isRemoteInputActive()
 
-    // Focus requesters for buttons
-    val confirmFocus = remember { FocusRequester() }
-    val dismissFocus = remember { FocusRequester() }
+    // Focus requesters for buttons (use provided or create new)
+    val confirmFocus = confirmButtonFocusRequester ?: remember { FocusRequester() }
+    val dismissFocus = dismissButtonFocusRequester ?: remember { FocusRequester() }
 
     // Request focus on confirm button when dialog opens in remote mode
     LaunchedEffect(isRemoteMode) {
