@@ -296,6 +296,7 @@ class MainActivity : ComponentActivity() {
 
             RemoteDialog(
                 confirmButtonFocusRequester = confirmButtonFocus,
+                autoFocusConfirm = false,
                 onDismissRequest = { showChannelDialog = false },
                 containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f),
                 title = {
