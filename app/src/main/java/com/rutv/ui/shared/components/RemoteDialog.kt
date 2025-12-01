@@ -57,12 +57,12 @@ fun RemoteDialog(
             var isFocused by remember { mutableStateOf(false) }
             Box(
                 modifier = Modifier
-                    .focusable(enabled = isRemoteMode)
+                    .focusable()
                     .focusRequester(confirmFocus)
                     .onFocusChanged { isFocused = it.isFocused }
                     .then(focusIndicatorModifier(isFocused = isFocused))
                     .onKeyEvent { event ->
-                        if (event.type == KeyEventType.KeyDown && isFocused && isRemoteMode) {
+                        if (event.type == KeyEventType.KeyDown && isFocused) {
                             when (event.key) {
                                 Key.DirectionCenter, Key.Enter -> {
                                     // Trigger confirm button click
@@ -87,12 +87,12 @@ fun RemoteDialog(
                 var isFocused by remember { mutableStateOf(false) }
                 Box(
                     modifier = Modifier
-                        .focusable(enabled = isRemoteMode)
+                        .focusable()
                         .focusRequester(dismissFocus)
                         .onFocusChanged { isFocused = it.isFocused }
                         .then(focusIndicatorModifier(isFocused = isFocused))
                         .onKeyEvent { event ->
-                            if (event.type == KeyEventType.KeyDown && isFocused && isRemoteMode) {
+                            if (event.type == KeyEventType.KeyDown && isFocused) {
                                 when (event.key) {
                                     Key.DirectionCenter, Key.Enter -> {
                                         onDismissRequest()
