@@ -29,16 +29,10 @@ class RemoteFocusCoordinator(
 
     fun focusPlaylist(index: Int, play: Boolean): Boolean {
         val handled = playlistController?.invoke(index, play) ?: false
-        if (!handled) {
-            log?.invoke("focusPlaylist(index=$index, play=$play) controller=${playlistController != null}")
-        }
         return handled
     }
 
     fun requestPlaylistFocus() {
-        if (playlistFocusRequester == null) {
-            log?.invoke("requestPlaylistFocus() skipped - requester missing")
-        }
         playlistFocusRequester?.requestFocus()
     }
 }

@@ -45,7 +45,6 @@ class PlayerFocusManager(
      * Components should call this when they mount.
      */
     fun registerEntry(destination: PlayerFocusDestination, requester: FocusRequester?) {
-        log?.invoke("FocusManager: Registering ${destination.name} with requester=${requester != null}")
         focusRegistry[destination] = requester
         // If this destination is currently active and we just registered, request focus
         if (destinationState.value == destination && requester != null) {
@@ -58,7 +57,6 @@ class PlayerFocusManager(
      * Components should call this when they unmount.
      */
     fun unregisterEntry(destination: PlayerFocusDestination) {
-        log?.invoke("FocusManager: Unregistering ${destination.name}")
         focusRegistry.remove(destination)
     }
 
@@ -73,14 +71,11 @@ class PlayerFocusManager(
             return
         }
 
-        log?.invoke("FocusManager: Requesting focus to ${destination.name} (from ${destinationState.value.name})")
         destinationState.value = destination
 
         val requester = focusRegistry[destination]
         if (requester != null) {
             requester.requestFocus()
-        } else {
-            log?.invoke("FocusManager: No requester registered for ${destination.name}, will request when registered")
         }
     }
 

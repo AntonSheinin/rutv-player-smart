@@ -497,7 +497,6 @@ fun PlayerScreen(
 
         // Focus management for panel transitions
         val focusPlaylistFromEpg: () -> Unit = {
-            debugLogger("EPG->Playlist: Transferring focus")
             focusManager.requestEnter(PlayerFocusDestination.PLAYLIST_PANEL)
 
             // Focus the specific channel index
@@ -512,7 +511,6 @@ fun PlayerScreen(
                 else -> -1
             }
             if (resolvedIndex >= 0) {
-                debugLogger("EPG->Playlist: Focusing channel $resolvedIndex")
                 focusManager.focusItem(PlayerFocusDestination.PLAYLIST_PANEL, resolvedIndex, false)
             }
         }

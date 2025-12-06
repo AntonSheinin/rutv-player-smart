@@ -35,6 +35,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -62,6 +63,7 @@ import com.rutv.util.logDebug
 import dagger.hilt.android.AndroidEntryPoint
 import timber.log.Timber
 import android.view.KeyEvent
+import kotlinx.coroutines.delay
 
 /**
  * Main Activity - Refactored to use Jetpack Compose
@@ -288,14 +290,37 @@ class MainActivity : ComponentActivity() {
 
         if (showChannelDialog) {
             val confirmButtonFocus = remember { FocusRequester() }
+            val textFieldFocus = remember { FocusRequester() }
+            var pendingOkFocus by remember { mutableStateOf(false) }
+
             // Handle number pad input for channel selection
             LaunchedEffect(showChannelDialog) {
                 // Number input is handled via MainActivity.onKeyDown() which maps KEYCODE_0-9
                 // When playlist panel is open or channel dialog is shown, number keys append digits
             }
 
+            // Focus management similar to search dialog
+            LaunchedEffect(showChannelDialog) {
+                if (showChannelDialog) {
+                    pendingOkFocus = false
+                    // Focus on text field first
+                    delay(100)
+                    textFieldFocus.requestFocus()
+                    // Show keyboard explicitly
+                    val keyboardController = LocalSoftwareKeyboardController.current
+                    keyboardController?.show()
+                }
+            }
+
+            LaunchedEffect(pendingOkFocus) {
+                if (pendingOkFocus && showChannelDialog) {
+                    delay(10)
+                    confirmButtonFocus.requestFocus()
+                    pendingOkFocus = false
+                }
+            }
+
             RemoteDialog(
-                confirmButtonFocusRequester = confirmButtonFocus,
                 autoFocusConfirm = false,
                 onDismissRequest = { showChannelDialog = false },
                 containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f),
@@ -307,17 +332,6 @@ class MainActivity : ComponentActivity() {
                     )
                 },
                 text = {
-                    val textFieldFocus = remember { FocusRequester() }
-                    val keyboardController = LocalSoftwareKeyboardController.current
-                    LaunchedEffect(showChannelDialog) {
-                        if (showChannelDialog) {
-                            // Focus on text field first
-                            kotlinx.coroutines.delay(100)
-                            textFieldFocus.requestFocus()
-                            // Show keyboard explicitly
-                            keyboardController?.show()
-                        }
-                    }
                     OutlinedTextField(
                         value = channelInput,
                         onValueChange = { new -> channelInput = new.filter { it.isDigit() }.take(4) },
@@ -327,14 +341,14 @@ class MainActivity : ComponentActivity() {
                             .fillMaxWidth()
                             .focusRequester(textFieldFocus)
                             .focusable(enabled = DeviceHelper.isRemoteInputActive())
+                            .onFocusChanged {
+                                if (showChannelDialog && !it.isFocused) {
+                                    pendingOkFocus = true
+                                }
+                            }
                             .onKeyEvent { event ->
                                 if (event.type == KeyEventType.KeyDown && DeviceHelper.isRemoteInputActive()) {
                                     when (event.key) {
-                                        Key.DirectionDown, Key.DirectionRight -> {
-                                            // Move focus to OK button (handled by RemoteDialog)
-                                            confirmButtonFocus.requestFocus()
-                                            true
-                                        }
                                         Key.Back -> {
                                             showChannelDialog = false
                                             true
@@ -373,7 +387,7 @@ class MainActivity : ComponentActivity() {
                             }
                             showChannelDialog = false
                         },
-                        modifier = Modifier.focusable(false)
+                        modifier = Modifier.focusRequester(confirmButtonFocus)
                     ) {
                         Text(
                             text = getString(R.string.button_ok),
