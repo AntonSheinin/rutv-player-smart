@@ -292,6 +292,34 @@ class MainActivity : ComponentActivity() {
         if (showChannelDialog) {
             val confirmButtonFocus = remember { FocusRequester() }
             val textFieldFocus = remember { FocusRequester() }
+            var pendingOkFocus by remember { mutableStateOf(false) }
+
+            // Handle number pad input for channel selection
+            LaunchedEffect(showChannelDialog) {
+                // Number input is handled via MainActivity.onKeyDown() which maps KEYCODE_0-9
+                // When playlist panel is open or channel dialog is shown, number keys append digits
+            }
+
+            // Focus management similar to search dialog
+            LaunchedEffect(showChannelDialog) {
+                if (showChannelDialog) {
+                    pendingOkFocus = false
+                    // Focus on text field first
+                    // delay(100)
+                    // textFieldFocus.requestFocus()
+                    // Show keyboard explicitly
+                    // val keyboardController = LocalSoftwareKeyboardController.current
+                    // keyboardController?.show()
+                }
+            }
+
+            LaunchedEffect(pendingOkFocus) {
+                if (pendingOkFocus && showChannelDialog) {
+                    delay(10)
+                    confirmButtonFocus.requestFocus()
+                    pendingOkFocus = false
+                }
+            }
 
             RemoteDialog(
                 autoFocusConfirm = true,
@@ -305,7 +333,6 @@ class MainActivity : ComponentActivity() {
                     )
                 },
                 confirmButtonFocusRequester = confirmButtonFocus,
-                textFocusRequester = textFieldFocus,
                 modifier = Modifier
                     .border(
                         2.dp,
@@ -352,13 +379,14 @@ class MainActivity : ComponentActivity() {
                             .focusRequester(textFieldFocus)
                             // Focusable always enabled for text field to allow switching to it
                             .focusable(enabled = true)
+                            .onFocusChanged {
+                                if (showChannelDialog && !it.isFocused) {
+                                    pendingOkFocus = true
+                                }
+                            }
                             .onKeyEvent { event ->
                                 if (event.type == KeyEventType.KeyDown && DeviceHelper.isRemoteInputActive()) {
                                     when (event.key) {
-                                        Key.DirectionDown -> {
-                                            confirmButtonFocus.requestFocus()
-                                            true
-                                        }
                                         Key.Back -> {
                                             showChannelDialog = false
                                             true

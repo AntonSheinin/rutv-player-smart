@@ -34,7 +34,6 @@ fun RemoteDialog(
     shape: RoundedCornerShape = RoundedCornerShape(16.dp),
     confirmButtonFocusRequester: FocusRequester? = null,
     dismissButtonFocusRequester: FocusRequester? = null,
-    textFocusRequester: FocusRequester? = null,
     autoFocusConfirm: Boolean = true
 ) {
     val isRemoteMode = DeviceHelper.isRemoteInputActive()
@@ -75,11 +74,6 @@ fun RemoteDialog(
                                     dismissButton?.let { dismissFocus.requestFocus() }
                                     true
                                 }
-                                Key.DirectionUp -> {
-                                    // Navigate to text field if available
-                                    textFocusRequester?.requestFocus()
-                                    true
-                                }
                                 else -> false
                             }
                         } else false
@@ -107,11 +101,6 @@ fun RemoteDialog(
                                     Key.DirectionRight -> {
                                         // Navigate to confirm button
                                         confirmFocus.requestFocus()
-                                        true
-                                    }
-                                    Key.DirectionUp -> {
-                                        // Navigate to text field if available
-                                        textFocusRequester?.requestFocus()
                                         true
                                     }
                                     Key.Back -> {
