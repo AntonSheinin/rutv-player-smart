@@ -321,6 +321,15 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            val onConfirm = {
+                channelInput.toIntOrNull()?.let { number ->
+                    if (number in 1..viewState.channels.size) {
+                        viewModel.playChannel(number - 1)
+                    }
+                }
+                showChannelDialog = false
+            }
+
             RemoteDialog(
                 autoFocusConfirm = true,
                 onDismissRequest = { showChannelDialog = false },
@@ -333,6 +342,8 @@ class MainActivity : ComponentActivity() {
                     )
                 },
                 confirmButtonFocusRequester = confirmButtonFocus,
+                textFocusRequester = textFieldFocus,
+                onConfirm = { onConfirm() },
                 modifier = Modifier
                     .border(
                         2.dp,
@@ -379,14 +390,13 @@ class MainActivity : ComponentActivity() {
                             .focusRequester(textFieldFocus)
                             // Focusable always enabled for text field to allow switching to it
                             .focusable(enabled = true)
-                            .onFocusChanged {
-                                if (showChannelDialog && !it.isFocused) {
-                                    pendingOkFocus = true
-                                }
-                            }
                             .onKeyEvent { event ->
                                 if (event.type == KeyEventType.KeyDown && DeviceHelper.isRemoteInputActive()) {
                                     when (event.key) {
+                                        Key.DirectionDown -> {
+                                            confirmButtonFocus.requestFocus()
+                                            true
+                                        }
                                         Key.Back -> {
                                             showChannelDialog = false
                                             true
@@ -417,14 +427,7 @@ class MainActivity : ComponentActivity() {
                 },
                 confirmButton = {
                     TextButton(
-                        onClick = {
-                            channelInput.toIntOrNull()?.let { number ->
-                                if (number in 1..viewState.channels.size) {
-                                    viewModel.playChannel(number - 1)
-                                }
-                            }
-                            showChannelDialog = false
-                        },
+                        onClick = { onConfirm() },
                         modifier = Modifier.focusable(false)
                     ) {
                         Text(

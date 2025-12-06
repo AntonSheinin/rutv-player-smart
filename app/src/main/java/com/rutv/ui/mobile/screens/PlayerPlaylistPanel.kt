@@ -687,6 +687,21 @@ internal fun PlaylistPanel(
                             )
                         }
                     },
+                    onConfirm = {
+                        if (searchText.isNotBlank()) {
+                            val searchLower = searchText.lowercase()
+                            val matchingIndex = channels.indexOfFirst { channel ->
+                                channel.title.lowercase().contains(searchLower)
+                            }
+                            if (matchingIndex >= 0) {
+                                pendingInitialCenterIndex = matchingIndex
+                                focusChannel(matchingIndex, false)
+                            }
+                            showSearchDialog = false
+                            searchText = ""
+                        }
+                    },
+                    textFocusRequester = searchFieldFocusRequester,
                     dismissButton = {
                         TextButton(onClick = {
                             showSearchDialog = false
