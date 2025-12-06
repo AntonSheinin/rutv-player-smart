@@ -321,7 +321,7 @@ class MainActivity : ComponentActivity() {
             }
 
             RemoteDialog(
-                autoFocusConfirm = false,
+                autoFocusConfirm = true,
                 onDismissRequest = { showChannelDialog = false },
                 containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f),
                 title = {
@@ -331,6 +331,7 @@ class MainActivity : ComponentActivity() {
                         style = MaterialTheme.typography.titleLarge
                     )
                 },
+                confirmButtonFocusRequester = confirmButtonFocus,
                 text = {
                     OutlinedTextField(
                         value = channelInput,
@@ -386,8 +387,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                             showChannelDialog = false
-                        },
-                        modifier = Modifier.focusRequester(confirmButtonFocus)
+                        }
                     ) {
                         Text(
                             text = getString(R.string.button_ok),
