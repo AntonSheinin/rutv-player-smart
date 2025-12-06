@@ -300,15 +300,15 @@ class MainActivity : ComponentActivity() {
             }
 
             // Focus management similar to search dialog
-            val keyboardController = LocalSoftwareKeyboardController.current
             LaunchedEffect(showChannelDialog) {
                 if (showChannelDialog) {
                     pendingOkFocus = false
                     // Focus on text field first
-                    delay(100)
-                    textFieldFocus.requestFocus()
+                    // delay(100)
+                    // textFieldFocus.requestFocus()
                     // Show keyboard explicitly
-                    keyboardController?.show()
+                    // val keyboardController = LocalSoftwareKeyboardController.current
+                    // keyboardController?.show()
                 }
             }
 
@@ -332,6 +332,41 @@ class MainActivity : ComponentActivity() {
                     )
                 },
                 confirmButtonFocusRequester = confirmButtonFocus,
+                modifier = Modifier
+                    .border(
+                        2.dp,
+                        MaterialTheme.ruTvColors.gold.copy(alpha = 0.7f),
+                        RoundedCornerShape(16.dp)
+                    )
+                    .onPreviewKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown) {
+                            val key = event.key
+                            val number = when (key) {
+                                Key.Zero, Key.NumPad0 -> "0"
+                                Key.One, Key.NumPad1 -> "1"
+                                Key.Two, Key.NumPad2 -> "2"
+                                Key.Three, Key.NumPad3 -> "3"
+                                Key.Four, Key.NumPad4 -> "4"
+                                Key.Five, Key.NumPad5 -> "5"
+                                Key.Six, Key.NumPad6 -> "6"
+                                Key.Seven, Key.NumPad7 -> "7"
+                                Key.Eight, Key.NumPad8 -> "8"
+                                Key.Nine, Key.NumPad9 -> "9"
+                                else -> null
+                            }
+                            if (number != null) {
+                                if (channelInput.length < 4) {
+                                    channelInput += number
+                                }
+                                textFieldFocus.requestFocus()
+                                true
+                            } else {
+                                false
+                            }
+                        } else {
+                            false
+                        }
+                    },
                 text = {
                     OutlinedTextField(
                         value = channelInput,
@@ -341,7 +376,8 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier
                             .fillMaxWidth()
                             .focusRequester(textFieldFocus)
-                            .focusable(enabled = DeviceHelper.isRemoteInputActive())
+                            // Focusable always enabled for text field to allow switching to it
+                            .focusable(enabled = true)
                             .onFocusChanged {
                                 if (showChannelDialog && !it.isFocused) {
                                     pendingOkFocus = true
@@ -387,7 +423,8 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                             showChannelDialog = false
-                        }
+                        },
+                        modifier = Modifier.focusable(false)
                     ) {
                         Text(
                             text = getString(R.string.button_ok),
@@ -406,12 +443,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                 },
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.border(
-                    2.dp,
-                    MaterialTheme.ruTvColors.gold.copy(alpha = 0.7f),
-                    RoundedCornerShape(16.dp)
-                )
+                shape = RoundedCornerShape(16.dp)
             )
         }
 
