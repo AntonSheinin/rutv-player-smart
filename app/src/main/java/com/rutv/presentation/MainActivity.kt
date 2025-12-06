@@ -300,6 +300,7 @@ class MainActivity : ComponentActivity() {
             }
 
             // Focus management similar to search dialog
+            val keyboardController = LocalSoftwareKeyboardController.current
             LaunchedEffect(showChannelDialog) {
                 if (showChannelDialog) {
                     pendingOkFocus = false
@@ -307,7 +308,6 @@ class MainActivity : ComponentActivity() {
                     delay(100)
                     textFieldFocus.requestFocus()
                     // Show keyboard explicitly
-                    val keyboardController = LocalSoftwareKeyboardController.current
                     keyboardController?.show()
                 }
             }
