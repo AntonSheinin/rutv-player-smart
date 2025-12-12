@@ -28,7 +28,14 @@ class LoadPlaylistUseCase @Inject constructor(
      * Load playlist based on current configuration
      * Checks cache first, then loads from source if needed
      */
-    suspend operator fun invoke(forceReload: Boolean = false): Result<List<Channel>> {
+    suspend operator fun invoke(
+        forceReload: Boolean = false,
+        /**
+         * If true, and a URL playlist is configured, return cached channels immediately (if available)
+         * without making a network request. This is used to speed up cold start.
+         */
+        skipNetworkIfCacheAvailable: Boolean = false
+    ): Result<List<Channel>> {
         try {
             val source = preferencesRepository.playlistSource.first()
 
@@ -40,6 +47,13 @@ class LoadPlaylistUseCase @Inject constructor(
 
             // Get stored hash and current hash
             val storedHash = preferencesRepository.playlistHash.first()
+            if (!forceReload && skipNetworkIfCacheAvailable && source is PlaylistSource.Url && storedHash.isNotBlank()) {
+                val cachedChannels = channelRepository.getAllChannels()
+                if (cachedChannels is Result.Success && cachedChannels.data.isNotEmpty()) {
+                    logDebug { "Startup: returning cached channels without network (${cachedChannels.data.size})" }
+                    return cachedChannels
+                }
+            }
             val content = when (source) {
                 is PlaylistSource.File -> source.content
                 is PlaylistSource.Url -> {

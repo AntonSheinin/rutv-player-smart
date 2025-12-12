@@ -271,6 +271,9 @@ internal fun EpgPanel(
                 ?.let { programItemIndices.getOrNull(it) }
                 ?: resolvedInitialItemIndex
             pendingProgramCenterIndex = targetItemIndex
+            snapshotFlow { listState.layoutInfo.visibleItemsInfo.isNotEmpty() }
+                .filter { it }
+                .first()
             lazyColumnFocusRequester.requestFocus()
         }
     }

@@ -235,15 +235,13 @@ class MainViewModel @Inject constructor(
                 _viewState.update { it.copy(isLoading = true, error = null) }
             }
 
-            // For URL playlists, always reload from URL on app start to get fresh content
             val source = preferencesRepository.playlistSource.first()
-            val shouldForceReload = source is PlaylistSource.Url
-
-            val result = if (shouldForceReload) {
-                logDebug { "App Init: URL playlist detected, forcing reload from URL" }
-                loadPlaylistUseCase.reload()
-            } else {
-                loadPlaylistUseCase()
+            // Cold start optimization:
+            // - Prefer cached channels first for URL playlists (no network) to render UI/playback ASAP.
+            // - Refresh from network in background after startup completes.
+            val result = when (source) {
+                is PlaylistSource.Url -> loadPlaylistUseCase(skipNetworkIfCacheAvailable = true)
+                else -> loadPlaylistUseCase()
             }
 
             when (result) {
@@ -283,6 +281,34 @@ class MainViewModel @Inject constructor(
                             channels.indexOf(ch).takeIf { idx -> idx >= 0 }
                         } ?: 0
                         ensureChannelVisibility(startIndex)
+                    }
+
+                    // Background refresh for URL playlists to get fresh content without blocking cold start.
+                    if (source is PlaylistSource.Url) {
+                        viewModelScope.launch(Dispatchers.IO) {
+                            when (val refreshed = loadPlaylistUseCase()) {
+                                is Result.Success -> {
+                                    val newChannels = refreshed.data
+                                    val oldChannels = _viewState.value.channels
+                                    if (newChannels.isNotEmpty() && newChannels != oldChannels) {
+                                        withContext(Dispatchers.Main) {
+                                            val currentUrl = _viewState.value.currentChannel?.url
+                                            val newIndex = currentUrl?.let { url ->
+                                                newChannels.indexOfFirst { it.url == url }
+                                            } ?: -1
+                                            _viewState.update { current ->
+                                                current.copy(
+                                                    channels = newChannels,
+                                                    currentChannelIndex = if (newIndex >= 0) newIndex else current.currentChannelIndex
+                                                )
+                                            }
+                                        }
+                                        refreshFilteredChannels(newChannels, _viewState.value.showFavoritesOnly)
+                                    }
+                                }
+                                else -> Unit // ignore background refresh errors on startup
+                            }
+                        }
                     }
                 }
                 is Result.Error -> {

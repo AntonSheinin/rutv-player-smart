@@ -281,7 +281,9 @@ internal fun PlaylistPanel(
                 if (channelIndex !in displayedList.indices) {
                     onRequestMoreChannels(channelIndex + PLAYLIST_PREFETCH_MARGIN)
                 } else {
-                    delay(50)
+                    snapshotFlow { listState.layoutInfo.visibleItemsInfo.isNotEmpty() }
+                        .filter { it }
+                        .first()
                     focusChannel(channelIndex, false)
                     lazyColumnFocusRequester.requestFocus()
                     playlistHasFocus = true
@@ -391,7 +393,10 @@ internal fun PlaylistPanel(
                 val longPressThresholdMs = 450L
 
                 LaunchedEffect(Unit) {
-                    delay(150)
+                    if (!isRemoteMode) return@LaunchedEffect
+                    snapshotFlow { listState.layoutInfo.visibleItemsInfo.isNotEmpty() }
+                        .filter { it }
+                        .first()
                     lazyColumnFocusRequester.requestFocus()
                     playlistHasFocus = true
                 }

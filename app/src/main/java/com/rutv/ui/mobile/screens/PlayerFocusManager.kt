@@ -6,8 +6,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.focus.FocusRequester
-import kotlinx.coroutines.delay
 
 /**
  * Represents distinct focus areas in the player screen.
@@ -121,8 +121,8 @@ fun PlayerFocusManager.WatchForPendingRequests() {
 
     LaunchedEffect(currentDest, requester) {
         if (requester != null) {
-            // Small delay to ensure the view is laid out
-            delay(50)
+            // Wait for at least one frame so layout/focus nodes are ready (no fixed delay).
+            withFrameNanos { }
             requester.requestFocus()
         }
     }
