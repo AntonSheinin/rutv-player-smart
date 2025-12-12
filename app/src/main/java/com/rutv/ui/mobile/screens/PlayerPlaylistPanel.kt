@@ -608,21 +608,21 @@ internal fun PlaylistPanel(
             }
 
             if (showSearchDialog) {
-                val okButtonFocusRequester = remember { FocusRequester() }
                 val searchFieldFocusRequester = remember { FocusRequester() }
-                var pendingOkFocus by remember { mutableStateOf(false) }
-                LaunchedEffect(showSearchDialog) {
-                    if (showSearchDialog) {
-                        pendingOkFocus = false
-                        delay(50)
-                        searchFieldFocusRequester.requestFocus()
-                    }
-                }
-                LaunchedEffect(pendingOkFocus) {
-                    if (pendingOkFocus && showSearchDialog) {
-                        delay(10)
-                        okButtonFocusRequester.requestFocus()
-                        pendingOkFocus = false
+                val okButtonFocusRequester = remember { FocusRequester() }
+
+                val onConfirm = {
+                    if (searchText.isNotBlank()) {
+                        val searchLower = searchText.lowercase()
+                        val matchingIndex = channels.indexOfFirst { channel ->
+                            channel.title.lowercase().contains(searchLower)
+                        }
+                        if (matchingIndex >= 0) {
+                            pendingInitialCenterIndex = matchingIndex
+                            focusChannel(matchingIndex, false)
+                        }
+                        showSearchDialog = false
+                        searchText = ""
                     }
                 }
 
@@ -639,6 +639,9 @@ internal fun PlaylistPanel(
                             style = MaterialTheme.typography.titleLarge
                         )
                     },
+                    confirmButtonFocusRequester = okButtonFocusRequester,
+                    textFocusRequester = searchFieldFocusRequester,
+                    onConfirm = { onConfirm() },
                     text = {
                         OutlinedTextField(
                             value = searchText,
@@ -648,10 +651,22 @@ internal fun PlaylistPanel(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .focusRequester(searchFieldFocusRequester)
-                                .onFocusChanged {
-                                    if (showSearchDialog && !it.isFocused) {
-                                        pendingOkFocus = true
-                                    }
+                                .focusable(enabled = true)
+                                .onKeyEvent { event ->
+                                    if (event.type == KeyEventType.KeyDown && DeviceHelper.isRemoteInputActive()) {
+                                        when (event.key) {
+                                            Key.DirectionDown -> {
+                                                okButtonFocusRequester.requestFocus()
+                                                true
+                                            }
+                                            Key.Back -> {
+                                                showSearchDialog = false
+                                                searchText = ""
+                                                true
+                                            }
+                                            else -> false
+                                        }
+                                    } else false
                                 },
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = MaterialTheme.ruTvColors.gold,
@@ -665,21 +680,9 @@ internal fun PlaylistPanel(
                     },
                     confirmButton = {
                         TextButton(
-                            modifier = Modifier.focusRequester(okButtonFocusRequester),
-                            onClick = {
-                                if (searchText.isNotBlank()) {
-                                    val searchLower = searchText.lowercase()
-                                    val matchingIndex = channels.indexOfFirst { channel ->
-                                        channel.title.lowercase().contains(searchLower)
-                                    }
-                                    if (matchingIndex >= 0) {
-                                        pendingInitialCenterIndex = matchingIndex
-                                        focusChannel(matchingIndex, false)
-                                    }
-                                    showSearchDialog = false
-                                    searchText = ""
-                                }
-                            }
+                            onClick = { onConfirm() },
+                            // Keep focus on RemoteDialog's wrapper (gold border) for consistency
+                            modifier = Modifier.focusable(false)
                         ) {
                             Text(
                                 text = stringResource(R.string.button_ok),
@@ -687,21 +690,6 @@ internal fun PlaylistPanel(
                             )
                         }
                     },
-                    onConfirm = {
-                        if (searchText.isNotBlank()) {
-                            val searchLower = searchText.lowercase()
-                            val matchingIndex = channels.indexOfFirst { channel ->
-                                channel.title.lowercase().contains(searchLower)
-                            }
-                            if (matchingIndex >= 0) {
-                                pendingInitialCenterIndex = matchingIndex
-                                focusChannel(matchingIndex, false)
-                            }
-                            showSearchDialog = false
-                            searchText = ""
-                        }
-                    },
-                    textFocusRequester = searchFieldFocusRequester,
                     dismissButton = {
                         TextButton(onClick = {
                             showSearchDialog = false

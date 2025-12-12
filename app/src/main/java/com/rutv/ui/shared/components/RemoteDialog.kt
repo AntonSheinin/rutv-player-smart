@@ -114,6 +114,11 @@ fun RemoteDialog(
                                         confirmFocus.requestFocus()
                                         true
                                     }
+                                    Key.DirectionUp -> {
+                                        // Navigate to text field if available
+                                        textFocusRequester?.requestFocus()
+                                        true
+                                    }
                                     Key.Back -> {
                                         onDismissRequest()
                                         true
