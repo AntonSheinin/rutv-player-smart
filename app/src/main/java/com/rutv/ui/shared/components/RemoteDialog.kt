@@ -31,17 +31,22 @@ fun RemoteDialog(
     dismissButton: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
     containerColor: androidx.compose.ui.graphics.Color = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f),
-    shape: RoundedCornerShape = RoundedCornerShape(16.dp)
+    shape: RoundedCornerShape = RoundedCornerShape(16.dp),
+    confirmButtonFocusRequester: FocusRequester? = null,
+    dismissButtonFocusRequester: FocusRequester? = null,
+    textFocusRequester: FocusRequester? = null,
+    autoFocusConfirm: Boolean = true,
+    onConfirm: (() -> Unit)? = null
 ) {
     val isRemoteMode = DeviceHelper.isRemoteInputActive()
 
-    // Focus requesters for buttons
-    val confirmFocus = remember { FocusRequester() }
-    val dismissFocus = remember { FocusRequester() }
+    // Focus requesters for buttons (use provided or create new)
+    val confirmFocus = confirmButtonFocusRequester ?: remember { FocusRequester() }
+    val dismissFocus = dismissButtonFocusRequester ?: remember { FocusRequester() }
 
     // Request focus on confirm button when dialog opens in remote mode
-    LaunchedEffect(isRemoteMode) {
-        if (isRemoteMode) {
+    LaunchedEffect(isRemoteMode, autoFocusConfirm) {
+        if (isRemoteMode && autoFocusConfirm) {
             confirmFocus.requestFocus()
         }
     }
@@ -54,21 +59,30 @@ fun RemoteDialog(
             var isFocused by remember { mutableStateOf(false) }
             Box(
                 modifier = Modifier
-                    .focusable(enabled = isRemoteMode)
+                    .focusable()
                     .focusRequester(confirmFocus)
                     .onFocusChanged { isFocused = it.isFocused }
                     .then(focusIndicatorModifier(isFocused = isFocused))
                     .onKeyEvent { event ->
-                        if (event.type == KeyEventType.KeyDown && isFocused && isRemoteMode) {
+                        if (event.type == KeyEventType.KeyDown && isFocused) {
                             when (event.key) {
                                 Key.DirectionCenter, Key.Enter -> {
-                                    // Trigger confirm button click
-                                    // The button composable will handle onClick
-                                    false // Let the button handle it
+                                    // Trigger confirm action if provided
+                                    if (onConfirm != null) {
+                                        onConfirm()
+                                        true
+                                    } else {
+                                        false // Let the button handle it if no explicit action provided
+                                    }
                                 }
                                 Key.DirectionLeft -> {
                                     // Navigate to dismiss button if available
                                     dismissButton?.let { dismissFocus.requestFocus() }
+                                    true
+                                }
+                                Key.DirectionUp -> {
+                                    // Navigate to text field if available
+                                    textFocusRequester?.requestFocus()
                                     true
                                 }
                                 else -> false
@@ -84,12 +98,12 @@ fun RemoteDialog(
                 var isFocused by remember { mutableStateOf(false) }
                 Box(
                     modifier = Modifier
-                        .focusable(enabled = isRemoteMode)
+                        .focusable()
                         .focusRequester(dismissFocus)
                         .onFocusChanged { isFocused = it.isFocused }
                         .then(focusIndicatorModifier(isFocused = isFocused))
                         .onKeyEvent { event ->
-                            if (event.type == KeyEventType.KeyDown && isFocused && isRemoteMode) {
+                            if (event.type == KeyEventType.KeyDown && isFocused) {
                                 when (event.key) {
                                     Key.DirectionCenter, Key.Enter -> {
                                         onDismissRequest()

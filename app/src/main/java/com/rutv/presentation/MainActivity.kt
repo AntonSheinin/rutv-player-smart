@@ -18,6 +18,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -26,7 +31,17 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.focusable
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import com.rutv.ui.theme.ruTvColors
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
@@ -49,6 +64,7 @@ import com.rutv.util.logDebug
 import dagger.hilt.android.AndroidEntryPoint
 import timber.log.Timber
 import android.view.KeyEvent
+import kotlinx.coroutines.delay
 
 /**
  * Main Activity - Refactored to use Jetpack Compose
@@ -274,13 +290,48 @@ class MainActivity : ComponentActivity() {
         }
 
         if (showChannelDialog) {
+            val confirmButtonFocus = remember { FocusRequester() }
+            val textFieldFocus = remember { FocusRequester() }
+            var pendingOkFocus by remember { mutableStateOf(false) }
+
             // Handle number pad input for channel selection
             LaunchedEffect(showChannelDialog) {
                 // Number input is handled via MainActivity.onKeyDown() which maps KEYCODE_0-9
                 // When playlist panel is open or channel dialog is shown, number keys append digits
             }
 
+            // Focus management similar to search dialog
+            LaunchedEffect(showChannelDialog) {
+                if (showChannelDialog) {
+                    pendingOkFocus = false
+                    // Focus on text field first
+                    // delay(100)
+                    // textFieldFocus.requestFocus()
+                    // Show keyboard explicitly
+                    // val keyboardController = LocalSoftwareKeyboardController.current
+                    // keyboardController?.show()
+                }
+            }
+
+            LaunchedEffect(pendingOkFocus) {
+                if (pendingOkFocus && showChannelDialog) {
+                    delay(10)
+                    confirmButtonFocus.requestFocus()
+                    pendingOkFocus = false
+                }
+            }
+
+            val onConfirm = {
+                channelInput.toIntOrNull()?.let { number ->
+                    if (number in 1..viewState.channels.size) {
+                        viewModel.playChannel(number - 1)
+                    }
+                }
+                showChannelDialog = false
+            }
+
             RemoteDialog(
+                autoFocusConfirm = true,
                 onDismissRequest = { showChannelDialog = false },
                 containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f),
                 title = {
@@ -290,13 +341,80 @@ class MainActivity : ComponentActivity() {
                         style = MaterialTheme.typography.titleLarge
                     )
                 },
+                confirmButtonFocusRequester = confirmButtonFocus,
+                textFocusRequester = textFieldFocus,
+                onConfirm = { onConfirm() },
+                modifier = Modifier
+                    .border(
+                        2.dp,
+                        MaterialTheme.ruTvColors.gold.copy(alpha = 0.7f),
+                        RoundedCornerShape(16.dp)
+                    )
+                    .onPreviewKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown) {
+                            val key = event.key
+                            val number = when (key) {
+                                Key.Zero, Key.NumPad0 -> "0"
+                                Key.One, Key.NumPad1 -> "1"
+                                Key.Two, Key.NumPad2 -> "2"
+                                Key.Three, Key.NumPad3 -> "3"
+                                Key.Four, Key.NumPad4 -> "4"
+                                Key.Five, Key.NumPad5 -> "5"
+                                Key.Six, Key.NumPad6 -> "6"
+                                Key.Seven, Key.NumPad7 -> "7"
+                                Key.Eight, Key.NumPad8 -> "8"
+                                Key.Nine, Key.NumPad9 -> "9"
+                                else -> null
+                            }
+                            if (number != null) {
+                                if (channelInput.length < 4) {
+                                    channelInput += number
+                                }
+                                textFieldFocus.requestFocus()
+                                true
+                            } else {
+                                false
+                            }
+                        } else {
+                            false
+                        }
+                    },
                 text = {
                     OutlinedTextField(
                         value = channelInput,
                         onValueChange = { new -> channelInput = new.filter { it.isDigit() }.take(4) },
                         label = { Text(getString(R.string.hint_channel_number, viewState.channels.size)) },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(textFieldFocus)
+                            // Focusable always enabled for text field to allow switching to it
+                            .focusable(enabled = true)
+                            .onKeyEvent { event ->
+                                if (event.type == KeyEventType.KeyDown && DeviceHelper.isRemoteInputActive()) {
+                                    when (event.key) {
+                                        Key.DirectionDown -> {
+                                            confirmButtonFocus.requestFocus()
+                                            true
+                                        }
+                                        Key.Back -> {
+                                            showChannelDialog = false
+                                            true
+                                        }
+                                        else -> false
+                                    }
+                                } else false
+                            },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Number,
+                            imeAction = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onDone = {
+                                confirmButtonFocus.requestFocus()
+                                // default behavior closes keyboard
+                            }
+                        ),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = MaterialTheme.ruTvColors.gold,
                             unfocusedBorderColor = MaterialTheme.ruTvColors.textDisabled,
@@ -308,14 +426,10 @@ class MainActivity : ComponentActivity() {
                     )
                 },
                 confirmButton = {
-                    TextButton(onClick = {
-                        channelInput.toIntOrNull()?.let { number ->
-                            if (number in 1..viewState.channels.size) {
-                                viewModel.playChannel(number - 1)
-                            }
-                        }
-                        showChannelDialog = false
-                    }) {
+                    TextButton(
+                        onClick = { onConfirm() },
+                        modifier = Modifier.focusable(false)
+                    ) {
                         Text(
                             text = getString(R.string.button_ok),
                             color = MaterialTheme.ruTvColors.gold
@@ -323,19 +437,17 @@ class MainActivity : ComponentActivity() {
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showChannelDialog = false }) {
+                    TextButton(
+                        onClick = { showChannelDialog = false },
+                        modifier = Modifier.focusable(false)
+                    ) {
                         Text(
                             text = getString(R.string.button_cancel),
                             color = MaterialTheme.ruTvColors.textPrimary
                         )
                     }
                 },
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.border(
-                    2.dp,
-                    MaterialTheme.ruTvColors.gold.copy(alpha = 0.7f),
-                    RoundedCornerShape(16.dp)
-                )
+                shape = RoundedCornerShape(16.dp)
             )
         }
 

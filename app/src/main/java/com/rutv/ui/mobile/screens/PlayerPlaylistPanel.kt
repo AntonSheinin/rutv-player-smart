@@ -98,8 +98,7 @@ internal fun PlaylistPanel(
     onClose: () -> Unit,
     onUpdateScrollIndex: (Int) -> Unit,
     onRequestMoreChannels: (Int) -> Unit,
-    onProvideFocusController: (((Int, Boolean) -> Boolean)?) -> Unit = {},
-    onProvideFocusRequester: ((FocusRequester?) -> Unit)? = null,
+    focusManager: PlayerFocusManager,
     onChannelFocused: ((Int) -> Unit)? = null,
     onRequestEpgFocus: (() -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -148,49 +147,56 @@ internal fun PlaylistPanel(
     var pendingScrollJob by remember { mutableStateOf<Job?>(null) }
 
     val focusChannel: (Int, Boolean) -> Boolean = { targetIndex, play ->
-        if (targetIndex !in channels.indices) {
-            false
-        } else if (targetIndex !in displayedList.indices) {
-            onRequestMoreChannels(targetIndex + PLAYLIST_PREFETCH_MARGIN)
-            false
-        } else {
-            focusedChannelIndex = targetIndex
-            onChannelFocused?.invoke(targetIndex)
-            playlistHasFocus = true
-            val shouldScroll = !listState.isItemFullyVisible(targetIndex)
-            if (shouldScroll) {
-                val scrollOffset = when {
-                    targetIndex <= 0 -> 0
-                    targetIndex >= channels.lastIndex -> 0
-                    else -> -160
-                }
-                pendingScrollJob?.cancel()
-                pendingScrollJob = coroutineScope.launch {
-                    listState.scrollToItem(targetIndex, scrollOffset = scrollOffset)
-                }.apply {
-                    invokeOnCompletion { pendingScrollJob = null }
-                }
-            }
-            if (play) {
+        when {
+            targetIndex !in channels.indices -> false
+            play -> {
+                // If playing, always call onChannelClick even if not in displayedList
+                // This handles favorites view where displayedList is filtered
                 onChannelClick(targetIndex)
+                true
             }
-            true
+            targetIndex !in displayedList.indices -> {
+                // For focus-only operations, check if in displayedList
+                onRequestMoreChannels(targetIndex + PLAYLIST_PREFETCH_MARGIN)
+                false
+            }
+            else -> {
+                focusedChannelIndex = targetIndex
+                onChannelFocused?.invoke(targetIndex)
+                playlistHasFocus = true
+                val shouldScroll = !listState.isItemFullyVisible(targetIndex)
+                if (shouldScroll) {
+                    val scrollOffset = when {
+                        targetIndex <= 0 -> 0
+                        targetIndex >= channels.lastIndex -> 0
+                        else -> -160
+                    }
+                    pendingScrollJob?.cancel()
+                    pendingScrollJob = coroutineScope.launch {
+                        listState.scrollToItem(targetIndex, scrollOffset = scrollOffset)
+                    }.apply {
+                        invokeOnCompletion { pendingScrollJob = null }
+                    }
+                }
+                true
+            }
         }
     }
     val lazyColumnFocusRequester = remember { FocusRequester() }
 
-    LaunchedEffect(Unit) {
-        onProvideFocusController(focusChannel)
-        onProvideFocusRequester?.invoke(lazyColumnFocusRequester)
+    // Register with focus manager
+    LaunchedEffect(lazyColumnFocusRequester, focusChannel) {
+        focusManager.registerEntry(PlayerFocusDestination.PLAYLIST_PANEL, lazyColumnFocusRequester)
+        focusManager.registerFocusCallback(PlayerFocusDestination.PLAYLIST_PANEL, focusChannel)
     }
 
-    val latestFocusedIndex by rememberUpdatedState(focusedChannelIndex)
-    val latestChannels by rememberUpdatedState(channels)
-    val latestCurrentChannelIndex by rememberUpdatedState(currentChannelIndex)
     DisposableEffect(Unit) {
         onDispose {
-            onProvideFocusController(null)
-            onProvideFocusRequester?.invoke(null)
+            focusManager.unregisterEntry(PlayerFocusDestination.PLAYLIST_PANEL)
+            focusManager.registerFocusCallback(PlayerFocusDestination.PLAYLIST_PANEL, null)
+            val latestFocusedIndex = focusedChannelIndex
+            val latestChannels = channels
+            val latestCurrentChannelIndex = currentChannelIndex
             val finalIndex = when {
                 latestChannels.isEmpty() -> -1
                 latestFocusedIndex in latestChannels.indices -> latestFocusedIndex
@@ -201,6 +207,13 @@ internal fun PlaylistPanel(
             if (finalIndex >= 0) {
                 onUpdateScrollIndex(finalIndex)
             }
+        }
+    }
+
+    // When playlist panel becomes active, ensure focus is on the list
+    LaunchedEffect(focusManager.currentDestination) {
+        if (focusManager.currentDestination == PlayerFocusDestination.PLAYLIST_PANEL) {
+            lazyColumnFocusRequester.requestFocus()
         }
     }
 
@@ -407,14 +420,30 @@ internal fun PlaylistPanel(
                                 KeyEventType.KeyDown -> {
                                     when (event.key) {
                                         Key.DirectionUp -> {
-                                            if (focusedChannelIndex > 0) {
-                                                focusChannel(focusedChannelIndex - 1, false)
+                                            // Find previous channel in displayedList, then get its index in channels
+                                            val currentDisplayedIndex = displayedList.indexOfFirst {
+                                                channels.indexOf(it) == focusedChannelIndex
+                                            }
+                                            if (currentDisplayedIndex > 0) {
+                                                val prevChannel = displayedList[currentDisplayedIndex - 1]
+                                                val prevChannelIndex = channels.indexOf(prevChannel)
+                                                if (prevChannelIndex >= 0) {
+                                                    focusChannel(prevChannelIndex, false)
+                                                }
                                             }
                                             true
                                         }
                                         Key.DirectionDown -> {
-                                            if (focusedChannelIndex < channels.lastIndex) {
-                                                focusChannel(focusedChannelIndex + 1, false)
+                                            // Find next channel in displayedList, then get its index in channels
+                                            val currentDisplayedIndex = displayedList.indexOfFirst {
+                                                channels.indexOf(it) == focusedChannelIndex
+                                            }
+                                            if (currentDisplayedIndex >= 0 && currentDisplayedIndex < displayedList.lastIndex) {
+                                                val nextChannel = displayedList[currentDisplayedIndex + 1]
+                                                val nextChannelIndex = channels.indexOf(nextChannel)
+                                                if (nextChannelIndex >= 0) {
+                                                    focusChannel(nextChannelIndex, false)
+                                                }
                                             }
                                             true
                                         }
@@ -658,6 +687,21 @@ internal fun PlaylistPanel(
                             )
                         }
                     },
+                    onConfirm = {
+                        if (searchText.isNotBlank()) {
+                            val searchLower = searchText.lowercase()
+                            val matchingIndex = channels.indexOfFirst { channel ->
+                                channel.title.lowercase().contains(searchLower)
+                            }
+                            if (matchingIndex >= 0) {
+                                pendingInitialCenterIndex = matchingIndex
+                                focusChannel(matchingIndex, false)
+                            }
+                            showSearchDialog = false
+                            searchText = ""
+                        }
+                    },
+                    textFocusRequester = searchFieldFocusRequester,
                     dismissButton = {
                         TextButton(onClick = {
                             showSearchDialog = false
