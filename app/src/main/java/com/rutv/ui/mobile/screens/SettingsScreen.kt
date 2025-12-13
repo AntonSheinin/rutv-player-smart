@@ -26,6 +26,7 @@ import com.rutv.R
 import com.rutv.data.model.PlaylistSource
 import com.rutv.presentation.settings.SettingsViewState
 import com.rutv.ui.shared.components.RemoteDialog
+import com.rutv.ui.shared.components.remoteActivate
 import com.rutv.ui.shared.components.focusIndicatorModifier
 import com.rutv.ui.theme.ruTvColors
 import com.rutv.util.Constants
@@ -123,17 +124,7 @@ fun SettingsScreen(
                                 .focusRequester(backButtonFocus)
                                 .onFocusChanged { isBackFocused = it.isFocused }
                                 .then(focusIndicatorModifier(isFocused = isBackFocused))
-                                .onKeyEvent { event ->
-                                    if (DeviceHelper.isRemoteInputActive() && isBackFocused && event.type == KeyEventType.KeyDown) {
-                                        when (event.key) {
-                                            Key.DirectionCenter, Key.Enter -> {
-                                                onBack()
-                                                true
-                                            }
-                                            else -> false
-                                        }
-                                    } else false
-                                }
+                                .remoteActivate(enabled = DeviceHelper.isRemoteInputActive(), onActivate = onBack)
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -203,21 +194,19 @@ fun SettingsScreen(
                             .focusRequester(fileButtonFocus)
                             .onFocusChanged { fileButtonFocused = it.isFocused }
                             .then(focusIndicatorModifier(isFocused = fileButtonFocused))
+                            .remoteActivate(
+                                enabled = DeviceHelper.isRemoteInputActive(),
+                                onActivate = { filePickerLauncher.launch("*/*") }
+                            )
                             .onKeyEvent { event ->
-                                val remoteActive = DeviceHelper.isRemoteInputActive()
-                                if (event.type == KeyEventType.KeyDown && fileButtonFocused && remoteActive) {
-                                    when (event.key) {
-                                        Key.DirectionCenter, Key.Enter -> {
-                                            filePickerLauncher.launch("*/*")
-                                            true
-                                        }
-                                        Key.DirectionRight -> {
-                                            urlButtonFocus.requestFocus()
-                                            true
-                                        }
-                                        else -> false
+                                if (event.type != KeyEventType.KeyDown || !DeviceHelper.isRemoteInputActive()) return@onKeyEvent false
+                                when (event.key) {
+                                    Key.DirectionRight -> {
+                                        urlButtonFocus.requestFocus()
+                                        true
                                     }
-                                } else false
+                                    else -> false
+                                }
                             },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.ruTvColors.gold,
@@ -235,21 +224,19 @@ fun SettingsScreen(
                             .focusRequester(urlButtonFocus)
                             .onFocusChanged { urlButtonFocused = it.isFocused }
                             .then(focusIndicatorModifier(isFocused = urlButtonFocused))
+                            .remoteActivate(
+                                enabled = DeviceHelper.isRemoteInputActive(),
+                                onActivate = { showUrlDialog = true }
+                            )
                             .onKeyEvent { event ->
-                                val remoteActive = DeviceHelper.isRemoteInputActive()
-                                if (event.type == KeyEventType.KeyDown && urlButtonFocused && remoteActive) {
-                                    when (event.key) {
-                                        Key.DirectionCenter, Key.Enter -> {
-                                            showUrlDialog = true
-                                            true
-                                        }
-                                        Key.DirectionLeft -> {
-                                            fileButtonFocus.requestFocus()
-                                            true
-                                        }
-                                        else -> false
+                                if (event.type != KeyEventType.KeyDown || !DeviceHelper.isRemoteInputActive()) return@onKeyEvent false
+                                when (event.key) {
+                                    Key.DirectionLeft -> {
+                                        fileButtonFocus.requestFocus()
+                                        true
                                     }
-                                } else false
+                                    else -> false
+                                }
                             },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.ruTvColors.gold,
@@ -278,21 +265,16 @@ fun SettingsScreen(
                         .focusRequester(reloadButtonFocus)
                         .onFocusChanged { isFocused = it.isFocused }
                         .then(focusIndicatorModifier(isFocused = isFocused))
-                        .onKeyEvent { event ->
-                            if (DeviceHelper.isRemoteInputActive() && isFocused && event.type == KeyEventType.KeyDown) {
-                                when (event.key) {
-                                    Key.DirectionCenter, Key.Enter -> {
-                                        if (viewState.playlistSource is PlaylistSource.None) {
-                                            showNoPlaylistDialog = true
-                                        } else {
-                                            showReloadDialog = true
-                                        }
-                                        true
-                                    }
-                                    else -> false
+                        .remoteActivate(
+                            enabled = DeviceHelper.isRemoteInputActive(),
+                            onActivate = {
+                                if (viewState.playlistSource is PlaylistSource.None) {
+                                    showNoPlaylistDialog = true
+                                } else {
+                                    showReloadDialog = true
                                 }
-                            } else false
-                        },
+                            }
+                        ),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.ruTvColors.selectedBackground,
                         contentColor = MaterialTheme.ruTvColors.textPrimary
@@ -399,17 +381,7 @@ fun SettingsScreen(
                         .focusRequester(clearCacheButtonFocus)
                         .onFocusChanged { isFocused = it.isFocused }
                         .then(focusIndicatorModifier(isFocused = isFocused))
-                        .onKeyEvent { event ->
-                            if (DeviceHelper.isRemoteInputActive() && isFocused && event.type == KeyEventType.KeyDown) {
-                                when (event.key) {
-                                    Key.DirectionCenter, Key.Enter -> {
-                                        onClearEpgCache()
-                                        true
-                                    }
-                                    else -> false
-                                }
-                            } else false
-                        },
+                        .remoteActivate(enabled = DeviceHelper.isRemoteInputActive(), onActivate = onClearEpgCache),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.ruTvColors.selectedBackground,
                         contentColor = MaterialTheme.ruTvColors.textPrimary
@@ -548,19 +520,10 @@ private fun SwitchSetting(
             .onFocusChanged { isFocused = it.isFocused }
             .then(focusIndicatorModifier(isFocused))
             .padding(vertical = 8.dp)
-            .onKeyEvent { event ->
-                if (DeviceHelper.isRemoteInputActive() && isFocused && event.type == KeyEventType.KeyDown) {
-                    when (event.key) {
-                        Key.Enter, Key.DirectionCenter -> {
-                            onCheckedChange(!checked)
-                            true
-                        }
-                        else -> false
-                    }
-                } else {
-                    false
-                }
-            },
+            .remoteActivate(
+                enabled = DeviceHelper.isRemoteInputActive(),
+                onActivate = { onCheckedChange(!checked) }
+            ),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -669,18 +632,7 @@ private fun NumberInputSetting(
                     interactionSource = interactionSource,
                     indication = null
                 ) { openDialog() }
-                .onKeyEvent { event ->
-                    if (
-                        DeviceHelper.isRemoteInputActive() &&
-                        event.type == KeyEventType.KeyDown &&
-                        (event.key == Key.Enter || event.key == Key.DirectionCenter)
-                    ) {
-                        openDialog()
-                        true
-                    } else {
-                        false
-                    }
-                }
+                .remoteActivate(enabled = DeviceHelper.isRemoteInputActive(), onActivate = openDialog)
                 .then(focusIndicatorModifier(isFocused)),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = MaterialTheme.ruTvColors.gold,
@@ -958,18 +910,7 @@ private fun LanguageSelectorSetting(
                         interactionSource = interactionSource,
                         indication = null
                     ) { toggleMenu() }
-                    .onKeyEvent { event ->
-                        if (
-                            DeviceHelper.isRemoteInputActive() &&
-                            event.type == KeyEventType.KeyDown &&
-                            (event.key == Key.Enter || event.key == Key.DirectionCenter)
-                        ) {
-                            toggleMenu()
-                            true
-                        } else {
-                            false
-                        }
-                    },
+                    .remoteActivate(enabled = DeviceHelper.isRemoteInputActive(), onActivate = toggleMenu),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = MaterialTheme.ruTvColors.gold,
                     unfocusedBorderColor = MaterialTheme.ruTvColors.textDisabled,
