@@ -76,7 +76,6 @@ import com.rutv.ui.shared.presentation.LayoutConstants
 import com.rutv.ui.theme.ruTvColors
 import com.rutv.util.DeviceHelper
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
@@ -121,7 +120,6 @@ internal fun PlaylistPanel(
     var playlistHasFocus by remember { mutableStateOf(false) }
     var okDownTimestampMs by remember { mutableLongStateOf(0L) }
     var okLongPressHandled by remember { mutableStateOf(false) }
-    var okLongPressJob by remember { mutableStateOf<Job?>(null) }
     var pendingInitialCenterIndex by remember(channels, displayedList.size, currentChannelIndex) {
         mutableStateOf(
             resolvedInitialIndex.takeIf { displayedList.isNotEmpty() && it in displayedList.indices }
@@ -390,7 +388,7 @@ internal fun PlaylistPanel(
 
             Box(modifier = Modifier.fillMaxSize()) {
                 val isEpgPanelVisible = epgOpenIndex >= 0
-                val longPressThresholdMs = 450L
+                val longPressThresholdMs = 450L // used for press-duration fallback
 
                 LaunchedEffect(Unit) {
                     if (!isRemoteMode) return@LaunchedEffect
@@ -453,18 +451,18 @@ internal fun PlaylistPanel(
                                             true
                                         }
                                         Key.DirectionCenter, Key.Enter -> {
-                                            if (okDownTimestampMs == 0L) {
-                                                okDownTimestampMs = event.nativeKeyEvent?.downTime ?: System.currentTimeMillis()
-                                                okLongPressHandled = false
-                                                okLongPressJob?.cancel()
-                                                okLongPressJob = coroutineScope.launch {
-                                                    delay(longPressThresholdMs.toLong())
+                                            val repeat = event.nativeKeyEvent?.repeatCount ?: 0
+                                            if (repeat > 0) {
+                                                // Treat first repeat as long-press activation (no delay-based job)
+                                                if (!okLongPressHandled) {
                                                     okLongPressHandled = true
-                                                    val channel = channels.getOrNull(focusedChannelIndex)
-                                                    if (channel != null) {
+                                                    channels.getOrNull(focusedChannelIndex)?.let { channel ->
                                                         onFavoriteClick(channel.url)
                                                     }
                                                 }
+                                            } else if (okDownTimestampMs == 0L) {
+                                                okDownTimestampMs = event.nativeKeyEvent?.downTime ?: System.currentTimeMillis()
+                                                okLongPressHandled = false
                                             }
                                             true
                                         }
@@ -482,7 +480,6 @@ internal fun PlaylistPanel(
                                 KeyEventType.KeyUp -> {
                                     when (event.key) {
                                         Key.DirectionCenter, Key.Enter -> {
-                                            okLongPressJob?.cancel()
                                             val upTime = event.nativeKeyEvent?.eventTime ?: System.currentTimeMillis()
                                             val downTime = okDownTimestampMs.takeIf { it > 0 } ?: upTime
                                             val pressDuration = upTime - downTime
@@ -496,7 +493,6 @@ internal fun PlaylistPanel(
                                             }
                                             okDownTimestampMs = 0L
                                             okLongPressHandled = false
-                                            okLongPressJob = null
                                             true
                                         }
                                         else -> false

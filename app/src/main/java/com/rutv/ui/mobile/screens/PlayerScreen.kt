@@ -58,6 +58,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.abs
 import kotlin.math.max
 import timber.log.Timber
@@ -207,9 +209,9 @@ fun PlayerScreen(
         if (!showControls) return@LaunchedEffect
         val playerView = playerViewRef ?: return@LaunchedEffect
         val timeoutMs = 3000L
-        val startAt = lastControlsInteractionAt
-        delay(timeoutMs)
-        if (showControls && startAt == lastControlsInteractionAt) {
+        // Suspend until cancelled (interaction changes) or timeout triggers (auto-hide).
+        val timedOut = withTimeoutOrNull(timeoutMs) { awaitCancellation() } == null
+        if (timedOut && showControls) {
             showControls = false
             playerView.hideController()
         }
@@ -390,11 +392,8 @@ fun PlayerScreen(
                         playerViewRef?.post {
                             focusExoPlayerControls(true)
                         }
-                        // Reset flag after a short delay to allow focus to settle
-                        coroutineScope.launch {
-                            delay(100)
-                            isNavigatingWithinPlayerControls = false
-                        }
+                        // Reset flag after the focus request is enqueued (no time-based delay)
+                        playerViewRef?.post { isNavigatingWithinPlayerControls = false }
                     }
                 },
                 onNavigateLeftFromRotate = {
@@ -406,11 +405,8 @@ fun PlayerScreen(
                         playerViewRef?.post {
                             focusExoPlayerControls(false)
                         }
-                        // Reset flag after a short delay to allow focus to settle
-                        coroutineScope.launch {
-                            delay(100)
-                            isNavigatingWithinPlayerControls = false
-                        }
+                        // Reset flag after the focus request is enqueued (no time-based delay)
+                        playerViewRef?.post { isNavigatingWithinPlayerControls = false }
                     }
                 },
                 focusManager = focusManager,
@@ -431,10 +427,6 @@ fun PlayerScreen(
                                 leftColumnFocusRequesters,
                                 rightColumnFocusRequesters
                             )
-                        }
-                        // Reset flag after a short delay
-                        coroutineScope.launch {
-                            delay(100)
                             isNavigatingWithinPlayerControls = false
                         }
                     }
@@ -451,10 +443,6 @@ fun PlayerScreen(
                                 leftColumnFocusRequesters,
                                 rightColumnFocusRequesters
                             )
-                        }
-                        // Reset flag after a short delay
-                        coroutineScope.launch {
-                            delay(100)
                             isNavigatingWithinPlayerControls = false
                         }
                     }

@@ -3,6 +3,8 @@ package com.rutv.ui.mobile.components
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -37,9 +39,6 @@ import com.rutv.ui.shared.components.focusIndicatorModifier
 import com.rutv.ui.theme.ruTvColors
 import com.rutv.util.Constants
 import com.rutv.util.DeviceHelper
-import com.rutv.util.PlayerConstants
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 private val ChannelLogoSize = Constants.CHANNEL_LOGO_SIZE_DP.dp
 
@@ -60,9 +59,6 @@ fun ChannelListItem(
     isItemFocused: Boolean = false, // Visual focus indicator for state-based focus
     modifier: Modifier = Modifier
 ) {
-    var lastClickTime by remember { mutableLongStateOf(0L) }
-    var clickJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
-    val coroutineScope = rememberCoroutineScope()
     val isRemoteMode = DeviceHelper.isRemoteInputActive()
 
     val backgroundColor = when {
@@ -75,28 +71,13 @@ fun ChannelListItem(
         modifier = modifier
             .fillMaxWidth()
             .then(focusIndicatorModifier(isFocused = isItemFocused)) // Use isItemFocused for visual indicator
-            .clickable(enabled = !isRemoteMode) {
-                // Touch-only clickable behavior (double-tap/single-tap)
-                val currentTime = System.currentTimeMillis()
-                val timeSinceLastClick = currentTime - lastClickTime
-
-                // Cancel pending single tap
-                clickJob?.cancel()
-
-                if (timeSinceLastClick < PlayerConstants.DOUBLE_TAP_DELAY_MS) {
-                    // Double tap - play channel
-                    lastClickTime = 0
-                    onChannelClick()
-                } else {
-                    // Single tap - schedule EPG show
-                    lastClickTime = currentTime
-                    clickJob = coroutineScope.launch {
-                        delay(PlayerConstants.DOUBLE_TAP_DELAY_MS)
-                        if (channel.hasEpg) {
-                            onShowPrograms()
-                        }
-                    }
-                }
+            // Touch-only gesture behavior (no delay-based timers)
+            .pointerInput(isRemoteMode, channel.hasEpg) {
+                if (isRemoteMode) return@pointerInput
+                detectTapGestures(
+                    onDoubleTap = { onChannelClick() },
+                    onTap = { if (channel.hasEpg) onShowPrograms() }
+                )
             },
         colors = CardDefaults.cardColors(containerColor = backgroundColor)
     ) {
