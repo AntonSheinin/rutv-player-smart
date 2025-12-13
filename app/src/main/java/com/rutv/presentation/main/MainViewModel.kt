@@ -68,19 +68,14 @@ class MainViewModel @Inject constructor(
     private val debugMessageMutex = Mutex()
     private val epgProgramCache = mutableMapOf<String, List<EpgProgram>>()
     private var channelFilterJob: Job? = null
-    private var currentChannelEpgJob: Job? = null
 
     private fun postEpgNotification() {
-        viewModelScope.launch(Dispatchers.Main) {
-            if (_viewState.value.epgNotificationMessage == EPG_LOADED_MESSAGE) return@launch
-            _viewState.update { it.copy(epgNotificationMessage = EPG_LOADED_MESSAGE) }
-        }
+        if (_viewState.value.epgNotificationMessage == EPG_LOADED_MESSAGE) return
+        _viewState.update { it.copy(epgNotificationMessage = EPG_LOADED_MESSAGE) }
     }
 
     private fun postNotificationMessage(message: String) {
-        viewModelScope.launch(Dispatchers.Main) {
-            _viewState.update { it.copy(epgNotificationMessage = message) }
-        }
+        _viewState.update { it.copy(epgNotificationMessage = message) }
     }
 
     private fun updateEpgPanelState(
@@ -99,9 +94,7 @@ class MainViewModel @Inject constructor(
     }
 
     fun clearEpgNotification() {
-        viewModelScope.launch(Dispatchers.Main) {
-            _viewState.update { it.copy(epgNotificationMessage = null) }
-        }
+        _viewState.update { it.copy(epgNotificationMessage = null) }
     }
 
     init {
@@ -155,18 +148,30 @@ class MainViewModel @Inject constructor(
             }
         }
 
-        // Collect debug messages
+        val debugEnabledFlow = preferencesRepository.playerConfig
+            .map { it.showDebugLog }
+            .distinctUntilChanged()
+
+        // Reflect the toggle in view state, and clear accumulated debug messages when disabled.
         viewModelScope.launch {
-            playerManager.debugMessages.collect { message ->
-                appendDebugMessage(message)
+            debugEnabledFlow.collect { enabled ->
+                _viewState.update { it.copy(showDebugLog = enabled) }
+                if (!enabled) {
+                    debugMessageMutex.withLock {
+                        debugMessageList.clear()
+                        _viewState.update { it.copy(debugMessages = emptyList()) }
+                    }
+                }
             }
         }
 
-        // Collect player config
+        // Collect debug messages only when enabled (avoid churn and state updates when hidden).
         viewModelScope.launch {
-            preferencesRepository.playerConfig.collect { config ->
-                _viewState.update { it.copy(showDebugLog = config.showDebugLog) }
-            }
+            debugEnabledFlow
+                .flatMapLatest { enabled -> if (enabled) playerManager.debugMessages else emptyFlow() }
+                .collect { message ->
+                    appendDebugMessage(message)
+                }
         }
 
         // Collect playlist source
@@ -210,23 +215,21 @@ class MainViewModel @Inject constructor(
         channelFilterJob?.cancel()
         channelFilterJob = viewModelScope.launch(Dispatchers.Default) {
             val filtered = filterChannelsUseCase(channels, showFavoritesOnly)
-            withContext(Dispatchers.Main) {
-                _viewState.update { current ->
-                    val visibleCount = filtered.size.coerceAtMost(DEFAULT_VISIBLE_CHANNELS)
-                    if (current.filteredChannels === filtered && current.visibleChannelCount == visibleCount) {
-                        current
-                    } else {
-                        current.copy(
-                            filteredChannels = filtered,
-                            visibleChannelCount = visibleCount
-                        )
-                    }
+            _viewState.update { current ->
+                val visibleCount = filtered.size.coerceAtMost(DEFAULT_VISIBLE_CHANNELS)
+                if (current.filteredChannels === filtered && current.visibleChannelCount == visibleCount) {
+                    current
+                } else {
+                    current.copy(
+                        filteredChannels = filtered,
+                        visibleChannelCount = visibleCount
+                    )
                 }
-                val currentChannelUrl = _viewState.value.currentChannel?.url
-                if (!currentChannelUrl.isNullOrBlank()) {
-                    val playingIndex = filtered.indexOfFirst { it.url == currentChannelUrl }
-                    ensureChannelVisibility(playingIndex)
-                }
+            }
+            val currentChannelUrl = _viewState.value.currentChannel?.url
+            if (!currentChannelUrl.isNullOrBlank()) {
+                val playingIndex = filtered.indexOfFirst { it.url == currentChannelUrl }
+                ensureChannelVisibility(playingIndex)
             }
         }
     }
@@ -283,17 +286,15 @@ class MainViewModel @Inject constructor(
                                     val newChannels = refreshed.data
                                     val oldChannels = _viewState.value.channels
                                     if (newChannels.isNotEmpty() && newChannels != oldChannels) {
-                                        withContext(Dispatchers.Main) {
-                                            val currentUrl = _viewState.value.currentChannel?.url
-                                            val newIndex = currentUrl?.let { url ->
-                                                newChannels.indexOfFirst { it.url == url }
-                                            } ?: -1
-                                            _viewState.update { current ->
-                                                current.copy(
-                                                    channels = newChannels,
-                                                    currentChannelIndex = if (newIndex >= 0) newIndex else current.currentChannelIndex
-                                                )
-                                            }
+                                        val currentUrl = _viewState.value.currentChannel?.url
+                                        val newIndex = currentUrl?.let { url ->
+                                            newChannels.indexOfFirst { it.url == url }
+                                        } ?: -1
+                                        _viewState.update { current ->
+                                            current.copy(
+                                                channels = newChannels,
+                                                currentChannelIndex = if (newIndex >= 0) newIndex else current.currentChannelIndex
+                                            )
                                         }
                                         refreshFilteredChannels(newChannels, _viewState.value.showFavoritesOnly)
                                     }
@@ -697,17 +698,15 @@ class MainViewModel @Inject constructor(
                 postEpgNotification()
             }
 
-            withContext(Dispatchers.Main) {
-                _viewState.update { state ->
-                    val updatedMap = state.currentProgramsMap.toMutableMap().apply {
-                        this[channel.tvgId] = currentProgram
-                    }
-                    val shouldUpdateCurrent = state.currentChannel?.tvgId == channel.tvgId
-                    state.copy(
-                        currentProgramsMap = updatedMap,
-                        currentProgram = if (shouldUpdateCurrent) currentProgram ?: state.currentProgram else state.currentProgram
-                    )
+            _viewState.update { state ->
+                val updatedMap = state.currentProgramsMap.toMutableMap().apply {
+                    this[channel.tvgId] = currentProgram
                 }
+                val shouldUpdateCurrent = state.currentChannel?.tvgId == channel.tvgId
+                state.copy(
+                    currentProgramsMap = updatedMap,
+                    currentProgram = if (shouldUpdateCurrent) currentProgram ?: state.currentProgram else state.currentProgram
+                )
             }
         } catch (e: CancellationException) {
             throw e
@@ -758,26 +757,24 @@ class MainViewModel @Inject constructor(
                 val current = programs.firstOrNull { it.isCurrent() }
                 epgProgramCache[tvgId] = programs
 
-                withContext(Dispatchers.Main) {
-                    _viewState.update { state ->
-                        val updatedMap = state.currentProgramsMap.toMutableMap().apply {
-                            this[tvgId] = current
-                        }
-                        state.copy(
-                            currentProgramsMap = updatedMap,
-                            epgLoadedFromUtc = window.fromUtcMillis,
-                            epgLoadedToUtc = window.toUtcMillis,
-                            showEpgPanel = true,
-                            epgChannelTvgId = tvgId,
-                            epgPrograms = programs,
-                            currentProgram = current
-                        )
+                _viewState.update { state ->
+                    val updatedMap = state.currentProgramsMap.toMutableMap().apply {
+                        this[tvgId] = current
                     }
-                    appendDebugMessage(
-                        DebugMessage(StringFormatter.formatEpgShowingPrograms(programs.size, tvgId, current?.title))
+                    state.copy(
+                        currentProgramsMap = updatedMap,
+                        epgLoadedFromUtc = window.fromUtcMillis,
+                        epgLoadedToUtc = window.toUtcMillis,
+                        showEpgPanel = true,
+                        epgChannelTvgId = tvgId,
+                        epgPrograms = programs,
+                        currentProgram = current
                     )
-                    postEpgNotification()
                 }
+                appendDebugMessage(
+                    DebugMessage(StringFormatter.formatEpgShowingPrograms(programs.size, tvgId, current?.title))
+                )
+                postEpgNotification()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -815,15 +812,13 @@ class MainViewModel @Inject constructor(
 
             val added = epgRepository.getWindowedProgramsForChannel(epgUrl, tvgId, newFrom, newTo)
 
-            withContext(Dispatchers.Main) {
-                if (added.isEmpty()) return@withContext
-                val merged = mergePrograms(_viewState.value.epgPrograms, added)
-                _viewState.update {
-                    it.copy(
-                        epgPrograms = merged,
-                        epgLoadedFromUtc = newFrom
-                    )
-                }
+            if (added.isEmpty()) return@launch
+            val merged = mergePrograms(_viewState.value.epgPrograms, added)
+            _viewState.update {
+                it.copy(
+                    epgPrograms = merged,
+                    epgLoadedFromUtc = newFrom
+                )
             }
         }
     }
@@ -866,15 +861,13 @@ class MainViewModel @Inject constructor(
 
             val added = epgRepository.getWindowedProgramsForChannel(epgUrl, tvgId, newFrom, newTo)
 
-            withContext(Dispatchers.Main) {
-                if (added.isEmpty()) return@withContext
-                val merged = mergePrograms(_viewState.value.epgPrograms, added)
-                _viewState.update {
-                    it.copy(
-                        epgPrograms = merged,
-                        epgLoadedToUtc = maxOf(it.epgLoadedToUtc, newTo)
-                    )
-                }
+            if (added.isEmpty()) return@launch
+            val merged = mergePrograms(_viewState.value.epgPrograms, added)
+            _viewState.update {
+                it.copy(
+                    epgPrograms = merged,
+                    epgLoadedToUtc = maxOf(it.epgLoadedToUtc, newTo)
+                )
             }
         }
     }
@@ -1226,36 +1219,34 @@ class MainViewModel @Inject constructor(
                 toUtcMillis = endUtcMillis
             )
 
-            withContext(Dispatchers.Main) {
-                val existing = _viewState.value
-                val newFrom = when {
-                    existing.epgLoadedFromUtc == 0L -> startUtcMillis
-                    existing.epgLoadedFromUtc == Long.MAX_VALUE -> startUtcMillis
-                    else -> minOf(existing.epgLoadedFromUtc, startUtcMillis)
-                }
-                val newTo = when {
-                    existing.epgLoadedToUtc == 0L -> endUtcMillis
-                    else -> maxOf(existing.epgLoadedToUtc, endUtcMillis)
-                }
-                if (programs.isEmpty()) {
-                    _viewState.update {
-                        it.copy(
-                            epgLoadedFromUtc = newFrom,
-                            epgLoadedToUtc = newTo
-                        )
-                    }
-                    return@withContext
-                }
-                val merged = mergePrograms(existing.epgPrograms, programs)
+            val existing = _viewState.value
+            val newFrom = when {
+                existing.epgLoadedFromUtc == 0L -> startUtcMillis
+                existing.epgLoadedFromUtc == Long.MAX_VALUE -> startUtcMillis
+                else -> minOf(existing.epgLoadedFromUtc, startUtcMillis)
+            }
+            val newTo = when {
+                existing.epgLoadedToUtc == 0L -> endUtcMillis
+                else -> maxOf(existing.epgLoadedToUtc, endUtcMillis)
+            }
+            if (programs.isEmpty()) {
                 _viewState.update {
                     it.copy(
-                        epgPrograms = merged,
                         epgLoadedFromUtc = newFrom,
                         epgLoadedToUtc = newTo
                     )
                 }
-                epgProgramCache[tvgId] = merged
+                return@launch
             }
+            val merged = mergePrograms(existing.epgPrograms, programs)
+            _viewState.update {
+                it.copy(
+                    epgPrograms = merged,
+                    epgLoadedFromUtc = newFrom,
+                    epgLoadedToUtc = newTo
+                )
+            }
+            epgProgramCache[tvgId] = merged
         }
     }
 
