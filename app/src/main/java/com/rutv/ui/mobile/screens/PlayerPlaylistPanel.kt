@@ -72,6 +72,7 @@ import com.rutv.data.model.EpgProgram
 import com.rutv.ui.mobile.components.ChannelListItem
 import com.rutv.ui.shared.components.RemoteDialog
 import com.rutv.ui.shared.components.remoteDialogTextFieldNavigation
+import com.rutv.ui.shared.components.awaitFirstLayout
 import com.rutv.ui.shared.components.focusIndicatorModifier
 import com.rutv.ui.shared.presentation.LayoutConstants
 import com.rutv.ui.theme.ruTvColors
@@ -251,9 +252,7 @@ internal fun PlaylistPanel(
             onRequestMoreChannels(targetIndex + PLAYLIST_PREFETCH_MARGIN)
             return@LaunchedEffect
         }
-        snapshotFlow { listState.layoutInfo.visibleItemsInfo.isNotEmpty() }
-            .filter { it }
-            .first()
+        listState.awaitFirstLayout()
         listState.centerOn(targetIndex)
         focusedChannelIndex = targetIndex
         onChannelFocused?.invoke(targetIndex)
@@ -280,9 +279,7 @@ internal fun PlaylistPanel(
                 if (channelIndex !in displayedList.indices) {
                     onRequestMoreChannels(channelIndex + PLAYLIST_PREFETCH_MARGIN)
                 } else {
-                    snapshotFlow { listState.layoutInfo.visibleItemsInfo.isNotEmpty() }
-                        .filter { it }
-                        .first()
+                    listState.awaitFirstLayout()
                     focusChannel(channelIndex, false)
                     lazyColumnFocusRequester.requestFocus()
                     playlistHasFocus = true
@@ -393,9 +390,7 @@ internal fun PlaylistPanel(
 
                 LaunchedEffect(Unit) {
                     if (!isRemoteMode) return@LaunchedEffect
-                    snapshotFlow { listState.layoutInfo.visibleItemsInfo.isNotEmpty() }
-                        .filter { it }
-                        .first()
+                    listState.awaitFirstLayout()
                     lazyColumnFocusRequester.requestFocus()
                     playlistHasFocus = true
                 }

@@ -70,6 +70,7 @@ import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
 import com.rutv.ui.mobile.components.EpgDateDelimiter
 import com.rutv.ui.mobile.components.EpgProgramItem
+import com.rutv.ui.shared.components.awaitFirstLayout
 import com.rutv.ui.shared.components.focusIndicatorModifier
 import com.rutv.ui.shared.presentation.LayoutConstants
 import com.rutv.ui.shared.presentation.TimeFormatter
@@ -271,9 +272,7 @@ internal fun EpgPanel(
                 ?.let { programItemIndices.getOrNull(it) }
                 ?: resolvedInitialItemIndex
             pendingProgramCenterIndex = targetItemIndex
-            snapshotFlow { listState.layoutInfo.visibleItemsInfo.isNotEmpty() }
-                .filter { it }
-                .first()
+            listState.awaitFirstLayout()
             lazyColumnFocusRequester.requestFocus()
         }
     }
@@ -379,9 +378,7 @@ internal fun EpgPanel(
             pendingProgramCenterIndex = null
             return@LaunchedEffect
         }
-        snapshotFlow { listState.layoutInfo.visibleItemsInfo.isNotEmpty() }
-            .filter { it }
-            .first()
+        listState.awaitFirstLayout()
         listState.centerOn(targetItemIndex)
         programIndex?.let {
             focusedProgramIndex = it
