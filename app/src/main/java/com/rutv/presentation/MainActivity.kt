@@ -65,7 +65,6 @@ import com.rutv.util.logDebug
 import dagger.hilt.android.AndroidEntryPoint
 import timber.log.Timber
 import android.view.KeyEvent
-import kotlinx.coroutines.delay
 
 /**
  * Main Activity - Refactored to use Jetpack Compose

@@ -388,7 +388,7 @@ class EpgRepository @Inject constructor(
                     "channels_found" -> channelsFound = jsonReader.nextInt()
                     "total_programs" -> totalPrograms = jsonReader.nextInt()
                     "epg" -> {
-                        logDebug { "Parsing EPG map with streaming parser..." }
+                        logDebug { "Parsing EPG map (streaming)..." }
                         var channelCount = 0
                         jsonReader.beginObject()
                         while (jsonReader.hasNext()) {
@@ -396,9 +396,6 @@ class EpgRepository @Inject constructor(
                             val programs = parsePrograms(jsonReader)
                             epgMap[channelId] = programs
                             channelCount++
-                            if (channelCount % 50 == 0) {
-                                logDebug { "Parsed $channelCount channels so far..." }
-                            }
                         }
                         jsonReader.endObject()
                         logDebug { "Finished parsing $channelCount channels" }

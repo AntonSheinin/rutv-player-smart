@@ -27,7 +27,7 @@ enum class PlayerFocusDestination {
 
 /**
  * Centralized state-driven focus manager for PlayerScreen.
- * Replaces imperative RemoteFocusCoordinator with declarative state machine.
+ * Replaces the older imperative focus coordinator with a declarative state machine.
  */
 class PlayerFocusManager(
     private val log: ((String) -> Unit)?,

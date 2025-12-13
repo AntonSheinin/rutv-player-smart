@@ -237,7 +237,6 @@ class MainViewModel @Inject constructor(
 
     private suspend fun loadPlaylistAndPlayer() {
         try {
-            logDebug { "App Init: Step 2 - Loading playlist" }
             _viewState.update { it.copy(isLoading = true, error = null) }
             // Cold start optimization is encapsulated in InitializeAppUseCase.
             val result = initializeAppUseCase.loadStartupPlaylist()
@@ -246,7 +245,6 @@ class MainViewModel @Inject constructor(
                 is Result.Success -> {
                     val source = result.data.source
                     val channels = result.data.channels
-                    logDebug { "App Init: Playlist loaded (${channels.size} channels)" }
 
                     _viewState.update {
                         it.copy(
@@ -263,16 +261,13 @@ class MainViewModel @Inject constructor(
                             DebugMessage(StringFormatter.formatEpgPlaylistLoaded(channels.size, catchupSupported.toString()))
                         )
                     } else {
-                        logDebug { "App Init: No channels loaded" }
                         appendDebugMessage(DebugMessage(StringFormatter.formatEpgPlaylistEmpty()))
                     }
 
 
                     if (channels.isNotEmpty()) {
-                        logDebug { "App Init: Step 3 - Initializing player" }
                         val startChannel = initializePlayerUseCase(channels)
 
-                        logDebug { "App Init: Step 4 - Preloading current channel EPG" }
                         startChannel?.let { preloadChannelEpg(it) }
                         val startIndex = startChannel?.let { ch ->
                             channels.indexOf(ch).takeIf { idx -> idx >= 0 }
@@ -1097,7 +1092,6 @@ class MainViewModel @Inject constructor(
                     currentProgramsMap = updatedMap
                 )
             }
-            logDebug { "Current program updated for ${channel.title}: ${program?.title ?: "none"}" }
         } catch (e: Exception) {
             Timber.e(e, "Error updating current program for ${channel.title}")
             _viewState.update {

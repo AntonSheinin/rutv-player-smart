@@ -10,7 +10,6 @@ import com.rutv.data.repository.PreferencesRepository
 import com.rutv.util.Result
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
-import com.rutv.util.logDebug
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -42,7 +41,6 @@ class LoadPlaylistUseCase @Inject constructor(
 
             // If no source configured, return empty
             if (source is PlaylistSource.None) {
-                logDebug { "No playlist source configured" }
                 return Result.Success(emptyList())
             }
 
@@ -51,7 +49,6 @@ class LoadPlaylistUseCase @Inject constructor(
             if (!forceReload && skipNetworkIfCacheAvailable && source is PlaylistSource.Url && storedHash.isNotBlank()) {
                 val cachedChannels = channelRepository.getAllChannels()
                 if (cachedChannels is Result.Success && cachedChannels.data.isNotEmpty()) {
-                    logDebug { "Startup: returning cached channels without network (${cachedChannels.data.size})" }
                     return cachedChannels
                 }
             }
@@ -77,16 +74,13 @@ class LoadPlaylistUseCase @Inject constructor(
 
             // If hash matches and not force reload, load from cache
             if (!forceReload && currentHash == storedHash) {
-                logDebug { "Loading channels from cache (hash match)" }
                 val cachedChannels = channelRepository.getAllChannels()
                 if (cachedChannels is Result.Success && cachedChannels.data.isNotEmpty()) {
-                    logDebug { "Loaded ${cachedChannels.data.size} channels from cache" }
                     return cachedChannels
                 }
             }
 
             // Parse playlist
-            logDebug { "Parsing playlist (${if (forceReload) "forced" else "new content"})" }
             val channels = playlistParser.parse(content)
 
             if (channels.isEmpty()) {
@@ -99,7 +93,6 @@ class LoadPlaylistUseCase @Inject constructor(
                 is Result.Success -> {
                     // Save hash
                     preferencesRepository.savePlaylistHash(currentHash)
-                    logDebug { "Successfully loaded ${channels.size} channels" }
                     Result.Success(channels)
                 }
                 is Result.Error -> saveResult

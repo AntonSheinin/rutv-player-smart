@@ -76,10 +76,7 @@ import com.rutv.ui.shared.presentation.LayoutConstants
 import com.rutv.ui.shared.presentation.TimeFormatter
 import com.rutv.ui.theme.ruTvColors
 import com.rutv.util.DeviceHelper
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.first
 import kotlin.math.abs
 import kotlin.math.max
 import java.time.Instant
