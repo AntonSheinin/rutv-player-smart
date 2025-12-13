@@ -5,6 +5,7 @@ import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.DefaultHttpDataSource
 import com.rutv.util.Constants
 import com.rutv.util.Result
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.rutv.util.logDebug
@@ -68,6 +69,8 @@ class PlaylistLoader @Inject constructor(
         } catch (e: java.net.UnknownHostException) {
             Timber.e(e, "Host resolution error for playlist URL: $url")
             Result.Error(Exception("Cannot reach server. Please check the URL and your internet connection.", e))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Timber.e(e, "Error loading playlist from URL: $url")
             // Check if it's an SSL-related error in the message

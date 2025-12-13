@@ -4,6 +4,7 @@ import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
 import com.rutv.util.Result
 import com.rutv.util.logDebug
+import kotlinx.coroutines.CancellationException
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -67,6 +68,8 @@ class PlayArchiveProgramUseCase @Inject constructor() {
             logDebug { "Archive playback validated: ${channel.title} -> ${program.title} (${durationMinutes}m, ${ageMinutes}m ago)" }
             return Result.Success(info)
 
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Timber.e(e, "Error validating archive playback")
             return Result.Error(e, "Archive playback validation failed: ${e.message}")

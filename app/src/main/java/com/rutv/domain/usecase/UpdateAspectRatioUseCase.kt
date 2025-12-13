@@ -3,6 +3,7 @@ package com.rutv.domain.usecase
 import com.rutv.data.repository.ChannelRepository
 import com.rutv.util.Result
 import com.rutv.util.logDebug
+import kotlinx.coroutines.CancellationException
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -17,6 +18,8 @@ class UpdateAspectRatioUseCase @Inject constructor(
         return try {
             logDebug { "Updating aspect ratio for channel: $channelUrl to $aspectRatio" }
             channelRepository.updateAspectRatio(channelUrl, aspectRatio)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Timber.e(e, "Error updating aspect ratio")
             Result.Error(e)

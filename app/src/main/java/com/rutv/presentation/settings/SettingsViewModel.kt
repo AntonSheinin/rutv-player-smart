@@ -12,6 +12,7 @@ import com.rutv.util.Constants
 import com.rutv.util.PlayerConstants
 import com.rutv.util.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -113,6 +114,8 @@ class SettingsViewModel @Inject constructor(
                     )
                 }
                 logDebug { "Playlist saved from file" }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _viewState.update {
                     it.copy(error = "Failed to save playlist: ${e.message}")
@@ -141,6 +144,8 @@ class SettingsViewModel @Inject constructor(
                     )
                 }
                 logDebug { "Playlist URL saved: $url" }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _viewState.update {
                     it.copy(error = "Failed to save URL: ${e.message}")
@@ -192,6 +197,8 @@ class SettingsViewModel @Inject constructor(
             try {
                 preferencesRepository.saveEpgUrl(url.trim())
                 logDebug { "EPG URL saved: $url" }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Timber.e(e, "Failed to save EPG URL")
             }
@@ -219,6 +226,8 @@ class SettingsViewModel @Inject constructor(
             try {
                 preferencesRepository.savePlayerConfig(config)
                 logDebug { "Player config saved: $config" }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Timber.e(e, "Failed to save player config")
             }
@@ -282,6 +291,8 @@ class SettingsViewModel @Inject constructor(
             try {
                 preferencesRepository.saveEpgDaysAhead(clampedDays)
                 logDebug { "EPG days ahead saved: $clampedDays" }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Timber.e(e, "Failed to save EPG days ahead")
             }
@@ -297,6 +308,8 @@ class SettingsViewModel @Inject constructor(
             try {
                 preferencesRepository.saveEpgDaysPast(clampedDays)
                 logDebug { "EPG days past saved: $clampedDays" }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Timber.e(e, "Failed to save EPG days past")
             }
@@ -312,6 +325,8 @@ class SettingsViewModel @Inject constructor(
             try {
                 preferencesRepository.saveEpgPageDays(clampedDays)
                 logDebug { "EPG page days saved: $clampedDays" }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Timber.e(e, "Failed to save EPG page days")
             }
@@ -340,6 +355,8 @@ class SettingsViewModel @Inject constructor(
         try {
             preferencesRepository.saveAppLanguage(localeCode)
             logDebug { "App language saved: $localeCode" }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Timber.e(e, "Failed to save app language")
             _viewState.update { it.copy(error = "Failed to save language preference: ${e.message}") }

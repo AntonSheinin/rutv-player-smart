@@ -2,8 +2,8 @@ package com.rutv.presentation.player
 
 import android.content.Context
 import android.net.Uri
-import android.os.Handler
 import androidx.core.net.toUri
+import android.os.Handler
 import android.os.Looper
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -36,8 +36,11 @@ import com.rutv.util.PlayerConstants
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -46,6 +49,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.CancellationException
 import com.rutv.util.logDebug
 import timber.log.Timber
 import javax.inject.Inject
@@ -77,9 +81,11 @@ class PlayerManager @Inject constructor(
     val debugMessages: SharedFlow<DebugMessage> = _debugMessages.asSharedFlow()
 
     private var bufferingStartTime: Long = 0
-    private val bufferingCheckHandler = Handler(Looper.getMainLooper())
-    private val mainHandler = Handler(Looper.getMainLooper())
-    private var bufferingCheckRunnable: Runnable? = null
+    private var bufferingCheckJob: Job? = null
+
+    // Structured scopes (avoid ad-hoc CoroutineScope(...) allocations)
+    private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val workerScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private var currentConfig: PlayerConfig? = null
     private var isArchivePlayback: Boolean = false
@@ -125,18 +131,21 @@ class PlayerManager @Inject constructor(
 
         val channelSnapshot = channels.toList()
         val postInitialize: (List<MediaItem>) -> Unit = { mediaItems ->
-            val task = Runnable { initializeInternal(channelSnapshot, config, startIndex, mediaItems) }
-            mainHandler.post(task)
+            mainScope.launch {
+                initializeInternal(channelSnapshot, config, startIndex, mediaItems)
+            }
         }
 
         if (Looper.myLooper() == Looper.getMainLooper()) {
-            CoroutineScope(Dispatchers.Default).launch {
+            workerScope.launch {
                 try {
                     val mediaItems = buildMediaItems(channelSnapshot)
                     postInitialize(mediaItems)
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Timber.e(e, "Failed to prepare media items on background thread")
-                    mainHandler.post {
+                    mainScope.launch {
                         _playerState.value = PlayerState.Error("Failed to prepare media items", null)
                     }
                 }
@@ -145,6 +154,8 @@ class PlayerManager @Inject constructor(
             try {
                 val mediaItems = buildMediaItems(channelSnapshot)
                 postInitialize(mediaItems)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Timber.e(e, "Failed to prepare media items")
                 _playerState.value = PlayerState.Error("Failed to prepare media items", null)
@@ -797,11 +808,7 @@ class PlayerManager @Inject constructor(
      * Release player resources
      */
     fun release() {
-        if (Looper.myLooper() == Looper.getMainLooper()) {
-            releaseInternal()
-        } else {
-            mainHandler.post { releaseInternal() }
-        }
+        mainScope.launch { releaseInternal() }
     }
 
     private fun releaseInternal() {
@@ -823,36 +830,27 @@ class PlayerManager @Inject constructor(
      * Buffering timeout check
      */
     private fun startBufferingCheck() {
-        cancelBufferingCheckCallbacks()
-        bufferingCheckRunnable = object : Runnable {
-            override fun run() {
-                player?.let { p ->
-                    if (p.playbackState == Player.STATE_BUFFERING && bufferingStartTime > 0) {
-                        val bufferingDuration = System.currentTimeMillis() - bufferingStartTime
-                        if (bufferingDuration > PlayerConstants.BUFFERING_TIMEOUT_MS) {
-                            addDebugMessage("⚠ Buffering timeout (${bufferingDuration/1000}s)")
-                            _playerEvents.tryEmit(PlayerEvent.BufferingTimeout(bufferingDuration))
-                            stopBufferingCheck()
-                            p.playWhenReady = false
-                        } else {
-                            bufferingCheckHandler.postDelayed(this, 1000)
-                        }
-                    }
+        bufferingCheckJob?.cancel()
+        bufferingCheckJob = mainScope.launch {
+            while (isActive) {
+                delay(1_000)
+                val p = player ?: continue
+                if (p.playbackState != Player.STATE_BUFFERING || bufferingStartTime <= 0) continue
+                val bufferingDuration = System.currentTimeMillis() - bufferingStartTime
+                if (bufferingDuration > PlayerConstants.BUFFERING_TIMEOUT_MS) {
+                    addDebugMessage("⚠ Buffering timeout (${bufferingDuration / 1000}s)")
+                    _playerEvents.tryEmit(PlayerEvent.BufferingTimeout(bufferingDuration))
+                    stopBufferingCheck()
+                    p.playWhenReady = false
+                    break
                 }
             }
-        }
-        bufferingCheckHandler.postDelayed(bufferingCheckRunnable!!, 1000)
-    }
-
-    private fun cancelBufferingCheckCallbacks() {
-        bufferingCheckRunnable?.let {
-            bufferingCheckHandler.removeCallbacks(it)
-            bufferingCheckRunnable = null
         }
     }
 
     private fun stopBufferingCheck() {
-        cancelBufferingCheckCallbacks()
+        bufferingCheckJob?.cancel()
+        bufferingCheckJob = null
         bufferingStartTime = 0
     }
 

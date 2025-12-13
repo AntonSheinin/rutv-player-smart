@@ -4,6 +4,7 @@ import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
 import com.rutv.util.Result
 import com.rutv.util.logDebug
+import kotlinx.coroutines.CancellationException
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -67,6 +68,8 @@ class WatchFromBeginningUseCase @Inject constructor() {
             logDebug { "Timeshift validated: Restarting ${program.title} from beginning (${ageMinutes}m into program)" }
             return Result.Success(info)
 
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Timber.e(e, "Error validating timeshift request")
             return Result.Error(e, "Timeshift validation failed: ${e.message}")

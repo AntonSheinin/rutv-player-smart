@@ -8,6 +8,7 @@ import com.rutv.data.remote.PlaylistParser
 import com.rutv.data.repository.ChannelRepository
 import com.rutv.data.repository.PreferencesRepository
 import com.rutv.util.Result
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import com.rutv.util.logDebug
 import timber.log.Timber
@@ -105,6 +106,8 @@ class LoadPlaylistUseCase @Inject constructor(
                 is Result.Loading -> Result.Error(Exception("Unexpected loading state"))
             }
 
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Timber.e(e, "Error in LoadPlaylistUseCase")
             return Result.Error(e)

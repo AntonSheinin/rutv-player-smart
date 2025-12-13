@@ -3,6 +3,7 @@ package com.rutv.domain.usecase
 import com.rutv.data.repository.ChannelRepository
 import com.rutv.util.Result
 import com.rutv.util.logDebug
+import kotlinx.coroutines.CancellationException
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -17,6 +18,8 @@ class ToggleFavoriteUseCase @Inject constructor(
         return try {
             logDebug { "Toggling favorite for channel: $channelUrl" }
             channelRepository.toggleFavorite(channelUrl)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Timber.e(e, "Error toggling favorite")
             Result.Error(e)

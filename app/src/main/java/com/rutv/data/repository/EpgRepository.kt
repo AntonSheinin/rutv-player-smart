@@ -14,6 +14,7 @@ import com.rutv.data.model.EpgResponse
 import com.rutv.util.EpgConstants
 import com.rutv.util.Result
 import com.rutv.util.logDebug
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -105,6 +106,8 @@ class EpgRepository @Inject constructor(
         } catch (e: java.net.UnknownHostException) {
             Timber.e(e, "Host resolution error for EPG URL")
             Result.Error(Exception("Cannot reach EPG server. Please verify the URL.", e))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Timber.e(e, "Unexpected error during EPG health check")
             Result.Error(e)
@@ -322,6 +325,8 @@ class EpgRepository @Inject constructor(
         } catch (e: java.net.UnknownHostException) {
             Timber.e(e, "Host resolution error for EPG URL")
             emptyList()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Timber.e(e, "Failed to fetch single-channel EPG window")
             emptyList()
@@ -403,6 +408,8 @@ class EpgRepository @Inject constructor(
             }
             jsonReader.endObject()
             return EpgResponse(updateMode, timestamp, channelsRequested, channelsFound, totalPrograms, epgMap)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Timber.e(e, "Error in streaming JSON parser")
             return null

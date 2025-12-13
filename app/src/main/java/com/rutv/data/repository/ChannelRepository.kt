@@ -6,6 +6,7 @@ import com.rutv.data.local.entity.ChannelEntity
 import com.rutv.data.model.Channel
 import com.rutv.util.Result
 import com.rutv.util.logDebug
+import kotlinx.coroutines.CancellationException
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -29,6 +30,8 @@ class ChannelRepository @Inject constructor(
             val entities = channelDao.getAllChannels()
             val channels = entities.map { it.toChannel() }
             Result.Success(channels)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Timber.e(e, "Error getting all channels")
             Result.Error(e)
@@ -47,6 +50,8 @@ class ChannelRepository @Inject constructor(
             channelDao.insertChannels(entities)
             logDebug { "Saved ${channels.size} channels to database" }
             Result.Success(Unit)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Timber.e(e, "Error saving channels")
             Result.Error(e)
@@ -69,6 +74,8 @@ class ChannelRepository @Inject constructor(
                 Timber.w("Channel not found for URL: $url")
                 Result.Error(Exception("Channel not found"))
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Timber.e(e, "Error toggling favorite")
             Result.Error(e)
@@ -83,6 +90,8 @@ class ChannelRepository @Inject constructor(
             channelDao.updateAspectRatio(url, aspectRatio)
             logDebug { "Updated aspect ratio for: $url to $aspectRatio" }
             Result.Success(Unit)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Timber.e(e, "Error updating aspect ratio")
             Result.Error(e)
@@ -97,6 +106,8 @@ class ChannelRepository @Inject constructor(
             channelDao.deleteAllChannels()
             logDebug { "Cleared all channels" }
             Result.Success(Unit)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Timber.e(e, "Error clearing channels")
             Result.Error(e)

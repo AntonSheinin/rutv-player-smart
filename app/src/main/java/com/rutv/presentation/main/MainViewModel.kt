@@ -29,6 +29,7 @@ import com.rutv.util.Result
 import com.rutv.util.StringFormatter
 import com.rutv.util.logDebug
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
@@ -231,9 +232,7 @@ class MainViewModel @Inject constructor(
     private suspend fun loadPlaylistAndPlayer() {
         try {
             logDebug { "App Init: Step 2 - Loading playlist" }
-            withContext(Dispatchers.Main) {
-                _viewState.update { it.copy(isLoading = true, error = null) }
-            }
+            _viewState.update { it.copy(isLoading = true, error = null) }
 
             val source = preferencesRepository.playlistSource.first()
             // Cold start optimization:
@@ -249,14 +248,12 @@ class MainViewModel @Inject constructor(
                     val channels = result.data
                     logDebug { "App Init: Playlist loaded (${channels.size} channels)" }
 
-                    withContext(Dispatchers.Main) {
-                        _viewState.update {
-                            it.copy(
-                                channels = channels,
-                                isLoading = false,
-                                error = null
-                            )
-                        }
+                    _viewState.update {
+                        it.copy(
+                            channels = channels,
+                            isLoading = false,
+                            error = null
+                        )
                     }
                     refreshFilteredChannels(channels, _viewState.value.showFavoritesOnly)
 
@@ -317,31 +314,28 @@ class MainViewModel @Inject constructor(
                     appendDebugMessage(
                         DebugMessage(StringFormatter.formatEpgPlaylistFailed(errorMessage))
                     )
-                    withContext(Dispatchers.Main) {
-                        // Post notification message (toast)
-                        postNotificationMessage(errorMessage)
-
-                        _viewState.update {
-                            it.copy(
-                                isLoading = false,
-                                error = errorMessage
-                            )
-                        }
+                    // Post notification message (toast)
+                    postNotificationMessage(errorMessage)
+                    _viewState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = errorMessage
+                        )
                     }
                 }
                 is Result.Loading -> {
                     // Should not happen
                 }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Timber.e(e, "App Init: Error during initialization")
-            withContext(Dispatchers.Main) {
-                _viewState.update {
-                    it.copy(
-                        isLoading = false,
-                                error = StringFormatter.formatErrorInitFailed(e.message ?: StringFormatter.formatErrorUnknown())
-                    )
-                }
+            _viewState.update {
+                it.copy(
+                    isLoading = false,
+                    error = StringFormatter.formatErrorInitFailed(e.message ?: StringFormatter.formatErrorUnknown())
+                )
             }
         }
     }
@@ -359,9 +353,7 @@ class MainViewModel @Inject constructor(
                 val archiveChannelUrl = _viewState.value.currentChannel?.url
                 val archiveChannelTvgId = _viewState.value.currentChannel?.tvgId
 
-                withContext(Dispatchers.Main) {
-                    _viewState.update { it.copy(isLoading = true, error = null) }
-                }
+                _viewState.update { it.copy(isLoading = true, error = null) }
 
                 val result = if (forceReload) {
                     loadPlaylistUseCase.reload()
@@ -381,31 +373,29 @@ class MainViewModel @Inject constructor(
                             _viewState.value.currentProgramsMap
                         }
 
-                        withContext(Dispatchers.Main) {
-                            _viewState.update {
-                                val updatedCurrentProgram = it.currentChannel?.tvgId?.let(programsMapToUse::get)
-                                it.copy(
-                                    channels = channels,
-                                    currentProgramsMap = programsMapToUse,
-                                    currentProgram = updatedCurrentProgram ?: it.currentProgram,
-                                    isLoading = false,
-                                    error = null
-                                )
-                            }
-                            if (programsMapToUse.isNotEmpty()) {
-                                postEpgNotification()
-                            }
+                        _viewState.update {
+                            val updatedCurrentProgram = it.currentChannel?.tvgId?.let(programsMapToUse::get)
+                            it.copy(
+                                channels = channels,
+                                currentProgramsMap = programsMapToUse,
+                                currentProgram = updatedCurrentProgram ?: it.currentProgram,
+                                isLoading = false,
+                                error = null
+                            )
+                        }
+                        if (programsMapToUse.isNotEmpty()) {
+                            postEpgNotification()
+                        }
 
-                            if (channels.isNotEmpty()) {
-                                val catchupSupported = channels.count { it.supportsCatchup() }
-                                appendDebugMessage(
-                                    DebugMessage("DVR: Playlist loaded (${channels.size} channels, catch-up: $catchupSupported)")
-                                )
+                        if (channels.isNotEmpty()) {
+                            val catchupSupported = channels.count { it.supportsCatchup() }
+                            appendDebugMessage(
+                                DebugMessage("DVR: Playlist loaded (${channels.size} channels, catch-up: $catchupSupported)")
+                            )
 
-                            } else {
-                                logDebug { "No channels loaded" }
-                                appendDebugMessage(DebugMessage(StringFormatter.formatEpgPlaylistEmpty()))
-                            }
+                        } else {
+                            logDebug { "No channels loaded" }
+                            appendDebugMessage(DebugMessage(StringFormatter.formatEpgPlaylistEmpty()))
                         }
                         refreshFilteredChannels(channels, _viewState.value.showFavoritesOnly)
 
@@ -441,35 +431,31 @@ class MainViewModel @Inject constructor(
                         appendDebugMessage(
                             DebugMessage(StringFormatter.formatEpgPlaylistFailed(errorMessage))
                         )
-                        withContext(Dispatchers.Main) {
-                            // Post notification message (toast)
-                            postNotificationMessage(errorMessage)
-
-                            _viewState.update {
-                                it.copy(
-                                    isLoading = false,
-                                    error = errorMessage
-                                )
-                            }
+                        // Post notification message (toast)
+                        postNotificationMessage(errorMessage)
+                        _viewState.update {
+                            it.copy(
+                                isLoading = false,
+                                error = errorMessage
+                            )
                         }
                     }
                     is Result.Loading -> {
                         // Should not happen
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Timber.e(e, "Error in loadPlaylist")
                 val errorMessage = "Failed to load playlist: ${e.message}"
-                withContext(Dispatchers.Main) {
-                    // Post notification message (toast)
-                    postNotificationMessage(errorMessage)
-
-                    _viewState.update {
-                        it.copy(
-                            isLoading = false,
-                            error = errorMessage
-                        )
-                    }
+                // Post notification message (toast)
+                postNotificationMessage(errorMessage)
+                _viewState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = errorMessage
+                    )
                 }
             }
         }
@@ -759,6 +745,8 @@ class MainViewModel @Inject constructor(
                     )
                 }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Timber.e(e, "Failed to preload EPG for ${channel.title}")
             appendDebugMessage(
@@ -831,6 +819,8 @@ class MainViewModel @Inject constructor(
                     )
                     postEpgNotification()
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Timber.e(e, "Failed to load EPG for channel $tvgId")
                 appendDebugMessage(DebugMessage(StringFormatter.formatEpgLoadFailed(tvgId, e.message ?: StringFormatter.formatErrorUnknown())))
