@@ -41,6 +41,8 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import com.rutv.ui.shared.components.remoteActivate
+import com.rutv.ui.shared.components.remoteBack
 
 /**
  * Settings Screen with Compose UI
@@ -716,6 +718,7 @@ private fun NumberInputDialog(
     var input by remember { mutableStateOf(initialValue.toString()) }
     var error by remember { mutableStateOf<String?>(null) }
     val focusRequester = remember { FocusRequester() }
+    val confirmFocusRequester = remember { FocusRequester() }
     val errorMessage = stringResource(R.string.settings_number_error, minValue, maxValue)
     val rangeHint = stringResource(R.string.settings_number_range_hint, minValue, maxValue)
 
@@ -730,12 +733,22 @@ private fun NumberInputDialog(
         }
     }
 
+    val confirmAction = {
+        if (commit()) {
+            onDismiss()
+        }
+    }
+
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
     }
 
     RemoteDialog(
         onDismissRequest = onDismiss,
+        autoFocusConfirm = false,
+        confirmButtonFocusRequester = confirmFocusRequester,
+        textFocusRequester = focusRequester,
+        onConfirm = confirmAction,
         title = { Text(label) },
         text = {
             Column {
@@ -751,14 +764,24 @@ private fun NumberInputDialog(
                     ),
                     keyboardActions = KeyboardActions(
                         onDone = {
-                            if (commit()) {
-                                onDismiss()
-                            }
+                            confirmAction()
                         }
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .focusRequester(focusRequester),
+                        .focusRequester(focusRequester)
+                        .remoteBack { onDismiss() }
+                        .onKeyEvent { event ->
+                            if (!DeviceHelper.isRemoteInputActive()) return@onKeyEvent false
+                            if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                            when (event.key) {
+                                Key.DirectionDown -> {
+                                    confirmFocusRequester.requestFocus()
+                                    true
+                                }
+                                else -> false
+                            }
+                        },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = MaterialTheme.ruTvColors.gold,
                         unfocusedBorderColor = MaterialTheme.ruTvColors.textDisabled,
@@ -780,17 +803,15 @@ private fun NumberInputDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = {
-                    if (commit()) {
-                        onDismiss()
-                    }
-                }
+                onClick = confirmAction,
+                // Keep focus on RemoteDialog's wrapper (gold border) for consistency
+                modifier = Modifier.focusable(false)
             ) {
                 Text(stringResource(R.string.button_ok))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = onDismiss, modifier = Modifier.focusable(false)) {
                 Text(stringResource(R.string.button_cancel))
             }
         }
@@ -804,16 +825,46 @@ private fun UrlInputDialog(
     onConfirm: (String) -> Unit
 ) {
     var url by remember { mutableStateOf(currentUrl) }
+    val inputFocusRequester = remember { FocusRequester() }
+    val confirmFocusRequester = remember { FocusRequester() }
+
+    val confirmAction = {
+        if (url.isNotBlank()) {
+            onConfirm(url)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        inputFocusRequester.requestFocus()
+    }
 
     RemoteDialog(
         onDismissRequest = onDismiss,
+        autoFocusConfirm = false,
+        confirmButtonFocusRequester = confirmFocusRequester,
+        textFocusRequester = inputFocusRequester,
+        onConfirm = confirmAction,
         title = { Text(stringResource(R.string.dialog_title_load_playlist_url)) },
         text = {
             OutlinedTextField(
                 value = url,
                 onValueChange = { url = it },
                 placeholder = { Text(stringResource(R.string.hint_m3u_url)) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(inputFocusRequester)
+                    .remoteBack { onDismiss() }
+                    .onKeyEvent { event ->
+                        if (!DeviceHelper.isRemoteInputActive()) return@onKeyEvent false
+                        if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                        when (event.key) {
+                            Key.DirectionDown -> {
+                                confirmFocusRequester.requestFocus()
+                                true
+                            }
+                            else -> false
+                        }
+                    },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = MaterialTheme.ruTvColors.gold,
                     unfocusedBorderColor = MaterialTheme.ruTvColors.textDisabled
@@ -822,17 +873,14 @@ private fun UrlInputDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = {
-                    if (url.isNotBlank()) {
-                        onConfirm(url)
-                    }
-                }
+                onClick = confirmAction,
+                modifier = Modifier.focusable(false)
             ) {
                 Text(stringResource(R.string.button_save))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = onDismiss, modifier = Modifier.focusable(false)) {
                 Text(stringResource(R.string.button_cancel))
             }
         }
@@ -846,17 +894,19 @@ private fun ConfirmationDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {
+    val confirmAction = { onConfirm() }
     RemoteDialog(
         onDismissRequest = onDismiss,
+        onConfirm = confirmAction,
         title = { Text(title) },
         text = { Text(message) },
         confirmButton = {
-            TextButton(onClick = onConfirm) {
+            TextButton(onClick = confirmAction, modifier = Modifier.focusable(false)) {
                 Text(stringResource(R.string.button_ok))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = onDismiss, modifier = Modifier.focusable(false)) {
                 Text(stringResource(R.string.button_cancel))
             }
         }

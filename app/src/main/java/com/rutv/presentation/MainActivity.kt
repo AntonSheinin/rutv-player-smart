@@ -425,10 +425,12 @@ class MainActivity : ComponentActivity() {
 
         // Close App Dialog
         if (showCloseAppDialogState.value) {
+            val onExit = { finishAffinity() }
             RemoteDialog(
                 onDismissRequest = {
                     showCloseAppDialogState.value = false
                 },
+                onConfirm = onExit,
                 containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f),
                 title = {
                     Text(
@@ -445,9 +447,7 @@ class MainActivity : ComponentActivity() {
                     )
                 },
                 confirmButton = {
-                    TextButton(onClick = {
-                        finishAffinity()
-                    }) {
+                    TextButton(onClick = onExit, modifier = Modifier.focusable(false)) {
                         Text(
                             text = getString(R.string.button_exit),
                             color = MaterialTheme.ruTvColors.gold
@@ -457,7 +457,7 @@ class MainActivity : ComponentActivity() {
                 dismissButton = {
                     TextButton(onClick = {
                         showCloseAppDialogState.value = false
-                    }) {
+                    }, modifier = Modifier.focusable(false)) {
                         Text(
                             text = getString(R.string.button_cancel),
                             color = MaterialTheme.ruTvColors.textPrimary
