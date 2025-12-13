@@ -16,11 +16,14 @@ import com.rutv.data.repository.ChannelRepository
 import com.rutv.data.repository.EpgRepository
 import com.rutv.data.repository.PreferencesRepository
 import com.rutv.domain.usecase.FilterChannelsUseCase
+import com.rutv.domain.usecase.FetchEpgProgramsUseCase
 import com.rutv.domain.usecase.LoadPlaylistUseCase
 import com.rutv.domain.usecase.PlayArchiveProgramUseCase
 import com.rutv.domain.usecase.ToggleFavoriteUseCase
 import com.rutv.domain.usecase.UpdateAspectRatioUseCase
 import com.rutv.domain.usecase.WatchFromBeginningUseCase
+import com.rutv.presentation.main.usecase.InitializeAppUseCase
+import com.rutv.presentation.main.usecase.InitializePlayerUseCase
 import com.rutv.presentation.player.DebugMessage
 import com.rutv.presentation.player.PlayerManager
 import com.rutv.presentation.player.PlayerState
@@ -48,6 +51,9 @@ class MainViewModel @Inject constructor(
     private val epgRepository: EpgRepository,
     private val preferencesRepository: PreferencesRepository,
     private val loadPlaylistUseCase: LoadPlaylistUseCase,
+    private val fetchEpgProgramsUseCase: FetchEpgProgramsUseCase,
+    private val initializeAppUseCase: InitializeAppUseCase,
+    private val initializePlayerUseCase: InitializePlayerUseCase,
     private val toggleFavoriteUseCase: ToggleFavoriteUseCase,
     private val updateAspectRatioUseCase: UpdateAspectRatioUseCase,
     private val playArchiveProgramUseCase: PlayArchiveProgramUseCase,
@@ -233,19 +239,13 @@ class MainViewModel @Inject constructor(
         try {
             logDebug { "App Init: Step 2 - Loading playlist" }
             _viewState.update { it.copy(isLoading = true, error = null) }
-
-            val source = preferencesRepository.playlistSource.first()
-            // Cold start optimization:
-            // - Prefer cached channels first for URL playlists (no network) to render UI/playback ASAP.
-            // - Refresh from network in background after startup completes.
-            val result = when (source) {
-                is PlaylistSource.Url -> loadPlaylistUseCase(skipNetworkIfCacheAvailable = true)
-                else -> loadPlaylistUseCase()
-            }
+            // Cold start optimization is encapsulated in InitializeAppUseCase.
+            val result = initializeAppUseCase.loadStartupPlaylist()
 
             when (result) {
                 is Result.Success -> {
-                    val channels = result.data
+                    val source = result.data.source
+                    val channels = result.data.channels
                     logDebug { "App Init: Playlist loaded (${channels.size} channels)" }
 
                     _viewState.update {
@@ -270,7 +270,7 @@ class MainViewModel @Inject constructor(
 
                     if (channels.isNotEmpty()) {
                         logDebug { "App Init: Step 3 - Initializing player" }
-                        val startChannel = initializePlayer(channels)
+                        val startChannel = initializePlayerUseCase(channels)
 
                         logDebug { "App Init: Step 4 - Preloading current channel EPG" }
                         startChannel?.let { preloadChannelEpg(it) }
@@ -283,7 +283,7 @@ class MainViewModel @Inject constructor(
                     // Background refresh for URL playlists to get fresh content without blocking cold start.
                     if (source is PlaylistSource.Url) {
                         viewModelScope.launch(Dispatchers.IO) {
-                            when (val refreshed = loadPlaylistUseCase()) {
+                            when (val refreshed = initializeAppUseCase.refreshUrlPlaylistInBackground()) {
                                 is Result.Success -> {
                                     val newChannels = refreshed.data
                                     val oldChannels = _viewState.value.channels
@@ -462,24 +462,9 @@ class MainViewModel @Inject constructor(
     }
 
     /**
-     * Initialize player with current channels
+     * Initialize player with current channels (moved to [InitializePlayerUseCase]).
      */
-    private suspend fun initializePlayer(channels: List<Channel>): Channel? {
-        if (channels.isEmpty()) return null
-
-        // Read preferences on IO thread
-        val config = preferencesRepository.playerConfig.first()
-        val lastPlayedIndex = preferencesRepository.lastPlayedIndex.first()
-
-        val startIndex = if (lastPlayedIndex >= 0 && lastPlayedIndex < channels.size) {
-            lastPlayedIndex
-        } else {
-            0
-        }
-
-        playerManager.initialize(channels, config, startIndex)
-        return channels.getOrNull(startIndex)
-    }
+    // (intentionally removed)
 
     /**
      * Fetch EPG data only if needed (not more than once per day)
@@ -695,38 +680,22 @@ class MainViewModel @Inject constructor(
             return
         }
 
-        val epgUrl = preferencesRepository.epgUrl.first().trim()
-        if (epgUrl.isBlank()) {
-            Timber.w("Skipping EPG preload for ${channel.title}: EPG URL not configured")
-            return
-        }
-
-        val nowZoned = java.time.ZonedDateTime.now()
-        val zone = nowZoned.zone
-        val preferredPastDays = preferencesRepository.epgDaysPast.first().coerceAtLeast(0)
-        val channelPastDays = channel.catchupDays.coerceAtLeast(0)
-        val windowPastDays = maxOf(preferredPastDays, channelPastDays).toLong()
-        val preferredAheadDays = preferencesRepository.epgDaysAhead.first().coerceAtLeast(0).toLong()
-
-        val windowStart = nowZoned.toLocalDate()
-            .minusDays(windowPastDays)
-            .atStartOfDay(zone)
-            .toInstant()
-            .toEpochMilli()
-        val windowEnd = nowZoned.toLocalDate()
-            .plusDays(preferredAheadDays)
-            .atTime(java.time.LocalTime.of(23, 59, 59))
-            .atZone(zone)
-            .toInstant()
-            .toEpochMilli()
-
         try {
-            val programs = epgRepository.getWindowedProgramsForChannel(
-                epgUrl = epgUrl,
+            val result = fetchEpgProgramsUseCase(
                 tvgId = channel.tvgId,
-                fromUtcMillis = windowStart,
-                toUtcMillis = windowEnd
+                mode = com.rutv.domain.usecase.ComputeEpgWindowUseCase.Mode.PreferredForChannel,
+                channel = channel
             )
+            if (result is Result.Error) {
+                // Preserve previous behavior: just skip silently (with a warning) if EPG URL is not configured.
+                if (result.exception is IllegalStateException) {
+                    Timber.w("Skipping EPG preload for ${channel.title}: EPG URL not configured")
+                    return
+                }
+                throw result.exception
+            }
+            val window = (result as Result.Success).data
+            val programs = window.programs
             val currentProgram = programs.firstOrNull { it.isCurrent() }
             if (programs.isNotEmpty()) {
                 epgProgramCache[channel.tvgId] = programs
@@ -780,22 +749,17 @@ class MainViewModel @Inject constructor(
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val epgUrl = preferencesRepository.epgUrl.first().ifBlank { "" }
-                if (epgUrl.isBlank()) {
+                val result = fetchEpgProgramsUseCase(
+                    tvgId = tvgId,
+                    mode = com.rutv.domain.usecase.ComputeEpgWindowUseCase.Mode.Today
+                )
+                if (result is Result.Error) {
+                    // Preserve existing UX: if URL isn't configured, show a friendly debug message and return.
                     appendDebugMessage(DebugMessage(StringFormatter.formatEpgUrlNotConfigured()))
                     return@launch
                 }
-
-                val nowZoned = java.time.ZonedDateTime.now()
-                val todayStart = nowZoned.toLocalDate().atStartOfDay(nowZoned.zone)
-                val todayEnd = nowZoned.toLocalDate().atTime(java.time.LocalTime.of(23, 59, 59)).atZone(nowZoned.zone)
-
-                val programs = epgRepository.getWindowedProgramsForChannel(
-                    epgUrl = epgUrl,
-                    tvgId = tvgId,
-                    fromUtcMillis = todayStart.toInstant().toEpochMilli(),
-                    toUtcMillis = todayEnd.toInstant().toEpochMilli()
-                )
+                val window = (result as Result.Success).data
+                val programs = window.programs
                 val current = programs.firstOrNull { it.isCurrent() }
                 epgProgramCache[tvgId] = programs
 
@@ -806,8 +770,8 @@ class MainViewModel @Inject constructor(
                         }
                         state.copy(
                             currentProgramsMap = updatedMap,
-                            epgLoadedFromUtc = todayStart.toInstant().toEpochMilli(),
-                            epgLoadedToUtc = todayEnd.toInstant().toEpochMilli(),
+                            epgLoadedFromUtc = window.fromUtcMillis,
+                            epgLoadedToUtc = window.toUtcMillis,
                             showEpgPanel = true,
                             epgChannelTvgId = tvgId,
                             epgPrograms = programs,
