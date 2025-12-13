@@ -396,7 +396,7 @@ class MainViewModel @Inject constructor(
                         refreshFilteredChannels(channels, _viewState.value.showFavoritesOnly)
 
                         if (channels.isNotEmpty()) {
-                            val startChannel = initializePlayer(channels)
+                            val startChannel = initializePlayerUseCase(channels)
 
                             val resumeChannel = when {
                                 wasArchivePlayback && archiveProgramToResume != null -> {
