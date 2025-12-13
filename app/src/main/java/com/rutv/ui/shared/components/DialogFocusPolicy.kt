@@ -16,19 +16,30 @@ internal object DialogFocusPolicy {
      * - [from] is the currently focused target.
      * - Returns the desired focus target, or null if policy does not handle the key.
      */
-    fun nextTarget(from: Target, key: Key): Target? {
-        return when (key) {
+    fun nextTarget(from: Target, key: Key, hasSecondaryAction: Boolean): Target? =
+        when (key) {
             Key.DirectionUp -> when (from) {
                 Target.PrimaryAction, Target.SecondaryAction -> Target.TextField
                 Target.TextField -> null
             }
+
             Key.DirectionDown -> when (from) {
                 Target.TextField -> Target.PrimaryAction
                 else -> null
             }
+
+            Key.DirectionLeft -> when (from) {
+                Target.PrimaryAction -> if (hasSecondaryAction) Target.SecondaryAction else null
+                else -> null
+            }
+
+            Key.DirectionRight -> when (from) {
+                Target.SecondaryAction -> Target.PrimaryAction
+                else -> null
+            }
+
             else -> null
         }
-    }
 }
 
 

@@ -58,6 +58,7 @@ import com.rutv.ui.mobile.screens.PlayerUiActions
 import com.rutv.ui.mobile.screens.rememberPlayerUiState
 import com.rutv.ui.theme.RuTvTheme
 import com.rutv.ui.shared.components.RemoteDialog
+import com.rutv.ui.shared.components.remoteDialogTextFieldNavigation
 import com.rutv.util.DeviceHelper
 import com.rutv.util.LocaleHelper
 import com.rutv.util.logDebug
@@ -362,21 +363,11 @@ class MainActivity : ComponentActivity() {
                             .focusRequester(textFieldFocus)
                             // Focusable always enabled for text field to allow switching to it
                             .focusable(enabled = true)
-                            .onKeyEvent { event ->
-                                if (event.type == KeyEventType.KeyDown && DeviceHelper.isRemoteInputActive()) {
-                                    when (event.key) {
-                                        Key.DirectionDown -> {
-                                            confirmButtonFocus.requestFocus()
-                                            true
-                                        }
-                                        Key.Back -> {
-                                            showChannelDialog = false
-                                            true
-                                        }
-                                        else -> false
-                                    }
-                                } else false
-                            },
+                            .remoteDialogTextFieldNavigation(
+                                enabled = DeviceHelper.isRemoteInputActive(),
+                                primaryActionFocusRequester = confirmButtonFocus,
+                                onBack = { showChannelDialog = false }
+                            ),
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Number,
                             imeAction = ImeAction.Done

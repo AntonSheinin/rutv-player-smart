@@ -71,6 +71,7 @@ import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
 import com.rutv.ui.mobile.components.ChannelListItem
 import com.rutv.ui.shared.components.RemoteDialog
+import com.rutv.ui.shared.components.remoteDialogTextFieldNavigation
 import com.rutv.ui.shared.components.focusIndicatorModifier
 import com.rutv.ui.shared.presentation.LayoutConstants
 import com.rutv.ui.theme.ruTvColors
@@ -653,22 +654,14 @@ internal fun PlaylistPanel(
                                 .fillMaxWidth()
                                 .focusRequester(searchFieldFocusRequester)
                                 .focusable(enabled = true)
-                                .onKeyEvent { event ->
-                                    if (event.type == KeyEventType.KeyDown && DeviceHelper.isRemoteInputActive()) {
-                                        when (event.key) {
-                                            Key.DirectionDown -> {
-                                                okButtonFocusRequester.requestFocus()
-                                                true
-                                            }
-                                            Key.Back -> {
-                                                showSearchDialog = false
-                                                searchText = ""
-                                                true
-                                            }
-                                            else -> false
-                                        }
-                                    } else false
-                                },
+                                .remoteDialogTextFieldNavigation(
+                                    enabled = DeviceHelper.isRemoteInputActive(),
+                                    primaryActionFocusRequester = okButtonFocusRequester,
+                                    onBack = {
+                                        showSearchDialog = false
+                                        searchText = ""
+                                    }
+                                ),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = MaterialTheme.ruTvColors.gold,
                                 unfocusedBorderColor = MaterialTheme.ruTvColors.textDisabled,

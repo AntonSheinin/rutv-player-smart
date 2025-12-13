@@ -65,6 +65,7 @@ fun RemoteDialog(
                     .then(focusIndicatorModifier(isFocused = isFocused))
                     .onKeyEvent { event ->
                         if (event.type == KeyEventType.KeyDown && isFocused) {
+                            val hasSecondary = dismissButton != null
                             when (event.key) {
                                 Key.DirectionCenter, Key.Enter -> {
                                     // Trigger confirm action if provided
@@ -75,18 +76,31 @@ fun RemoteDialog(
                                         false // Let the button handle it if no explicit action provided
                                     }
                                 }
-                                Key.DirectionLeft -> {
-                                    // Navigate to dismiss button if available
-                                    dismissButton?.let { dismissFocus.requestFocus() }
-                                    true
-                                }
-                                Key.DirectionUp -> {
-                                    // Navigate to text field if available
-                                    textFocusRequester?.requestFocus()
+                                Key.Back -> {
+                                    onDismissRequest()
                                     true
                                 }
                                 else -> false
                             }
+                                || DialogFocusPolicy.nextTarget(
+                                    from = DialogFocusPolicy.Target.PrimaryAction,
+                                    key = event.key,
+                                    hasSecondaryAction = hasSecondary
+                                )?.let { target ->
+                                    when (target) {
+                                        DialogFocusPolicy.Target.TextField -> {
+                                            textFocusRequester?.requestFocus()
+                                            true
+                                        }
+
+                                        DialogFocusPolicy.Target.SecondaryAction -> {
+                                            if (hasSecondary) dismissFocus.requestFocus()
+                                            true
+                                        }
+
+                                        DialogFocusPolicy.Target.PrimaryAction -> true
+                                    }
+                                } ?: false
                         } else false
                     }
             ) {
@@ -104,19 +118,10 @@ fun RemoteDialog(
                         .then(focusIndicatorModifier(isFocused = isFocused))
                         .onKeyEvent { event ->
                             if (event.type == KeyEventType.KeyDown && isFocused) {
+                                val hasSecondary = true
                                 when (event.key) {
                                     Key.DirectionCenter, Key.Enter -> {
                                         onDismissRequest()
-                                        true
-                                    }
-                                    Key.DirectionRight -> {
-                                        // Navigate to confirm button
-                                        confirmFocus.requestFocus()
-                                        true
-                                    }
-                                    Key.DirectionUp -> {
-                                        // Navigate to text field if available
-                                        textFocusRequester?.requestFocus()
                                         true
                                     }
                                     Key.Back -> {
@@ -125,6 +130,25 @@ fun RemoteDialog(
                                     }
                                     else -> false
                                 }
+                                    || DialogFocusPolicy.nextTarget(
+                                        from = DialogFocusPolicy.Target.SecondaryAction,
+                                        key = event.key,
+                                        hasSecondaryAction = hasSecondary
+                                    )?.let { target ->
+                                        when (target) {
+                                            DialogFocusPolicy.Target.TextField -> {
+                                                textFocusRequester?.requestFocus()
+                                                true
+                                            }
+
+                                            DialogFocusPolicy.Target.PrimaryAction -> {
+                                                confirmFocus.requestFocus()
+                                                true
+                                            }
+
+                                            DialogFocusPolicy.Target.SecondaryAction -> true
+                                        }
+                                    } ?: false
                             } else false
                         }
                 ) {

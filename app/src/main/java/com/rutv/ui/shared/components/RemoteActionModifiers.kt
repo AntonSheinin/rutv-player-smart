@@ -1,6 +1,7 @@
 package com.rutv.ui.shared.components
 
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -34,6 +35,31 @@ fun Modifier.remoteBack(
     if (!enabled) return@onKeyEvent false
     if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
     when (event.key) {
+        Key.Back -> {
+            onBack()
+            true
+        }
+        else -> false
+    }
+}
+
+/**
+ * Standard navigation for a dialog TextField on remote:
+ * - DPAD Down moves focus to the confirm/primary button
+ * - Back dismisses dialog
+ */
+fun Modifier.remoteDialogTextFieldNavigation(
+    enabled: Boolean = true,
+    primaryActionFocusRequester: FocusRequester,
+    onBack: () -> Unit
+): Modifier = onKeyEvent { event ->
+    if (!enabled) return@onKeyEvent false
+    if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+    when (event.key) {
+        Key.DirectionDown -> {
+            primaryActionFocusRequester.requestFocus()
+            true
+        }
         Key.Back -> {
             onBack()
             true
