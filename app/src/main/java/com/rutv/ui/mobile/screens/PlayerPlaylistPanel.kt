@@ -608,6 +608,14 @@ internal fun PlaylistPanel(
                 val searchFieldFocusRequester = remember { FocusRequester() }
                 val okButtonFocusRequester = remember { FocusRequester() }
 
+                // For TV/remote UX: when the dialog opens, put focus directly into the input field
+                // (so the user can start typing immediately and doesn't need a DPAD UP first).
+                LaunchedEffect(Unit) {
+                    if (DeviceHelper.isRemoteInputActive()) {
+                        searchFieldFocusRequester.requestFocus()
+                    }
+                }
+
                 val onConfirm = {
                     if (searchText.isNotBlank()) {
                         val searchLower = searchText.lowercase()
@@ -638,6 +646,7 @@ internal fun PlaylistPanel(
                     },
                     confirmButtonFocusRequester = okButtonFocusRequester,
                     textFocusRequester = searchFieldFocusRequester,
+                    autoFocusConfirm = false,
                     onConfirm = { onConfirm() },
                     text = {
                         OutlinedTextField(
@@ -680,10 +689,14 @@ internal fun PlaylistPanel(
                         }
                     },
                     dismissButton = {
-                        TextButton(onClick = {
-                            showSearchDialog = false
-                            searchText = ""
-                        }) {
+                        TextButton(
+                            onClick = {
+                                showSearchDialog = false
+                                searchText = ""
+                            },
+                            // Keep focus on RemoteDialog's wrapper (gold border) for consistency
+                            modifier = Modifier.focusable(false)
+                        ) {
                             Text(
                                 text = stringResource(R.string.button_cancel),
                                 color = MaterialTheme.ruTvColors.textPrimary

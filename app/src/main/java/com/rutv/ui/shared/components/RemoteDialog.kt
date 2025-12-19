@@ -56,15 +56,17 @@ fun RemoteDialog(
         title = title,
         text = text,
         confirmButton = {
-            var isFocused by remember { mutableStateOf(false) }
+            // Use hasFocus (not isFocused) so focus visuals work even if the child composable
+            // (e.g., a TextButton) is the actual focused node.
+            var hasFocus by remember { mutableStateOf(false) }
             Box(
                 modifier = Modifier
                     .focusable()
                     .focusRequester(confirmFocus)
-                    .onFocusChanged { isFocused = it.isFocused }
-                    .then(focusIndicatorModifier(isFocused = isFocused))
+                    .onFocusChanged { hasFocus = it.hasFocus }
+                    .then(focusIndicatorModifier(isFocused = hasFocus))
                     .onKeyEvent { event ->
-                        if (event.type == KeyEventType.KeyDown && isFocused) {
+                        if (event.type == KeyEventType.KeyDown && hasFocus) {
                             val hasSecondary = dismissButton != null
                             when (event.key) {
                                 Key.DirectionCenter, Key.Enter -> {
@@ -109,15 +111,17 @@ fun RemoteDialog(
         },
         dismissButton = dismissButton?.let {
             {
-                var isFocused by remember { mutableStateOf(false) }
+                // Use hasFocus (not isFocused) so wrapper visuals/key handling work even if
+                // the inner dismiss button is focusable and receives focus.
+                var hasFocus by remember { mutableStateOf(false) }
                 Box(
                     modifier = Modifier
                         .focusable()
                         .focusRequester(dismissFocus)
-                        .onFocusChanged { isFocused = it.isFocused }
-                        .then(focusIndicatorModifier(isFocused = isFocused))
+                        .onFocusChanged { hasFocus = it.hasFocus }
+                        .then(focusIndicatorModifier(isFocused = hasFocus))
                         .onKeyEvent { event ->
-                            if (event.type == KeyEventType.KeyDown && isFocused) {
+                            if (event.type == KeyEventType.KeyDown && hasFocus) {
                                 val hasSecondary = true
                                 when (event.key) {
                                     Key.DirectionCenter, Key.Enter -> {
