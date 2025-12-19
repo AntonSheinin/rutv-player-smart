@@ -13,7 +13,6 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.rutv.ui.theme.ruTvColors
-import com.rutv.util.DeviceHelper
 
 /**
  * Reusable focus indicator modifier for remote navigation
@@ -30,11 +29,11 @@ fun focusIndicatorModifier(
     applyShape: Boolean = true,
     forceShow: Boolean = false
 ): Modifier {
-    val isRemoteMode = forceShow || DeviceHelper.isRemoteInputActive()
     val actualBorderColor = borderColor ?: MaterialTheme.ruTvColors.gold
 
-    // Only show focus indicator in remote mode
-    if (!isRemoteMode || !isFocused) {
+    // Always show visual focus when focused. Some environments/devices don't reliably report
+    // "remote mode" early enough (e.g. on first dialog open), but focus visuals must remain.
+    if (!forceShow && !isFocused) {
         return Modifier
     }
 

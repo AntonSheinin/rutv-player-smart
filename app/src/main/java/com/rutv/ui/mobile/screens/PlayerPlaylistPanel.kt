@@ -611,9 +611,10 @@ internal fun PlaylistPanel(
                 // For TV/remote UX: when the dialog opens, put focus directly into the input field
                 // (so the user can start typing immediately and doesn't need a DPAD UP first).
                 LaunchedEffect(Unit) {
-                    if (DeviceHelper.isRemoteInputActive()) {
-                        searchFieldFocusRequester.requestFocus()
-                    }
+                    // AlertDialog may assign default focus to action buttons on first composition.
+                    // Wait a beat, then force focus into the input field.
+                    kotlinx.coroutines.delay(16)
+                    searchFieldFocusRequester.requestFocus()
                 }
 
                 val onConfirm = {
