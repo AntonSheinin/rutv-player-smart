@@ -85,6 +85,13 @@ class SettingsViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            // Toggle: show "current program" under channels in the playlist panel.
+            preferencesRepository.showCurrentProgramInChannelList.collect { enabled ->
+                _viewState.update { it.copy(showCurrentProgramInChannelList = enabled) }
+            }
+        }
+
+        viewModelScope.launch {
             // Load app language
             preferencesRepository.appLanguage.collect { language ->
                 _viewState.update { it.copy(selectedLanguage = language) }
@@ -279,6 +286,18 @@ class SettingsViewModel @Inject constructor(
             val currentConfig = _viewState.value.playerConfig
             val newConfig = currentConfig.copy(bufferSeconds = clampedSeconds)
             updatePlayerConfig(newConfig)
+        }
+    }
+
+    fun setShowCurrentProgramInChannelList(enabled: Boolean) {
+        viewModelScope.launch {
+            try {
+                preferencesRepository.saveShowCurrentProgramInChannelList(enabled)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to save showCurrentProgramInChannelList")
+            }
         }
     }
 

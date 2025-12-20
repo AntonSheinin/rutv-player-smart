@@ -28,7 +28,7 @@ data class Channel(
     fun buildArchiveUrl(program: EpgProgram): String? {
         if (!supportsCatchup()) return null
 
-        // Validate EPG times
+        // Defensive validation: some playlists/EPG providers can return missing or malformed times.
         if (program.startTimeMillis <= 0 || program.stopTimeMillis <= 0) {
             return null // Invalid EPG data
         }
@@ -42,7 +42,8 @@ data class Channel(
         val durationSeconds = program.durationUtcSeconds
         val offsetSeconds = ((program.startUtcMillis - currentTimeMillis) / 1000L)
 
-        // If custom catchup-source is provided, use it (for non-Flussonic servers)
+        // If custom `catchup-source` is provided, treat it as a server-specific template.
+        // (Many IPTV providers use placeholders like {utc}/{duration}/{offset}.)
         if (catchupSource.isNotBlank()) {
             return buildCustomArchiveUrl(
                 catchupSource, startUtcSeconds, stopUtcSeconds,
@@ -68,10 +69,11 @@ data class Channel(
         // Build archive path: /STREAM/archive-{from}-{duration}.m3u8
         val archivePath = "$streamDir/archive-$startUtcSeconds-$durationSeconds.m3u8"
 
-        // Check if program is still airing (ongoing event)
-        val isOngoing = program.stopUtcMillis > currentTimeMillis
-
-        // Build query parameters
+        // Build query parameters.
+        //
+        // We always add `event=true` for compatibility with providers that serve EVENT playlists
+        // even for “catch-up”. If your server requires different behavior for completed programs,
+        // prefer using `catchup-source` to customize it precisely.
         val queryParams = mutableListOf<String>()
 
         // Preserve existing query params (like token, etc.)
@@ -79,9 +81,8 @@ data class Channel(
             queryParams.add(baseQuery)
         }
 
-        // Add event=true for ongoing programs (EVENT playlist vs VOD)
-        // EVENT: Playlist grows as new content arrives (for live viewing of past content)
-        // VOD: Static completed playlist (for fully archived content)
+        // EVENT: Playlist grows as new content arrives (useful for timeshift on currently airing program).
+        // VOD: Static playlist (fully archived content).
         queryParams.add("event=true")
 
         val finalQuery = queryParams.joinToString("&")

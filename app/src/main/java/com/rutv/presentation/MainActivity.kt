@@ -67,8 +67,18 @@ import timber.log.Timber
 import android.view.KeyEvent
 
 /**
- * Main Activity - Refactored to use Jetpack Compose
- * Modern MVVM architecture with Compose UI
+ * App main entry activity.
+ *
+ * Responsibilities:
+ * - Hosts the Compose UI (`PlayerScreen`) and wires it to [MainViewModel].
+ * - Applies immersive fullscreen configuration (especially important for TV devices).
+ * - Handles *remote control* key events that should bypass Compose focus in “fullscreen playback”
+ *   mode (channel up/down, open panels, back-to-close behavior).
+ * - Listens to system time/timezone broadcasts and informs the ViewModel so EPG caches remain correct.
+ *
+ * Key input model (important for maintainers):
+ * - Compose normally handles DPAD navigation via focus, so we only intercept keys when needed.
+ * - When panels/controls are visible, we largely defer to Compose to avoid fighting the focus system.
  */
 @UnstableApi
 @AndroidEntryPoint
@@ -90,7 +100,7 @@ class MainActivity : ComponentActivity() {
     private var areControlsVisible = false
 
     override fun attachBaseContext(newBase: Context) {
-        // Load saved language from SharedPreferences (synchronous, safe)
+        // Locale must be applied before resources are loaded; we read synchronously.
         val localeCode = LocaleHelper.getSavedLanguage(newBase)
         languageBeforeSettings = localeCode // Initialize the tracking variable
         val context = LocaleHelper.setLocale(newBase, localeCode)
@@ -503,6 +513,7 @@ class MainActivity : ComponentActivity() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 val action = intent?.action
                 Timber.i("System time broadcast received: $action")
+                // Delegate to ViewModel which decides whether caches need to be invalidated.
                 viewModel.onSystemTimeOrTimezoneChanged(action)
             }
         }
@@ -578,6 +589,7 @@ class MainActivity : ComponentActivity() {
         if ((keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_DOWN) &&
             (currentState.showPlaylist || currentState.showEpgPanel || areControlsVisible)
         ) {
+            // When UI panels are visible, let Compose focus consume up/down rather than switching channels.
             return super.onKeyDown(keyCode, event)
         }
 

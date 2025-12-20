@@ -7,8 +7,18 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Parser for M3U/M3U8 playlists
- * Refactored from M3U8Parser object to injectable class
+ * Parser for M3U/M3U8 playlists.
+ *
+ * Supported subset (common IPTV conventions):
+ * - Each channel entry is described by an `#EXTINF:` line followed by a URL line.
+ * - Recognized `#EXTINF` attributes:
+ *   - `tvg-name`, `tvg-id`, `tvg-logo`, `group-title`
+ *   - `catchup-days`, `catchup-source` (used for DVR/catch-up playback)
+ *
+ * Notes / limitations:
+ * - This is intentionally tolerant: unknown tags are ignored, missing fields fall back to defaults.
+ * - URLs are taken as-is (the player later handles redirects, headers, etc.).
+ * - We assume one URL per `#EXTINF:`; if the playlist is malformed the entry may be skipped.
  */
 @UnstableApi
 @Singleton
@@ -32,7 +42,8 @@ class PlaylistParser @Inject constructor() {
             val line = lines[i].trim()
 
             if (line.startsWith("#EXTINF:")) {
-                // Parse EXTINF line
+                // Parse the metadata line. We keep the regexes simple because IPTV playlists
+                // vary a lot in attribute order and whitespace.
                 val tvgNameMatch = Regex("""tvg-name="([^"]+)"""").find(line)
                 val tvgIdMatch = Regex("""tvg-id="([^"]+)"""").find(line)
                 val logoMatch = Regex("""tvg-logo="([^"]+)"""").find(line)
@@ -51,7 +62,7 @@ class PlaylistParser @Inject constructor() {
                 currentCatchupSource = catchupSourceMatch?.groupValues?.get(1) ?: ""
 
             } else if (line.isNotEmpty() && !line.startsWith("#") && currentTitle.isNotEmpty()) {
-                // This is the URL line
+                // URL line following the last EXTINF: build a Channel domain object.
                 channels.add(
                     Channel(
                         url = line,
@@ -65,7 +76,7 @@ class PlaylistParser @Inject constructor() {
                     )
                 )
 
-                // Reset for next channel
+                // Reset for next channel. (We only reset once we successfully consumed a URL line.)
                 currentTitle = ""
                 currentLogo = ""
                 currentGroup = ""

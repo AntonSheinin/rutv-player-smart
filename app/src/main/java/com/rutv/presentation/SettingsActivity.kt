@@ -98,6 +98,9 @@ class SettingsActivity : ComponentActivity() {
             onBufferSecondsChanged = { seconds: Int ->
                 viewModel.setBufferSeconds(seconds)
             },
+            onShowCurrentProgramInChannelListChanged = { enabled: Boolean ->
+                viewModel.setShowCurrentProgramInChannelList(enabled)
+            },
             onEpgUrlChanged = { url: String ->
                 viewModel.saveEpgUrl(url)
             },

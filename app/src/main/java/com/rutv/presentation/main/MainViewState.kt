@@ -34,6 +34,11 @@ data class MainViewState(
     val currentProgram: EpgProgram? = null,
     val selectedProgramDetails: EpgProgram? = null, // Program selected for details view
     val currentProgramsMap: Map<String, EpgProgram?> = emptyMap(),
+    /**
+     * UI performance toggle: when disabled we avoid populating [currentProgramsMap] and the playlist
+     * panel won't show "current program" under each channel.
+     */
+    val showCurrentProgramInChannelList: Boolean = true,
     val isArchivePlayback: Boolean = false,
     val isTimeshiftPlayback: Boolean = false,
     val archiveProgram: EpgProgram? = null,

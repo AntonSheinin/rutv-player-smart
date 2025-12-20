@@ -23,6 +23,14 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 /**
  * Repository for app preferences using DataStore
  * Replaces SharedPreferences for better async handling
+ *
+ * Why do we still use SharedPreferences at all?
+ * - Locale selection must be applied in `attachBaseContext(...)` before most Android components
+ *   are created.
+ * - DataStore is async; reading it synchronously at that point is awkward.
+ * - Therefore, language is written to both:
+ *   - SharedPreferences (sync read via [getAppLanguageSync])
+ *   - DataStore (Flow-based observation for screens)
  */
 @Singleton
 class PreferencesRepository @Inject constructor(
@@ -52,6 +60,10 @@ class PreferencesRepository @Inject constructor(
         val USE_FFMPEG_VIDEO = booleanPreferencesKey("use_ffmpeg_video")
         val BUFFER_SECONDS = intPreferencesKey("buffer_seconds")
         val SHOW_DEBUG_LOG = booleanPreferencesKey("show_debug_log")
+
+        // UI performance/UX: showing per-channel "current program" in the playlist requires
+        // frequent state updates as time progresses. Some devices prefer a simpler list.
+        val SHOW_CURRENT_PROGRAM_IN_CHANNEL_LIST = booleanPreferencesKey("show_current_program_in_channel_list")
 
         val LAST_PLAYED_INDEX = intPreferencesKey("last_played_index")
 
@@ -208,6 +220,24 @@ class PreferencesRepository @Inject constructor(
     }
 
     /**
+     * Whether the playlist panel should show "currently airing program" under each channel.
+     *
+     * When disabled, the UI will skip rendering this text and the ViewModel will avoid pushing
+     * frequent `currentProgramsMap` updates, reducing recomposition churn in large playlists.
+     */
+    val showCurrentProgramInChannelList: Flow<Boolean> = dataStore.data
+        .map { preferences ->
+            preferences[PreferencesKeys.SHOW_CURRENT_PROGRAM_IN_CHANNEL_LIST] ?: true
+        }
+
+    suspend fun saveShowCurrentProgramInChannelList(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.SHOW_CURRENT_PROGRAM_IN_CHANNEL_LIST] = enabled
+        }
+        logDebug { "Saved show current program in channel list: $enabled" }
+    }
+
+    /**
      * Last played index
      */
     val lastPlayedIndex: Flow<Int> = dataStore.data
@@ -252,7 +282,8 @@ class PreferencesRepository @Inject constructor(
 
     suspend fun saveAppLanguage(localeCode: String) {
         // Save to SharedPreferences first (synchronous, for attachBaseContext)
-        // Use commit() instead of apply() to ensure it's written immediately
+        // Use commit() instead of apply() to ensure it's written immediately.
+        // (If the app process is killed right after leaving Settings, we still want the language saved.)
         val success = sharedPrefs.edit().putString(LANGUAGE_KEY, localeCode).commit()
         if (!success) {
             Timber.w("Failed to commit language preference to SharedPreferences")

@@ -55,6 +55,7 @@
     <string name="settings_ffmpeg_audio">Use FFmpeg for Audio</string>
     <string name="settings_ffmpeg_video">Use FFmpeg for Video</string>
     <string name="settings_buffer_seconds">Buffer Duration (seconds)</string>
+    <string name="settings_show_current_program_in_list">Show current program in channel list</string>
     <string name="settings_epg_config">EPG Configuration</string>
     <string name="settings_epg_url">EPG XML URL</string>
     <string name="settings_epg_days_ahead">EPG Days Ahead</string>

@@ -64,6 +64,21 @@ import kotlin.math.max
 
 @UnstableApi
 @Singleton
+/**
+ * Media3/ExoPlayer façade used by the app.
+ *
+ * Why this exists (instead of using `ExoPlayer` directly from the UI):
+ * - **Single owner** of the player instance (lifecycle + release policy).
+ * - **Deterministic switching** between two playback modes:
+ *   - live playlist: many channels (`setMediaItems(...)`, repeat all)
+ *   - archive/catch-up: a single VOD-like item (repeat off)
+ * - **Centralized retry/timeout policy** and debug telemetry.
+ * - **Threading**: player operations must run on the main thread; network probing runs on IO.
+ *
+ * State is exposed as:
+ * - [playerState] for UI (Ready/Buffering/Error/Archive...)
+ * - [debugMessages] for the optional on-screen debug overlay.
+ */
 class PlayerManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val bandwidthMeter: DefaultBandwidthMeter
@@ -129,6 +144,8 @@ class PlayerManager @Inject constructor(
             return
         }
 
+        // We snapshot the list to avoid accidental mutation while we build MediaItems in background.
+        // (The app uses immutable Lists in practice, but this keeps the function robust.)
         val channelSnapshot = channels.toList()
         val postInitialize: (List<MediaItem>) -> Unit = { mediaItems ->
             mainScope.launch {
@@ -490,6 +507,8 @@ class PlayerManager @Inject constructor(
 
                 val now = System.currentTimeMillis()
                 if (isRetryableSourceError(error)) {
+                    // Retry window: we only count retries that happen close together, so
+                    // an occasional transient error doesn't permanently "use up" the quota.
                     if (now - lastSourceErrorAtMs > SOURCE_RETRY_WINDOW_MS) {
                         sourceErrorRetryCount = 0
                     }
@@ -506,7 +525,8 @@ class PlayerManager @Inject constructor(
                         }
                         return
                     } else {
-                        addDebugMessage("  �+' Retry limit reached for source errors")
+                        // NOTE: keep this message plain ASCII; some build environments choke on stray bytes.
+                        addDebugMessage("  → Retry limit reached for source errors")
                     }
                 }
 
@@ -535,6 +555,7 @@ class PlayerManager @Inject constructor(
             if (index >= 0 && index < channels.size) {
                 logDebug { "Playing channel at index $index" }
                 if (isArchivePlayback) {
+                    // Switching channel while in archive playback must restore the live playlist first.
                     restoreLivePlaylist(index)
                 } else {
                     p.seekTo(index, C.TIME_UNSET)
@@ -662,6 +683,9 @@ class PlayerManager @Inject constructor(
 
     private fun ensureHttpDataSourceFactory(): DefaultHttpDataSource.Factory {
         if (!::httpDataSourceFactory.isInitialized) {
+            // The factory is reused across all HLS sources so we can:
+            // - apply consistent timeouts / UA / headers
+            // - attach [bandwidthMeter] once for adaptive playback decisions
             httpDataSourceFactory = DefaultHttpDataSource.Factory()
                 .setConnectTimeoutMs(Constants.HTTP_CONNECT_TIMEOUT_MS)
                 .setReadTimeoutMs(Constants.HTTP_READ_TIMEOUT_MS)

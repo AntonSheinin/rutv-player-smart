@@ -517,6 +517,7 @@ fun PlayerScreen(
                     -1
                 },
                 currentProgramsMap = uiState.currentProgramsMap,
+                showCurrentProgramInChannelList = uiState.showCurrentProgramInChannelList,
                 onChannelClick = actions.onPlayChannel,
                 onFavoriteClick = actions.onToggleFavorite,
                 onShowPrograms = actions.onShowEpgForChannel,

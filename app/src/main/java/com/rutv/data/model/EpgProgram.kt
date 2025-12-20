@@ -7,6 +7,14 @@ import java.util.TimeZone
 
 /**
  * EPG program model with pre-parsed epoch timestamps.
+ *
+ * Time formats seen in the wild:
+ * - ISO-8601 with offset: `2025-10-10T19:30:00+03:00`
+ * - ISO-8601 local (no offset): `2025-10-10T19:30:00` (interpreted as device local time)
+ * - XMLTV style: `yyyyMMddHHmmss ±HHMM` (e.g. `20251010193000 +0300`)
+ *
+ * We precompute millis at construction time so UI and playback code can do fast comparisons
+ * (e.g. `isCurrent()`) without re-parsing strings.
  */
 data class EpgProgram(
     @SerializedName("id") val id: String = "",
@@ -17,9 +25,17 @@ data class EpgProgram(
     val startTimeMillis: Long = parseTime(startTime),
     val stopTimeMillis: Long = parseTime(stopTime)
 ) {
+    /**
+     * Start time in UTC millis, if the raw string includes timezone/offset info.
+     * Falls back to [startTimeMillis] if the raw string has no offset (best effort).
+     */
     val startUtcMillis: Long
         get() = toUtcMillis(startTime, startTimeMillis)
 
+    /**
+     * Stop time in UTC millis, if the raw string includes timezone/offset info.
+     * Falls back to [stopTimeMillis] if the raw string has no offset (best effort).
+     */
     val stopUtcMillis: Long
         get() = toUtcMillis(stopTime, stopTimeMillis)
 
@@ -31,6 +47,7 @@ data class EpgProgram(
     }
 
     companion object {
+        // ThreadLocal calendars avoid allocations in tight loops (EPG parsing can create many objects).
         private val utcCalendar = ThreadLocal.withInitial {
             GregorianCalendar(TimeZone.getTimeZone("UTC")).apply { isLenient = false }
         }

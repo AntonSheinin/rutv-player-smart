@@ -45,6 +45,28 @@ import javax.inject.Inject
 
 @UnstableApi
 @HiltViewModel
+/**
+ * Main screen ViewModel (Compose host).
+ *
+ * High-level responsibilities:
+ * - **Startup orchestration**: load playlist (fast path on cold start), then initialize player.
+ * - **Player → UI binding**: translate [PlayerManager.playerState] into [MainViewState] fields.
+ * - **EPG orchestration**:
+ *   - preloading “good enough” EPG windows for the active channel
+ *   - showing today’s window in the EPG panel
+ *   - paging more past/future programs on demand
+ * - **Remote-first UX helpers**: panel toggles, focus/navigation state, and debug overlay messages.
+ *
+ * Concurrency model / invariants:
+ * - UI state is a single [MutableStateFlow]; updates use `.update { ... }` to stay atomic.
+ * - Network/IO work runs on `Dispatchers.IO`; expensive filtering runs on `Dispatchers.Default`.
+ * - EPG is cached in two layers:
+ *   - repository cache inside [EpgRepository] (window + per-channel caches)
+ *   - in-ViewModel map [epgProgramCache] for quick panel open without waiting for IO
+ *
+ * This file is intentionally “fat” because it is the app’s primary coordinator; the “policy”
+ * pieces are extracted into `domain/usecase/*` where appropriate.
+ */
 class MainViewModel @Inject constructor(
     private val playerManager: PlayerManager,
     private val channelRepository: ChannelRepository,
@@ -64,8 +86,12 @@ class MainViewModel @Inject constructor(
     private val _viewState = MutableStateFlow(MainViewState())
     val viewState: StateFlow<MainViewState> = _viewState.asStateFlow()
 
+    // We keep a bounded list for the on-screen debug overlay. Writes are mutex-protected because
+    // messages can come from multiple coroutines (player + network + UI actions).
     private val debugMessageList = mutableListOf<DebugMessage>()
     private val debugMessageMutex = Mutex()
+    // Simple in-memory cache: tvgId -> program list currently shown/known.
+    // This is *in addition* to EpgRepository caches and exists mostly for UX responsiveness.
     private val epgProgramCache = mutableMapOf<String, List<EpgProgram>>()
     private var channelFilterJob: Job? = null
 
@@ -98,7 +124,8 @@ class MainViewModel @Inject constructor(
     }
 
     init {
-        // Collect player state
+        // --- Player state collection ---
+        // The player is the source of truth for what is currently playing.
         viewModelScope.launch {
             playerManager.playerState.collect { state ->
                 _viewState.update { it.copy(playerState = state) }
@@ -152,6 +179,28 @@ class MainViewModel @Inject constructor(
             .map { it.showDebugLog }
             .distinctUntilChanged()
 
+        // Playlist performance toggle: whether to populate per-channel "current program" cache
+        // for list items. When disabled we keep `currentProgramsMap` empty to reduce recompositions.
+        viewModelScope.launch {
+            preferencesRepository.showCurrentProgramInChannelList
+                .distinctUntilChanged()
+                .collect { enabled ->
+                    _viewState.update { current ->
+                        val clearedMap = if (enabled) current.currentProgramsMap else emptyMap()
+                        if (current.showCurrentProgramInChannelList == enabled &&
+                            current.currentProgramsMap == clearedMap
+                        ) {
+                            current
+                        } else {
+                            current.copy(
+                                showCurrentProgramInChannelList = enabled,
+                                currentProgramsMap = clearedMap
+                            )
+                        }
+                    }
+                }
+        }
+
         // Reflect the toggle in view state, and clear accumulated debug messages when disabled.
         viewModelScope.launch {
             debugEnabledFlow.collect { enabled ->
@@ -193,8 +242,8 @@ class MainViewModel @Inject constructor(
             }
         }
 
-        // Initialize app: load EPG cache FIRST, then playlist
-        // This ensures EPG data is ready before player starts
+        // Initialize app: load playlist and initialize the player.
+        // EPG is fetched lazily; we may preload it for the start channel after initialization.
         initializeApp()
     }
 
@@ -249,6 +298,7 @@ class MainViewModel @Inject constructor(
                     val source = result.data.source
                     val channels = result.data.channels
 
+                    // Update state first so UI can render quickly (and show playlist / channel title).
                     _viewState.update {
                         it.copy(
                             channels = channels,
@@ -269,6 +319,8 @@ class MainViewModel @Inject constructor(
 
 
                     if (channels.isNotEmpty()) {
+                        // Initializes PlayerManager using persisted PlayerConfig + last played index.
+                        // The use case returns the selected start channel for optional EPG preload.
                         val startChannel = initializePlayerUseCase(channels)
 
                         startChannel?.let { preloadChannelEpg(it) }
@@ -286,6 +338,7 @@ class MainViewModel @Inject constructor(
                                     val newChannels = refreshed.data
                                     val oldChannels = _viewState.value.channels
                                     if (newChannels.isNotEmpty() && newChannels != oldChannels) {
+                                        // Try to preserve the currently playing channel by URL when replacing the list.
                                         val currentUrl = _viewState.value.currentChannel?.url
                                         val newIndex = currentUrl?.let { url ->
                                             newChannels.indexOfFirst { it.url == url }
@@ -677,6 +730,9 @@ class MainViewModel @Inject constructor(
         }
 
         try {
+            // “PreferredForChannel” window is typically larger than “Today” because:
+            // - current-program detection works better with some past buffer
+            // - catch-up features require past programs to exist
             val result = fetchEpgProgramsUseCase(
                 tvgId = channel.tvgId,
                 mode = com.rutv.domain.usecase.ComputeEpgWindowUseCase.Mode.PreferredForChannel,
@@ -699,10 +755,14 @@ class MainViewModel @Inject constructor(
             }
 
             _viewState.update { state ->
-                val updatedMap = state.currentProgramsMap.toMutableMap().apply {
-                    this[channel.tvgId] = currentProgram
-                }
                 val shouldUpdateCurrent = state.currentChannel?.tvgId == channel.tvgId
+                val updatedMap = if (state.showCurrentProgramInChannelList) {
+                    state.currentProgramsMap.toMutableMap().apply {
+                        this[channel.tvgId] = currentProgram
+                    }
+                } else {
+                    state.currentProgramsMap
+                }
                 state.copy(
                     currentProgramsMap = updatedMap,
                     currentProgram = if (shouldUpdateCurrent) currentProgram ?: state.currentProgram else state.currentProgram
@@ -727,6 +787,8 @@ class MainViewModel @Inject constructor(
      * Show EPG for channel
      */
     fun showEpgForChannel(tvgId: String) {
+        // UI responsiveness: open panel immediately using cached programs if we have them,
+        // then refresh in the background (IO) and replace the list.
         epgProgramCache[tvgId]?.let { cachedPrograms ->
             val cachedCurrent = cachedPrograms.firstOrNull { it.isCurrent() }
             updateEpgPanelState(tvgId, cachedPrograms, cachedCurrent)
@@ -758,8 +820,12 @@ class MainViewModel @Inject constructor(
                 epgProgramCache[tvgId] = programs
 
                 _viewState.update { state ->
-                    val updatedMap = state.currentProgramsMap.toMutableMap().apply {
-                        this[tvgId] = current
+                    val updatedMap = if (state.showCurrentProgramInChannelList) {
+                        state.currentProgramsMap.toMutableMap().apply {
+                            this[tvgId] = current
+                        }
+                    } else {
+                        state.currentProgramsMap
                     }
                     state.copy(
                         currentProgramsMap = updatedMap,
@@ -813,6 +879,7 @@ class MainViewModel @Inject constructor(
             val added = epgRepository.getWindowedProgramsForChannel(epgUrl, tvgId, newFrom, newTo)
 
             if (added.isEmpty()) return@launch
+            // Merge with stable sort + de-dupe to avoid duplicates when windows overlap by a day.
             val merged = mergePrograms(_viewState.value.epgPrograms, added)
             _viewState.update {
                 it.copy(
@@ -862,6 +929,7 @@ class MainViewModel @Inject constructor(
             val added = epgRepository.getWindowedProgramsForChannel(epgUrl, tvgId, newFrom, newTo)
 
             if (added.isEmpty()) return@launch
+            // Merge with stable sort + de-dupe to avoid duplicates when windows overlap by a day.
             val merged = mergePrograms(_viewState.value.epgPrograms, added)
             _viewState.update {
                 it.copy(
@@ -971,6 +1039,7 @@ class MainViewModel @Inject constructor(
     private suspend fun startArchivePlayback(channel: Channel, program: EpgProgram) {
         val durationMinutes = ((program.stopTimeMillis - program.startTimeMillis) / 60000L).coerceAtLeast(1)
         val ageMinutes = ((System.currentTimeMillis() - program.startTimeMillis) / 60000L).coerceAtLeast(0)
+        // Debug overlay is intentionally verbose here because DVR issues are hard to diagnose remotely.
         appendDebugMessage(
             DebugMessage(
                 StringFormatter.formatDvrRequest(
@@ -1078,12 +1147,14 @@ class MainViewModel @Inject constructor(
         try {
             val program = epgRepository.getCurrentProgram(channel.tvgId)
             _viewState.update {
-                val updatedMap = it.currentProgramsMap.toMutableMap()
-                updatedMap[channel.tvgId] = program
-                it.copy(
-                    currentProgram = program,
-                    currentProgramsMap = updatedMap
-                )
+                val updatedMap = if (it.showCurrentProgramInChannelList) {
+                    it.currentProgramsMap.toMutableMap().apply {
+                        this[channel.tvgId] = program
+                    }
+                } else {
+                    it.currentProgramsMap
+                }
+                it.copy(currentProgram = program, currentProgramsMap = updatedMap)
             }
         } catch (e: Exception) {
             Timber.e(e, "Error updating current program for ${channel.title}")

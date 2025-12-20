@@ -59,6 +59,7 @@ fun SettingsScreen(
     onFfmpegAudioChanged: (Boolean) -> Unit,
     onFfmpegVideoChanged: (Boolean) -> Unit,
     onBufferSecondsChanged: (Int) -> Unit,
+    onShowCurrentProgramInChannelListChanged: (Boolean) -> Unit,
     onEpgUrlChanged: (String) -> Unit,
     onEpgDaysAheadChanged: (Int) -> Unit,
     onEpgDaysPastChanged: (Int) -> Unit,
@@ -322,6 +323,14 @@ fun SettingsScreen(
                     onValueChange = onBufferSecondsChanged,
                     minValue = PlayerConstants.MIN_BUFFER_SECONDS,
                     maxValue = PlayerConstants.MAX_BUFFER_SECONDS
+                )
+            }
+
+            item {
+                SwitchSetting(
+                    label = stringResource(R.string.settings_show_current_program_in_list),
+                    checked = viewState.showCurrentProgramInChannelList,
+                    onCheckedChange = onShowCurrentProgramInChannelListChanged
                 )
             }
 

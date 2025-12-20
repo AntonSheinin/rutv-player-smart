@@ -33,6 +33,28 @@ import kotlin.math.abs
 
 @UnstableApi
 @Singleton
+/**
+ * EPG repository responsible for fetching and caching EPG programs.
+ *
+ * Key ideas:
+ * - **Windowed fetching**: callers request a (from,to) window in UTC millis.
+ * - **Request de-duplication**: identical windows are coalesced via [windowInFlight].
+ * - **Two caches**:
+ *   - [windowCache]: window -> program list (small LRU)
+ *   - [channelPrograms]: tvgId -> merged list of programs (small LRU)
+ * - **Cheap "current program" lookups**:
+ *   - [getCurrentProgram] uses [channelPrograms] and keeps a short TTL map to avoid repeated scans.
+ *
+ * Time correctness:
+ * - Cache invalidation is sensitive to:
+ *   - **day changes** (to avoid showing yesterday’s snapshot indefinitely)
+ *   - **timezone / UTC offset changes** (program boundaries move in local time)
+ *   - **system clock changes** (invalidate current-program snapshot)
+ *
+ * Parsing:
+ * - Uses a streaming JSON parser ([JsonReader]) because EPG payloads can be large.
+ * - Truncates overly large fields defensively to avoid OOM / UI issues.
+ */
 class EpgRepository @Inject constructor(
     private val gson: Gson
 ) {
@@ -168,6 +190,7 @@ class EpgRepository @Inject constructor(
         }
 
         val deferred = synchronized(windowCacheLock) {
+            // Important: we store the Deferred so concurrent callers share one network request.
             windowInFlight[key] ?: async(Dispatchers.IO) {
                 fetchSingleChannelWindow(epgUrl, tvgId, fromUtcMillis, toUtcMillis)
             }.also { windowInFlight[key] = it }
@@ -265,6 +288,7 @@ class EpgRepository @Inject constructor(
             existing.forEach { merged[key(it)] = it }
             programs.forEach { merged[key(it)] = it }
             val sorted = merged.values.sortedBy { it.startUtcMillis }
+            // Keep memory bounded even if callers request very large windows repeatedly.
             val clamped = if (sorted.size > MAX_PROGRAMS_PER_CHANNEL) {
                 sorted.takeLast(MAX_PROGRAMS_PER_CHANNEL)
             } else {
@@ -286,6 +310,10 @@ class EpgRepository @Inject constructor(
             val fromIso = Instant.ofEpochMilli(fromUtcMillis).toString()
             val toIso = Instant.ofEpochMilli(toUtcMillis).toString()
 
+            // EPG backend expects a POST with:
+            // - channel IDs (xmltv_id)
+            // - a timezone ID string for server-side conversions
+            // - optional ISO8601 from/to filters
             val request = EpgRequest(
                 channels = listOf(EpgChannelRequest(xmltvId = tvgId)),
                 timezone = deviceTimezone,

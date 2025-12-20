@@ -15,7 +15,16 @@ import javax.inject.Singleton
 import javax.net.ssl.SSLException
 
 /**
- * Loads playlist content from various sources
+ * Loads playlist content from various sources.
+ *
+ * Currently only URL loading is implemented here. File-based playlists are stored directly in
+ * preferences and bypass network.
+ *
+ * Implementation details:
+ * - Uses Media3's [DefaultHttpDataSource] so networking behaves consistently with ExoPlayer
+ *   (timeouts, redirects, UA, etc. are configured in DI).
+ * - Enforces a hard size cap ([Constants.MAX_PLAYLIST_SIZE_BYTES]) to avoid OOM when a server
+ *   returns an unexpectedly large response.
  */
 @Singleton
 class PlaylistLoader @Inject constructor(
@@ -91,6 +100,8 @@ class PlaylistLoader @Inject constructor(
      * Validate playlist content size
      */
     fun validateSize(content: String, maxSize: Int = 500_000): Boolean {
+        // NOTE: `String.length` is characters, not bytes; for typical UTF-8 playlists this is a
+        // good-enough guardrail. The stricter cap is enforced in `loadFromUrl()` by bytes read.
         return content.length <= maxSize
     }
 }

@@ -93,6 +93,7 @@ internal fun PlaylistPanel(
     initialScrollIndex: Int,
     epgOpenIndex: Int,
     currentProgramsMap: Map<String, EpgProgram?>,
+    showCurrentProgramInChannelList: Boolean,
     onChannelClick: (Int) -> Unit,
     onFavoriteClick: (String) -> Unit,
     onShowPrograms: (String) -> Unit,
@@ -521,8 +522,10 @@ internal fun PlaylistPanel(
                             }
                         }
                         val resolvedIndex = actualIndex.takeIf { it >= 0 } ?: return@itemsIndexed
-                        val programInfo = remember(channel.tvgId, currentProgramsMap[channel.tvgId]) {
+                        val programInfo = if (showCurrentProgramInChannelList) {
                             currentProgramsMap[channel.tvgId]
+                        } else {
+                            null
                         }
                         ChannelListItem(
                             channel = channel,

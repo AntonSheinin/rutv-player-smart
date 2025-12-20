@@ -54,6 +54,7 @@
     <string name="settings_ffmpeg_audio">Использовать FFmpeg для аудио</string>
     <string name="settings_ffmpeg_video">Использовать FFmpeg для видео</string>
     <string name="settings_buffer_seconds">Длительность буфера (секунды)</string>
+    <string name="settings_show_current_program_in_list">Показывать текущую программу в списке каналов</string>
     <string name="settings_epg_config">Настройки EPG</string>
     <string name="settings_epg_url">EPG XML URL</string>
     <string name="settings_epg_days_ahead">Дни EPG вперед</string>

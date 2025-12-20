@@ -14,7 +14,19 @@ import timber.log.Timber
 import javax.inject.Inject
 
 /**
- * Use case for loading playlist from file or URL
+ * Loads the currently configured playlist into the local channel database.
+ *
+ * Policy summary:
+ * - Playlist source is resolved from [PreferencesRepository.playlistSource]
+ *   - `File`: content is already local (no network)
+ *   - `Url`: content is downloaded via [PlaylistLoader]
+ * - A simple hash is stored to detect when the playlist has not changed.
+ * - Channels are persisted via [ChannelRepository] (Room).
+ *
+ * Cold start optimization:
+ * - When `skipNetworkIfCacheAvailable=true` and a URL playlist is configured, we can return the
+ *   cached channels immediately if we have a stored hash + non-empty DB. This makes startup fast,
+ *   while a background refresh can update later (see `InitializeAppUseCase` usage).
  */
 @UnstableApi
 class LoadPlaylistUseCase @Inject constructor(
@@ -47,6 +59,8 @@ class LoadPlaylistUseCase @Inject constructor(
             // Get stored hash and current hash
             val storedHash = preferencesRepository.playlistHash.first()
             if (!forceReload && skipNetworkIfCacheAvailable && source is PlaylistSource.Url && storedHash.isNotBlank()) {
+                // Fast path: if we have a hash (meaning we successfully loaded/saved before),
+                // and the DB has channels, use it immediately.
                 val cachedChannels = channelRepository.getAllChannels()
                 if (cachedChannels is Result.Success && cachedChannels.data.isNotEmpty()) {
                     return cachedChannels
@@ -74,6 +88,8 @@ class LoadPlaylistUseCase @Inject constructor(
 
             // If hash matches and not force reload, load from cache
             if (!forceReload && currentHash == storedHash) {
+                // Even if the playlist didn’t change, DB could have been cleared by OS/data wipe,
+                // so we only return cache if it’s non-empty.
                 val cachedChannels = channelRepository.getAllChannels()
                 if (cachedChannels is Result.Success && cachedChannels.data.isNotEmpty()) {
                     return cachedChannels
