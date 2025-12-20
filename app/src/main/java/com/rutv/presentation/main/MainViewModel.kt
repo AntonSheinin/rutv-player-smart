@@ -65,7 +65,7 @@ import javax.inject.Inject
  *   - in-ViewModel map [epgProgramCache] for quick panel open without waiting for IO
  *
  * This file is intentionally “fat” because it is the app’s primary coordinator; the “policy”
- * pieces are extracted into `domain/usecase/*` where appropriate.
+ * pieces are extracted into `domain/usecase/` where appropriate.
  */
 class MainViewModel @Inject constructor(
     private val playerManager: PlayerManager,
