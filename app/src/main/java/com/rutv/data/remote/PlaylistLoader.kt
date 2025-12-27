@@ -3,6 +3,7 @@ package com.rutv.data.remote
 import androidx.media3.datasource.DataSourceInputStream
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.HttpDataSource
 import com.rutv.util.Constants
 import com.rutv.util.Result
 import kotlinx.coroutines.CancellationException
@@ -64,6 +65,27 @@ class PlaylistLoader @Inject constructor(
                 logDebug { "Loaded ${out.length} bytes from URL" }
                 Result.Success(out.toString())
             }
+        } catch (e: HttpDataSource.InvalidResponseCodeException) {
+            Timber.e(e, "HTTP ${e.responseCode} loading playlist from URL: $url")
+            val body = runCatching { e.responseBody?.toString(Charsets.UTF_8) }.getOrNull().orEmpty()
+            val text = buildString {
+                append(e.message ?: "")
+                if (body.isNotBlank()) {
+                    append('\n')
+                    append(body)
+                }
+            }.lowercase()
+            val isSuspended = listOf("suspend", "suspended", "disabled by provider").any { text.contains(it) }
+            val isTokenMissing = listOf("token not found", "no token", "invalid token", "token expired").any { text.contains(it) }
+
+            val msg = when {
+                isSuspended -> "Playlist is suspended by provider"
+                isTokenMissing -> "Playlist token not found (access denied)"
+                e.responseCode == 401 || e.responseCode == 403 -> "Playlist access denied (HTTP ${e.responseCode})"
+                e.responseCode == 404 -> "Playlist not found (HTTP 404)"
+                else -> "Failed to load playlist (HTTP ${e.responseCode})"
+            }
+            Result.Error(Exception(msg, e))
         } catch (e: javax.net.ssl.SSLException) {
             Timber.e(e, "SSL/TLS error loading playlist from URL: $url")
             val errorMessage = if (e.message?.contains("parse", ignoreCase = true) == true) {

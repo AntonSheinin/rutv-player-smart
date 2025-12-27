@@ -4,6 +4,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.annotation.SuppressLint
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -63,6 +64,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.abs
 import kotlin.math.max
 import timber.log.Timber
+import com.rutv.presentation.player.PlayerState
 
 /**
  * Main Player Screen with Compose UI
@@ -480,6 +482,23 @@ fun PlayerScreen(
             }
         }
 
+        // Playback error/status overlay (always visible; user must understand provider/token states)
+        val playbackErrorText = remember(uiState.playerState) {
+            when (val st = uiState.playerState) {
+                is PlayerState.Error -> st.issue.userMessage
+                else -> null
+            }
+        }
+        playbackErrorText?.let { text ->
+            PlaybackStatusOverlay(
+                text = text,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 88.dp)
+                    .fillMaxWidth(0.6f)
+            )
+        }
+
         val allChannels = uiState.filteredChannels
         val displayedChannels = uiState.visibleChannels
 
@@ -509,6 +528,7 @@ fun PlayerScreen(
                 visibleChannels = displayedChannels,
                 playlistTitleResId = uiState.playlistTitleResId,
                 currentChannelIndex = uiState.currentChannelIndex,
+                currentChannelStatusText = playbackErrorText,
                 initialScrollIndex = uiState.lastPlaylistScrollIndex,
                 epgOpenIndex = if (uiState.showEpgPanel) {
                     // Find the index of the channel whose EPG is open
@@ -597,6 +617,29 @@ fun PlayerScreen(
                 onBackToLive = actions.onArchivePromptBackToLive
             )
         }
+    }
+}
+
+@Composable
+private fun PlaybackStatusOverlay(
+    text: String,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.92f)
+        ),
+        border = BorderStroke(2.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.85f))
+    ) {
+        Text(
+            text = text,
+            color = MaterialTheme.colorScheme.onErrorContainer,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            maxLines = 2,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+        )
     }
 }
 

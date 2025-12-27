@@ -13,6 +13,14 @@ data class Channel(
     val title: String,
     val logo: String = "",
     val group: String = "General",
+    /**
+     * Optional multi-category/group support (some IPTV playlists assign a stream to multiple groups).
+     *
+     * Backward compatible:
+     * - [group] remains the “primary” group used by existing UI.
+     * - [groups] carries the full set when present.
+     */
+    val groups: List<String> = emptyList(),
     val tvgId: String = "",
     val catchupDays: Int = 0,
     val catchupSource: String = "",
@@ -22,6 +30,14 @@ data class Channel(
 ) {
     val hasEpg: Boolean
         get() = tvgId.isNotBlank()
+
+    val allGroups: List<String>
+        get() = buildList {
+            if (group.isNotBlank()) add(group)
+            groups.filter { it.isNotBlank() }.forEach { g ->
+                if (!contains(g)) add(g)
+            }
+        }
 
     fun supportsCatchup(): Boolean = hasEpg && catchupDays > 0
 

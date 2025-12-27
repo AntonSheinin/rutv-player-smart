@@ -34,6 +34,7 @@ class PlaylistParser @Inject constructor() {
         var currentTitle = ""
         var currentLogo = ""
         var currentGroup = ""
+        var currentGroups: List<String> = emptyList()
         var currentTvgId = ""
         var currentCatchupDays = 0
         var currentCatchupSource = ""
@@ -56,11 +57,24 @@ class PlaylistParser @Inject constructor() {
                     ?: titleMatch?.groupValues?.get(1)
                     ?: "Unknown"
                 currentLogo = logoMatch?.groupValues?.get(1) ?: ""
-                currentGroup = groupMatch?.groupValues?.get(1) ?: "General"
+                val rawGroup = groupMatch?.groupValues?.get(1).orEmpty()
+                currentGroups = parseGroups(rawGroup)
+                currentGroup = currentGroups.firstOrNull() ?: (rawGroup.ifBlank { "General" })
                 currentTvgId = tvgIdMatch?.groupValues?.get(1) ?: ""
                 currentCatchupDays = catchupDaysMatch?.groupValues?.get(1)?.toIntOrNull() ?: 0
                 currentCatchupSource = catchupSourceMatch?.groupValues?.get(1) ?: ""
 
+            } else if (line.startsWith("#EXTGRP:", ignoreCase = true)) {
+                // Alternative IPTV convention: #EXTGRP:Group Name
+                // If it appears after #EXTINF, treat as additional grouping info for the pending item.
+                val raw = line.substringAfter(':', "").trim()
+                if (raw.isNotBlank()) {
+                    val extra = parseGroups(raw)
+                    currentGroups = mergeGroups(currentGroups, extra)
+                    if (currentGroup.isBlank() || currentGroup == "General") {
+                        currentGroup = currentGroups.firstOrNull() ?: currentGroup
+                    }
+                }
             } else if (line.isNotEmpty() && !line.startsWith("#") && currentTitle.isNotEmpty()) {
                 // URL line following the last EXTINF: build a Channel domain object.
                 channels.add(
@@ -69,6 +83,7 @@ class PlaylistParser @Inject constructor() {
                         title = currentTitle,
                         logo = currentLogo,
                         group = currentGroup,
+                        groups = currentGroups,
                         tvgId = currentTvgId,
                         catchupDays = currentCatchupDays,
                         catchupSource = currentCatchupSource,
@@ -80,6 +95,7 @@ class PlaylistParser @Inject constructor() {
                 currentTitle = ""
                 currentLogo = ""
                 currentGroup = ""
+                currentGroups = emptyList()
                 currentTvgId = ""
                 currentCatchupDays = 0
                 currentCatchupSource = ""
@@ -95,5 +111,27 @@ class PlaylistParser @Inject constructor() {
      */
     fun calculateHash(content: String): String {
         return content.hashCode().toString()
+    }
+
+    private fun parseGroups(raw: String): List<String> {
+        val cleaned = raw.trim()
+        if (cleaned.isBlank()) return emptyList()
+        // Common separators: "News;Sports", "News|Sports", "News, Sports", "News / Sports"
+        val parts = cleaned.split(';', '|', ',', '/')
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+        // Keep order, de-dupe
+        return buildList {
+            parts.forEach { g -> if (!contains(g)) add(g) }
+        }
+    }
+
+    private fun mergeGroups(primary: List<String>, extra: List<String>): List<String> {
+        if (primary.isEmpty()) return extra
+        if (extra.isEmpty()) return primary
+        return buildList {
+            primary.forEach { if (!contains(it)) add(it) }
+            extra.forEach { if (!contains(it)) add(it) }
+        }
     }
 }

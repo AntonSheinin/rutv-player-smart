@@ -50,6 +50,7 @@ fun ChannelListItem(
     channel: Channel,
     channelNumber: Int,
     isPlaying: Boolean,
+    statusText: String? = null,
     isEpgOpen: Boolean,
     isEpgPanelVisible: Boolean = isEpgOpen,
     currentProgram: EpgProgram?,
@@ -146,7 +147,16 @@ fun ChannelListItem(
                 }
 
                 // Channel Group
-                channel.group.takeIf { it.isNotEmpty() }?.let { group ->
+                val groupLabel = remember(channel.group, channel.groups) {
+                    val groups = channel.allGroups
+                    when {
+                        groups.isEmpty() -> ""
+                        groups.size == 1 -> groups.first()
+                        groups.size == 2 -> "${groups[0]} • ${groups[1]}"
+                        else -> "${groups[0]} • ${groups[1]} +${groups.size - 2}"
+                    }
+                }
+                groupLabel.takeIf { it.isNotBlank() }?.let { group ->
                     Text(
                         text = group,
                         style = MaterialTheme.typography.bodySmall,
@@ -173,6 +183,17 @@ fun ChannelListItem(
                         text = stringResource(R.string.status_playing),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.ruTvColors.statusPlaying
+                    )
+                }
+
+                // Stream status (errors, suspended, token missing, etc.)
+                statusText?.takeIf { it.isNotBlank() }?.let { status ->
+                    Text(
+                        text = status,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }

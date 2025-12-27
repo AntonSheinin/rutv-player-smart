@@ -135,6 +135,50 @@ class PlayerManager @Inject constructor(
         }
     }
 
+    private fun classifyPlaybackIssue(error: PlaybackException): PlaybackIssue {
+        val cause = error.cause
+        if (cause is HttpDataSource.InvalidResponseCodeException) {
+            val code = cause.responseCode
+            val body = runCatching { cause.responseBody?.toString(Charsets.UTF_8) }.getOrNull().orEmpty()
+            val text = buildString {
+                append(error.message ?: "")
+                if (body.isNotBlank()) {
+                    append('\n')
+                    append(body)
+                }
+            }.lowercase()
+
+            fun containsAny(vararg needles: String): Boolean = needles.any { text.contains(it) }
+
+            // Provider-specific heuristics (Flussonic and common IPTV middlewares).
+            if (containsAny("suspend", "suspended", "disabled by provider")) {
+                return PlaybackIssue.Suspended()
+            }
+            if (containsAny("token not found", "no token", "invalid token", "token expired", "auth token")) {
+                return PlaybackIssue.TokenNotFound()
+            }
+
+            return when (code) {
+                401, 403 -> PlaybackIssue.Forbidden()
+                404 -> PlaybackIssue.NotFound()
+                else -> PlaybackIssue.HttpError(code)
+            }
+        }
+
+        return when (error.errorCode) {
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ->
+                PlaybackIssue.Network(error.message)
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT,
+            PlaybackException.ERROR_CODE_TIMEOUT ->
+                PlaybackIssue.Timeout(error.message)
+            PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS ->
+                PlaybackIssue.HttpError(code = -1, message = error.message)
+            PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND ->
+                PlaybackIssue.NotFound(error.message)
+            else -> PlaybackIssue.Unknown(error.message)
+        }
+    }
+
     /**
      * Initialize player with channels
      */
@@ -163,7 +207,7 @@ class PlayerManager @Inject constructor(
                 } catch (e: Exception) {
                     Timber.e(e, "Failed to prepare media items on background thread")
                     mainScope.launch {
-                        _playerState.value = PlayerState.Error("Failed to prepare media items", null)
+                        _playerState.value = PlayerState.Error(PlaybackIssue.Unknown("Failed to prepare media items"), null)
                     }
                 }
             }
@@ -175,7 +219,7 @@ class PlayerManager @Inject constructor(
                 throw e
             } catch (e: Exception) {
                 Timber.e(e, "Failed to prepare media items")
-                _playerState.value = PlayerState.Error("Failed to prepare media items", null)
+                _playerState.value = PlayerState.Error(PlaybackIssue.Unknown("Failed to prepare media items"), null)
             }
         }
     }
@@ -315,7 +359,7 @@ class PlayerManager @Inject constructor(
         } catch (e: Exception) {
             Timber.e(e, "Error creating player")
             addDebugMessage("✗ Player init failed: ${e.message}")
-            _playerState.value = PlayerState.Error(e.message ?: "Unknown error", null)
+            _playerState.value = PlayerState.Error(PlaybackIssue.Unknown(e.message), null)
         }
     }
 
@@ -530,7 +574,8 @@ class PlayerManager @Inject constructor(
                     }
                 }
 
-                _playerState.value = PlayerState.Error(errorMsg, channel)
+                val issue = classifyPlaybackIssue(error)
+                _playerState.value = PlayerState.Error(issue, channel)
 
                 stopBufferingCheck()
 
