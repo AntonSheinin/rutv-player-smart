@@ -177,26 +177,19 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Show no-playlist dialog if needed
-        // Only show if there's no playlist source configured (not just if loading failed)
-        var playlistCheckStarted by remember { mutableStateOf(false) }
-
+        // Show no-playlist dialog if needed.
+        //
+        // Important: do NOT rely on observing `isLoading=true` first.
+        // On a clean install, playlist init can complete extremely fast (PlaylistSource.None),
+        // and Compose might start collecting state after the `isLoading` transition already happened.
+        // That would prevent the prompt from ever showing.
         LaunchedEffect(viewState.hasChannels, viewState.isLoading, viewState.hasPlaylistSource, viewState.error) {
-            if (viewState.isLoading) {
-                playlistCheckStarted = true
-            }
-
             // Dismiss dialog if channels become available
             if (showNoPlaylistDialog && viewState.hasChannels) {
                 showNoPlaylistDialog = false
             }
 
-            // Show dialog if:
-            // 1. Loading has started and finished
-            // 2. No channels loaded
-            // 3. Either no playlist source OR playlist loading failed with error
-            // 4. Haven't shown the prompt yet
-            val shouldShowDialog = playlistCheckStarted &&
+            val shouldShowDialog =
                 !viewState.isLoading &&
                 !viewState.hasChannels &&
                 (!viewState.hasPlaylistSource || viewState.error != null) &&

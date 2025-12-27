@@ -133,6 +133,36 @@ class SettingsViewModel @Inject constructor(
     }
 
     /**
+     * Save playlist from file content and return whether it succeeded.
+     * This is used by SettingsActivity so it doesn't call `finish()` before the write completes
+     * (which would cancel ViewModel coroutines and make "Load from file" appear broken).
+     */
+    suspend fun savePlaylistFromFileAndAwait(content: String, displayName: String?): Boolean {
+        if (content.length.toLong() > Constants.MAX_PLAYLIST_SIZE_BYTES) {
+            _viewState.update { it.copy(error = "Playlist too large: ${content.length} bytes") }
+            Timber.e("Playlist too large: ${content.length} bytes")
+            return false
+        }
+        return try {
+            preferencesRepository.savePlaylistFromFile(content, displayName)
+            _viewState.update {
+                it.copy(
+                    successMessage = displayName?.let { name -> "Playlist \"$name\" saved" } ?: "Playlist saved from file",
+                    error = null
+                )
+            }
+            logDebug { "Playlist saved from file" }
+            true
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            _viewState.update { it.copy(error = "Failed to save playlist: ${e.message}") }
+            Timber.e(e, "Failed to save playlist from file")
+            false
+        }
+    }
+
+    /**
      * Save playlist from URL
      */
     fun savePlaylistFromUrl(url: String) {
@@ -159,6 +189,28 @@ class SettingsViewModel @Inject constructor(
                 }
                 Timber.e(e, "Failed to save playlist URL")
             }
+        }
+    }
+
+    /**
+     * Save playlist from URL and return whether it succeeded (see [savePlaylistFromFileAndAwait]).
+     */
+    suspend fun savePlaylistFromUrlAndAwait(url: String): Boolean {
+        if (url.isBlank()) {
+            _viewState.update { it.copy(error = "URL cannot be empty") }
+            return false
+        }
+        return try {
+            preferencesRepository.savePlaylistFromUrl(url)
+            _viewState.update { it.copy(successMessage = "Playlist URL saved", error = null) }
+            logDebug { "Playlist URL saved: $url" }
+            true
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            _viewState.update { it.copy(error = "Failed to save URL: ${e.message}") }
+            Timber.e(e, "Failed to save playlist URL")
+            false
         }
     }
 

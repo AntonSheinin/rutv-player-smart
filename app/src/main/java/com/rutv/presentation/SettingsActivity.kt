@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import com.rutv.presentation.settings.SettingsViewModel
 import com.rutv.ui.mobile.screens.SettingsScreen
@@ -57,6 +58,7 @@ class SettingsActivity : ComponentActivity() {
     @Composable
     private fun SettingsScreenWrapper() {
         val viewState by viewModel.viewState.collectAsStateWithLifecycle()
+        val coroutineScope = rememberCoroutineScope()
 
         // Show error/success messages
         LaunchedEffect(viewState.error) {
@@ -76,12 +78,26 @@ class SettingsActivity : ComponentActivity() {
         SettingsScreen(
             viewState = viewState,
             onLoadFile = { content: String, displayName: String? ->
-                viewModel.savePlaylistFromFile(content, displayName)
-                finish()
+                coroutineScope.launch {
+                    val ok = viewModel.savePlaylistFromFileAndAwait(content, displayName)
+                    if (ok) {
+                        // Return to MainActivity; it will reload playlist in `settingsLauncher` callback.
+                        setResult(android.app.Activity.RESULT_OK)
+                        finish()
+                    }
+                }
             },
             onLoadUrl = { url: String ->
-                viewModel.savePlaylistFromUrl(url)
-                finish()
+                coroutineScope.launch {
+                    val ok = viewModel.savePlaylistFromUrlAndAwait(url)
+                    if (ok) {
+                        setResult(android.app.Activity.RESULT_OK)
+                        finish()
+                    }
+                }
+            },
+            onShowError = { msg ->
+                Toast.makeText(this@SettingsActivity, msg, Toast.LENGTH_SHORT).show()
             },
             onReloadPlaylist = {
                 viewModel.reloadPlaylist()

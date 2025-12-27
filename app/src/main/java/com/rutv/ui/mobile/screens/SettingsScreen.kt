@@ -4,6 +4,8 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -54,6 +56,7 @@ fun SettingsScreen(
     viewState: SettingsViewState,
     onLoadFile: (String, String?) -> Unit,
     onLoadUrl: (String) -> Unit,
+    onShowError: (String) -> Unit,
     onReloadPlaylist: () -> Unit,
     onDebugLogChanged: (Boolean) -> Unit,
     onFfmpegAudioChanged: (Boolean) -> Unit,
@@ -74,35 +77,44 @@ fun SettingsScreen(
     var showReloadDialog by remember { mutableStateOf(false) }
 
     var showNoPlaylistDialog by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
 
     // File picker launcher
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
-            try {
-                val displayName = context.contentResolver.query(
-                    it,
-                    arrayOf(OpenableColumns.DISPLAY_NAME),
-                    null,
-                    null,
-                    null
-                )?.use { cursor ->
-                    val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                    if (index != -1 && cursor.moveToFirst()) {
-                        cursor.getString(index)
-                    } else {
-                        null
+            coroutineScope.launch {
+                try {
+                    val (displayName, content) = withContext(Dispatchers.IO) {
+                        val name = context.contentResolver.query(
+                            it,
+                            arrayOf(OpenableColumns.DISPLAY_NAME),
+                            null,
+                            null,
+                            null
+                        )?.use { cursor ->
+                            val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                            if (index != -1 && cursor.moveToFirst()) {
+                                cursor.getString(index)
+                            } else {
+                                null
+                            }
+                        }
+                        val text = context.contentResolver.openInputStream(it)
+                            ?.bufferedReader()
+                            ?.use { reader -> reader.readText() }
+                        name to text
                     }
+                    if (content.isNullOrEmpty()) {
+                        onShowError("Failed to load playlist file (empty or unreadable)")
+                    } else {
+                        onLoadFile(content, displayName)
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to load playlist from URI")
+                    onShowError("Failed to load playlist file: ${e.message ?: "unknown error"}")
                 }
-                val content = context.contentResolver.openInputStream(it)
-                    ?.bufferedReader()
-                    ?.use { reader -> reader.readText() }
-                content?.let { fileContent ->
-                    onLoadFile(fileContent, displayName)
-                }
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to load playlist from URI")
             }
         }
     }
