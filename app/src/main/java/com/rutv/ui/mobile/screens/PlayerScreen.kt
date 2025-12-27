@@ -80,6 +80,24 @@ fun PlayerScreen(
     onLogDebug: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    // Fast path: on a fresh install with no playlist/channels, keep composition minimal.
+    // The "no playlist" dialog is shown by MainActivity; rendering the full player UI here
+    // can cause heavy first-frame work and visible jank on some STBs.
+    if (!uiState.hasChannels && player == null) {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(MaterialTheme.ruTvColors.darkBackground)
+        ) {
+            EpgNotificationToast(
+                message = uiState.epgNotificationMessage,
+                onDismiss = actions.onClearEpgNotification,
+                modifier = Modifier
+            )
+        }
+        return
+    }
+
     val debugLogger: (String) -> Unit = remember(uiState.showDebugLog, onLogDebug) {
         { message: String ->
             if (uiState.showDebugLog) {

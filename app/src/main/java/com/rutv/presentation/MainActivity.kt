@@ -65,6 +65,7 @@ import com.rutv.util.logDebug
 import dagger.hilt.android.AndroidEntryPoint
 import timber.log.Timber
 import android.view.KeyEvent
+import android.content.res.Configuration
 
 /**
  * App main entry activity.
@@ -114,10 +115,23 @@ class MainActivity : ComponentActivity() {
             requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         }
 
-        // Force remote mode once for TV/STB devices that report a DPAD-capable remote.
-        if (DeviceHelper.hasRemoteControl(this)) {
+        // Remote mode:
+        // - TV/STB devices should default to remote mode immediately (fast check).
+        // - Hardware enumeration for remotes can be slow on some STBs, so do it off the main thread.
+        val isTvUiMode = (resources.configuration.uiMode and Configuration.UI_MODE_TYPE_MASK) == Configuration.UI_MODE_TYPE_TELEVISION
+        val isLeanback = packageManager.hasSystemFeature("android.software.leanback")
+        if (isTvUiMode || isLeanback) {
             DeviceHelper.setForceRemoteMode(true)
         }
+        // Warm up remote detection in background (for non-TV devices and for caching).
+        Thread {
+            runCatching {
+                val hasRemote = DeviceHelper.hasRemoteControl(applicationContext)
+                if (hasRemote) {
+                    DeviceHelper.setForceRemoteMode(true)
+                }
+            }
+        }.apply { name = "RemoteDetect"; isDaemon = true }.start()
 
         // Switch from splash screen theme to regular theme
         setTheme(R.style.Theme_RuTV)
@@ -582,8 +596,6 @@ class MainActivity : ComponentActivity() {
         event ?: return super.onKeyDown(keyCode, event)
 
         val isRemote = DeviceHelper.isRemoteInputActive()
-
-        val hasRemote = DeviceHelper.hasRemoteControl(this)
         val currentState = viewModel.viewState.value
 
         if ((keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_DOWN) &&
@@ -594,7 +606,7 @@ class MainActivity : ComponentActivity() {
         }
 
         // Only handle remote keys if remote is active or detected
-        if (isRemote && hasRemote) {
+        if (isRemote) {
             when (keyCode) {
                 // Channel navigation (direct, bypasses focus)
                 KeyEvent.KEYCODE_CHANNEL_UP -> {
