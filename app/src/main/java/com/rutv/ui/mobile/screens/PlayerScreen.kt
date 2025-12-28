@@ -36,6 +36,7 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.focusable
+import androidx.compose.ui.platform.LocalView
 import com.rutv.util.DeviceHelper
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
@@ -109,6 +110,7 @@ fun PlayerScreen(
     val coroutineScope = rememberCoroutineScope()
     var showControls by remember { mutableStateOf(false) }
     var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
+    var allowPlayerView by remember { mutableStateOf(false) }
     var lastControlsInteractionAt by remember { mutableStateOf(System.currentTimeMillis()) }
     val controllerVisibilityCallback by rememberUpdatedState<(Boolean) -> Unit> { visible ->
         showControls = visible
@@ -195,6 +197,22 @@ fun PlayerScreen(
     LaunchedEffect(player) {
         if (player != null && !showControls) {
             showControls = true
+        }
+    }
+
+    // Defer PlayerView inflation to *after* the first frame to avoid huge cold-start jank
+    // (PlayerView inflation + controller setup can take hundreds of ms on some STBs).
+    val localView = LocalView.current
+    LaunchedEffect(player) {
+        if (player == null) {
+            allowPlayerView = false
+            return@LaunchedEffect
+        }
+        // Post to the UI thread message queue after Compose has had a chance to draw.
+        // This doesn't require any additional dependencies and works well on Android TV boxes.
+        allowPlayerView = false
+        localView.post {
+            allowPlayerView = true
         }
     }
 
@@ -340,9 +358,10 @@ fun PlayerScreen(
             modifier = Modifier
         )
 
-        // ExoPlayer View
-        val playerViewHolder = rememberPlayerViewHolder()
-        player?.let { exoPlayer ->
+        // ExoPlayer View (inflated lazily to reduce cold-start jank)
+        if (allowPlayerView) {
+            val playerViewHolder = rememberPlayerViewHolder()
+            player?.let { exoPlayer ->
             AndroidView(
                 factory = {
                     playerViewHolder.obtain().apply {
@@ -391,6 +410,7 @@ fun PlayerScreen(
                 },
                 modifier = Modifier.fillMaxSize()
             )
+            }
         }
 
 

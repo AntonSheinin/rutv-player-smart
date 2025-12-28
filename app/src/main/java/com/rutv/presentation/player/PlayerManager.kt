@@ -50,6 +50,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.yield
 import com.rutv.util.logDebug
 import timber.log.Timber
 import javax.inject.Inject
@@ -193,6 +194,9 @@ class PlayerManager @Inject constructor(
         val channelSnapshot = channels.toList()
         val postInitialize: (List<MediaItem>) -> Unit = { mediaItems ->
             mainScope.launch {
+                // Let the UI render at least one frame before we do heavy work (ExoPlayer creation)
+                // on the main thread. This avoids large "Skipped frames / Davey" spikes on cold start.
+                yield()
                 initializeInternal(channelSnapshot, config, startIndex, mediaItems)
             }
         }
