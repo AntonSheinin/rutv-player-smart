@@ -62,6 +62,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -82,6 +83,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlin.math.max
+import java.util.Locale
 
 @UnstableApi
 @Composable
@@ -124,7 +126,10 @@ internal fun PlaylistPanel(
     var playlistHasFocus by remember { mutableStateOf(false) }
     var okDownTimestampMs by remember { mutableLongStateOf(0L) }
     var okLongPressHandled by remember { mutableStateOf(false) }
-    var pendingInitialCenterIndex by remember(channels, displayedList.size, currentChannelIndex) {
+    // IMPORTANT: do not key this on displayedList.size.
+    // Search may request more items, which changes displayedList.size; if we key on it,
+    // we lose the pending search target and the first attempt "does nothing" until reopening.
+    var pendingInitialCenterIndex by remember(channels, currentChannelIndex, initialScrollIndex) {
         mutableStateOf(
             resolvedInitialIndex.takeIf { displayedList.isNotEmpty() && it in displayedList.indices }
         )
@@ -612,6 +617,7 @@ internal fun PlaylistPanel(
             if (showSearchDialog) {
                 val searchFieldFocusRequester = remember { FocusRequester() }
                 val okButtonFocusRequester = remember { FocusRequester() }
+                val keyboardController = LocalSoftwareKeyboardController.current
 
                 // For TV/remote UX: when the dialog opens, put focus directly into the input field
                 // (so the user can start typing immediately and doesn't need a DPAD UP first).
@@ -623,10 +629,11 @@ internal fun PlaylistPanel(
                 }
 
                 val onConfirm = {
-                    if (searchText.isNotBlank()) {
-                        val searchLower = searchText.lowercase()
+                    val query = searchText.trim()
+                    if (query.isNotBlank()) {
+                        val searchLower = query.lowercase(Locale.ROOT)
                         val matchingIndex = channels.indexOfFirst { channel ->
-                            channel.title.lowercase().contains(searchLower)
+                            channel.title.lowercase(Locale.ROOT).contains(searchLower)
                         }
                         if (matchingIndex >= 0) {
                             pendingInitialCenterIndex = matchingIndex
@@ -660,10 +667,31 @@ internal fun PlaylistPanel(
                             onValueChange = { searchText = it },
                             label = { Text(stringResource(R.string.hint_search_channel)) },
                             singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(
+                                onDone = {
+                                    // Requirement: pressing ENTER on the virtual keyboard should
+                                    // close the keyboard and move focus to the OK button.
+                                    keyboardController?.hide()
+                                    okButtonFocusRequester.requestFocus()
+                                }
+                            ),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .focusRequester(searchFieldFocusRequester)
                                 .focusable(enabled = true)
+                                .onKeyEvent { event ->
+                                    if (!DeviceHelper.isRemoteInputActive()) return@onKeyEvent false
+                                    if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                                    when (event.key) {
+                                        // Requirement: DPAD DOWN moves focus to OK button.
+                                        Key.DirectionDown -> {
+                                            okButtonFocusRequester.requestFocus()
+                                            true
+                                        }
+                                        else -> false
+                                    }
+                                }
                                 .remoteDialogTextFieldNavigation(
                                     enabled = DeviceHelper.isRemoteInputActive(),
                                     primaryActionFocusRequester = okButtonFocusRequester,
