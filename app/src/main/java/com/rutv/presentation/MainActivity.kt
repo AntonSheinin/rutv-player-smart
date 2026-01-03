@@ -14,35 +14,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.foundation.border
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.focusable
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.input.key.type
-import com.rutv.ui.theme.ruTvColors
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -50,15 +24,11 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.util.UnstableApi
 import com.rutv.R
-import com.rutv.data.model.EpgProgram
 import com.rutv.presentation.main.MainViewModel
 import com.rutv.ui.mobile.screens.PlayerScreen
-import com.rutv.ui.mobile.screens.PlayerUiState
 import com.rutv.ui.mobile.screens.PlayerUiActions
 import com.rutv.ui.mobile.screens.rememberPlayerUiState
 import com.rutv.ui.theme.RuTvTheme
-import com.rutv.ui.shared.components.RemoteDialog
-import com.rutv.ui.shared.components.remoteDialogTextFieldNavigation
 import com.rutv.util.DeviceHelper
 import com.rutv.util.LocaleHelper
 import com.rutv.util.logDebug
@@ -255,230 +225,39 @@ class MainActivity : ComponentActivity() {
             modifier = Modifier.fillMaxSize()
         )
 
-        if (showNoPlaylistDialog) {
-            AlertDialog(
-                onDismissRequest = { showNoPlaylistDialog = false },
-                title = {
-                    Text(
-                        text = getString(R.string.dialog_title_no_playlist),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.ruTvColors.gold
-                    )
-                },
-                text = {
-                    Text(
-                        text = getString(R.string.dialog_message_no_playlist),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.ruTvColors.textPrimary
-                    )
-                },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            showNoPlaylistDialog = false
-                            settingsLauncher.launch(Intent(context, SettingsActivity::class.java))
-                        }
-                    ) {
-                        Text(
-                            text = getString(R.string.button_open_settings),
-                            color = MaterialTheme.ruTvColors.gold
-                        )
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = {
-                        // Close the app when Exit is pressed
-                        finishAffinity()
-                    }) {
-                        Text(
-                            text = getString(R.string.button_exit),
-                            color = MaterialTheme.ruTvColors.textPrimary
-                        )
-                    }
-                },
-                containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.border(
-                    2.dp,
-                    MaterialTheme.ruTvColors.gold.copy(alpha = 0.7f),
-                    RoundedCornerShape(16.dp)
-                )
-            )
-        }
+        NoPlaylistDialog(
+            show = showNoPlaylistDialog,
+            onDismiss = { showNoPlaylistDialog = false },
+            onOpenSettings = {
+                showNoPlaylistDialog = false
+                settingsLauncher.launch(Intent(context, SettingsActivity::class.java))
+            },
+            onExitApp = { finishAffinity() }
+        )
 
-        if (showChannelDialog) {
-            val confirmButtonFocus = remember { FocusRequester() }
-            val textFieldFocus = remember { FocusRequester() }
-
-            val onConfirm = {
-                channelInput.toIntOrNull()?.let { number ->
-                    if (number in 1..viewState.channels.size) {
-                        viewModel.playChannel(number - 1)
-                    }
+        val onConfirmChannel = {
+            channelInput.toIntOrNull()?.let { number ->
+                if (number in 1..viewState.channels.size) {
+                    viewModel.playChannel(number - 1)
                 }
-                showChannelDialog = false
             }
-
-            RemoteDialog(
-                autoFocusConfirm = true,
-                onDismissRequest = { showChannelDialog = false },
-                containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f),
-                title = {
-                    Text(
-                        text = getString(R.string.dialog_title_go_to_channel),
-                        color = MaterialTheme.ruTvColors.gold,
-                        style = MaterialTheme.typography.titleLarge
-                    )
-                },
-                confirmButtonFocusRequester = confirmButtonFocus,
-                textFocusRequester = textFieldFocus,
-                onConfirm = { onConfirm() },
-                modifier = Modifier
-                    .border(
-                        2.dp,
-                        MaterialTheme.ruTvColors.gold.copy(alpha = 0.7f),
-                        RoundedCornerShape(16.dp)
-                    )
-                    .onPreviewKeyEvent { event ->
-                        if (event.type == KeyEventType.KeyDown) {
-                            val key = event.key
-                            val number = when (key) {
-                                Key.Zero, Key.NumPad0 -> "0"
-                                Key.One, Key.NumPad1 -> "1"
-                                Key.Two, Key.NumPad2 -> "2"
-                                Key.Three, Key.NumPad3 -> "3"
-                                Key.Four, Key.NumPad4 -> "4"
-                                Key.Five, Key.NumPad5 -> "5"
-                                Key.Six, Key.NumPad6 -> "6"
-                                Key.Seven, Key.NumPad7 -> "7"
-                                Key.Eight, Key.NumPad8 -> "8"
-                                Key.Nine, Key.NumPad9 -> "9"
-                                else -> null
-                            }
-                            if (number != null) {
-                                if (channelInput.length < 4) {
-                                    channelInput += number
-                                }
-                                textFieldFocus.requestFocus()
-                                true
-                            } else {
-                                false
-                            }
-                        } else {
-                            false
-                        }
-                    },
-                text = {
-                    OutlinedTextField(
-                        value = channelInput,
-                        onValueChange = { new -> channelInput = new.filter { it.isDigit() }.take(4) },
-                        label = { Text(getString(R.string.hint_channel_number, viewState.channels.size)) },
-                        singleLine = true,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .focusRequester(textFieldFocus)
-                            // Focusable always enabled for text field to allow switching to it
-                            .focusable(enabled = true)
-                            .remoteDialogTextFieldNavigation(
-                                enabled = DeviceHelper.isRemoteInputActive(),
-                                primaryActionFocusRequester = confirmButtonFocus,
-                                onBack = { showChannelDialog = false }
-                            ),
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Number,
-                            imeAction = ImeAction.Done
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onDone = {
-                                confirmButtonFocus.requestFocus()
-                                // default behavior closes keyboard
-                            }
-                        ),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.ruTvColors.gold,
-                            unfocusedBorderColor = MaterialTheme.ruTvColors.textDisabled,
-                            focusedTextColor = MaterialTheme.ruTvColors.textPrimary,
-                            unfocusedTextColor = MaterialTheme.ruTvColors.textPrimary,
-                            focusedLabelColor = MaterialTheme.ruTvColors.gold,
-                            unfocusedLabelColor = MaterialTheme.ruTvColors.textSecondary
-                        )
-                    )
-                },
-                confirmButton = {
-                    TextButton(
-                        onClick = { onConfirm() },
-                        modifier = Modifier.focusable(false)
-                    ) {
-                        Text(
-                            text = getString(R.string.button_ok),
-                            color = MaterialTheme.ruTvColors.gold
-                        )
-                    }
-                },
-                dismissButton = {
-                    TextButton(
-                        onClick = { showChannelDialog = false },
-                        modifier = Modifier.focusable(false)
-                    ) {
-                        Text(
-                            text = getString(R.string.button_cancel),
-                            color = MaterialTheme.ruTvColors.textPrimary
-                        )
-                    }
-                },
-                shape = RoundedCornerShape(16.dp)
-            )
+            showChannelDialog = false
         }
 
-        // Close App Dialog
-        if (showCloseAppDialogState.value) {
-            val onExit = { finishAffinity() }
-            RemoteDialog(
-                onDismissRequest = {
-                    showCloseAppDialogState.value = false
-                },
-                onConfirm = onExit,
-                containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f),
-                title = {
-                    Text(
-                        text = getString(R.string.dialog_title_close_app),
-                        color = MaterialTheme.ruTvColors.gold,
-                        style = MaterialTheme.typography.titleLarge
-                    )
-                },
-                text = {
-                    Text(
-                        text = getString(R.string.dialog_message_close_app),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.ruTvColors.textPrimary
-                    )
-                },
-                confirmButton = {
-                    TextButton(onClick = onExit, modifier = Modifier.focusable(false)) {
-                        Text(
-                            text = getString(R.string.button_exit),
-                            color = MaterialTheme.ruTvColors.gold
-                        )
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = {
-                        showCloseAppDialogState.value = false
-                    }, modifier = Modifier.focusable(false)) {
-                        Text(
-                            text = getString(R.string.button_cancel),
-                            color = MaterialTheme.ruTvColors.textPrimary
-                        )
-                    }
-                },
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.border(
-                    2.dp,
-                    MaterialTheme.ruTvColors.gold.copy(alpha = 0.7f),
-                    RoundedCornerShape(16.dp)
-                )
-            )
-        }
+        GoToChannelDialog(
+            show = showChannelDialog,
+            channelInput = channelInput,
+            channelCount = viewState.channels.size,
+            onChannelInputChange = { channelInput = it },
+            onConfirm = onConfirmChannel,
+            onDismiss = { showChannelDialog = false }
+        )
+
+        CloseAppDialog(
+            show = showCloseAppDialogState.value,
+            onConfirmExit = { finishAffinity() },
+            onDismiss = { showCloseAppDialogState.value = false }
+        )
     }
 
     /**
