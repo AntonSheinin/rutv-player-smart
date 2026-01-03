@@ -91,8 +91,6 @@ class PlayerManager @Inject constructor(
     private val _playerState = MutableStateFlow<PlayerState>(PlayerState.Idle)
     val playerState: StateFlow<PlayerState> = _playerState.asStateFlow()
 
-    private val _playerEvents = MutableSharedFlow<PlayerEvent>(replay = 0, extraBufferCapacity = 64)
-
     private val _debugMessages = MutableSharedFlow<DebugMessage>(replay = 100, extraBufferCapacity = 100)
     val debugMessages: SharedFlow<DebugMessage> = _debugMessages.asSharedFlow()
 
@@ -378,7 +376,6 @@ class PlayerManager @Inject constructor(
                 initializedTimestampMs: Long
             ) {
                 addDebugMessage("🔊 Audio decoder: $decoderName")
-                _playerEvents.tryEmit(PlayerEvent.AudioDecoderInitialized(decoderName))
             }
 
             override fun onVideoDecoderInitialized(
@@ -387,7 +384,6 @@ class PlayerManager @Inject constructor(
                 initializedTimestampMs: Long
             ) {
                 addDebugMessage("🎬 Video decoder: $decoderName")
-                _playerEvents.tryEmit(PlayerEvent.VideoDecoderInitialized(decoderName))
             }
 
             override fun onDroppedVideoFrames(
@@ -399,7 +395,6 @@ class PlayerManager @Inject constructor(
                     val fps = if (elapsedMs > 0) (droppedFrames * 1000f / elapsedMs) else 0f
                     addDebugMessage("⚠️ Dropped $droppedFrames frames in ${elapsedMs}ms (${String.format(
                         Locale.US, "%.1f", fps)} fps)")
-                    _playerEvents.tryEmit(PlayerEvent.DroppedFrames(droppedFrames, elapsedMs))
                 }
             }
         }
@@ -484,7 +479,6 @@ class PlayerManager @Inject constructor(
 
                     logDebug { "Channel transition to: ${channel.title} (#${currentIndex + 1})" }
                     _playerState.value = PlayerState.Ready(channel, currentIndex)
-                    _playerEvents.tryEmit(PlayerEvent.ChannelChanged(channel, currentIndex))
                 }
             }
 
@@ -708,7 +702,6 @@ class PlayerManager @Inject constructor(
         addDebugMessage("Return to live: ${channels.getOrNull(index)?.title ?: "Unknown"}")
         channels.getOrNull(index)?.let {
             _playerState.value = PlayerState.Ready(it, index)
-            _playerEvents.tryEmit(PlayerEvent.ChannelChanged(it, index))
         }
     }
 
@@ -912,7 +905,6 @@ class PlayerManager @Inject constructor(
                 val bufferingDuration = System.currentTimeMillis() - bufferingStartTime
                 if (bufferingDuration > PlayerConstants.BUFFERING_TIMEOUT_MS) {
                     addDebugMessage("⚠ Buffering timeout (${bufferingDuration / 1000}s)")
-                    _playerEvents.tryEmit(PlayerEvent.BufferingTimeout(bufferingDuration))
                     stopBufferingCheck()
                     p.playWhenReady = false
                     break

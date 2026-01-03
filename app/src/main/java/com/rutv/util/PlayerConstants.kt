@@ -16,10 +16,6 @@ object PlayerConstants {
     const val MAX_BUFFER_SECONDS = 60
     const val DEFAULT_BUFFER_SECONDS = 15
 
-    // UI
-    const val DOUBLE_TAP_DELAY_MS = 300L
-    const val CONTROLLER_AUTO_HIDE_TIMEOUT_MS = 2_000
-
     // Player
     const val SEEK_INCREMENT_MS = 10_000L
 

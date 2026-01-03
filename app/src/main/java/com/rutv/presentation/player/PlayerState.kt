@@ -26,18 +26,6 @@ enum class ArchiveEndReason {
 }
 
 /**
- * Player events
- */
-@UnstableApi
-sealed class PlayerEvent {
-    data class ChannelChanged(val channel: Channel, val index: Int) : PlayerEvent()
-    data class AudioDecoderInitialized(val decoderName: String) : PlayerEvent()
-    data class VideoDecoderInitialized(val decoderName: String) : PlayerEvent()
-    data class DroppedFrames(val count: Int, val elapsedMs: Long) : PlayerEvent()
-    data class BufferingTimeout(val durationMs: Long) : PlayerEvent()
-}
-
-/**
  * Debug message for logging
  */
 data class DebugMessage(

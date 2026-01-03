@@ -115,7 +115,6 @@ dependencies {
     // Hilt Dependency Injection
     implementation libs.hilt.android
     ksp libs.hilt.compiler
-    implementation libs.hilt.navigation.compose
 
     // DataStore
     implementation libs.datastore.prefs
@@ -123,10 +122,6 @@ dependencies {
     // Image loading for Compose
     implementation libs.coil.compose
     implementation libs.coil.gif
-
-    // Paging
-    implementation libs.paging.runtime
-    implementation libs.paging.compose
 
     // JSON
     implementation libs.gson
