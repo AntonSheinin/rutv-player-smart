@@ -621,11 +621,30 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = toggleFavoriteUseCase(channelUrl)) {
                 is Result.Success -> {
-                    // Reload channels to reflect changes
-                    val updatedChannels = channelRepository.getAllChannels()
-                    if (updatedChannels is Result.Success) {
-                        _viewState.update { it.copy(channels = updatedChannels.data) }
-                        refreshFilteredChannels(updatedChannels.data, _viewState.value.showFavoritesOnly)
+                    val newStatus = result.data
+                    val currentChannels = _viewState.value.channels
+                    val updatedChannels = currentChannels.map { channel ->
+                        if (channel.url == channelUrl) channel.copy(isFavorite = newStatus) else channel
+                    }
+                    val didUpdate = currentChannels.any { it.url == channelUrl }
+                    if (didUpdate) {
+                        _viewState.update { current ->
+                            val updatedCurrent = current.currentChannel?.let { ch ->
+                                if (ch.url == channelUrl) ch.copy(isFavorite = newStatus) else ch
+                            }
+                            current.copy(
+                                channels = updatedChannels,
+                                currentChannel = updatedCurrent ?: current.currentChannel
+                            )
+                        }
+                        refreshFilteredChannels(updatedChannels, _viewState.value.showFavoritesOnly)
+                    } else {
+                        // Fallback to full reload if the channel isn't in memory (unexpected).
+                        val reloaded = channelRepository.getAllChannels()
+                        if (reloaded is Result.Success) {
+                            _viewState.update { it.copy(channels = reloaded.data) }
+                            refreshFilteredChannels(reloaded.data, _viewState.value.showFavoritesOnly)
+                        }
                     }
                 }
                 is Result.Error -> {

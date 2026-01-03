@@ -132,7 +132,8 @@ internal fun PlaylistPanel(
     // IMPORTANT: do not key this on displayedList.size.
     // Search may request more items, which changes displayedList.size; if we key on it,
     // we lose the pending search target and the first attempt "does nothing" until reopening.
-    var pendingInitialCenterIndex by remember(channels, currentChannelIndex, initialScrollIndex) {
+    // Also avoid re-keying on scroll index updates to prevent snapping back after search.
+    var pendingInitialCenterIndex by remember(channels, currentChannelIndex) {
         mutableStateOf(
             resolvedInitialIndex.takeIf { displayedList.isNotEmpty() && it in displayedList.indices }
         )
