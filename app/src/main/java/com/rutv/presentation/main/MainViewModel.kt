@@ -34,13 +34,13 @@ import com.rutv.util.logDebug
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import timber.log.Timber
+import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 
 @UnstableApi
@@ -93,7 +93,8 @@ class MainViewModel @Inject constructor(
     // Simple in-memory cache: tvgId -> program list currently shown/known.
     // This is *in addition* to EpgRepository caches and exists mostly for UX responsiveness.
     private val epgProgramCache = mutableMapOf<String, List<EpgProgram>>()
-    private var channelFilterJob: Job? = null
+    private val epgCacheLock = Any()
+    private val playlistLoadRequestId = AtomicLong(0)
 
     private fun postEpgNotification() {
         if (_viewState.value.epgNotificationMessage == EPG_LOADED_MESSAGE) return
@@ -102,6 +103,21 @@ class MainViewModel @Inject constructor(
 
     private fun postNotificationMessage(message: String) {
         _viewState.update { it.copy(epgNotificationMessage = message) }
+    }
+
+    private fun nextPlaylistLoadId(): Long = playlistLoadRequestId.incrementAndGet()
+
+    private fun isLatestPlaylistLoad(loadId: Long): Boolean = playlistLoadRequestId.get() == loadId
+
+    private fun getCachedPrograms(tvgId: String): List<EpgProgram>? =
+        synchronized(epgCacheLock) { epgProgramCache[tvgId] }
+
+    private fun setCachedPrograms(tvgId: String, programs: List<EpgProgram>) {
+        synchronized(epgCacheLock) { epgProgramCache[tvgId] = programs }
+    }
+
+    private fun clearCachedPrograms() {
+        synchronized(epgCacheLock) { epgProgramCache.clear() }
     }
 
     private fun updateEpgPanelState(
@@ -223,6 +239,8 @@ class MainViewModel @Inject constructor(
                 }
         }
 
+        observeFilteredChannels()
+
         // Collect playlist source
         viewModelScope.launch {
             preferencesRepository.playlistSource.collect { source ->
@@ -252,34 +270,43 @@ class MainViewModel @Inject constructor(
      * This prevents race conditions and ensures EPG is ready
      */
     private fun initializeApp() {
+        val loadId = nextPlaylistLoadId()
         viewModelScope.launch(Dispatchers.IO) {
-            loadPlaylistAndPlayer()
+            loadPlaylistAndPlayer(loadId)
         }
     }
 
-    private fun refreshFilteredChannels(
-        channels: List<Channel> = _viewState.value.channels,
-        showFavoritesOnly: Boolean = _viewState.value.showFavoritesOnly
-    ) {
-        channelFilterJob?.cancel()
-        channelFilterJob = viewModelScope.launch(Dispatchers.Default) {
-            val filtered = filterChannelsUseCase(channels, showFavoritesOnly)
-            _viewState.update { current ->
-                val visibleCount = filtered.size.coerceAtMost(DEFAULT_VISIBLE_CHANNELS)
-                if (current.filteredChannels === filtered && current.visibleChannelCount == visibleCount) {
-                    current
-                } else {
-                    current.copy(
-                        filteredChannels = filtered,
-                        visibleChannelCount = visibleCount
-                    )
+    private fun observeFilteredChannels() {
+        viewModelScope.launch {
+            combine(
+                _viewState.map { it.channels }.distinctUntilChanged(),
+                _viewState.map { it.showFavoritesOnly }.distinctUntilChanged()
+            ) { channels, showFavoritesOnly ->
+                filterChannelsUseCase(channels, showFavoritesOnly)
+            }
+                .flowOn(Dispatchers.Default)
+                .collect { filtered ->
+                    updateFilteredChannels(filtered)
                 }
+        }
+    }
+
+    private fun updateFilteredChannels(filtered: List<Channel>) {
+        val visibleCount = filtered.size.coerceAtMost(DEFAULT_VISIBLE_CHANNELS)
+        _viewState.update { current ->
+            if (current.filteredChannels === filtered && current.visibleChannelCount == visibleCount) {
+                current
+            } else {
+                current.copy(
+                    filteredChannels = filtered,
+                    visibleChannelCount = visibleCount
+                )
             }
-            val currentChannelUrl = _viewState.value.currentChannel?.url
-            if (!currentChannelUrl.isNullOrBlank()) {
-                val playingIndex = filtered.indexOfFirst { it.url == currentChannelUrl }
-                ensureChannelVisibility(playingIndex)
-            }
+        }
+        val currentChannelUrl = _viewState.value.currentChannel?.url
+        if (!currentChannelUrl.isNullOrBlank()) {
+            val playingIndex = filtered.indexOfFirst { it.url == currentChannelUrl }
+            ensureChannelVisibility(playingIndex)
         }
     }
 
@@ -287,11 +314,13 @@ class MainViewModel @Inject constructor(
         ensureChannelVisibility(targetIndex)
     }
 
-    private suspend fun loadPlaylistAndPlayer() {
+    private suspend fun loadPlaylistAndPlayer(loadId: Long) {
         try {
+            if (!isLatestPlaylistLoad(loadId)) return
             _viewState.update { it.copy(isLoading = true, error = null) }
             // Cold start optimization is encapsulated in InitializeAppUseCase.
             val result = initializeAppUseCase.loadStartupPlaylist()
+            if (!isLatestPlaylistLoad(loadId)) return
 
             when (result) {
                 is Result.Success -> {
@@ -306,8 +335,7 @@ class MainViewModel @Inject constructor(
                             error = null
                         )
                     }
-                    refreshFilteredChannels(channels, _viewState.value.showFavoritesOnly)
-
+                    if (!isLatestPlaylistLoad(loadId)) return
                     if (channels.isNotEmpty()) {
                         val catchupSupported = channels.count { it.supportsCatchup() }
                         appendDebugMessage(
@@ -335,6 +363,7 @@ class MainViewModel @Inject constructor(
                         viewModelScope.launch(Dispatchers.IO) {
                             when (val refreshed = initializeAppUseCase.refreshUrlPlaylistInBackground()) {
                                 is Result.Success -> {
+                                    if (!isLatestPlaylistLoad(loadId)) return@launch
                                     val newChannels = refreshed.data
                                     val oldChannels = _viewState.value.channels
                                     if (newChannels.isNotEmpty() && newChannels != oldChannels) {
@@ -349,7 +378,6 @@ class MainViewModel @Inject constructor(
                                                 currentChannelIndex = if (newIndex >= 0) newIndex else current.currentChannelIndex
                                             )
                                         }
-                                        refreshFilteredChannels(newChannels, _viewState.value.showFavoritesOnly)
                                     }
                                 }
                                 else -> Unit // ignore background refresh errors on startup
@@ -358,6 +386,7 @@ class MainViewModel @Inject constructor(
                     }
                 }
                 is Result.Error -> {
+                    if (!isLatestPlaylistLoad(loadId)) return
                     Timber.e(result.exception, "App Init: Failed to load playlist")
                     val errorMessage = result.message ?: StringFormatter.formatErrorFailedLoadPlaylist()
                     appendDebugMessage(
@@ -395,8 +424,10 @@ class MainViewModel @Inject constructor(
      * Called when user returns from settings or manually reloads
      */
     fun loadPlaylist(forceReload: Boolean = false) {
+        val loadId = nextPlaylistLoadId()
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                if (!isLatestPlaylistLoad(loadId)) return@launch
                 val wasArchivePlayback = _viewState.value.isArchivePlayback
                 val archiveProgramToResume = _viewState.value.archiveProgram
                 val archiveChannelUrl = _viewState.value.currentChannel?.url
@@ -409,13 +440,14 @@ class MainViewModel @Inject constructor(
                 } else {
                     loadPlaylistUseCase()
                 }
+                if (!isLatestPlaylistLoad(loadId)) return@launch
 
                 when (result) {
                     is Result.Success -> {
                         val channels = result.data
 
                         val programsMapToUse = if (forceReload) {
-                            epgProgramCache.clear()
+                            clearCachedPrograms()
                             epgRepository.clearCache()
                             emptyMap()
                         } else {
@@ -446,8 +478,7 @@ class MainViewModel @Inject constructor(
                             logDebug { "No channels loaded" }
                             appendDebugMessage(DebugMessage(StringFormatter.formatEpgPlaylistEmpty()))
                         }
-                        refreshFilteredChannels(channels, _viewState.value.showFavoritesOnly)
-
+                        if (!isLatestPlaylistLoad(loadId)) return@launch
                         if (channels.isNotEmpty()) {
                             val startChannel = initializePlayerUseCase(channels)
 
@@ -531,7 +562,7 @@ class MainViewModel @Inject constructor(
                     Timber.i("System timezone change detected (action=$action); clearing EPG cache")
                     appendDebugMessage(DebugMessage(StringFormatter.formatEpgTimezoneChanged()))
                     epgRepository.clearCache()
-                    epgProgramCache.clear()
+                    clearCachedPrograms()
                     _viewState.update {
                         it.copy(
                             currentProgram = null,
@@ -548,7 +579,7 @@ class MainViewModel @Inject constructor(
                     Timber.i("System clock changed (action=$action); refreshing current program cache")
                     appendDebugMessage(DebugMessage(StringFormatter.formatEpgClockChanged()))
                     epgRepository.clearCache()
-                    epgProgramCache.clear()
+                    clearCachedPrograms()
                     _viewState.update {
                         it.copy(
                             currentProgramsMap = emptyMap(),
@@ -637,13 +668,11 @@ class MainViewModel @Inject constructor(
                                 currentChannel = updatedCurrent ?: current.currentChannel
                             )
                         }
-                        refreshFilteredChannels(updatedChannels, _viewState.value.showFavoritesOnly)
                     } else {
                         // Fallback to full reload if the channel isn't in memory (unexpected).
                         val reloaded = channelRepository.getAllChannels()
                         if (reloaded is Result.Success) {
                             _viewState.update { it.copy(channels = reloaded.data) }
-                            refreshFilteredChannels(reloaded.data, _viewState.value.showFavoritesOnly)
                         }
                     }
                 }
@@ -661,7 +690,6 @@ class MainViewModel @Inject constructor(
      * Toggle playlist visibility
      */
     fun togglePlaylist() {
-        val wasFavoritesOnly = _viewState.value.showFavoritesOnly
         _viewState.update { current ->
             val showPlaylist = !current.showPlaylist
             current.copy(
@@ -671,16 +699,12 @@ class MainViewModel @Inject constructor(
                 selectedProgramDetails = if (showPlaylist) current.selectedProgramDetails else null
             )
         }
-        if (wasFavoritesOnly) {
-            refreshFilteredChannels()
-        }
     }
 
     /**
      * Open playlist explicitly with optional favorites filter
      */
     fun openPlaylist(showFavoritesOnly: Boolean = false) {
-        val previousFavoritesOnly = _viewState.value.showFavoritesOnly
         _viewState.update { current ->
             current.copy(
                 showPlaylist = true,
@@ -689,25 +713,18 @@ class MainViewModel @Inject constructor(
                 selectedProgramDetails = null
             )
         }
-        if (previousFavoritesOnly != showFavoritesOnly) {
-            refreshFilteredChannels()
-        }
     }
 
     /**
      * Toggle favorites view
      */
     fun toggleFavorites() {
-        val wasFavoritesOnly = _viewState.value.showFavoritesOnly
         _viewState.update {
             it.copy(
                 showPlaylist = !it.showPlaylist,
                 showFavoritesOnly = true,
                 showEpgPanel = false
             )
-        }
-        if (!wasFavoritesOnly) {
-            refreshFilteredChannels()
         }
     }
 
@@ -769,7 +786,7 @@ class MainViewModel @Inject constructor(
             val programs = window.programs
             val currentProgram = programs.firstOrNull { it.isCurrent() }
             if (programs.isNotEmpty()) {
-                epgProgramCache[channel.tvgId] = programs
+                setCachedPrograms(channel.tvgId, programs)
                 postEpgNotification()
             }
 
@@ -808,7 +825,7 @@ class MainViewModel @Inject constructor(
     fun showEpgForChannel(tvgId: String) {
         // UI responsiveness: open panel immediately using cached programs if we have them,
         // then refresh in the background (IO) and replace the list.
-        epgProgramCache[tvgId]?.let { cachedPrograms ->
+        getCachedPrograms(tvgId)?.let { cachedPrograms ->
             val cachedCurrent = cachedPrograms.firstOrNull { it.isCurrent() }
             updateEpgPanelState(tvgId, cachedPrograms, cachedCurrent)
         } ?: run {
@@ -833,10 +850,11 @@ class MainViewModel @Inject constructor(
                     appendDebugMessage(DebugMessage(StringFormatter.formatEpgUrlNotConfigured()))
                     return@launch
                 }
+                if (_viewState.value.epgChannelTvgId != tvgId) return@launch
                 val window = (result as Result.Success).data
                 val programs = window.programs
                 val current = programs.firstOrNull { it.isCurrent() }
-                epgProgramCache[tvgId] = programs
+                setCachedPrograms(tvgId, programs)
 
                 _viewState.update { state ->
                     val updatedMap = if (state.showCurrentProgramInChannelList) {
@@ -898,6 +916,7 @@ class MainViewModel @Inject constructor(
             val added = epgRepository.getWindowedProgramsForChannel(epgUrl, tvgId, newFrom, newTo)
 
             if (added.isEmpty()) return@launch
+            if (_viewState.value.epgChannelTvgId != tvgId) return@launch
             // Merge with stable sort + de-dupe to avoid duplicates when windows overlap by a day.
             val merged = mergePrograms(_viewState.value.epgPrograms, added)
             _viewState.update {
@@ -948,6 +967,7 @@ class MainViewModel @Inject constructor(
             val added = epgRepository.getWindowedProgramsForChannel(epgUrl, tvgId, newFrom, newTo)
 
             if (added.isEmpty()) return@launch
+            if (_viewState.value.epgChannelTvgId != tvgId) return@launch
             // Merge with stable sort + de-dupe to avoid duplicates when windows overlap by a day.
             val merged = mergePrograms(_viewState.value.epgPrograms, added)
             _viewState.update {
@@ -1156,6 +1176,9 @@ class MainViewModel @Inject constructor(
      * Safely retrieves current program from EPG and updates view state
      */
     private fun updateCurrentProgram(channel: Channel) {
+        val currentChannel = _viewState.value.currentChannel
+        if (currentChannel?.url != channel.url) return
+
         if (!channel.hasEpg || channel.tvgId.isBlank()) {
             _viewState.update {
                 it.copy(currentProgram = null)
@@ -1308,6 +1331,7 @@ class MainViewModel @Inject constructor(
                 fromUtcMillis = startUtcMillis,
                 toUtcMillis = endUtcMillis
             )
+            if (_viewState.value.epgChannelTvgId != tvgId) return@launch
 
             val existing = _viewState.value
             val newFrom = when {
@@ -1336,7 +1360,7 @@ class MainViewModel @Inject constructor(
                     epgLoadedToUtc = newTo
                 )
             }
-            epgProgramCache[tvgId] = merged
+            setCachedPrograms(tvgId, merged)
         }
     }
 
