@@ -43,13 +43,32 @@ class ChannelRepository @Inject constructor(
      * Save channels to database
      */
     suspend fun saveChannels(channels: List<Channel>): Result<Unit> {
+        return when (val result = saveChannelsPreservingFavorites(channels)) {
+            is Result.Success -> Result.Success(Unit)
+            is Result.Error -> Result.Error(result.exception)
+            is Result.Loading -> Result.Error(Exception("Unexpected loading state"))
+        }
+    }
+
+    /**
+     * Save channels while preserving favorite flags from the database.
+     */
+    suspend fun saveChannelsPreservingFavorites(
+        channels: List<Channel>,
+        favoriteUrls: List<String>? = null,
+        favoriteTvgIds: List<String>? = null
+    ): Result<Set<String>> {
         return try {
             val entities = channels.mapIndexed { index, channel ->
-                ChannelEntity.fromChannel(channel.copy(position = index))
+                ChannelEntity.fromChannel(channel.copy(position = index, isFavorite = false))
             }
-            channelDao.insertChannels(entities)
+            val appliedFavorites = channelDao.replaceChannelsPreservingFavorites(
+                entities,
+                favoriteUrls,
+                favoriteTvgIds
+            )
             logDebug { "Saved ${channels.size} channels to database" }
-            Result.Success(Unit)
+            Result.Success(appliedFavorites.toSet())
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

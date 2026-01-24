@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import com.rutv.data.local.entity.ChannelEntity
 
 /**
@@ -23,6 +24,39 @@ interface ChannelDao {
 
     @Query("DELETE FROM channels")
     suspend fun deleteAllChannels()
+
+    @Query("SELECT url FROM channels WHERE isFavorite = 1")
+    suspend fun getFavoriteUrls(): List<String>
+
+    @Query("SELECT tvgId FROM channels WHERE isFavorite = 1 AND tvgId != ''")
+    suspend fun getFavoriteTvgIds(): List<String>
+
+    @Query("UPDATE channels SET isFavorite = 1 WHERE url IN (:urls)")
+    suspend fun markFavorites(urls: List<String>)
+
+    @Transaction
+    suspend fun replaceChannelsPreservingFavorites(
+        channels: List<ChannelEntity>,
+        favoriteUrls: List<String>? = null,
+        favoriteTvgIds: List<String>? = null
+    ): List<String> {
+        val existingFavoriteUrls = favoriteUrls ?: getFavoriteUrls()
+        val existingFavoriteTvgIds = favoriteTvgIds ?: getFavoriteTvgIds()
+        val favoriteUrlSet = existingFavoriteUrls.toSet()
+        val favoriteTvgIdSet = existingFavoriteTvgIds.toSet()
+        insertChannels(channels)
+        if (favoriteUrlSet.isEmpty() && favoriteTvgIdSet.isEmpty()) {
+            return emptyList()
+        }
+        val favoriteUrlsToApply = channels.filter { channel ->
+            favoriteUrlSet.contains(channel.url) ||
+                (channel.tvgId.isNotBlank() && favoriteTvgIdSet.contains(channel.tvgId))
+        }.map { it.url }
+        if (favoriteUrlsToApply.isNotEmpty()) {
+            markFavorites(favoriteUrlsToApply)
+        }
+        return favoriteUrlsToApply
+    }
 
     @Query("UPDATE channels SET isFavorite = :isFavorite WHERE url = :url")
     suspend fun updateFavoriteStatus(url: String, isFavorite: Boolean)

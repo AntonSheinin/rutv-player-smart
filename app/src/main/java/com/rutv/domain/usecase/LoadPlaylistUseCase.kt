@@ -35,6 +35,144 @@ class LoadPlaylistUseCase @Inject constructor(
     private val playlistLoader: PlaylistLoader,
     private val playlistParser: PlaylistParser
 ) {
+    private fun applyPersistedChannelFlags(
+        channels: List<Channel>,
+        existingByUrl: Map<String, Channel>
+    ): List<Channel> {
+        if (existingByUrl.isEmpty()) {
+            return channels.mapIndexed { index, channel ->
+                if (channel.position == index) channel else channel.copy(position = index)
+            }
+        }
+        val existingByTvgId = existingByUrl.values
+            .asSequence()
+            .filter { it.tvgId.isNotBlank() }
+            .associateBy { it.tvgId }
+        return channels.mapIndexed { index, channel ->
+            val existing = existingByUrl[channel.url]
+                ?: channel.tvgId.takeIf { it.isNotBlank() }?.let { existingByTvgId[it] }
+            if (existing == null) {
+                if (channel.position == index) channel else channel.copy(position = index)
+            } else {
+                channel.copy(
+                    aspectRatio = existing.aspectRatio,
+                    position = index
+                )
+            }
+        }
+    }
+
+    private suspend fun loadPlaylistInternal(
+        forceReload: Boolean,
+        skipNetworkIfCacheAvailable: Boolean,
+        preservedChannels: Map<String, Channel>
+    ): Result<List<Channel>> {
+        val source = preferencesRepository.playlistSource.first()
+
+        // If no source configured, return empty
+        if (source is PlaylistSource.None) {
+            return Result.Success(emptyList())
+        }
+
+        // Get stored hash and current hash
+        val storedHash = preferencesRepository.playlistHash.first()
+        if (!forceReload && skipNetworkIfCacheAvailable && source is PlaylistSource.Url && storedHash.isNotBlank()) {
+            // Fast path: if we have a hash (meaning we successfully loaded/saved before),
+            // and the DB has channels, use it immediately.
+            val cachedChannels = channelRepository.getAllChannels()
+            if (cachedChannels is Result.Success && cachedChannels.data.isNotEmpty()) {
+                return cachedChannels
+            }
+        }
+        val content = when (source) {
+            is PlaylistSource.File -> source.content
+            is PlaylistSource.Url -> {
+                when (val result = playlistLoader.loadFromUrl(source.url)) {
+                    is Result.Success -> result.data
+                    is Result.Error -> return result
+                    is Result.Loading -> return Result.Error(Exception("Unexpected loading state"))
+                }
+            }
+            is PlaylistSource.None -> return Result.Success(emptyList())
+        }
+
+        // Validate content size
+        if (!playlistLoader.validateSize(content)) {
+            Timber.e("Playlist too large: ${content.length} bytes")
+            return Result.Error(Exception("Playlist too large"))
+        }
+
+        val currentHash = playlistParser.calculateHash(content)
+
+        // If hash matches and not force reload, load from cache
+        if (!forceReload && currentHash == storedHash) {
+            // Even if the playlist didn't change, DB could have been cleared by OS/data wipe,
+            // so we only return cache if it's non-empty.
+            val cachedChannels = channelRepository.getAllChannels()
+            if (cachedChannels is Result.Success && cachedChannels.data.isNotEmpty()) {
+                return cachedChannels
+            }
+        }
+
+        // Parse playlist
+        val parsedChannels = playlistParser.parse(content)
+
+        if (parsedChannels.isEmpty()) {
+            Timber.w("No channels found in playlist")
+            return Result.Error(Exception("No channels found"))
+        }
+
+        val existingByUrl = if (preservedChannels.isNotEmpty()) {
+            preservedChannels
+        } else {
+            when (val existing = channelRepository.getAllChannels()) {
+                is Result.Success -> existing.data.associateBy { it.url }
+                else -> emptyMap()
+            }
+        }
+        val channelsToSave = applyPersistedChannelFlags(parsedChannels, existingByUrl)
+
+        // Save to repository
+        val favoriteUrlsHint = if (preservedChannels.isNotEmpty()) {
+            preservedChannels.values.asSequence()
+                .filter { it.isFavorite }
+                .map { it.url }
+                .distinct()
+                .toList()
+        } else {
+            null
+        }
+        val favoriteTvgIdsHint = if (preservedChannels.isNotEmpty()) {
+            preservedChannels.values.asSequence()
+                .filter { it.isFavorite && it.tvgId.isNotBlank() }
+                .map { it.tvgId }
+                .distinct()
+                .toList()
+        } else {
+            null
+        }
+        return when (val saveResult = channelRepository.saveChannelsPreservingFavorites(
+            channelsToSave,
+            favoriteUrls = favoriteUrlsHint,
+            favoriteTvgIds = favoriteTvgIdsHint
+        )) {
+            is Result.Success -> {
+                // Save hash
+                preferencesRepository.savePlaylistHash(currentHash)
+                val favorites = saveResult.data
+                val channelsWithFavorites = if (favorites.isEmpty()) {
+                    channelsToSave
+                } else {
+                    channelsToSave.map { channel ->
+                        if (favorites.contains(channel.url)) channel.copy(isFavorite = true) else channel
+                    }
+                }
+                Result.Success(channelsWithFavorites)
+            }
+            is Result.Error -> saveResult
+            is Result.Loading -> Result.Error(Exception("Unexpected loading state"))
+        }
+    }
 
     /**
      * Load playlist based on current configuration
@@ -49,72 +187,11 @@ class LoadPlaylistUseCase @Inject constructor(
         skipNetworkIfCacheAvailable: Boolean = false
     ): Result<List<Channel>> {
         try {
-            val source = preferencesRepository.playlistSource.first()
-
-            // If no source configured, return empty
-            if (source is PlaylistSource.None) {
-                return Result.Success(emptyList())
-            }
-
-            // Get stored hash and current hash
-            val storedHash = preferencesRepository.playlistHash.first()
-            if (!forceReload && skipNetworkIfCacheAvailable && source is PlaylistSource.Url && storedHash.isNotBlank()) {
-                // Fast path: if we have a hash (meaning we successfully loaded/saved before),
-                // and the DB has channels, use it immediately.
-                val cachedChannels = channelRepository.getAllChannels()
-                if (cachedChannels is Result.Success && cachedChannels.data.isNotEmpty()) {
-                    return cachedChannels
-                }
-            }
-            val content = when (source) {
-                is PlaylistSource.File -> source.content
-                is PlaylistSource.Url -> {
-                    when (val result = playlistLoader.loadFromUrl(source.url)) {
-                        is Result.Success -> result.data
-                        is Result.Error -> return result
-                        is Result.Loading -> return Result.Error(Exception("Unexpected loading state"))
-                    }
-                }
-                is PlaylistSource.None -> return Result.Success(emptyList())
-            }
-
-            // Validate content size
-            if (!playlistLoader.validateSize(content)) {
-                Timber.e("Playlist too large: ${content.length} bytes")
-                return Result.Error(Exception("Playlist too large"))
-            }
-
-            val currentHash = playlistParser.calculateHash(content)
-
-            // If hash matches and not force reload, load from cache
-            if (!forceReload && currentHash == storedHash) {
-                // Even if the playlist didn’t change, DB could have been cleared by OS/data wipe,
-                // so we only return cache if it’s non-empty.
-                val cachedChannels = channelRepository.getAllChannels()
-                if (cachedChannels is Result.Success && cachedChannels.data.isNotEmpty()) {
-                    return cachedChannels
-                }
-            }
-
-            // Parse playlist
-            val channels = playlistParser.parse(content)
-
-            if (channels.isEmpty()) {
-                Timber.w("No channels found in playlist")
-                return Result.Error(Exception("No channels found"))
-            }
-
-            // Save to repository
-            return when (val saveResult = channelRepository.saveChannels(channels)) {
-                is Result.Success -> {
-                    // Save hash
-                    preferencesRepository.savePlaylistHash(currentHash)
-                    Result.Success(channels)
-                }
-                is Result.Error -> saveResult
-                is Result.Loading -> Result.Error(Exception("Unexpected loading state"))
-            }
-
+            return loadPlaylistInternal(
+                forceReload = forceReload,
+                skipNetworkIfCacheAvailable = skipNetworkIfCacheAvailable,
+                preservedChannels = emptyMap()
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -123,14 +200,24 @@ class LoadPlaylistUseCase @Inject constructor(
         }
     }
 
+
     /**
      * Force reload playlist from source
      */
     suspend fun reload(): Result<List<Channel>> {
+        val preservedChannels = when (val existing = channelRepository.getAllChannels()) {
+            is Result.Success -> existing.data.associateBy { it.url }
+            else -> emptyMap()
+        }
         // Clear cache first
         preferencesRepository.clearPlaylistCache()
         channelRepository.clearAllChannels()
 
-        return invoke(forceReload = true)
+        return loadPlaylistInternal(
+            forceReload = true,
+            skipNetworkIfCacheAvailable = false,
+            preservedChannels = preservedChannels
+        )
     }
+
 }
