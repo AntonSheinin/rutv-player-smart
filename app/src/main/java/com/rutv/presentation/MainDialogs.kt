@@ -2,6 +2,7 @@ package com.rutv.presentation
 
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -13,15 +14,22 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -31,6 +39,7 @@ import com.rutv.ui.shared.components.RemoteDialog
 import com.rutv.ui.shared.components.remoteDialogTextFieldNavigation
 import com.rutv.ui.theme.ruTvColors
 import com.rutv.util.DeviceHelper
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 @Composable
 internal fun NoPlaylistDialog(
@@ -96,9 +105,31 @@ internal fun GoToChannelDialog(
     if (!show) return
     val confirmButtonFocus = remember { FocusRequester() }
     val textFieldFocus = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val density = LocalDensity.current
+    val isTextFieldFocused = remember { mutableStateOf(false) }
+    val imeWasVisible = remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        withFrameNanos { }
+        textFieldFocus.requestFocus()
+        keyboardController?.show()
+    }
+
+    LaunchedEffect(density) {
+        snapshotFlow { WindowInsets.ime.getBottom(density) > 0 }
+            .distinctUntilChanged()
+            .collect { visible ->
+                if (visible) {
+                    imeWasVisible.value = true
+                } else if (imeWasVisible.value && isTextFieldFocused.value) {
+                    confirmButtonFocus.requestFocus()
+                }
+            }
+    }
 
     RemoteDialog(
-        autoFocusConfirm = true,
+        autoFocusConfirm = false,
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f),
         title = {
@@ -157,6 +188,9 @@ internal fun GoToChannelDialog(
                     .fillMaxWidth()
                     .focusRequester(textFieldFocus)
                     .focusable(enabled = true)
+                    .onFocusChanged { state ->
+                        isTextFieldFocused.value = state.isFocused
+                    }
                     .remoteDialogTextFieldNavigation(
                         enabled = DeviceHelper.isRemoteInputActive(),
                         primaryActionFocusRequester = confirmButtonFocus,

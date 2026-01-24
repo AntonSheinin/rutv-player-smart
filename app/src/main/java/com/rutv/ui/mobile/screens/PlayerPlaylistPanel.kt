@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -47,6 +48,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -83,6 +85,7 @@ import com.rutv.ui.theme.ruTvColors
 import com.rutv.util.DeviceHelper
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlin.math.max
@@ -622,14 +625,30 @@ internal fun PlaylistPanel(
                 val searchFieldFocusRequester = remember { FocusRequester() }
                 val okButtonFocusRequester = remember { FocusRequester() }
                 val keyboardController = LocalSoftwareKeyboardController.current
+                val density = LocalDensity.current
+                val isSearchFieldFocused = remember { mutableStateOf(false) }
+                val imeWasVisible = remember { mutableStateOf(false) }
 
                 // For TV/remote UX: when the dialog opens, put focus directly into the input field
                 // (so the user can start typing immediately and doesn't need a DPAD UP first).
                 LaunchedEffect(Unit) {
                     // AlertDialog may assign default focus to action buttons on first composition.
-                    // Wait a beat, then force focus into the input field.
-                    kotlinx.coroutines.delay(16)
+                    // Wait for the dialog to render, then force focus into the input field and show IME.
+                    withFrameNanos { }
                     searchFieldFocusRequester.requestFocus()
+                    keyboardController?.show()
+                }
+
+                LaunchedEffect(density) {
+                    snapshotFlow { WindowInsets.ime.getBottom(density) > 0 }
+                        .distinctUntilChanged()
+                        .collect { visible ->
+                            if (visible) {
+                                imeWasVisible.value = true
+                            } else if (imeWasVisible.value && isSearchFieldFocused.value) {
+                                okButtonFocusRequester.requestFocus()
+                            }
+                        }
                 }
 
                 val onConfirm = {
@@ -684,6 +703,9 @@ internal fun PlaylistPanel(
                                 .fillMaxWidth()
                                 .focusRequester(searchFieldFocusRequester)
                                 .focusable(enabled = true)
+                                .onFocusChanged { state ->
+                                    isSearchFieldFocused.value = state.isFocused
+                                }
                                 .onKeyEvent { event ->
                                     if (!DeviceHelper.isRemoteInputActive()) return@onKeyEvent false
                                     if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
