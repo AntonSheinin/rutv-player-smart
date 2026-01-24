@@ -44,29 +44,19 @@ class WatchFromBeginningUseCase @Inject constructor() {
                 return Result.Error(Exception(message), message)
             }
 
-            // Check if program is within archive window
-            val maxArchiveMillis = channel.catchupDays * 24L * 60 * 60 * 1000
-            val age = currentTime - program.startTimeMillis
-            if (maxArchiveMillis > 0 && age > maxArchiveMillis) {
-                val message = "${program.title} is outside of ${channel.catchupDays} day archive window"
-                Timber.w(message)
-                return Result.Error(Exception(message), message)
+            val windowResult = validateArchiveWindowAndBuildInfo(channel, program, currentTime)
+            return when (windowResult) {
+                is Result.Success -> {
+                    val info = windowResult.data
+                    logDebug {
+                        "Timeshift validated: Restarting ${program.title} from beginning " +
+                            "(${info.ageMinutes}m into program)"
+                    }
+                    Result.Success(info)
+                }
+                is Result.Error -> windowResult
+                is Result.Loading -> Result.Error(Exception("Unexpected loading state"))
             }
-
-            // Calculate metadata
-            val durationMinutes = ((program.stopTimeMillis - program.startTimeMillis) / 60000L).coerceAtLeast(1)
-            val ageMinutes = (age / 60000L).coerceAtLeast(0)
-
-            val info = ArchivePlaybackInfo(
-                channel = channel,
-                program = program,
-                durationMinutes = durationMinutes,
-                ageMinutes = ageMinutes,
-                templateUsed = channel.catchupSource.ifBlank { "Flussonic path-based" }
-            )
-
-            logDebug { "Timeshift validated: Restarting ${program.title} from beginning (${ageMinutes}m into program)" }
-            return Result.Success(info)
 
         } catch (e: CancellationException) {
             throw e

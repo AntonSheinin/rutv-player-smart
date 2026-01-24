@@ -76,6 +76,7 @@ class EpgRepository @Inject constructor(
             }
         }
 
+    private val currentProgramsCacheLock = Any()
     private var currentProgramsCache: Map<String, EpgProgram?>? = null
     private var currentProgramsCacheTime: Long = 0L
     private val currentProgramsCacheTtl = 60_000L
@@ -165,8 +166,10 @@ class EpgRepository @Inject constructor(
 
         if (trigger == TimeChangeTrigger.TIME_SET || trigger == TimeChangeTrigger.DATE) {
             Timber.i("System clock adjusted (${trigger.name.lowercase()}), clearing current-program cache")
-            currentProgramsCache = null
-            currentProgramsCacheTime = 0
+            synchronized(currentProgramsCacheLock) {
+                currentProgramsCache = null
+                currentProgramsCacheTime = 0
+            }
             return TimeChangeResult.CLOCK_CHANGED
         }
 
@@ -214,10 +217,16 @@ class EpgRepository @Inject constructor(
     fun getCurrentProgram(tvgId: String): EpgProgram? {
         ensureCacheFresh()
         val now = System.currentTimeMillis()
-        currentProgramsCache?.let { cache ->
-            if (now - currentProgramsCacheTime < currentProgramsCacheTtl) {
-                return cache[tvgId]
+        val cached = synchronized(currentProgramsCacheLock) {
+            val cache = currentProgramsCache
+            if (cache != null && now - currentProgramsCacheTime < currentProgramsCacheTtl) {
+                true to cache[tvgId]
+            } else {
+                false to null
             }
+        }
+        if (cached.first) {
+            return cached.second
         }
 
         val programs = synchronized(channelProgramsLock) {
@@ -225,10 +234,12 @@ class EpgRepository @Inject constructor(
         } ?: return null
 
         val current = programs.firstOrNull { it.isCurrent(now) }
-        val cache = (currentProgramsCache ?: emptyMap()).toMutableMap()
-        cache[tvgId] = current
-        currentProgramsCache = cache
-        currentProgramsCacheTime = now
+        synchronized(currentProgramsCacheLock) {
+            val cache = (currentProgramsCache ?: emptyMap()).toMutableMap()
+            cache[tvgId] = current
+            currentProgramsCache = cache
+            currentProgramsCacheTime = now
+        }
         return current
     }
 
@@ -248,8 +259,10 @@ class EpgRepository @Inject constructor(
         synchronized(channelProgramsLock) {
             channelPrograms.clear()
         }
-        currentProgramsCache = null
-        currentProgramsCacheTime = 0
+        synchronized(currentProgramsCacheLock) {
+            currentProgramsCache = null
+            currentProgramsCacheTime = 0
+        }
         logDebug { "EPG cache cleared (lazy windows + current programs)" }
     }
 
@@ -273,10 +286,12 @@ class EpgRepository @Inject constructor(
 
     private fun cacheCurrentProgramSnapshot(tvgId: String, programs: List<EpgProgram>) {
         val now = System.currentTimeMillis()
-        val cache = currentProgramsCache?.toMutableMap() ?: mutableMapOf()
-        cache[tvgId] = programs.firstOrNull { it.isCurrent(now) }
-        currentProgramsCache = cache
-        currentProgramsCacheTime = now
+        synchronized(currentProgramsCacheLock) {
+            val cache = currentProgramsCache?.toMutableMap() ?: mutableMapOf()
+            cache[tvgId] = programs.firstOrNull { it.isCurrent(now) }
+            currentProgramsCache = cache
+            currentProgramsCacheTime = now
+        }
     }
 
     private fun rememberProgramsForChannel(tvgId: String, programs: List<EpgProgram>) {

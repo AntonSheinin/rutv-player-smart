@@ -25,6 +25,7 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.hls.DefaultHlsExtractorFactory
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
+import androidx.media3.exoplayer.mediacodec.MediaCodecRenderer
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
 import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
@@ -111,6 +112,7 @@ class PlayerManager @Inject constructor(
     private lateinit var httpDataSourceFactory: DefaultHttpDataSource.Factory
     private var sourceErrorRetryCount: Int = 0
     private var lastSourceErrorAtMs: Long = 0L
+    private var attemptedFfmpegAudioFallback: Boolean = false
 
     private val SOURCE_RETRY_MAX = 2
     private val SOURCE_RETRY_WINDOW_MS = 30_000L
@@ -178,6 +180,53 @@ class PlayerManager @Inject constructor(
         }
     }
 
+    private fun isAudioDecoderError(error: PlaybackException): Boolean {
+        val code = error.errorCode
+        val isDecoderError = code == PlaybackException.ERROR_CODE_DECODER_INIT_FAILED ||
+            code == PlaybackException.ERROR_CODE_DECODER_FAILED ||
+            code == PlaybackException.ERROR_CODE_DECODER_QUERY_FAILED
+        if (!isDecoderError) return false
+
+        val cause = error.cause
+        if (cause is MediaCodecRenderer.DecoderInitializationException) {
+            return cause.mimeType?.startsWith("audio/") == true
+        }
+
+        val message = error.message?.lowercase(Locale.US).orEmpty()
+        return message.contains("audiocoderenderer") || message.contains("audio decoder")
+    }
+
+    private fun shouldTryFfmpegAudioFallback(error: PlaybackException): Boolean {
+        val config = currentConfig ?: return false
+        if (config.useFfmpegAudio || attemptedFfmpegAudioFallback) return false
+        return isAudioDecoderError(error)
+    }
+
+    private fun attemptFfmpegAudioFallback(): Boolean {
+        val config = currentConfig ?: return false
+        if (config.useFfmpegAudio) return false
+
+        attemptedFfmpegAudioFallback = true
+        val archiveChannelSnapshot = if (isArchivePlayback) archiveChannel else null
+        val archiveProgramSnapshot = if (isArchivePlayback) archiveProgram else null
+        val startIndex = if (isArchivePlayback) {
+            lastLiveIndex
+        } else {
+            player?.currentMediaItemIndex ?: lastLiveIndex
+        }
+
+        addDebugMessage("Audio decoder failed; retrying with FFmpeg audio")
+
+        val mediaItems = buildMediaItems(channels)
+        initializeInternal(channels, config.copy(useFfmpegAudio = true), startIndex, mediaItems)
+
+        if (archiveChannelSnapshot != null && archiveProgramSnapshot != null) {
+            playArchive(archiveChannelSnapshot, archiveProgramSnapshot)
+        }
+
+        return true
+    }
+
     /**
      * Initialize player with channels
      */
@@ -242,6 +291,7 @@ class PlayerManager @Inject constructor(
 
         this.channels = channelList
         this.currentConfig = config
+        attemptedFfmpegAudioFallback = false
 
         releaseInternal()
         createPlayer(config, startIndex, mediaItems)
@@ -546,6 +596,12 @@ class PlayerManager @Inject constructor(
 
                 addDebugMessage("✗ Error: ${channel?.title ?: "Unknown"}")
                 addDebugMessage("  → $errorMsg")
+
+                if (shouldTryFfmpegAudioFallback(error)) {
+                    if (attemptFfmpegAudioFallback()) {
+                        return
+                    }
+                }
 
                 val now = System.currentTimeMillis()
                 if (isRetryableSourceError(error)) {

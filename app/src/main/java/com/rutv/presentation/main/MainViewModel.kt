@@ -94,6 +94,8 @@ class MainViewModel @Inject constructor(
     // This is *in addition* to EpgRepository caches and exists mostly for UX responsiveness.
     private val epgProgramCache = mutableMapOf<String, List<EpgProgram>>()
     private val epgCacheLock = Any()
+    private val epgPastLoadMutex = Mutex()
+    private val epgFutureLoadMutex = Mutex()
     private val playlistLoadRequestId = AtomicLong(0)
 
     private fun postEpgNotification() {
@@ -889,92 +891,102 @@ class MainViewModel @Inject constructor(
 
     fun loadMoreEpgPast() {
         viewModelScope.launch(Dispatchers.IO) {
-            val tvgId = _viewState.value.epgChannelTvgId.ifBlank { return@launch }
-            val epgUrl = preferencesRepository.epgUrl.first().ifBlank { return@launch }
-            val pastDays = preferencesRepository.epgDaysPast.first().coerceAtLeast(0)
-            val stepDays = preferencesRepository.epgPageDays.first().coerceAtLeast(1)
-            val extensionDays = stepDays + 1
+            if (!epgPastLoadMutex.tryLock()) return@launch
+            try {
+                val tvgId = _viewState.value.epgChannelTvgId.ifBlank { return@launch }
+                val epgUrl = preferencesRepository.epgUrl.first().ifBlank { return@launch }
+                val pastDays = preferencesRepository.epgDaysPast.first().coerceAtLeast(0)
+                val stepDays = preferencesRepository.epgPageDays.first().coerceAtLeast(1)
+                val extensionDays = stepDays + 1
 
-            val zone = java.time.ZonedDateTime.now().zone
-            val globalFrom = java.time.ZonedDateTime.now()
-                .toLocalDate()
-                .minusDays(pastDays.toLong())
-                .atStartOfDay(zone)
-                .toInstant().toEpochMilli()
+                val zone = java.time.ZonedDateTime.now().zone
+                val globalFrom = java.time.ZonedDateTime.now()
+                    .toLocalDate()
+                    .minusDays(pastDays.toLong())
+                    .atStartOfDay(zone)
+                    .toInstant().toEpochMilli()
 
-            val currentFrom = _viewState.value.epgLoadedFromUtc
-            if (currentFrom <= globalFrom) return@launch
+                val currentFrom = _viewState.value.epgLoadedFromUtc
+                if (currentFrom <= globalFrom) return@launch
 
-            val newFromZoned = java.time.Instant.ofEpochMilli(currentFrom)
-                .atZone(zone)
-                .toLocalDate()
-                .minusDays(extensionDays.toLong())
-                .atStartOfDay(zone)
-            val newFrom = maxOf(globalFrom, newFromZoned.toInstant().toEpochMilli())
-            val newTo = currentFrom - 1
+                val newFromZoned = java.time.Instant.ofEpochMilli(currentFrom)
+                    .atZone(zone)
+                    .toLocalDate()
+                    .minusDays(extensionDays.toLong())
+                    .atStartOfDay(zone)
+                val newFrom = maxOf(globalFrom, newFromZoned.toInstant().toEpochMilli())
+                val newTo = currentFrom - 1
 
-            val added = epgRepository.getWindowedProgramsForChannel(epgUrl, tvgId, newFrom, newTo)
+                val added = epgRepository.getWindowedProgramsForChannel(epgUrl, tvgId, newFrom, newTo)
 
-            if (added.isEmpty()) return@launch
-            if (_viewState.value.epgChannelTvgId != tvgId) return@launch
-            // Merge with stable sort + de-dupe to avoid duplicates when windows overlap by a day.
-            val merged = mergePrograms(_viewState.value.epgPrograms, added)
-            _viewState.update {
-                it.copy(
-                    epgPrograms = merged,
-                    epgLoadedFromUtc = newFrom
-                )
+                if (added.isEmpty()) return@launch
+                if (_viewState.value.epgChannelTvgId != tvgId) return@launch
+                // Merge with stable sort + de-dupe to avoid duplicates when windows overlap by a day.
+                val merged = mergePrograms(_viewState.value.epgPrograms, added)
+                _viewState.update {
+                    it.copy(
+                        epgPrograms = merged,
+                        epgLoadedFromUtc = newFrom
+                    )
+                }
+            } finally {
+                epgPastLoadMutex.unlock()
             }
         }
     }
 
     fun loadMoreEpgFuture() {
         viewModelScope.launch(Dispatchers.IO) {
-            val tvgId = _viewState.value.epgChannelTvgId.ifBlank { return@launch }
-            val epgUrl = preferencesRepository.epgUrl.first().ifBlank { return@launch }
-            val daysAhead = preferencesRepository.epgDaysAhead.first().coerceAtLeast(0)
-            val stepDays = preferencesRepository.epgPageDays.first().coerceAtLeast(1)
-            val extensionDays = stepDays + 1
+            if (!epgFutureLoadMutex.tryLock()) return@launch
+            try {
+                val tvgId = _viewState.value.epgChannelTvgId.ifBlank { return@launch }
+                val epgUrl = preferencesRepository.epgUrl.first().ifBlank { return@launch }
+                val daysAhead = preferencesRepository.epgDaysAhead.first().coerceAtLeast(0)
+                val stepDays = preferencesRepository.epgPageDays.first().coerceAtLeast(1)
+                val extensionDays = stepDays + 1
 
-            val zone = java.time.ZonedDateTime.now().zone
-            val globalTo = java.time.ZonedDateTime.now()
-                .toLocalDate()
-                .plusDays(daysAhead.toLong())
-                .atTime(java.time.LocalTime.of(23, 59, 59))
-                .atZone(zone)
-                .toInstant().toEpochMilli()
-
-            val currentTo = _viewState.value.epgLoadedToUtc
-            if (currentTo >= globalTo) return@launch
-
-            val nextDayStart = java.time.Instant.ofEpochMilli(currentTo)
-                .atZone(zone)
-                .toLocalDate()
-                .plusDays(stepDays.toLong())
-                .atStartOfDay(zone)
-                .toInstant().toEpochMilli()
-            val newFrom = nextDayStart
-            val newTo = globalTo.coerceAtMost(
-                java.time.Instant.ofEpochMilli(currentTo)
-                    .atZone(zone)
+                val zone = java.time.ZonedDateTime.now().zone
+                val globalTo = java.time.ZonedDateTime.now()
                     .toLocalDate()
-                    .plusDays(extensionDays.toLong())
+                    .plusDays(daysAhead.toLong())
                     .atTime(java.time.LocalTime.of(23, 59, 59))
                     .atZone(zone)
                     .toInstant().toEpochMilli()
-            )
 
-            val added = epgRepository.getWindowedProgramsForChannel(epgUrl, tvgId, newFrom, newTo)
+                val currentTo = _viewState.value.epgLoadedToUtc
+                if (currentTo >= globalTo) return@launch
 
-            if (added.isEmpty()) return@launch
-            if (_viewState.value.epgChannelTvgId != tvgId) return@launch
-            // Merge with stable sort + de-dupe to avoid duplicates when windows overlap by a day.
-            val merged = mergePrograms(_viewState.value.epgPrograms, added)
-            _viewState.update {
-                it.copy(
-                    epgPrograms = merged,
-                    epgLoadedToUtc = maxOf(it.epgLoadedToUtc, newTo)
+                val nextDayStart = java.time.Instant.ofEpochMilli(currentTo)
+                    .atZone(zone)
+                    .toLocalDate()
+                    .plusDays(stepDays.toLong())
+                    .atStartOfDay(zone)
+                    .toInstant().toEpochMilli()
+                val newFrom = nextDayStart
+                val newTo = globalTo.coerceAtMost(
+                    java.time.Instant.ofEpochMilli(currentTo)
+                        .atZone(zone)
+                        .toLocalDate()
+                        .plusDays(extensionDays.toLong())
+                        .atTime(java.time.LocalTime.of(23, 59, 59))
+                        .atZone(zone)
+                        .toInstant().toEpochMilli()
                 )
+
+                val added = epgRepository.getWindowedProgramsForChannel(epgUrl, tvgId, newFrom, newTo)
+
+                if (added.isEmpty()) return@launch
+                if (_viewState.value.epgChannelTvgId != tvgId) return@launch
+                // Merge with stable sort + de-dupe to avoid duplicates when windows overlap by a day.
+                val merged = mergePrograms(_viewState.value.epgPrograms, added)
+                _viewState.update {
+                    it.copy(
+                        epgPrograms = merged,
+                        epgLoadedToUtc = maxOf(it.epgLoadedToUtc, newTo)
+                    )
+                }
+            } finally {
+                epgFutureLoadMutex.unlock()
             }
         }
     }
@@ -1180,28 +1192,29 @@ class MainViewModel @Inject constructor(
         if (currentChannel?.url != channel.url) return
 
         if (!channel.hasEpg || channel.tvgId.isBlank()) {
-            _viewState.update {
-                it.copy(currentProgram = null)
+            _viewState.update { state ->
+                if (state.currentChannel?.url != channel.url) state else state.copy(currentProgram = null)
             }
             return
         }
 
         try {
             val program = epgRepository.getCurrentProgram(channel.tvgId)
-            _viewState.update {
-                val updatedMap = if (it.showCurrentProgramInChannelList) {
-                    it.currentProgramsMap.toMutableMap().apply {
+            _viewState.update { state ->
+                if (state.currentChannel?.url != channel.url) return@update state
+                val updatedMap = if (state.showCurrentProgramInChannelList) {
+                    state.currentProgramsMap.toMutableMap().apply {
                         this[channel.tvgId] = program
                     }
                 } else {
-                    it.currentProgramsMap
+                    state.currentProgramsMap
                 }
-                it.copy(currentProgram = program, currentProgramsMap = updatedMap)
+                state.copy(currentProgram = program, currentProgramsMap = updatedMap)
             }
         } catch (e: Exception) {
             Timber.e(e, "Error updating current program for ${channel.title}")
-            _viewState.update {
-                it.copy(currentProgram = null)
+            _viewState.update { state ->
+                if (state.currentChannel?.url != channel.url) state else state.copy(currentProgram = null)
             }
         }
     }
