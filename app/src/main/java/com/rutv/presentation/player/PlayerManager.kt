@@ -183,7 +183,7 @@ class PlayerManager @Inject constructor(
     private fun isAudioDecoderError(error: PlaybackException): Boolean {
         val code = error.errorCode
         val isDecoderError = code == PlaybackException.ERROR_CODE_DECODER_INIT_FAILED ||
-            code == PlaybackException.ERROR_CODE_DECODER_FAILED ||
+            code == PlaybackException.ERROR_CODE_DECODING_FAILED ||
             code == PlaybackException.ERROR_CODE_DECODER_QUERY_FAILED
         if (!isDecoderError) return false
 
