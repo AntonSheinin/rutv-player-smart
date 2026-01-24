@@ -108,6 +108,7 @@ internal fun GoToChannelDialog(
     val textFieldFocus = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     val density = LocalDensity.current
+    val imeInsets = WindowInsets.ime
     val isTextFieldFocused = remember { mutableStateOf(false) }
     val imeWasVisible = remember { mutableStateOf(false) }
 
@@ -117,8 +118,8 @@ internal fun GoToChannelDialog(
         keyboardController?.show()
     }
 
-    LaunchedEffect(density) {
-        snapshotFlow { WindowInsets.ime.getBottom(density) > 0 }
+    LaunchedEffect(density, imeInsets) {
+        snapshotFlow { imeInsets.getBottom(density) > 0 }
             .distinctUntilChanged()
             .collect { visible ->
                 if (visible) {
