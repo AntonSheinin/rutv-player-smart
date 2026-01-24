@@ -954,18 +954,15 @@ class PlayerManager @Inject constructor(
     private fun startBufferingCheck() {
         bufferingCheckJob?.cancel()
         bufferingCheckJob = mainScope.launch {
-            while (isActive) {
-                delay(1_000)
-                val p = player ?: continue
-                if (p.playbackState != Player.STATE_BUFFERING || bufferingStartTime <= 0) continue
-                val bufferingDuration = System.currentTimeMillis() - bufferingStartTime
-                if (bufferingDuration > PlayerConstants.BUFFERING_TIMEOUT_MS) {
-                    addDebugMessage("⚠ Buffering timeout (${bufferingDuration / 1000}s)")
-                    stopBufferingCheck()
-                    p.playWhenReady = false
-                    break
-                }
-            }
+            val startTime = bufferingStartTime
+            if (startTime <= 0L) return@launch
+            delay(PlayerConstants.BUFFERING_TIMEOUT_MS)
+            val p = player ?: return@launch
+            if (bufferingStartTime != startTime || p.playbackState != Player.STATE_BUFFERING) return@launch
+            val bufferingDuration = System.currentTimeMillis() - startTime
+            addDebugMessage("Buffering timeout (${bufferingDuration / 1000}s)")
+            stopBufferingCheck()
+            p.playWhenReady = false
         }
     }
 
