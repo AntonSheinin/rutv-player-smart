@@ -62,6 +62,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
@@ -628,16 +629,21 @@ internal fun PlaylistPanel(
                 val keyboardController = LocalSoftwareKeyboardController.current
                 val density = LocalDensity.current
                 val imeInsets = WindowInsets.ime
+                val isSearchFieldReady = remember { mutableStateOf(false) }
                 val isSearchFieldFocused = remember { mutableStateOf(false) }
                 val imeWasVisible = remember { mutableStateOf(false) }
 
                 // For TV/remote UX: when the dialog opens, put focus directly into the input field
                 // (so the user can start typing immediately and doesn't need a DPAD UP first).
-                LaunchedEffect(Unit) {
-                    // AlertDialog may assign default focus to action buttons on first composition.
-                    // Wait for the dialog to render, then force focus into the input field and show IME.
-                    withFrameNanos { }
-                    searchFieldFocusRequester.requestFocus()
+                LaunchedEffect(isSearchFieldReady.value) {
+                    if (!isSearchFieldReady.value) return@LaunchedEffect
+                    keyboardController?.show()
+                    var attempts = 0
+                    while (attempts < 3 && !isSearchFieldFocused.value) {
+                        searchFieldFocusRequester.requestFocus()
+                        withFrameNanos { }
+                        attempts++
+                    }
                     keyboardController?.show()
                 }
 
@@ -705,6 +711,9 @@ internal fun PlaylistPanel(
                                 .fillMaxWidth()
                                 .focusRequester(searchFieldFocusRequester)
                                 .focusable(enabled = true)
+                                .onGloballyPositioned {
+                                    if (!isSearchFieldReady.value) isSearchFieldReady.value = true
+                                }
                                 .onFocusChanged { state ->
                                     isSearchFieldFocused.value = state.isFocused
                                 }
