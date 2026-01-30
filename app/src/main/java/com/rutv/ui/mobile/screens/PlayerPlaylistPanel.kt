@@ -66,6 +66,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.res.stringResource
@@ -628,17 +629,21 @@ internal fun PlaylistPanel(
                 val keyboardController = LocalSoftwareKeyboardController.current
                 val density = LocalDensity.current
                 val imeInsets = WindowInsets.ime
+                val windowInfo = LocalWindowInfo.current
                 val isSearchFieldFocused = remember { mutableStateOf(false) }
                 val imeWasVisible = remember { mutableStateOf(false) }
 
                 // For TV/remote UX: when the dialog opens, put focus directly into the input field
                 // (so the user can start typing immediately and doesn't need a DPAD UP first).
-                LaunchedEffect(Unit) {
+                LaunchedEffect(showSearchDialog, windowInfo) {
+                    if (!showSearchDialog) return@LaunchedEffect
+                    snapshotFlow { windowInfo.isWindowFocused }
+                        .filter { it }
+                        .first()
                     // Allow the dialog to attach before requesting focus/IME.
                     withFrameNanos { }
-                    keyboardController?.show()
                     var attempts = 0
-                    while (attempts < 3 && !isSearchFieldFocused.value) {
+                    while (attempts < 6 && !isSearchFieldFocused.value) {
                         searchFieldFocusRequester.requestFocus()
                         withFrameNanos { }
                         attempts++

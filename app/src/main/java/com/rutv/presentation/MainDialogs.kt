@@ -31,6 +31,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -41,6 +42,8 @@ import com.rutv.ui.shared.components.remoteDialogTextFieldNavigation
 import com.rutv.ui.theme.ruTvColors
 import com.rutv.util.DeviceHelper
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 
 @Composable
 internal fun NoPlaylistDialog(
@@ -109,15 +112,19 @@ internal fun GoToChannelDialog(
     val keyboardController = LocalSoftwareKeyboardController.current
     val density = LocalDensity.current
     val imeInsets = WindowInsets.ime
+    val windowInfo = LocalWindowInfo.current
     val isTextFieldFocused = remember { mutableStateOf(false) }
     val imeWasVisible = remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(show, windowInfo) {
+        if (!show) return@LaunchedEffect
+        snapshotFlow { windowInfo.isWindowFocused }
+            .filter { it }
+            .first()
         // Let the dialog settle before requesting focus/IME.
         withFrameNanos { }
-        keyboardController?.show()
         var attempts = 0
-        while (attempts < 3 && !isTextFieldFocused.value) {
+        while (attempts < 6 && !isTextFieldFocused.value) {
             textFieldFocus.requestFocus()
             withFrameNanos { }
             attempts++
