@@ -51,6 +51,9 @@ class PreferencesRepository @Inject constructor(
         val PLAYLIST_FILE_NAME = stringPreferencesKey("playlist_file_name")
         val PLAYLIST_HASH = stringPreferencesKey("playlist_hash")
 
+        val FAVORITE_URLS = stringSetPreferencesKey("favorite_urls")
+        val FAVORITE_TVG_IDS = stringSetPreferencesKey("favorite_tvg_ids")
+
         val EPG_URL = stringPreferencesKey("epg_url")
         val EPG_DAYS_AHEAD = intPreferencesKey("epg_days_ahead")
         val EPG_DAYS_PAST = intPreferencesKey("epg_days_past")
@@ -132,6 +135,70 @@ class PreferencesRepository @Inject constructor(
         .map { preferences ->
             preferences[PreferencesKeys.PLAYLIST_HASH] ?: ""
         }
+
+    /**
+     * Favorite channels (backup storage; Room remains the primary source).
+     */
+    val favoriteUrls: Flow<Set<String>> = dataStore.data
+        .map { preferences ->
+            preferences[PreferencesKeys.FAVORITE_URLS] ?: emptySet()
+        }
+
+    val favoriteTvgIds: Flow<Set<String>> = dataStore.data
+        .map { preferences ->
+            preferences[PreferencesKeys.FAVORITE_TVG_IDS] ?: emptySet()
+        }
+
+    suspend fun updateFavorite(url: String, tvgId: String?, isFavorite: Boolean) {
+        val normalizedUrl = url.trim()
+        val normalizedTvgId = tvgId?.trim().orEmpty()
+        dataStore.edit { preferences ->
+            val urls = preferences[PreferencesKeys.FAVORITE_URLS]?.toMutableSet() ?: mutableSetOf()
+            val tvgIds = preferences[PreferencesKeys.FAVORITE_TVG_IDS]?.toMutableSet() ?: mutableSetOf()
+            if (isFavorite) {
+                if (normalizedUrl.isNotBlank()) {
+                    urls.add(normalizedUrl)
+                }
+                if (normalizedTvgId.isNotBlank()) {
+                    tvgIds.add(normalizedTvgId)
+                }
+            } else {
+                if (normalizedUrl.isNotBlank()) {
+                    urls.remove(normalizedUrl)
+                }
+                if (normalizedTvgId.isNotBlank()) {
+                    tvgIds.remove(normalizedTvgId)
+                }
+            }
+            if (urls.isEmpty()) {
+                preferences.remove(PreferencesKeys.FAVORITE_URLS)
+            } else {
+                preferences[PreferencesKeys.FAVORITE_URLS] = urls
+            }
+            if (tvgIds.isEmpty()) {
+                preferences.remove(PreferencesKeys.FAVORITE_TVG_IDS)
+            } else {
+                preferences[PreferencesKeys.FAVORITE_TVG_IDS] = tvgIds
+            }
+        }
+    }
+
+    suspend fun replaceFavorites(urls: Set<String>, tvgIds: Set<String>) {
+        val normalizedUrls = urls.map { it.trim() }.filter { it.isNotBlank() }.toSet()
+        val normalizedTvgIds = tvgIds.map { it.trim() }.filter { it.isNotBlank() }.toSet()
+        dataStore.edit { preferences ->
+            if (normalizedUrls.isEmpty()) {
+                preferences.remove(PreferencesKeys.FAVORITE_URLS)
+            } else {
+                preferences[PreferencesKeys.FAVORITE_URLS] = normalizedUrls
+            }
+            if (normalizedTvgIds.isEmpty()) {
+                preferences.remove(PreferencesKeys.FAVORITE_TVG_IDS)
+            } else {
+                preferences[PreferencesKeys.FAVORITE_TVG_IDS] = normalizedTvgIds
+            }
+        }
+    }
 
     /**
      * EPG URL

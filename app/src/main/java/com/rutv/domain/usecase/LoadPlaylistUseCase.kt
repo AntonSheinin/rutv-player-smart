@@ -133,23 +133,40 @@ class LoadPlaylistUseCase @Inject constructor(
         val channelsToSave = applyPersistedChannelFlags(parsedChannels, existingByUrl)
 
         // Save to repository
-        val favoriteUrlsHint = if (preservedChannels.isNotEmpty()) {
-            preservedChannels.values.asSequence()
-                .filter { it.isFavorite }
-                .map { it.url }
-                .distinct()
-                .toList()
-        } else {
-            null
+        val existingFavorites = existingByUrl.values.asSequence()
+            .filter { it.isFavorite }
+            .toList()
+        val existingFavoriteUrls = existingFavorites.asSequence()
+            .map { it.url }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .toList()
+        val existingFavoriteTvgIds = existingFavorites.asSequence()
+            .map { it.tvgId }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .toList()
+
+        val storedFavoriteUrls = preferencesRepository.favoriteUrls.first()
+        val storedFavoriteTvgIds = preferencesRepository.favoriteTvgIds.first()
+
+        if (existingFavoriteUrls.isNotEmpty() || existingFavoriteTvgIds.isNotEmpty()) {
+            val existingUrlSet = existingFavoriteUrls.toSet()
+            val existingTvgIdSet = existingFavoriteTvgIds.toSet()
+            if (existingUrlSet != storedFavoriteUrls || existingTvgIdSet != storedFavoriteTvgIds) {
+                preferencesRepository.replaceFavorites(existingUrlSet, existingTvgIdSet)
+            }
         }
-        val favoriteTvgIdsHint = if (preservedChannels.isNotEmpty()) {
-            preservedChannels.values.asSequence()
-                .filter { it.isFavorite && it.tvgId.isNotBlank() }
-                .map { it.tvgId }
-                .distinct()
-                .toList()
-        } else {
-            null
+
+        val favoriteUrlsHint = when {
+            existingFavoriteUrls.isNotEmpty() -> existingFavoriteUrls
+            storedFavoriteUrls.isNotEmpty() -> storedFavoriteUrls.toList()
+            else -> null
+        }
+        val favoriteTvgIdsHint = when {
+            existingFavoriteTvgIds.isNotEmpty() -> existingFavoriteTvgIds
+            storedFavoriteTvgIds.isNotEmpty() -> storedFavoriteTvgIds.toList()
+            else -> null
         }
         return when (val saveResult = channelRepository.saveChannelsPreservingFavorites(
             channelsToSave,

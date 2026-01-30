@@ -656,6 +656,7 @@ class MainViewModel @Inject constructor(
                 is Result.Success -> {
                     val newStatus = result.data
                     val currentChannels = _viewState.value.channels
+                    val channelToUpdate = currentChannels.firstOrNull { it.url == channelUrl }
                     val updatedChannels = currentChannels.map { channel ->
                         if (channel.url == channelUrl) channel.copy(isFavorite = newStatus) else channel
                     }
@@ -670,11 +671,14 @@ class MainViewModel @Inject constructor(
                                 currentChannel = updatedCurrent ?: current.currentChannel
                             )
                         }
+                        preferencesRepository.updateFavorite(channelUrl, channelToUpdate?.tvgId, newStatus)
                     } else {
                         // Fallback to full reload if the channel isn't in memory (unexpected).
                         val reloaded = channelRepository.getAllChannels()
                         if (reloaded is Result.Success) {
                             _viewState.update { it.copy(channels = reloaded.data) }
+                            val reloadedChannel = reloaded.data.firstOrNull { it.url == channelUrl }
+                            preferencesRepository.updateFavorite(channelUrl, reloadedChannel?.tvgId, newStatus)
                         }
                     }
                 }
