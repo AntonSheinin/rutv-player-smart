@@ -41,6 +41,7 @@ import com.rutv.ui.shared.components.RemoteDialog
 import com.rutv.ui.shared.components.remoteDialogTextFieldNavigation
 import com.rutv.ui.theme.ruTvColors
 import com.rutv.util.DeviceHelper
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
@@ -116,11 +117,13 @@ internal fun GoToChannelDialog(
     val isTextFieldFocused = remember { mutableStateOf(false) }
     val imeWasVisible = remember { mutableStateOf(false) }
 
-    LaunchedEffect(show, windowInfo) {
+    LaunchedEffect(show) {
         if (!show) return@LaunchedEffect
-        snapshotFlow { windowInfo.isWindowFocused }
-            .filter { it }
-            .first()
+        withTimeoutOrNull(800) {
+            snapshotFlow { windowInfo.isWindowFocused }
+                .filter { it }
+                .first()
+        }
         // Let the dialog settle before requesting focus/IME.
         withFrameNanos { }
         var attempts = 0
@@ -209,7 +212,7 @@ internal fun GoToChannelDialog(
                     .fillMaxWidth()
                     .focusRequester(textFieldFocus)
                     .onFocusChanged { state ->
-                        isTextFieldFocused.value = state.isFocused
+                        isTextFieldFocused.value = state.hasFocus
                     }
                     .remoteDialogTextFieldNavigation(
                         enabled = DeviceHelper.isRemoteInputActive(),

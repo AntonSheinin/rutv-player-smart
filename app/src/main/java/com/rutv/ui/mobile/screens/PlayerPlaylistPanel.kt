@@ -85,6 +85,7 @@ import com.rutv.ui.shared.components.focusIndicatorModifier
 import com.rutv.ui.shared.presentation.LayoutConstants
 import com.rutv.ui.theme.ruTvColors
 import com.rutv.util.DeviceHelper
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -635,11 +636,13 @@ internal fun PlaylistPanel(
 
                 // For TV/remote UX: when the dialog opens, put focus directly into the input field
                 // (so the user can start typing immediately and doesn't need a DPAD UP first).
-                LaunchedEffect(showSearchDialog, windowInfo) {
+                LaunchedEffect(showSearchDialog) {
                     if (!showSearchDialog) return@LaunchedEffect
-                    snapshotFlow { windowInfo.isWindowFocused }
-                        .filter { it }
-                        .first()
+                    withTimeoutOrNull(800) {
+                        snapshotFlow { windowInfo.isWindowFocused }
+                            .filter { it }
+                            .first()
+                    }
                     // Allow the dialog to attach before requesting focus/IME.
                     withFrameNanos { }
                     var attempts = 0
@@ -720,7 +723,7 @@ internal fun PlaylistPanel(
                                 .fillMaxWidth()
                                 .focusRequester(searchFieldFocusRequester)
                                 .onFocusChanged { state ->
-                                    isSearchFieldFocused.value = state.isFocused
+                                    isSearchFieldFocused.value = state.hasFocus
                                 }
                                 .onKeyEvent { event ->
                                     if (!DeviceHelper.isRemoteInputActive()) return@onKeyEvent false
