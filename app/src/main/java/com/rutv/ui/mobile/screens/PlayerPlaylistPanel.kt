@@ -648,7 +648,6 @@ internal fun PlaylistPanel(
                         withFrameNanos { }
                         attempts++
                     }
-                    keyboardController?.show()
                 }
 
                 LaunchedEffect(density, imeInsets) {
@@ -661,6 +660,12 @@ internal fun PlaylistPanel(
                                 okButtonFocusRequester.requestFocus()
                             }
                         }
+                }
+
+                LaunchedEffect(isSearchFieldFocused.value) {
+                    if (isSearchFieldFocused.value) {
+                        keyboardController?.show()
+                    }
                 }
 
                 val onConfirm = {
@@ -714,7 +719,6 @@ internal fun PlaylistPanel(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .focusRequester(searchFieldFocusRequester)
-                                .focusable(enabled = true)
                                 .onFocusChanged { state ->
                                     isSearchFieldFocused.value = state.isFocused
                                 }

@@ -129,7 +129,6 @@ internal fun GoToChannelDialog(
             withFrameNanos { }
             attempts++
         }
-        keyboardController?.show()
     }
 
     LaunchedEffect(density, imeInsets) {
@@ -142,6 +141,12 @@ internal fun GoToChannelDialog(
                     confirmButtonFocus.requestFocus()
                 }
             }
+    }
+
+    LaunchedEffect(isTextFieldFocused.value) {
+        if (isTextFieldFocused.value) {
+            keyboardController?.show()
+        }
     }
 
     RemoteDialog(
@@ -203,7 +208,6 @@ internal fun GoToChannelDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(textFieldFocus)
-                    .focusable(enabled = true)
                     .onFocusChanged { state ->
                         isTextFieldFocused.value = state.isFocused
                     }
