@@ -29,7 +29,6 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
@@ -110,12 +109,12 @@ internal fun GoToChannelDialog(
     val keyboardController = LocalSoftwareKeyboardController.current
     val density = LocalDensity.current
     val imeInsets = WindowInsets.ime
-    val isTextFieldReady = remember { mutableStateOf(false) }
     val isTextFieldFocused = remember { mutableStateOf(false) }
     val imeWasVisible = remember { mutableStateOf(false) }
 
-    LaunchedEffect(isTextFieldReady.value) {
-        if (!isTextFieldReady.value) return@LaunchedEffect
+    LaunchedEffect(Unit) {
+        // Let the dialog settle before requesting focus/IME.
+        withFrameNanos { }
         keyboardController?.show()
         var attempts = 0
         while (attempts < 3 && !isTextFieldFocused.value) {
@@ -198,9 +197,6 @@ internal fun GoToChannelDialog(
                     .fillMaxWidth()
                     .focusRequester(textFieldFocus)
                     .focusable(enabled = true)
-                    .onGloballyPositioned {
-                        if (!isTextFieldReady.value) isTextFieldReady.value = true
-                    }
                     .onFocusChanged { state ->
                         isTextFieldFocused.value = state.isFocused
                     }
