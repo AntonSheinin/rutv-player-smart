@@ -54,6 +54,9 @@
     <string name="settings_ffmpeg_audio">Использовать FFmpeg для аудио</string>
     <string name="settings_ffmpeg_video">Использовать FFmpeg для видео</string>
     <string name="settings_buffer_seconds">Длительность буфера (секунды)</string>
+    <string name="settings_auto_retry_enabled">Автоповтор ошибок воспроизведения</string>
+    <string name="settings_auto_retry_max_attempts">Макс. количество попыток</string>
+    <string name="settings_auto_retry_period_seconds">Период повтора (секунды)</string>
     <string name="settings_show_current_program_in_list">Показывать текущую программу в списке каналов</string>
     <string name="settings_epg_config">Настройки EPG</string>
     <string name="settings_epg_url">EPG XML URL</string>
@@ -98,8 +101,6 @@
     <string name="cd_epg_archive_indicator">Доступно в архиве</string>
     <string name="player_return_to_live">Вернуться к эфиру</string>
     <string name="player_archive_label">DVR &#8226; %1$s</string>
-    <string name="label_playback_issue">Ошибка воспроизведения</string>
-    <string name="label_retrying_stream">Повторная попытка подключения...</string>
     <string name="label_retrying_short">Повтор</string>
     <string name="archive_prompt_title">Воспроизведение завершено</string>
     <string name="archive_prompt_message">Продолжить с &quot;%1$s&quot;?</string>

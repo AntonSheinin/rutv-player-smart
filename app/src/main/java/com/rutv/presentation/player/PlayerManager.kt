@@ -34,6 +34,7 @@ import com.rutv.data.model.EpgProgram
 import com.rutv.data.model.PlayerConfig
 import com.rutv.util.Constants
 import com.rutv.util.PlayerConstants
+import com.rutv.data.repository.PreferencesRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory
 import kotlinx.coroutines.CoroutineScope
@@ -83,7 +84,8 @@ import kotlin.math.max
  */
 class PlayerManager @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val bandwidthMeter: DefaultBandwidthMeter
+    private val bandwidthMeter: DefaultBandwidthMeter,
+    private val preferencesRepository: PreferencesRepository
 ) {
 
     private var player: ExoPlayer? = null
@@ -114,8 +116,39 @@ class PlayerManager @Inject constructor(
     private var autoRetryJob: Job? = null
     private var autoRetryTargetIndex: Int = -1
     private var isUserPaused: Boolean = false
+    private var autoRetryEnabled: Boolean = true
+    private var autoRetryMaxAttempts: Int = PlayerConstants.DEFAULT_AUTO_RETRY_MAX_ATTEMPTS
+    private var autoRetryIntervalMs: Long = PlayerConstants.DEFAULT_AUTO_RETRY_PERIOD_SECONDS * 1_000L
+    private var autoRetrySuppressed: Boolean = false
 
-    private val SOURCE_AUTO_RETRY_INTERVAL_MS = 1_000L
+    init {
+        mainScope.launch {
+            preferencesRepository.autoRetryEnabled.collect { enabled ->
+                autoRetryEnabled = enabled
+                if (!enabled) {
+                    stopAutoRetry()
+                    clearRetryingState()
+                }
+            }
+        }
+        mainScope.launch {
+            preferencesRepository.autoRetryMaxAttempts.collect { attempts ->
+                autoRetryMaxAttempts = attempts.coerceIn(
+                    PlayerConstants.MIN_AUTO_RETRY_MAX_ATTEMPTS,
+                    PlayerConstants.MAX_AUTO_RETRY_MAX_ATTEMPTS
+                )
+            }
+        }
+        mainScope.launch {
+            preferencesRepository.autoRetryPeriodSeconds.collect { seconds ->
+                val clamped = seconds.coerceIn(
+                    PlayerConstants.MIN_AUTO_RETRY_PERIOD_SECONDS,
+                    PlayerConstants.MAX_AUTO_RETRY_PERIOD_SECONDS
+                )
+                autoRetryIntervalMs = clamped * 1_000L
+            }
+        }
+    }
 
     private fun newNetworkScope(): CoroutineScope =
         CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -124,7 +157,7 @@ class PlayerManager @Inject constructor(
         val cause = error.cause
         if (cause is HttpDataSource.InvalidResponseCodeException) {
             val code = cause.responseCode
-            return code in listOf(401, 403, 404, 408, 429, 500, 502, 503, 504)
+            return code in listOf(404, 408, 429, 500, 502, 503, 504)
         }
         return when (error.errorCode) {
             PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
@@ -137,23 +170,46 @@ class PlayerManager @Inject constructor(
     }
 
     private fun shouldAutoRetry(error: PlaybackException, issue: PlaybackIssue): Boolean {
-        return when (issue) {
-            is PlaybackIssue.Forbidden,
-            is PlaybackIssue.TokenNotFound -> true
-            else -> isRetryableSourceError(error)
+        if (issue is PlaybackIssue.Forbidden || issue is PlaybackIssue.TokenNotFound) {
+            return false
+        }
+        return autoRetryEnabled &&
+            autoRetryMaxAttempts > 0 &&
+            autoRetryIntervalMs > 0L &&
+            !autoRetrySuppressed &&
+            isRetryableSourceError(error)
+    }
+
+    private fun clearRetryingState() {
+        val current = _playerState.value
+        if (current is PlayerState.Error && current.isRetrying) {
+            _playerState.value = current.copy(isRetrying = false)
         }
     }
 
     private fun startAutoRetry(targetIndex: Int) {
         if (targetIndex < 0) return
+        if (!autoRetryEnabled) return
+        if (autoRetryMaxAttempts <= 0) return
+        if (autoRetryIntervalMs <= 0L) return
+        if (autoRetrySuppressed) return
         if (autoRetryTargetIndex == targetIndex && autoRetryJob?.isActive == true) return
         stopAutoRetry()
         autoRetryTargetIndex = targetIndex
         autoRetryJob = mainScope.launch {
             val self = coroutineContext[Job]
+            var attempts = 0
             try {
                 while (isActive) {
-                    delay(SOURCE_AUTO_RETRY_INTERVAL_MS)
+                    val maxAttempts = autoRetryMaxAttempts.coerceAtLeast(1)
+                    if (!autoRetryEnabled || attempts >= maxAttempts) {
+                        if (attempts >= maxAttempts) {
+                            addDebugMessage("  -> Auto-retry stopped after $attempts attempts")
+                        }
+                        clearRetryingState()
+                        return@launch
+                    }
+                    delay(autoRetryIntervalMs)
                     val playerInstance = player ?: return@launch
                     if (playerInstance.currentMediaItemIndex != targetIndex) {
                         return@launch
@@ -161,6 +217,7 @@ class PlayerManager @Inject constructor(
                     if (isUserPaused) {
                         continue
                     }
+                    attempts++
                     val pos = playerInstance.currentPosition.takeIf { it >= 0 } ?: C.TIME_UNSET
                     playerInstance.seekTo(targetIndex, pos)
                     playerInstance.prepare()
@@ -677,7 +734,8 @@ class PlayerManager @Inject constructor(
                     val startingRetry = autoRetryJob?.isActive != true || autoRetryTargetIndex != currentIndex
                     startAutoRetry(currentIndex)
                     if (startingRetry) {
-                        addDebugMessage("  -> Auto-retrying source every ${SOURCE_AUTO_RETRY_INTERVAL_MS}ms")
+                        val periodSeconds = maxOf(1, (autoRetryIntervalMs / 1000L).toInt())
+                        addDebugMessage("  -> Auto-retrying source every ${periodSeconds}s")
                     }
                 } else {
                     stopAutoRetry()
@@ -967,6 +1025,20 @@ class PlayerManager @Inject constructor(
             _playerState.value = retryingError.copy(isRetrying = false)
         }
         player?.playWhenReady = false
+    }
+
+    fun cancelAutoRetry() {
+        stopAutoRetry()
+        clearRetryingState()
+    }
+
+    fun setAutoRetrySuppressed(suppressed: Boolean) {
+        if (autoRetrySuppressed == suppressed) return
+        autoRetrySuppressed = suppressed
+        if (suppressed) {
+            stopAutoRetry()
+            clearRetryingState()
+        }
     }
 
     private fun buildLiveMediaItems(): List<MediaItem> = buildMediaItems(channels)

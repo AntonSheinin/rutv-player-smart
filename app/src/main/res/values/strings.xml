@@ -55,6 +55,9 @@
     <string name="settings_ffmpeg_audio">Use FFmpeg for Audio</string>
     <string name="settings_ffmpeg_video">Use FFmpeg for Video</string>
     <string name="settings_buffer_seconds">Buffer Duration (seconds)</string>
+    <string name="settings_auto_retry_enabled">Auto-retry playback errors</string>
+    <string name="settings_auto_retry_max_attempts">Max retry attempts</string>
+    <string name="settings_auto_retry_period_seconds">Retry period (seconds)</string>
     <string name="settings_show_current_program_in_list">Show current program in channel list</string>
     <string name="settings_epg_config">EPG Configuration</string>
     <string name="settings_epg_url">EPG XML URL</string>
@@ -101,8 +104,6 @@
     <string name="cd_epg_archive_indicator">Available in archive</string>
     <string name="player_return_to_live">Return to Live</string>
     <string name="player_archive_label">DVR &#8226; %1$s</string>
-    <string name="label_playback_issue">Playback issue</string>
-    <string name="label_retrying_stream">Retrying stream...</string>
     <string name="label_retrying_short">Retrying</string>
     <string name="archive_prompt_title">Playback Finished</string>
     <string name="archive_prompt_message">Continue with &quot;%1$s&quot;?</string>

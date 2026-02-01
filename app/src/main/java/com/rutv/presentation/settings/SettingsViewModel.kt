@@ -92,6 +92,24 @@ class SettingsViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            preferencesRepository.autoRetryEnabled.collect { enabled ->
+                _viewState.update { it.copy(autoRetryEnabled = enabled) }
+            }
+        }
+
+        viewModelScope.launch {
+            preferencesRepository.autoRetryMaxAttempts.collect { attempts ->
+                _viewState.update { it.copy(autoRetryMaxAttempts = attempts) }
+            }
+        }
+
+        viewModelScope.launch {
+            preferencesRepository.autoRetryPeriodSeconds.collect { seconds ->
+                _viewState.update { it.copy(autoRetryPeriodSeconds = seconds) }
+            }
+        }
+
+        viewModelScope.launch {
             // Load app language
             preferencesRepository.appLanguage.collect { language ->
                 _viewState.update { it.copy(selectedLanguage = language) }
@@ -349,6 +367,50 @@ class SettingsViewModel @Inject constructor(
                 throw e
             } catch (e: Exception) {
                 Timber.e(e, "Failed to save showCurrentProgramInChannelList")
+            }
+        }
+    }
+
+    fun setAutoRetryEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            try {
+                preferencesRepository.saveAutoRetryEnabled(enabled)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to save auto-retry enabled")
+            }
+        }
+    }
+
+    fun setAutoRetryMaxAttempts(attempts: Int) {
+        viewModelScope.launch {
+            val clamped = attempts.coerceIn(
+                PlayerConstants.MIN_AUTO_RETRY_MAX_ATTEMPTS,
+                PlayerConstants.MAX_AUTO_RETRY_MAX_ATTEMPTS
+            )
+            try {
+                preferencesRepository.saveAutoRetryMaxAttempts(clamped)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to save auto-retry max attempts")
+            }
+        }
+    }
+
+    fun setAutoRetryPeriodSeconds(seconds: Int) {
+        viewModelScope.launch {
+            val clamped = seconds.coerceIn(
+                PlayerConstants.MIN_AUTO_RETRY_PERIOD_SECONDS,
+                PlayerConstants.MAX_AUTO_RETRY_PERIOD_SECONDS
+            )
+            try {
+                preferencesRepository.saveAutoRetryPeriodSeconds(clamped)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to save auto-retry period seconds")
             }
         }
     }

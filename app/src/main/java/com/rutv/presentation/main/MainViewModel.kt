@@ -625,6 +625,7 @@ class MainViewModel @Inject constructor(
                 val mainIndex = currentState.channels.indexOf(channel)
 
                 if (mainIndex >= 0) {
+                    playerManager.setAutoRetrySuppressed(false)
                     playerManager.playChannel(mainIndex)
 
                     // Save last played index
@@ -696,8 +697,12 @@ class MainViewModel @Inject constructor(
      * Toggle playlist visibility
      */
     fun togglePlaylist() {
+        val showPlaylist = !_viewState.value.showPlaylist
+        if (showPlaylist) {
+            playerManager.cancelAutoRetry()
+        }
+        playerManager.setAutoRetrySuppressed(showPlaylist)
         _viewState.update { current ->
-            val showPlaylist = !current.showPlaylist
             current.copy(
                 showPlaylist = showPlaylist,
                 showFavoritesOnly = false,
@@ -711,6 +716,8 @@ class MainViewModel @Inject constructor(
      * Open playlist explicitly with optional favorites filter
      */
     fun openPlaylist(showFavoritesOnly: Boolean = false) {
+        playerManager.cancelAutoRetry()
+        playerManager.setAutoRetrySuppressed(true)
         _viewState.update { current ->
             current.copy(
                 showPlaylist = true,
@@ -725,9 +732,14 @@ class MainViewModel @Inject constructor(
      * Toggle favorites view
      */
     fun toggleFavorites() {
+        val showPlaylist = !_viewState.value.showPlaylist
+        if (showPlaylist) {
+            playerManager.cancelAutoRetry()
+        }
+        playerManager.setAutoRetrySuppressed(showPlaylist)
         _viewState.update {
             it.copy(
-                showPlaylist = !it.showPlaylist,
+                showPlaylist = showPlaylist,
                 showFavoritesOnly = true,
                 showEpgPanel = false
             )
@@ -745,6 +757,7 @@ class MainViewModel @Inject constructor(
      * Close playlist
      */
     fun closePlaylist() {
+        playerManager.setAutoRetrySuppressed(false)
         _viewState.update { current ->
             current.copy(
                 showPlaylist = false,

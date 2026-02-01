@@ -19,4 +19,12 @@ object PlayerConstants {
     // Player
     const val SEEK_INCREMENT_MS = 10_000L
 
+    // Auto-retry (playback errors)
+    const val DEFAULT_AUTO_RETRY_MAX_ATTEMPTS = 10
+    const val MIN_AUTO_RETRY_MAX_ATTEMPTS = 1
+    const val MAX_AUTO_RETRY_MAX_ATTEMPTS = 50
+    const val DEFAULT_AUTO_RETRY_PERIOD_SECONDS = 1
+    const val MIN_AUTO_RETRY_PERIOD_SECONDS = 1
+    const val MAX_AUTO_RETRY_PERIOD_SECONDS = 30
+
 }

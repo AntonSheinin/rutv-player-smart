@@ -114,6 +114,15 @@ class SettingsActivity : ComponentActivity() {
             onBufferSecondsChanged = { seconds: Int ->
                 viewModel.setBufferSeconds(seconds)
             },
+            onAutoRetryEnabledChanged = { enabled: Boolean ->
+                viewModel.setAutoRetryEnabled(enabled)
+            },
+            onAutoRetryMaxAttemptsChanged = { attempts: Int ->
+                viewModel.setAutoRetryMaxAttempts(attempts)
+            },
+            onAutoRetryPeriodSecondsChanged = { seconds: Int ->
+                viewModel.setAutoRetryPeriodSeconds(seconds)
+            },
             onShowCurrentProgramInChannelListChanged = { enabled: Boolean ->
                 viewModel.setShowCurrentProgramInChannelList(enabled)
             },

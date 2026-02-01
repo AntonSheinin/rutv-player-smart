@@ -64,6 +64,10 @@ class PreferencesRepository @Inject constructor(
         val BUFFER_SECONDS = intPreferencesKey("buffer_seconds")
         val SHOW_DEBUG_LOG = booleanPreferencesKey("show_debug_log")
 
+        val AUTO_RETRY_ENABLED = booleanPreferencesKey("auto_retry_enabled")
+        val AUTO_RETRY_MAX_ATTEMPTS = intPreferencesKey("auto_retry_max_attempts")
+        val AUTO_RETRY_PERIOD_SECONDS = intPreferencesKey("auto_retry_period_seconds")
+
         // UI performance/UX: showing per-channel "current program" in the playlist requires
         // frequent state updates as time progresses. Some devices prefer a simpler list.
         val SHOW_CURRENT_PROGRAM_IN_CHANNEL_LIST = booleanPreferencesKey("show_current_program_in_channel_list")
@@ -284,6 +288,42 @@ class PreferencesRepository @Inject constructor(
             preferences[PreferencesKeys.SHOW_DEBUG_LOG] = config.showDebugLog
         }
         logDebug { "Saved player config: $config" }
+    }
+
+    val autoRetryEnabled: Flow<Boolean> = dataStore.data
+        .map { preferences ->
+            preferences[PreferencesKeys.AUTO_RETRY_ENABLED] ?: true
+        }
+
+    val autoRetryMaxAttempts: Flow<Int> = dataStore.data
+        .map { preferences ->
+            preferences[PreferencesKeys.AUTO_RETRY_MAX_ATTEMPTS] ?: PlayerConstants.DEFAULT_AUTO_RETRY_MAX_ATTEMPTS
+        }
+
+    val autoRetryPeriodSeconds: Flow<Int> = dataStore.data
+        .map { preferences ->
+            preferences[PreferencesKeys.AUTO_RETRY_PERIOD_SECONDS] ?: PlayerConstants.DEFAULT_AUTO_RETRY_PERIOD_SECONDS
+        }
+
+    suspend fun saveAutoRetryEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.AUTO_RETRY_ENABLED] = enabled
+        }
+        logDebug { "Saved auto-retry enabled: $enabled" }
+    }
+
+    suspend fun saveAutoRetryMaxAttempts(attempts: Int) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.AUTO_RETRY_MAX_ATTEMPTS] = attempts
+        }
+        logDebug { "Saved auto-retry max attempts: $attempts" }
+    }
+
+    suspend fun saveAutoRetryPeriodSeconds(seconds: Int) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.AUTO_RETRY_PERIOD_SECONDS] = seconds
+        }
+        logDebug { "Saved auto-retry period seconds: $seconds" }
     }
 
     /**

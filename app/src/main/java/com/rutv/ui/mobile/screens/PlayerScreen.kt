@@ -530,11 +530,10 @@ fun PlayerScreen(
         playbackErrorText?.let { text ->
             PlaybackStatusOverlay(
                 text = text,
-                isRetrying = playbackRetrying,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .padding(top = 88.dp)
-                    .fillMaxWidth(0.6f)
+                    .fillMaxWidth(0.45f)
             )
         }
 
@@ -666,7 +665,6 @@ fun PlayerScreen(
 @Composable
 private fun PlaybackStatusOverlay(
     text: String,
-    isRetrying: Boolean,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -678,7 +676,7 @@ private fun PlaybackStatusOverlay(
     ) {
         Row(
             modifier = Modifier
-                .padding(horizontal = 14.dp, vertical = 10.dp),
+                .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
@@ -687,27 +685,13 @@ private fun PlaybackStatusOverlay(
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onErrorContainer
             )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.label_playback_issue),
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                    style = MaterialTheme.typography.titleSmall
-                )
-                Text(
-                    text = text,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 3,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                )
-                if (isRetrying) {
-                    Text(
-                        text = stringResource(R.string.label_retrying_stream),
-                        color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f),
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
+            Text(
+                text = text,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 2,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+            )
         }
     }
 }

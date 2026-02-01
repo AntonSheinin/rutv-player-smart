@@ -63,6 +63,9 @@ fun SettingsScreen(
     onFfmpegAudioChanged: (Boolean) -> Unit,
     onFfmpegVideoChanged: (Boolean) -> Unit,
     onBufferSecondsChanged: (Int) -> Unit,
+    onAutoRetryEnabledChanged: (Boolean) -> Unit,
+    onAutoRetryMaxAttemptsChanged: (Int) -> Unit,
+    onAutoRetryPeriodSecondsChanged: (Int) -> Unit,
     onShowCurrentProgramInChannelListChanged: (Boolean) -> Unit,
     onEpgUrlChanged: (String) -> Unit,
     onEpgDaysAheadChanged: (Int) -> Unit,
@@ -336,6 +339,34 @@ fun SettingsScreen(
                     onValueChange = onBufferSecondsChanged,
                     minValue = PlayerConstants.MIN_BUFFER_SECONDS,
                     maxValue = PlayerConstants.MAX_BUFFER_SECONDS
+                )
+            }
+
+            item {
+                SwitchSetting(
+                    label = stringResource(R.string.settings_auto_retry_enabled),
+                    checked = viewState.autoRetryEnabled,
+                    onCheckedChange = onAutoRetryEnabledChanged
+                )
+            }
+
+            item {
+                NumberInputSetting(
+                    label = stringResource(R.string.settings_auto_retry_max_attempts),
+                    value = viewState.autoRetryMaxAttempts,
+                    onValueChange = onAutoRetryMaxAttemptsChanged,
+                    minValue = PlayerConstants.MIN_AUTO_RETRY_MAX_ATTEMPTS,
+                    maxValue = PlayerConstants.MAX_AUTO_RETRY_MAX_ATTEMPTS
+                )
+            }
+
+            item {
+                NumberInputSetting(
+                    label = stringResource(R.string.settings_auto_retry_period_seconds),
+                    value = viewState.autoRetryPeriodSeconds,
+                    onValueChange = onAutoRetryPeriodSecondsChanged,
+                    minValue = PlayerConstants.MIN_AUTO_RETRY_PERIOD_SECONDS,
+                    maxValue = PlayerConstants.MAX_AUTO_RETRY_PERIOD_SECONDS
                 )
             }
 
