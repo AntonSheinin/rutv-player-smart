@@ -655,7 +655,7 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    private fun playChannelInternal(channel: Channel, mainIndex: Int) {
+    private suspend fun playChannelInternal(channel: Channel, mainIndex: Int) {
         val filteredIndex = _viewState.value.filteredChannels.indexOfFirst { it.url == channel.url }
         playerManager.setAutoRetrySuppressed(false)
         playerManager.playChannel(mainIndex)
