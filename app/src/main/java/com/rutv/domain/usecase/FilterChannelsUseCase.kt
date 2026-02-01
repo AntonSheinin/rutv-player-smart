@@ -8,16 +8,18 @@ import javax.inject.Inject
  */
 class FilterChannelsUseCase @Inject constructor() {
     /**
-     * Filter channels based on favorites flag
+     * Filter channels based on favorites flag and optional group selection.
      */
     operator fun invoke(
         channels: List<Channel>,
-        showFavoritesOnly: Boolean
+        showFavoritesOnly: Boolean,
+        selectedGroup: String?
     ): List<Channel> {
-        return if (showFavoritesOnly) {
-            channels.filter { it.isFavorite }
-        } else {
-            channels
+        val normalizedGroup = selectedGroup?.trim().takeIf { !it.isNullOrBlank() }
+        return channels.filter { channel ->
+            val matchesFavorite = !showFavoritesOnly || channel.isFavorite
+            val matchesGroup = normalizedGroup == null || channel.allGroups.any { it.trim() == normalizedGroup }
+            matchesFavorite && matchesGroup
         }
     }
 }

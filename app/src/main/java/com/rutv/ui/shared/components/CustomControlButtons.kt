@@ -13,7 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.AspectRatio
-import androidx.compose.material.icons.filled.Numbers
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.ScreenRotation
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
@@ -60,7 +60,7 @@ private enum class ColumnSide { LEFT, RIGHT }
 fun CustomControlButtons(
     onPlaylistClick: () -> Unit,
     onFavoritesClick: () -> Unit,
-    onGoToChannelClick: () -> Unit,
+    onChannelGroupsClick: () -> Unit,
     onAspectRatioClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onNavigateRightFromFavorites: (() -> Unit)? = null,
@@ -255,9 +255,9 @@ fun CustomControlButtons(
                     onClick = onFavoritesClick
                 ),
                 ControlButtonData(
-                    icon = Icons.Default.Numbers,
-                    description = R.string.cd_go_to_channel_button,
-                    onClick = onGoToChannelClick
+                    icon = Icons.Default.FilterList,
+                    description = R.string.cd_channel_groups_button,
+                    onClick = onChannelGroupsClick
                 )
             ),
             focusRequesters = leftColumnFocusRequesters,

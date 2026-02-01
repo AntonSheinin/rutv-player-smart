@@ -3,6 +3,7 @@
 
     <!-- Dialog Titles -->
     <string name="dialog_title_go_to_channel">Go to Channel</string>
+    <string name="dialog_title_channel_groups">Channel Groups</string>
     <string name="dialog_title_search_channel">Search Channel</string>
     <string name="dialog_title_no_playlist">No Playlist Configured</string>
     <string name="dialog_title_load_playlist_url">Load Playlist from URL</string>
@@ -12,6 +13,7 @@
     <string name="dialog_title_epg_date_picker">Select Date</string>
     <!-- Dialog Messages -->
     <string name="dialog_message_no_playlist">Please go to Settings to configure your playlist source (URL or file) to start watching channels.</string>
+    <string name="dialog_message_no_channel_groups">No channel groups found.</string>
     <string name="dialog_message_no_playlist_loaded">No playlist is currently loaded. Please load a playlist first.</string>
     <string name="dialog_message_reload_playlist">This will reload the playlist from the original source and refresh all EPG data (tvg-id, catchup-days, etc.).</string>
     <string name="dialog_message_close_app">Are you sure you want to close the app?</string>
@@ -19,6 +21,7 @@
     <!-- Buttons -->
     <string name="button_ok">OK</string>
     <string name="button_cancel">Cancel</string>
+    <string name="button_reset">Reset</string>
     <string name="button_open_settings">Open Settings</string>
     <string name="button_exit">Exit</string>
     <string name="button_save">Save</string>
@@ -97,6 +100,7 @@
     <string name="cd_playlist_button">Show playlist</string>
     <string name="cd_settings_button">Open settings</string>
     <string name="cd_go_to_channel_button">Go to channel number</string>
+    <string name="cd_channel_groups_button">Choose channel group</string>
     <string name="cd_close_playlist">Close playlist</string>
     <string name="cd_search_channel">Search channel</string>
     <string name="cd_aspect_ratio_button">Change aspect ratio</string>

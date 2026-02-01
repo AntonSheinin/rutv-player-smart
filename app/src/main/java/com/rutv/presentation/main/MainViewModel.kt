@@ -150,19 +150,22 @@ class MainViewModel @Inject constructor(
 
                 when (state) {
                     is PlayerState.Ready -> {
+                        val filteredIndex = _viewState.value.filteredChannels
+                            .indexOfFirst { it.url == state.channel.url }
                         _viewState.update {
                             val channelChanged = it.currentChannelIndex != state.index ||
                                 it.currentChannel?.url != state.channel.url
                             it.copy(
                                 currentChannel = state.channel,
                                 currentChannelIndex = state.index,
+                                currentChannelFilteredIndex = filteredIndex,
                                 isArchivePlayback = false,
                                 isTimeshiftPlayback = if (channelChanged) false else it.isTimeshiftPlayback,
                                 archiveProgram = null,
                                 archivePrompt = null
                             )
                         }
-                        ensureChannelVisibility(state.index)
+                        ensureChannelVisibility(filteredIndex)
                         // Update current program (will wait if EPG not loaded yet)
                         viewModelScope.launch(Dispatchers.Default) {
                             updateCurrentProgram(state.channel)
@@ -170,6 +173,8 @@ class MainViewModel @Inject constructor(
                     }
                     is PlayerState.Archive -> {
                         if (state.endReason == null) {
+                            val filteredIndex = _viewState.value.filteredChannels
+                                .indexOfFirst { it.url == state.channel.url }
                             _viewState.update {
                                 it.copy(
                                     currentChannel = state.channel,
@@ -177,11 +182,11 @@ class MainViewModel @Inject constructor(
                                     isArchivePlayback = true,
                                     isTimeshiftPlayback = false,
                                     archiveProgram = state.program,
-                                    archivePrompt = null
+                                    archivePrompt = null,
+                                    currentChannelFilteredIndex = filteredIndex
                                 )
                             }
-                            val archiveIndex = _viewState.value.channels.indexOfFirst { it.url == state.channel.url }
-                            ensureChannelVisibility(archiveIndex)
+                            ensureChannelVisibility(filteredIndex)
                         } else {
                             viewModelScope.launch {
                                 handleArchiveCompletion(state.channel, state.program)
@@ -282,9 +287,10 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             combine(
                 _viewState.map { it.channels }.distinctUntilChanged(),
-                _viewState.map { it.showFavoritesOnly }.distinctUntilChanged()
-            ) { channels, showFavoritesOnly ->
-                filterChannelsUseCase(channels, showFavoritesOnly)
+                _viewState.map { it.showFavoritesOnly }.distinctUntilChanged(),
+                _viewState.map { it.selectedGroup }.distinctUntilChanged()
+            ) { channels, showFavoritesOnly, selectedGroup ->
+                filterChannelsUseCase(channels, showFavoritesOnly, selectedGroup)
             }
                 .flowOn(Dispatchers.Default)
                 .collect { filtered ->
@@ -295,21 +301,24 @@ class MainViewModel @Inject constructor(
 
     private fun updateFilteredChannels(filtered: List<Channel>) {
         val visibleCount = filtered.size.coerceAtMost(DEFAULT_VISIBLE_CHANNELS)
+        val currentChannelUrl = _viewState.value.currentChannel?.url
+        val playingIndex = if (!currentChannelUrl.isNullOrBlank()) {
+            filtered.indexOfFirst { it.url == currentChannelUrl }
+        } else {
+            -1
+        }
         _viewState.update { current ->
             if (current.filteredChannels === filtered && current.visibleChannelCount == visibleCount) {
                 current
             } else {
                 current.copy(
                     filteredChannels = filtered,
-                    visibleChannelCount = visibleCount
+                    visibleChannelCount = visibleCount,
+                    currentChannelFilteredIndex = playingIndex
                 )
             }
         }
-        val currentChannelUrl = _viewState.value.currentChannel?.url
-        if (!currentChannelUrl.isNullOrBlank()) {
-            val playingIndex = filtered.indexOfFirst { it.url == currentChannelUrl }
-            ensureChannelVisibility(playingIndex)
-        }
+        ensureChannelVisibility(playingIndex)
     }
 
     fun requestMoreChannels(targetIndex: Int) {
@@ -357,7 +366,15 @@ class MainViewModel @Inject constructor(
                         val startIndex = startChannel?.let { ch ->
                             channels.indexOf(ch).takeIf { idx -> idx >= 0 }
                         } ?: 0
-                        ensureChannelVisibility(startIndex)
+                        val filtered = filterChannelsUseCase(
+                            channels,
+                            _viewState.value.showFavoritesOnly,
+                            _viewState.value.selectedGroup
+                        )
+                        val filteredIndex = startChannel?.let { ch ->
+                            filtered.indexOfFirst { it.url == ch.url }
+                        } ?: if (filtered.isNotEmpty()) 0 else -1
+                        ensureChannelVisibility(filteredIndex)
                     }
 
                     // Background refresh for URL playlists to get fresh content without blocking cold start.
@@ -611,40 +628,53 @@ class MainViewModel @Inject constructor(
 
     /**
      * Play channel at index.
-     * Handles filtered lists (favorites) by mapping index to main list.
+     * Index is resolved against the current filtered list (favorites/group).
      */
     fun playChannel(index: Int) {
         viewModelScope.launch {
-            // Map index from current filtered list to actual channel
             val currentState = _viewState.value
-            val channelList = if (currentState.showFavoritesOnly) currentState.filteredChannels else currentState.channels
+            val channelList = currentState.filteredChannels
+            if (index !in channelList.indices) return@launch
 
-            if (index in channelList.indices) {
-                val channel = channelList[index]
-                // Find true index in main channel list
-                val mainIndex = currentState.channels.indexOf(channel)
+            val channel = channelList[index]
+            val mainIndex = currentState.channels.indexOf(channel)
+            if (mainIndex < 0) return@launch
 
-                if (mainIndex >= 0) {
-                    playerManager.setAutoRetrySuppressed(false)
-                    playerManager.playChannel(mainIndex)
+            playChannelInternal(channel, mainIndex)
+        }
+    }
 
-                    // Save last played index
-                    preferencesRepository.saveLastPlayedIndex(mainIndex)
+    /**
+     * Play channel by absolute index from the full playlist.
+     */
+    fun playChannelByMainIndex(index: Int) {
+        viewModelScope.launch {
+            val currentState = _viewState.value
+            val channel = currentState.channels.getOrNull(index) ?: return@launch
+            playChannelInternal(channel, index)
+        }
+    }
 
-                    // Hide playlist and EPG
-                    _viewState.update {
-                        it.copy(
-                            showPlaylist = false,
-                            showEpgPanel = false,
-                            isArchivePlayback = false,
-                            isTimeshiftPlayback = false,
-                            archiveProgram = null,
-                            currentChannelIndex = mainIndex,
-                            currentChannel = channel
-                        )
-                    }
-                }
-            }
+    private fun playChannelInternal(channel: Channel, mainIndex: Int) {
+        val filteredIndex = _viewState.value.filteredChannels.indexOfFirst { it.url == channel.url }
+        playerManager.setAutoRetrySuppressed(false)
+        playerManager.playChannel(mainIndex)
+
+        // Save last played index
+        preferencesRepository.saveLastPlayedIndex(mainIndex)
+
+        // Hide playlist and EPG
+        _viewState.update {
+            it.copy(
+                showPlaylist = false,
+                showEpgPanel = false,
+                isArchivePlayback = false,
+                isTimeshiftPlayback = false,
+                archiveProgram = null,
+                currentChannelIndex = mainIndex,
+                currentChannelFilteredIndex = filteredIndex,
+                currentChannel = channel
+            )
         }
     }
 
@@ -744,6 +774,21 @@ class MainViewModel @Inject constructor(
                 showEpgPanel = false
             )
         }
+    }
+
+    fun setChannelGroupFilter(group: String?) {
+        val normalized = group?.trim().takeIf { !it.isNullOrBlank() }
+        _viewState.update { current ->
+            if (current.selectedGroup == normalized) {
+                current
+            } else {
+                current.copy(selectedGroup = normalized)
+            }
+        }
+    }
+
+    fun resetChannelGroupFilter() {
+        setChannelGroupFilter(null)
     }
 
     fun updatePlaylistScrollIndex(index: Int) {
@@ -1123,6 +1168,7 @@ class MainViewModel @Inject constructor(
         val started = playerManager.playArchive(channel, program)
         if (!started) return
         val channelIndex = _viewState.value.channels.indexOfFirst { it.url == channel.url }.coerceAtLeast(0)
+        val filteredIndex = _viewState.value.filteredChannels.indexOfFirst { it.url == channel.url }
 
         _viewState.update {
             it.copy(
@@ -1131,6 +1177,7 @@ class MainViewModel @Inject constructor(
                 archiveProgram = program,
                 currentChannel = channel,
                 currentChannelIndex = channelIndex,
+                currentChannelFilteredIndex = filteredIndex,
                 currentProgram = program,
                 showPlaylist = false,
                 showEpgPanel = false,

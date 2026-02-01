@@ -2,13 +2,19 @@ package com.rutv.presentation
 
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -38,6 +44,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.rutv.R
 import com.rutv.ui.shared.components.RemoteDialog
+import com.rutv.ui.shared.components.focusIndicatorModifier
 import com.rutv.ui.shared.components.remoteDialogTextFieldNavigation
 import com.rutv.ui.theme.ruTvColors
 import com.rutv.util.DeviceHelper
@@ -261,6 +268,123 @@ internal fun GoToChannelDialog(
             }
         },
         shape = RoundedCornerShape(16.dp)
+    )
+}
+
+@Composable
+internal fun ChannelGroupDialog(
+    show: Boolean,
+    groups: List<String>,
+    selectedGroup: String?,
+    onSelectGroup: (String) -> Unit,
+    onReset: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (!show) return
+
+    val groupFocusRequesters = remember(groups) { List(groups.size) { FocusRequester() } }
+    val resetFocus = remember { FocusRequester() }
+    val cancelFocus = remember { FocusRequester() }
+    val initialIndex = remember(groups, selectedGroup) {
+        groups.indexOfFirst { it == selectedGroup }.takeIf { it >= 0 } ?: 0
+    }
+
+    LaunchedEffect(show, groups, selectedGroup) {
+        if (!show) return@LaunchedEffect
+        withFrameNanos { }
+        when {
+            groups.isNotEmpty() -> groupFocusRequesters.getOrNull(initialIndex)?.requestFocus()
+            else -> resetFocus.requestFocus()
+        }
+    }
+
+    RemoteDialog(
+        onDismissRequest = onDismiss,
+        autoFocusConfirm = false,
+        confirmButtonFocusRequester = resetFocus,
+        dismissButtonFocusRequester = cancelFocus,
+        textFocusRequester = groupFocusRequesters.getOrNull(initialIndex),
+        containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f),
+        onConfirm = {
+            onReset()
+            onDismiss()
+        },
+        title = {
+            Text(
+                text = stringResource(R.string.dialog_title_channel_groups),
+                color = MaterialTheme.ruTvColors.gold,
+                style = MaterialTheme.typography.titleLarge
+            )
+        },
+        text = {
+            if (groups.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.dialog_message_no_channel_groups),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.ruTvColors.textPrimary
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 320.dp),
+                    contentPadding = PaddingValues(vertical = 4.dp)
+                ) {
+                    itemsIndexed(groups) { index, group ->
+                        val isSelected = group == selectedGroup
+                        var isFocused by remember { mutableStateOf(false) }
+                        TextButton(
+                            onClick = {
+                                onSelectGroup(group)
+                                onDismiss()
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 2.dp)
+                                .focusRequester(groupFocusRequesters[index])
+                                .onFocusChanged { state -> isFocused = state.isFocused }
+                                .focusable()
+                                .then(focusIndicatorModifier(isFocused = isFocused)),
+                            colors = ButtonDefaults.textButtonColors(
+                                contentColor = if (isSelected) {
+                                    MaterialTheme.ruTvColors.gold
+                                } else {
+                                    MaterialTheme.ruTvColors.textPrimary
+                                }
+                            )
+                        ) {
+                            Text(text = group)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                onReset()
+                onDismiss()
+            }, modifier = Modifier.focusable(false)) {
+                Text(
+                    text = stringResource(R.string.button_reset),
+                    color = MaterialTheme.ruTvColors.gold
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, modifier = Modifier.focusable(false)) {
+                Text(
+                    text = stringResource(R.string.button_cancel),
+                    color = MaterialTheme.ruTvColors.textPrimary
+                )
+            }
+        },
+        shape = RoundedCornerShape(16.dp),
+        modifier = modifier.border(
+            2.dp,
+            MaterialTheme.ruTvColors.gold.copy(alpha = 0.7f),
+            RoundedCornerShape(16.dp)
+        )
     )
 }
 

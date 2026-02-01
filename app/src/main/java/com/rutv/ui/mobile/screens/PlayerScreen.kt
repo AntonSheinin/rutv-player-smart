@@ -119,7 +119,7 @@ fun PlayerScreen(
     // Store focus requesters for custom controls (for ExoPlayer navigation)
     var leftColumnFocusRequesters by remember { mutableStateOf<List<FocusRequester>?>(null) }
     var rightColumnFocusRequesters by remember { mutableStateOf<List<FocusRequester>?>(null) }
-    var lastFocusedPlaylistIndex by remember { mutableIntStateOf(uiState.currentChannelIndex.coerceAtLeast(0)) }
+    var lastFocusedPlaylistIndex by remember { mutableIntStateOf(uiState.currentChannelFilteredIndex.coerceAtLeast(0)) }
     var lastControlsSignature by remember { mutableStateOf<ControlsSignature?>(null) }
     val customControlFocusCoordinator = rememberCustomControlFocusCoordinator()
 
@@ -302,7 +302,7 @@ fun PlayerScreen(
                     }
                     Key.DirectionLeft -> {
                         if (currentFocus == PlayerFocusDestination.NONE) {
-                            lastFocusedPlaylistIndex = uiState.currentChannelIndex.coerceAtLeast(0)
+                            lastFocusedPlaylistIndex = uiState.currentChannelFilteredIndex.coerceAtLeast(0)
                             if (!uiState.showPlaylist) {
                                 actions.onTogglePlaylist()
                             }
@@ -314,7 +314,7 @@ fun PlayerScreen(
                     }
                     Key.DirectionRight -> {
                         if (currentFocus == PlayerFocusDestination.NONE) {
-                            lastFocusedPlaylistIndex = uiState.currentChannelIndex.coerceAtLeast(0)
+                            lastFocusedPlaylistIndex = uiState.currentChannelFilteredIndex.coerceAtLeast(0)
                             if (!uiState.showPlaylist) {
                                 actions.onTogglePlaylist()
                             }
@@ -420,7 +420,7 @@ fun PlayerScreen(
             CustomControlButtons(
                 onPlaylistClick = actions.onTogglePlaylist,
                 onFavoritesClick = actions.onToggleFavorites,
-                onGoToChannelClick = actions.onGoToChannel,
+                onChannelGroupsClick = actions.onShowChannelGroups,
                 onAspectRatioClick = actions.onCycleAspectRatio,
                 onSettingsClick = actions.onOpenSettings,
                 onNavigateRightFromFavorites = {
@@ -501,8 +501,13 @@ fun PlayerScreen(
         // No animation - hide/show instantly together with ExoPlayer controls
         if (showControls) {
             uiState.currentChannel?.let { channel ->
+                val displayChannelNumber = if (uiState.currentChannelFilteredIndex >= 0) {
+                    uiState.currentChannelFilteredIndex + 1
+                } else {
+                    uiState.currentChannelIndex + 1
+                }
                 ChannelInfoOverlay(
-                    channelNumber = uiState.currentChannelIndex + 1,
+                    channelNumber = displayChannelNumber,
                     channel = channel,
                     currentProgram = uiState.currentProgram,
                     isArchivePlayback = uiState.isArchivePlayback,
@@ -547,7 +552,7 @@ fun PlayerScreen(
             // Focus the specific channel index
             val targetIndex = when {
                 lastFocusedPlaylistIndex >= 0 -> lastFocusedPlaylistIndex
-                uiState.currentChannelIndex >= 0 -> uiState.currentChannelIndex
+                uiState.currentChannelFilteredIndex >= 0 -> uiState.currentChannelFilteredIndex
                 else -> -1
             }
             val resolvedIndex = when {
@@ -565,7 +570,7 @@ fun PlayerScreen(
                 allChannels = allChannels,
                 visibleChannels = displayedChannels,
                 playlistTitleResId = uiState.playlistTitleResId,
-                currentChannelIndex = uiState.currentChannelIndex,
+                currentChannelIndex = uiState.currentChannelFilteredIndex,
                 currentChannelStatusText = if (playbackRetrying && playbackErrorText != null) {
                     "${playbackErrorText} - $retryingLabel"
                 } else {

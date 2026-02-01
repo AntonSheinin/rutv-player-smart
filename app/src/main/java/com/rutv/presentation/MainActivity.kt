@@ -63,12 +63,15 @@ class MainActivity : ComponentActivity() {
 
     // State holder for PlayerScreen controls toggle
     private var toggleControlsCallback: (() -> Unit)? = null
+    private var openChannelDialogCallback: (() -> Unit)? = null
 
     // State for Close App dialog (accessible from both composable and onKeyDown)
     private var showCloseAppDialogState: MutableState<Boolean>? = null
 
     // State for controls visibility
     private var areControlsVisible = false
+    private var pendingOkToggle = false
+    private var okLongPressHandled = false
 
     override fun attachBaseContext(newBase: Context) {
         // Locale must be applied before resources are loaded; we read synchronously.
@@ -134,6 +137,7 @@ class MainActivity : ComponentActivity() {
 
         var showNoPlaylistDialog by remember { mutableStateOf(false) }
         var showChannelDialog by remember { mutableStateOf(false) }
+        var showGroupDialog by remember { mutableStateOf(false) }
         var channelInput by remember { mutableStateOf("") }
 
         // Close App dialog state (shared between composable and onKeyDown)
@@ -172,6 +176,20 @@ class MainActivity : ComponentActivity() {
         }
 
         val playerUiState = rememberPlayerUiState(viewState)
+        val openChannelDialog = {
+            if (viewState.filteredChannels.isNotEmpty() && !showChannelDialog) {
+                channelInput = ""
+                showChannelDialog = true
+            }
+        }
+        DisposableEffect(openChannelDialog) {
+            openChannelDialogCallback = openChannelDialog
+            onDispose {
+                if (openChannelDialogCallback === openChannelDialog) {
+                    openChannelDialogCallback = null
+                }
+            }
+        }
         val playerActions = PlayerUiActions(
             onPlayChannel = { index -> viewModel.playChannel(index) },
             onToggleFavorite = { url -> viewModel.toggleFavorite(url) },
@@ -185,10 +203,9 @@ class MainActivity : ComponentActivity() {
                 languageBeforeSettings = LocaleHelper.getSavedLanguage(this@MainActivity)
                 settingsLauncher.launch(Intent(context, SettingsActivity::class.java))
             },
-            onGoToChannel = {
+            onShowChannelGroups = {
                 if (playerUiState.hasChannels) {
-                    channelInput = ""
-                    showChannelDialog = true
+                    showGroupDialog = true
                 }
             },
             onShowProgramDetails = { program -> viewModel.showProgramDetails(program) },
@@ -237,7 +254,7 @@ class MainActivity : ComponentActivity() {
 
         val onConfirmChannel = {
             channelInput.toIntOrNull()?.let { number ->
-                if (number in 1..viewState.channels.size) {
+                if (number in 1..viewState.filteredChannels.size) {
                     viewModel.playChannel(number - 1)
                 }
             }
@@ -247,10 +264,32 @@ class MainActivity : ComponentActivity() {
         GoToChannelDialog(
             show = showChannelDialog,
             channelInput = channelInput,
-            channelCount = viewState.channels.size,
+            channelCount = viewState.filteredChannels.size,
             onChannelInputChange = { channelInput = it },
             onConfirm = onConfirmChannel,
             onDismiss = { showChannelDialog = false }
+        )
+
+        val channelGroups = remember(viewState.channels) {
+            viewState.channels
+                .flatMap { it.allGroups }
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .distinct()
+                .sorted()
+        }
+
+        ChannelGroupDialog(
+            show = showGroupDialog,
+            groups = channelGroups,
+            selectedGroup = viewState.selectedGroup,
+            onSelectGroup = { group ->
+                viewModel.setChannelGroupFilter(group)
+            },
+            onReset = {
+                viewModel.resetChannelGroupFilter()
+            },
+            onDismiss = { showGroupDialog = false }
         )
 
         CloseAppDialog(
@@ -456,6 +495,24 @@ class MainActivity : ComponentActivity() {
                 KeyEvent.KEYCODE_ENTER,
                 KeyEvent.KEYCODE_BUTTON_A -> {
                     val currentState = viewModel.viewState.value
+                    val handleFullscreenOk = !areControlsVisible &&
+                        !currentState.showPlaylist &&
+                        !currentState.showEpgPanel
+                    if (handleFullscreenOk) {
+                        if (event.repeatCount > 0 || event.isLongPress) {
+                            if (!okLongPressHandled) {
+                                okLongPressHandled = true
+                                pendingOkToggle = false
+                                openChannelDialogCallback?.invoke()
+                            }
+                            return true
+                        }
+                        if (event.repeatCount == 0) {
+                            pendingOkToggle = true
+                            okLongPressHandled = false
+                            return true
+                        }
+                    }
                     // If channel list or EPG panel is open, let focused item handle OK
                     // (e.g., play channel from channel list, or play archive/show details in EPG)
                     if (currentState.showPlaylist || currentState.showEpgPanel) {
@@ -548,24 +605,72 @@ class MainActivity : ComponentActivity() {
         return super.onKeyDown(keyCode, event)
     }
 
+    override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+        event ?: return super.onKeyUp(keyCode, event)
+
+        val isRemote = DeviceHelper.isRemoteInputActive()
+        if (!isRemote) return super.onKeyUp(keyCode, event)
+
+        when (keyCode) {
+            KeyEvent.KEYCODE_DPAD_CENTER,
+            KeyEvent.KEYCODE_ENTER,
+            KeyEvent.KEYCODE_BUTTON_A -> {
+                val currentState = viewModel.viewState.value
+                val handleFullscreenOk = !areControlsVisible &&
+                    !currentState.showPlaylist &&
+                    !currentState.showEpgPanel
+
+                if (handleFullscreenOk) {
+                    if (okLongPressHandled) {
+                        okLongPressHandled = false
+                        pendingOkToggle = false
+                        return true
+                    }
+                    if (pendingOkToggle) {
+                        pendingOkToggle = false
+                        toggleControlsCallback?.invoke()
+                        return true
+                    }
+                }
+
+                if (pendingOkToggle || okLongPressHandled) {
+                    pendingOkToggle = false
+                    okLongPressHandled = false
+                }
+            }
+        }
+
+        return super.onKeyUp(keyCode, event)
+    }
+
     /**
      * Handle channel switching
      */
     private fun switchChannelUp() {
-        val currentIndex = viewModel.viewState.value.currentChannelIndex
-        val channels = viewModel.viewState.value.channels
-        if (channels.isNotEmpty()) {
-            val nextIndex = if (currentIndex < channels.size - 1) currentIndex + 1 else 0
-            viewModel.playChannel(nextIndex)
+        val state = viewModel.viewState.value
+        val channels = state.filteredChannels
+        if (channels.isEmpty()) return
+        val currentUrl = state.currentChannel?.url
+        val currentIndex = if (currentUrl.isNullOrBlank()) {
+            0
+        } else {
+            channels.indexOfFirst { it.url == currentUrl }.takeIf { it >= 0 } ?: 0
         }
+        val nextIndex = if (currentIndex < channels.size - 1) currentIndex + 1 else 0
+        viewModel.playChannel(nextIndex)
     }
 
     private fun switchChannelDown() {
-        val currentIndex = viewModel.viewState.value.currentChannelIndex
-        val channels = viewModel.viewState.value.channels
-        if (channels.isNotEmpty()) {
-            val prevIndex = if (currentIndex > 0) currentIndex - 1 else channels.size - 1
-            viewModel.playChannel(prevIndex)
+        val state = viewModel.viewState.value
+        val channels = state.filteredChannels
+        if (channels.isEmpty()) return
+        val currentUrl = state.currentChannel?.url
+        val currentIndex = if (currentUrl.isNullOrBlank()) {
+            0
+        } else {
+            channels.indexOfFirst { it.url == currentUrl }.takeIf { it >= 0 } ?: 0
         }
+        val prevIndex = if (currentIndex > 0) currentIndex - 1 else channels.size - 1
+        viewModel.playChannel(prevIndex)
     }
 }
