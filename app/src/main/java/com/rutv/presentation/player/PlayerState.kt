@@ -17,7 +17,11 @@ sealed class PlayerState {
         val program: EpgProgram,
         val endReason: ArchiveEndReason? = null
     ) : PlayerState()
-    data class Error(val issue: PlaybackIssue, val channel: Channel?) : PlayerState()
+    data class Error(
+        val issue: PlaybackIssue,
+        val channel: Channel?,
+        val isRetrying: Boolean = false
+    ) : PlayerState()
     object Ended : PlayerState()
 }
 

@@ -521,15 +521,16 @@ fun PlayerScreen(
         }
 
         // Playback error/status overlay (always visible; user must understand provider/token states)
-        val playbackErrorText = remember(uiState.playerState) {
-            when (val st = uiState.playerState) {
-                is PlayerState.Error -> st.issue.userMessage
-                else -> null
-            }
+        val playbackError = remember(uiState.playerState) {
+            uiState.playerState as? PlayerState.Error
         }
+        val playbackErrorText = playbackError?.issue?.userMessage
+        val playbackRetrying = playbackError?.isRetrying == true
+        val retryingLabel = stringResource(R.string.label_retrying_short)
         playbackErrorText?.let { text ->
             PlaybackStatusOverlay(
                 text = text,
+                isRetrying = playbackRetrying,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .padding(top = 88.dp)
@@ -566,7 +567,11 @@ fun PlayerScreen(
                 visibleChannels = displayedChannels,
                 playlistTitleResId = uiState.playlistTitleResId,
                 currentChannelIndex = uiState.currentChannelIndex,
-                currentChannelStatusText = playbackErrorText,
+                currentChannelStatusText = if (playbackRetrying && playbackErrorText != null) {
+                    "${playbackErrorText} - $retryingLabel"
+                } else {
+                    playbackErrorText
+                },
                 initialScrollIndex = uiState.lastPlaylistScrollIndex,
                 epgOpenIndex = if (uiState.showEpgPanel) {
                     // Find the index of the channel whose EPG is open
@@ -661,6 +666,7 @@ fun PlayerScreen(
 @Composable
 private fun PlaybackStatusOverlay(
     text: String,
+    isRetrying: Boolean,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -670,14 +676,39 @@ private fun PlaybackStatusOverlay(
         ),
         border = BorderStroke(2.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.85f))
     ) {
-        Text(
-            text = text,
-            color = MaterialTheme.colorScheme.onErrorContainer,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            maxLines = 2,
-            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-        )
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Warning,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onErrorContainer
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.label_playback_issue),
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Text(
+                    text = text,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 3,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
+                if (isRetrying) {
+                    Text(
+                        text = stringResource(R.string.label_retrying_stream),
+                        color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        }
     }
 }
 

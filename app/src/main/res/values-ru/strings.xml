@@ -98,6 +98,9 @@
     <string name="cd_epg_archive_indicator">Доступно в архиве</string>
     <string name="player_return_to_live">Вернуться к эфиру</string>
     <string name="player_archive_label">DVR &#8226; %1$s</string>
+    <string name="label_playback_issue">Ошибка воспроизведения</string>
+    <string name="label_retrying_stream">Повторная попытка подключения...</string>
+    <string name="label_retrying_short">Повтор</string>
     <string name="archive_prompt_title">Воспроизведение завершено</string>
     <string name="archive_prompt_message">Продолжить с &quot;%1$s&quot;?</string>
     <string name="archive_prompt_message_no_next">Воспроизведение архива завершено.</string>

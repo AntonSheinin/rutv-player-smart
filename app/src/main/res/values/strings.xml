@@ -101,6 +101,9 @@
     <string name="cd_epg_archive_indicator">Available in archive</string>
     <string name="player_return_to_live">Return to Live</string>
     <string name="player_archive_label">DVR &#8226; %1$s</string>
+    <string name="label_playback_issue">Playback issue</string>
+    <string name="label_retrying_stream">Retrying stream...</string>
+    <string name="label_retrying_short">Retrying</string>
     <string name="archive_prompt_title">Playback Finished</string>
     <string name="archive_prompt_message">Continue with &quot;%1$s&quot;?</string>
     <string name="archive_prompt_message_no_next">Archive playback finished.</string>

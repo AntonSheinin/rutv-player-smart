@@ -110,12 +110,12 @@ class PlayerManager @Inject constructor(
     private var pendingArchiveSeek: Boolean = false
     private var networkScope = newNetworkScope()
     private lateinit var httpDataSourceFactory: DefaultHttpDataSource.Factory
-    private var sourceErrorRetryCount: Int = 0
-    private var lastSourceErrorAtMs: Long = 0L
     private var attemptedFfmpegAudioFallback: Boolean = false
+    private var autoRetryJob: Job? = null
+    private var autoRetryTargetIndex: Int = -1
+    private var isUserPaused: Boolean = false
 
-    private val SOURCE_RETRY_MAX = 2
-    private val SOURCE_RETRY_WINDOW_MS = 30_000L
+    private val SOURCE_AUTO_RETRY_INTERVAL_MS = 1_000L
 
     private fun newNetworkScope(): CoroutineScope =
         CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -124,7 +124,7 @@ class PlayerManager @Inject constructor(
         val cause = error.cause
         if (cause is HttpDataSource.InvalidResponseCodeException) {
             val code = cause.responseCode
-            return code in listOf(403, 404, 408, 429, 500, 502, 503, 504)
+            return code in listOf(401, 403, 404, 408, 429, 500, 502, 503, 504)
         }
         return when (error.errorCode) {
             PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
@@ -134,6 +134,51 @@ class PlayerManager @Inject constructor(
             PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND -> true
             else -> false
         }
+    }
+
+    private fun shouldAutoRetry(error: PlaybackException, issue: PlaybackIssue): Boolean {
+        return when (issue) {
+            is PlaybackIssue.Forbidden,
+            is PlaybackIssue.TokenNotFound -> true
+            else -> isRetryableSourceError(error)
+        }
+    }
+
+    private fun startAutoRetry(targetIndex: Int) {
+        if (targetIndex < 0) return
+        if (autoRetryTargetIndex == targetIndex && autoRetryJob?.isActive == true) return
+        stopAutoRetry()
+        autoRetryTargetIndex = targetIndex
+        autoRetryJob = mainScope.launch {
+            val self = coroutineContext[Job]
+            try {
+                while (isActive) {
+                    delay(SOURCE_AUTO_RETRY_INTERVAL_MS)
+                    val playerInstance = player ?: return@launch
+                    if (playerInstance.currentMediaItemIndex != targetIndex) {
+                        return@launch
+                    }
+                    if (isUserPaused) {
+                        continue
+                    }
+                    val pos = playerInstance.currentPosition.takeIf { it >= 0 } ?: C.TIME_UNSET
+                    playerInstance.seekTo(targetIndex, pos)
+                    playerInstance.prepare()
+                    playerInstance.playWhenReady = true
+                }
+            } finally {
+                if (autoRetryJob === self) {
+                    autoRetryJob = null
+                    autoRetryTargetIndex = -1
+                }
+            }
+        }
+    }
+
+    private fun stopAutoRetry() {
+        autoRetryJob?.cancel()
+        autoRetryJob = null
+        autoRetryTargetIndex = -1
     }
 
     private fun classifyPlaybackIssue(error: PlaybackException): PlaybackIssue {
@@ -292,6 +337,7 @@ class PlayerManager @Inject constructor(
         this.channels = channelList
         this.currentConfig = config
         attemptedFfmpegAudioFallback = false
+        isUserPaused = false
 
         releaseInternal()
         createPlayer(config, startIndex, mediaItems)
@@ -532,11 +578,25 @@ class PlayerManager @Inject constructor(
                 }
             }
 
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                if (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST ||
+                    reason == Player.PLAY_WHEN_READY_CHANGE_REASON_REMOTE
+                ) {
+                    isUserPaused = !playWhenReady
+                    if (!playWhenReady) {
+                        stopAutoRetry()
+                        val retryingError = _playerState.value as? PlayerState.Error
+                        if (retryingError?.isRetrying == true) {
+                            _playerState.value = retryingError.copy(isRetrying = false)
+                        }
+                    }
+                }
+            }
+
             override fun onPlaybackStateChanged(playbackState: Int) {
                     when (playbackState) {
                         Player.STATE_READY -> {
-                            sourceErrorRetryCount = 0
-                            lastSourceErrorAtMs = 0L
+                            stopAutoRetry()
                             if (isArchivePlayback) {
                                 val channel = archiveChannel
                                 val program = archiveProgram
@@ -562,6 +622,14 @@ class PlayerManager @Inject constructor(
                         stopBufferingCheck()
                     }
                     Player.STATE_BUFFERING -> {
+                        val retryingError = _playerState.value as? PlayerState.Error
+                        if (retryingError?.isRetrying == true) {
+                            if (bufferingStartTime == 0L) {
+                                bufferingStartTime = System.currentTimeMillis()
+                                startBufferingCheck()
+                            }
+                            return
+                        }
                         if (bufferingStartTime == 0L) {
                             bufferingStartTime = System.currentTimeMillis()
                             addDebugMessage("⏳ Buffering...")
@@ -603,33 +671,18 @@ class PlayerManager @Inject constructor(
                     }
                 }
 
-                val now = System.currentTimeMillis()
-                if (isRetryableSourceError(error)) {
-                    // Retry window: we only count retries that happen close together, so
-                    // an occasional transient error doesn't permanently "use up" the quota.
-                    if (now - lastSourceErrorAtMs > SOURCE_RETRY_WINDOW_MS) {
-                        sourceErrorRetryCount = 0
-                    }
-                    if (sourceErrorRetryCount < SOURCE_RETRY_MAX) {
-                        sourceErrorRetryCount++
-                        lastSourceErrorAtMs = now
-                        addDebugMessage("  ↩ Retrying source (${sourceErrorRetryCount}/$SOURCE_RETRY_MAX)...")
-                        val idx = currentIndex.coerceAtLeast(0)
-                        val pos = player?.currentPosition ?: C.TIME_UNSET
-                        player?.apply {
-                            seekTo(idx, pos)
-                            prepare()
-                            playWhenReady = true
-                        }
-                        return
-                    } else {
-                        // NOTE: keep this message plain ASCII; some build environments choke on stray bytes.
-                        addDebugMessage("  → Retry limit reached for source errors")
-                    }
-                }
-
                 val issue = classifyPlaybackIssue(error)
-                _playerState.value = PlayerState.Error(issue, channel)
+                val shouldRetry = currentIndex >= 0 && shouldAutoRetry(error, issue)
+                if (shouldRetry) {
+                    val startingRetry = autoRetryJob?.isActive != true || autoRetryTargetIndex != currentIndex
+                    startAutoRetry(currentIndex)
+                    if (startingRetry) {
+                        addDebugMessage("  -> Auto-retrying source every ${SOURCE_AUTO_RETRY_INTERVAL_MS}ms")
+                    }
+                } else {
+                    stopAutoRetry()
+                }
+                _playerState.value = PlayerState.Error(issue, channel, isRetrying = shouldRetry)
 
                 stopBufferingCheck()
 
@@ -653,6 +706,8 @@ class PlayerManager @Inject constructor(
         player?.let { p ->
             if (index >= 0 && index < channels.size) {
                 logDebug { "Playing channel at index $index" }
+                isUserPaused = false
+                stopAutoRetry()
                 if (isArchivePlayback) {
                     // Switching channel while in archive playback must restore the live playlist first.
                     restoreLivePlaylist(index)
@@ -680,6 +735,8 @@ class PlayerManager @Inject constructor(
             addDebugMessage("DVR: ${channel.title} does not provide a catch-up URL")
             return false
         }
+        isUserPaused = false
+        stopAutoRetry()
         val uri = archiveUrl.toUri()
         channels.indexOfFirst { it.url == channel.url }
             .takeIf { it >= 0 }
@@ -744,6 +801,8 @@ class PlayerManager @Inject constructor(
     }
 
     fun returnToLive() {
+        isUserPaused = false
+        stopAutoRetry()
         if (!isArchivePlayback) {
             player?.let { exoPlayer ->
                 addDebugMessage("Return to live: resume live edge")
@@ -763,6 +822,8 @@ class PlayerManager @Inject constructor(
 
     private fun restoreLivePlaylist(targetIndex: Int) {
         if (channels.isEmpty()) return
+        isUserPaused = false
+        stopAutoRetry()
         val items = buildLiveMediaItems()
         player?.apply {
             stop()
@@ -899,6 +960,12 @@ class PlayerManager @Inject constructor(
      * Pause playback
      */
     fun pause() {
+        isUserPaused = true
+        stopAutoRetry()
+        val retryingError = _playerState.value as? PlayerState.Error
+        if (retryingError?.isRetrying == true) {
+            _playerState.value = retryingError.copy(isRetrying = false)
+        }
         player?.playWhenReady = false
     }
 
@@ -917,6 +984,7 @@ class PlayerManager @Inject constructor(
      * Resume playback if a player exists
      */
     fun resume() {
+        isUserPaused = false
         player?.let { exoPlayer ->
             if (exoPlayer.playbackState == Player.STATE_IDLE) {
                 exoPlayer.prepare()
@@ -935,6 +1003,8 @@ class PlayerManager @Inject constructor(
 
     private fun releaseInternal() {
         stopBufferingCheck()
+        stopAutoRetry()
+        isUserPaused = false
         player?.stop()
         player?.release()
         player = null
