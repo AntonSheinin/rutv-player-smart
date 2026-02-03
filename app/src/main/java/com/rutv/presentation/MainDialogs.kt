@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,6 +35,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
@@ -291,6 +293,14 @@ internal fun ChannelGroupDialog(
     val initialIndex = remember(groups, selectedGroup) {
         groups.indexOfFirst { it == selectedGroup }.takeIf { it >= 0 } ?: 0
     }
+    val dialogModifier = modifier
+        .fillMaxWidth(0.6f)
+        .widthIn(max = 520.dp)
+        .border(
+            2.dp,
+            MaterialTheme.ruTvColors.gold.copy(alpha = 0.7f),
+            RoundedCornerShape(16.dp)
+        )
 
     LaunchedEffect(show, groups, selectedGroup) {
         if (!show) return@LaunchedEffect
@@ -347,6 +357,26 @@ internal fun ChannelGroupDialog(
                                 .focusRequester(groupFocusRequesters[index])
                                 .onFocusChanged { state -> isFocused = state.isFocused }
                                 .focusable()
+                                .onKeyEvent { event ->
+                                    if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                                    when (event.key) {
+                                        Key.DirectionDown -> {
+                                            if (index < groups.lastIndex) {
+                                                groupFocusRequesters[index + 1].requestFocus()
+                                            } else {
+                                                resetFocus.requestFocus()
+                                            }
+                                            true
+                                        }
+                                        Key.DirectionUp -> {
+                                            if (index > 0) {
+                                                groupFocusRequesters[index - 1].requestFocus()
+                                            }
+                                            true
+                                        }
+                                        else -> false
+                                    }
+                                }
                                 .then(focusIndicatorModifier(isFocused = isFocused)),
                             colors = ButtonDefaults.textButtonColors(
                                 contentColor = if (isSelected) {
@@ -382,11 +412,7 @@ internal fun ChannelGroupDialog(
             }
         },
         shape = RoundedCornerShape(16.dp),
-        modifier = modifier.border(
-            2.dp,
-            MaterialTheme.ruTvColors.gold.copy(alpha = 0.7f),
-            RoundedCornerShape(16.dp)
-        )
+        modifier = dialogModifier
     )
 }
 

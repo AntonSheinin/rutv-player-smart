@@ -292,10 +292,7 @@ fun PlayerScreen(
                 when (event.key) {
                     Key.DirectionCenter, Key.Enter -> {
                         if (currentFocus == PlayerFocusDestination.NONE) {
-                            showControls = true
-                            registerControlsInteraction()
-                            playerViewRef?.post { playerViewRef?.showController() }
-                            true
+                            false
                         } else {
                             false
                         }
