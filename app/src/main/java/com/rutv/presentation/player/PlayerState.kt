@@ -20,7 +20,9 @@ sealed class PlayerState {
     data class Error(
         val issue: PlaybackIssue,
         val channel: Channel?,
-        val isRetrying: Boolean = false
+        val isRetrying: Boolean = false,
+        val retryAttempt: Int = 0,
+        val retryMaxAttempts: Int = 0
     ) : PlayerState()
     object Ended : PlayerState()
 }

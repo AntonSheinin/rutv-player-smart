@@ -2,11 +2,14 @@ package com.rutv.ui.mobile.screens
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.focus.FocusRequester
+import com.rutv.ui.shared.components.requestFocusSafely
+import kotlinx.coroutines.isActive
 
 internal enum class CustomControlFocusTarget {
     Favorites,
@@ -35,8 +38,7 @@ internal class CustomControlFocusCoordinator(
         rightRequesters: List<FocusRequester>?
     ) {
         val requester = resolveRequester(target, leftRequesters, rightRequesters)
-        if (requester != null) {
-            requester.requestFocus()
+        if (requester != null && requester.requestFocusSafely()) {
             setPendingTarget(null)
         } else {
             setPendingTarget(target)
@@ -48,10 +50,15 @@ internal class CustomControlFocusCoordinator(
         val pending = getPendingTarget()
         LaunchedEffect(pending, leftRequesters, rightRequesters) {
             if (pending != null) {
-                val requester = resolveRequester(pending, leftRequesters, rightRequesters)
-                if (requester != null) {
-                    requester.requestFocus()
-                    setPendingTarget(null)
+                // Keep retrying while this target is pending; on slow STBs the focus node can
+                // attach noticeably later than the first request.
+                while (isActive && getPendingTarget() == pending) {
+                    val requester = resolveRequester(pending, leftRequesters, rightRequesters)
+                    if (requester != null && requester.requestFocusSafely()) {
+                        setPendingTarget(null)
+                        return@LaunchedEffect
+                    }
+                    withFrameNanos { }
                 }
             }
         }

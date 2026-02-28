@@ -3,6 +3,7 @@
 
     <!-- Dialog Titles -->
     <string name="dialog_title_go_to_channel">Перейти к каналу</string>
+    <string name="dialog_title_channel_groups">Группы каналов</string>
     <string name="dialog_title_search_channel">Поиск канала</string>
     <string name="dialog_title_no_playlist">Плейлист не настроен</string>
     <string name="dialog_title_load_playlist_url">Загрузить плейлист по URL</string>
@@ -12,6 +13,7 @@
     <string name="dialog_title_epg_date_picker">Выбор даты</string>
     <!-- Dialog Messages -->
     <string name="dialog_message_no_playlist">Пожалуйста, перейдите в Настройки для настройки источника плейлиста (URL или файл), чтобы начать просмотр каналов.</string>
+    <string name="dialog_message_no_channel_groups">Группы каналов не найдены.</string>
     <string name="dialog_message_no_playlist_loaded">Плейлист не загружен. Пожалуйста, сначала загрузите плейлист.</string>
     <string name="dialog_message_reload_playlist">Это перезагрузит плейлист из исходного источника и обновит все данные EPG (tvg-id, catchup-days и т.д.).</string>
     <string name="dialog_message_close_app">Вы уверены, что хотите закрыть приложение?</string>
@@ -19,9 +21,11 @@
     <!-- Buttons -->
     <string name="button_ok">ОК</string>
     <string name="button_cancel">Отмена</string>
+    <string name="button_reset">Сброс</string>
     <string name="button_open_settings">Открыть настройки</string>
     <string name="button_exit">Выход</string>
     <string name="button_save">Сохранить</string>
+    <string name="button_select">Выбрать</string>
 
     <!-- Input Hints -->
     <string name="hint_channel_number">Введите номер канала (1-%1$d)</string>
@@ -64,6 +68,8 @@
     <string name="settings_epg_days_past">Глубина EPG (прошедшие дни)</string>
     <string name="settings_epg_page_days">Размер страницы EPG (дней на странице)</string>
     <string name="settings_clear_epg_cache">Очистить кэш EPG</string>
+    <string name="settings_number_range_hint">Допустимый диапазон: %1$d\u2013%2$d</string>
+    <string name="settings_number_error">Введите значение от %1$d до %2$d</string>
     <string name="settings_back">Назад</string>
     <string name="settings_current_file">Файл</string>
     <string name="settings_current_url">URL</string>
@@ -80,6 +86,8 @@
     <!-- Channel Info -->
     <string name="playlist_title_channels">Каналы</string>
     <string name="playlist_title_favorites">Избранные</string>
+    <string name="playlist_group_title_format">каналы : %1$s</string>
+    <string name="playlist_group_all">все</string>
     <string name="epg_panel_title">Программа передач</string>
     <string name="program_details_title">Описание передачи</string>
     <string name="channel_info_format">#%1$d &#8226; %2$s</string>
@@ -94,6 +102,7 @@
     <string name="cd_playlist_button">Показать плейлист</string>
     <string name="cd_settings_button">Открыть настройки</string>
     <string name="cd_go_to_channel_button">Перейти к номеру канала</string>
+    <string name="cd_channel_groups_button">Выбрать группу каналов</string>
     <string name="cd_close_playlist">Закрыть плейлист</string>
     <string name="cd_search_channel">Поиск канала</string>
     <string name="cd_aspect_ratio_button">Изменить соотношение сторон</string>
@@ -102,6 +111,16 @@
     <string name="player_return_to_live">Вернуться к эфиру</string>
     <string name="player_archive_label">DVR &#8226; %1$s</string>
     <string name="label_retrying_short">Повтор</string>
+    <string name="label_retrying_attempts_short">Повтор %1$d/%2$d</string>
+    <string name="playback_issue_suspended">Трансляция приостановлена провайдером</string>
+    <string name="playback_issue_token_not_found">Токен не найден (доступ запрещен)</string>
+    <string name="playback_issue_not_found">Трансляция не найдена</string>
+    <string name="playback_issue_forbidden">Доступ запрещен</string>
+    <string name="playback_issue_http_error">Ошибка потока (HTTP %1$d)</string>
+    <string name="playback_issue_network">Ошибка сети при загрузке потока</string>
+    <string name="playback_issue_timeout">Таймаут при загрузке потока</string>
+    <string name="playback_issue_source_error">Ошибка источника</string>
+    <string name="playback_issue_unknown">Ошибка воспроизведения</string>
     <string name="archive_prompt_title">Воспроизведение завершено</string>
     <string name="archive_prompt_message">Продолжить с &quot;%1$s&quot;?</string>
     <string name="archive_prompt_message_no_next">Воспроизведение архива завершено.</string>

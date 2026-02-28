@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.core.net.toUri
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
@@ -27,12 +28,10 @@ import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.mediacodec.MediaCodecRenderer
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
-import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
 import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
 import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
 import com.rutv.data.model.PlayerConfig
-import com.rutv.util.Constants
 import com.rutv.util.PlayerConstants
 import com.rutv.data.repository.PreferencesRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -84,12 +83,13 @@ import kotlin.math.max
  */
 class PlayerManager @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val bandwidthMeter: DefaultBandwidthMeter,
-    private val preferencesRepository: PreferencesRepository
+    private val preferencesRepository: PreferencesRepository,
+    private val baseHttpDataSourceFactory: DefaultHttpDataSource.Factory
 ) {
 
     private var player: ExoPlayer? = null
     private var channels: List<Channel> = emptyList()
+    private var liveMediaItemsCache: List<MediaItem> = emptyList()
 
     private val _playerState = MutableStateFlow<PlayerState>(PlayerState.Idle)
     val playerState: StateFlow<PlayerState> = _playerState.asStateFlow()
@@ -120,6 +120,8 @@ class PlayerManager @Inject constructor(
     private var autoRetryMaxAttempts: Int = PlayerConstants.DEFAULT_AUTO_RETRY_MAX_ATTEMPTS
     private var autoRetryIntervalMs: Long = PlayerConstants.DEFAULT_AUTO_RETRY_PERIOD_SECONDS * 1_000L
     private var autoRetrySuppressed: Boolean = false
+    private var channelSwitchJob: Job? = null
+    private var lastLiveSwitchAppliedAtMs: Long = 0L
 
     init {
         mainScope.launch {
@@ -159,31 +161,51 @@ class PlayerManager @Inject constructor(
             val code = cause.responseCode
             return code in listOf(404, 408, 429, 500, 502, 503, 504)
         }
+        val message = error.message?.lowercase(Locale.US).orEmpty()
+        val sourceLikeMessage = message.contains("source error") ||
+            message.contains("failed to load") ||
+            message.contains("load error")
         return when (error.errorCode) {
             PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
             PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT,
+            PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
             PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS,
             PlaybackException.ERROR_CODE_TIMEOUT,
             PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND -> true
-            else -> false
+            else -> sourceLikeMessage
         }
     }
 
     private fun shouldAutoRetry(error: PlaybackException, issue: PlaybackIssue): Boolean {
-        if (issue is PlaybackIssue.Forbidden || issue is PlaybackIssue.TokenNotFound) {
+        if (issue is PlaybackIssue.Forbidden ||
+            issue is PlaybackIssue.TokenNotFound ||
+            issue is PlaybackIssue.Suspended
+        ) {
             return false
+        }
+        val issueRetryable = when (issue) {
+            is PlaybackIssue.NotFound,
+            is PlaybackIssue.HttpError,
+            is PlaybackIssue.Network,
+            is PlaybackIssue.Timeout -> true
+            is PlaybackIssue.Unknown -> true
+            else -> false
         }
         return autoRetryEnabled &&
             autoRetryMaxAttempts > 0 &&
             autoRetryIntervalMs > 0L &&
             !autoRetrySuppressed &&
-            isRetryableSourceError(error)
+            (issueRetryable || isRetryableSourceError(error))
     }
 
     private fun clearRetryingState() {
         val current = _playerState.value
         if (current is PlayerState.Error && current.isRetrying) {
-            _playerState.value = current.copy(isRetrying = false)
+            _playerState.value = current.copy(
+                isRetrying = false,
+                retryAttempt = 0,
+                retryMaxAttempts = 0
+            )
         }
     }
 
@@ -218,8 +240,22 @@ class PlayerManager @Inject constructor(
                         continue
                     }
                     attempts++
-                    val pos = playerInstance.currentPosition.takeIf { it >= 0 } ?: C.TIME_UNSET
-                    playerInstance.seekTo(targetIndex, pos)
+                    val retryingError = _playerState.value as? PlayerState.Error
+                    if (retryingError?.isRetrying == true) {
+                        _playerState.value = retryingError.copy(
+                            retryAttempt = attempts,
+                            retryMaxAttempts = maxAttempts
+                        )
+                    }
+                    addDebugMessage("  -> Auto-retry attempt $attempts/$maxAttempts")
+                    // For live streams, retry from the live edge instead of reusing the previous
+                    // position, which can repeatedly hit stale/missing HLS segments.
+                    if (!isArchivePlayback) {
+                        playerInstance.seekToDefaultPosition(targetIndex)
+                    } else {
+                        val pos = playerInstance.currentPosition.takeIf { it >= 0 } ?: C.TIME_UNSET
+                        playerInstance.seekTo(targetIndex, pos)
+                    }
                     playerInstance.prepare()
                     playerInstance.playWhenReady = true
                 }
@@ -236,6 +272,11 @@ class PlayerManager @Inject constructor(
         autoRetryJob?.cancel()
         autoRetryJob = null
         autoRetryTargetIndex = -1
+    }
+
+    private fun stopPendingChannelSwitch() {
+        channelSwitchJob?.cancel()
+        channelSwitchJob = null
     }
 
     private fun classifyPlaybackIssue(error: PlaybackException): PlaybackIssue {
@@ -266,6 +307,22 @@ class PlayerManager @Inject constructor(
                 404 -> PlaybackIssue.NotFound()
                 else -> PlaybackIssue.HttpError(code)
             }
+        }
+
+        val fallbackText = error.message?.lowercase(Locale.US).orEmpty()
+        if (fallbackText.contains("token not found") ||
+            fallbackText.contains("invalid token") ||
+            fallbackText.contains("token expired")
+        ) {
+            return PlaybackIssue.TokenNotFound()
+        }
+        if (fallbackText.contains("forbidden") ||
+            fallbackText.contains("access denied") ||
+            fallbackText.contains("http 403") ||
+            fallbackText.contains("response code: 403") ||
+            fallbackText.contains("status code 403")
+        ) {
+            return PlaybackIssue.Forbidden()
         }
 
         return when (error.errorCode) {
@@ -377,6 +434,65 @@ class PlayerManager @Inject constructor(
         }
     }
 
+    /**
+     * Refresh live channel list while preserving current playback position semantics.
+     *
+     * - In live mode: rebuilds playlist items so ExoPlayer and UI channel indices stay aligned.
+     * - In archive mode: updates cached live channels and last live index, but keeps archive playback.
+     */
+    fun refreshChannels(channels: List<Channel>, preferredIndex: Int = 0) {
+        if (channels.isEmpty()) return
+        val channelSnapshot = channels.toList()
+        val normalizedIndex = preferredIndex.coerceIn(0, channelSnapshot.lastIndex)
+        val config = currentConfig
+
+        if (config == null) {
+            this.channels = channelSnapshot
+            this.liveMediaItemsCache = buildMediaItems(channelSnapshot)
+            lastLiveIndex = normalizedIndex
+            return
+        }
+
+        if (isArchivePlayback) {
+            this.channels = channelSnapshot
+            this.liveMediaItemsCache = buildMediaItems(channelSnapshot)
+            lastLiveIndex = normalizedIndex
+            return
+        }
+
+        val postInitialize: (List<MediaItem>) -> Unit = { mediaItems ->
+            mainScope.launch {
+                initializeInternal(channelSnapshot, config, normalizedIndex, mediaItems)
+            }
+        }
+
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            workerScope.launch {
+                try {
+                    val mediaItems = buildMediaItems(channelSnapshot)
+                    postInitialize(mediaItems)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to refresh media items on background thread")
+                    mainScope.launch {
+                        _playerState.value = PlayerState.Error(PlaybackIssue.Unknown("Failed to refresh channels"), null)
+                    }
+                }
+            }
+        } else {
+            try {
+                val mediaItems = buildMediaItems(channelSnapshot)
+                postInitialize(mediaItems)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to refresh channels")
+                _playerState.value = PlayerState.Error(PlaybackIssue.Unknown("Failed to refresh channels"), null)
+            }
+        }
+    }
+
     private fun initializeInternal(
         channelList: List<Channel>,
         config: PlayerConfig,
@@ -392,6 +508,7 @@ class PlayerManager @Inject constructor(
         }
 
         this.channels = channelList
+        this.liveMediaItemsCache = mediaItems
         this.currentConfig = config
         attemptedFfmpegAudioFallback = false
         isUserPaused = false
@@ -626,6 +743,8 @@ class PlayerManager @Inject constructor(
         return object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 if (isArchivePlayback) return
+                val retryingError = _playerState.value as? PlayerState.Error
+                if (retryingError?.isRetrying == true) return
                 mediaItem?.let {
                     val currentIndex = player?.currentMediaItemIndex ?: return
                     val channel = channels.getOrNull(currentIndex) ?: return
@@ -644,7 +763,11 @@ class PlayerManager @Inject constructor(
                         stopAutoRetry()
                         val retryingError = _playerState.value as? PlayerState.Error
                         if (retryingError?.isRetrying == true) {
-                            _playerState.value = retryingError.copy(isRetrying = false)
+                            _playerState.value = retryingError.copy(
+                                isRetrying = false,
+                                retryAttempt = 0,
+                                retryMaxAttempts = 0
+                            )
                         }
                     }
                 }
@@ -740,7 +863,13 @@ class PlayerManager @Inject constructor(
                 } else {
                     stopAutoRetry()
                 }
-                _playerState.value = PlayerState.Error(issue, channel, isRetrying = shouldRetry)
+                _playerState.value = PlayerState.Error(
+                    issue = issue,
+                    channel = channel,
+                    isRetrying = shouldRetry,
+                    retryAttempt = 0,
+                    retryMaxAttempts = if (shouldRetry) autoRetryMaxAttempts.coerceAtLeast(1) else 0
+                )
 
                 stopBufferingCheck()
 
@@ -763,17 +892,48 @@ class PlayerManager @Inject constructor(
     fun playChannel(index: Int) {
         player?.let { p ->
             if (index >= 0 && index < channels.size) {
+                val currentIndex = p.currentMediaItemIndex
+                val isSameLiveChannel = !isArchivePlayback && currentIndex == index
+                val stateAllowsSkip = when (_playerState.value) {
+                    is PlayerState.Ready, PlayerState.Buffering -> true
+                    else -> false
+                }
+                if (isSameLiveChannel && stateAllowsSkip) {
+                    logDebug { "Ignoring duplicate playChannel request for index $index" }
+                    return@let
+                }
+
                 logDebug { "Playing channel at index $index" }
                 isUserPaused = false
                 stopAutoRetry()
+                stopPendingChannelSwitch()
                 if (isArchivePlayback) {
                     // Switching channel while in archive playback must restore the live playlist first.
                     restoreLivePlaylist(index)
                 } else {
-                    p.seekTo(index, C.TIME_UNSET)
-                    p.prepare()
-                    p.playWhenReady = true
-                    p.play()
+                    val safeIndex = index.coerceIn(0, channels.lastIndex)
+                    val now = SystemClock.elapsedRealtime()
+                    val sinceLastSwitch = now - lastLiveSwitchAppliedAtMs
+                    val intervalDelayMs = (MIN_LIVE_SWITCH_INTERVAL_MS - sinceLastSwitch).coerceAtLeast(0L)
+                    channelSwitchJob = mainScope.launch {
+                        if (intervalDelayMs > 0L) {
+                            delay(intervalDelayMs)
+                        }
+                        p.stop()
+                        p.clearMediaItems()
+                        // Some IPTV backends enforce strict single-session semantics per token.
+                        // A brief grace period after STOP reduces intermittent 403/token denials
+                        // when users surf channels quickly.
+                        delay(LIVE_SWITCH_GRACE_MS)
+                        val livePlayer = player ?: return@launch
+                        lastLiveSwitchAppliedAtMs = SystemClock.elapsedRealtime()
+                        val liveItems = buildLiveMediaItems()
+                        livePlayer.setMediaItems(liveItems, safeIndex, C.TIME_UNSET)
+                        livePlayer.repeatMode = Player.REPEAT_MODE_ALL
+                        livePlayer.prepare()
+                        livePlayer.playWhenReady = true
+                        livePlayer.play()
+                    }
                 }
                 lastLiveIndex = index
                 isArchivePlayback = false
@@ -795,6 +955,7 @@ class PlayerManager @Inject constructor(
         }
         isUserPaused = false
         stopAutoRetry()
+        stopPendingChannelSwitch()
         val uri = archiveUrl.toUri()
         channels.indexOfFirst { it.url == channel.url }
             .takeIf { it >= 0 }
@@ -882,6 +1043,7 @@ class PlayerManager @Inject constructor(
         if (channels.isEmpty()) return
         isUserPaused = false
         stopAutoRetry()
+        stopPendingChannelSwitch()
         val items = buildLiveMediaItems()
         player?.apply {
             stop()
@@ -900,23 +1062,9 @@ class PlayerManager @Inject constructor(
 
     private fun ensureHttpDataSourceFactory(): DefaultHttpDataSource.Factory {
         if (!::httpDataSourceFactory.isInitialized) {
-            // The factory is reused across all HLS sources so we can:
-            // - apply consistent timeouts / UA / headers
-            // - attach [bandwidthMeter] once for adaptive playback decisions
-            httpDataSourceFactory = DefaultHttpDataSource.Factory()
-                .setConnectTimeoutMs(Constants.HTTP_CONNECT_TIMEOUT_MS)
-                .setReadTimeoutMs(Constants.HTTP_READ_TIMEOUT_MS)
-                .setAllowCrossProtocolRedirects(true)
-                .setKeepPostFor302Redirects(true)
-                .setUserAgent(Constants.DEFAULT_USER_AGENT)
-                .setTransferListener(bandwidthMeter)
-                .setDefaultRequestProperties(
-                    mapOf(
-                        "Accept" to "*/*",
-                        "Accept-Encoding" to "gzip, deflate",
-                        "Connection" to "keep-alive"
-                    )
-                )
+            // Reuse app-wide HTTP configuration so playlist loader and player share
+            // identical request/session behavior.
+            httpDataSourceFactory = baseHttpDataSourceFactory
         }
         return httpDataSourceFactory
     }
@@ -1022,7 +1170,11 @@ class PlayerManager @Inject constructor(
         stopAutoRetry()
         val retryingError = _playerState.value as? PlayerState.Error
         if (retryingError?.isRetrying == true) {
-            _playerState.value = retryingError.copy(isRetrying = false)
+            _playerState.value = retryingError.copy(
+                isRetrying = false,
+                retryAttempt = 0,
+                retryMaxAttempts = 0
+            )
         }
         player?.playWhenReady = false
     }
@@ -1041,7 +1193,12 @@ class PlayerManager @Inject constructor(
         }
     }
 
-    private fun buildLiveMediaItems(): List<MediaItem> = buildMediaItems(channels)
+    private fun buildLiveMediaItems(): List<MediaItem> {
+        if (liveMediaItemsCache.size != channels.size || liveMediaItemsCache.isEmpty()) {
+            liveMediaItemsCache = buildMediaItems(channels)
+        }
+        return liveMediaItemsCache
+    }
 
     private fun buildMediaItems(channelList: List<Channel>): List<MediaItem> {
         return channelList.map { channel ->
@@ -1076,6 +1233,7 @@ class PlayerManager @Inject constructor(
     private fun releaseInternal() {
         stopBufferingCheck()
         stopAutoRetry()
+        stopPendingChannelSwitch()
         isUserPaused = false
         player?.stop()
         player?.release()
@@ -1086,6 +1244,7 @@ class PlayerManager @Inject constructor(
         archiveChannel = null
         archiveProgram = null
         pendingArchiveSeek = false
+        liveMediaItemsCache = emptyList()
         _playerState.value = PlayerState.Idle
         logDebug { "Player released" }
     }
@@ -1149,8 +1308,14 @@ class PlayerManager @Inject constructor(
      * Add debug message
      */
     private fun addDebugMessage(message: String) {
+        if (!isDebugLoggingEnabled()) return
         logDebug { message }
         _debugMessages.tryEmit(DebugMessage(message))
+    }
+
+    private companion object {
+        private const val LIVE_SWITCH_GRACE_MS = 650L
+        private const val MIN_LIVE_SWITCH_INTERVAL_MS = 900L
     }
 
     private val sensitivePattern = Regex("(?i)((token|auth|sig|key|session)[^=]*)=[^&]*")

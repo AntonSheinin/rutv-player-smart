@@ -14,7 +14,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import com.rutv.presentation.settings.SettingsViewModel
 import com.rutv.ui.mobile.screens.SettingsScreen
 import com.rutv.ui.theme.RuTvTheme
@@ -140,14 +139,18 @@ class SettingsActivity : ComponentActivity() {
             },
             onClearEpgCache = { viewModel.clearEpgCache() },
             onLanguageChanged = { localeCode: String ->
-                // Wait for language to be saved synchronously before recreating
-                runBlocking {
-                    viewModel.setAppLanguage(localeCode)
+                if (localeCode == viewState.selectedLanguage) {
+                    return@SettingsScreen
                 }
-                // Set result to indicate language changed
-                setResult(android.app.Activity.RESULT_OK, Intent().putExtra("language_changed", true))
-                // Recreate activity to apply new locale
-                recreate()
+                coroutineScope.launch {
+                    viewModel.setAppLanguage(localeCode)
+                    if (viewModel.viewState.value.error == null) {
+                        // Set result to indicate language changed
+                        setResult(android.app.Activity.RESULT_OK, Intent().putExtra("language_changed", true))
+                        // Recreate activity to apply new locale
+                        recreate()
+                    }
+                }
             },
             onBack = { finish() },
             modifier = Modifier.fillMaxSize()

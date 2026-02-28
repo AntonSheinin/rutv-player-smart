@@ -1,8 +1,5 @@
 package com.rutv.util
 
-import android.content.Context
-import com.rutv.R
-
 /**
  * Utility for formatting strings with placeholders
  * Used for formatting debug messages and error messages that need string resources
@@ -13,18 +10,6 @@ object StringFormatter {
      * These are used in ViewModels where Context is not directly available
      * The formatted strings will be displayed in UI where string resources can be used
      */
-    fun formatEpgLoadedCached(programs: Int, channels: Int): String {
-        return "EPG: Loaded cached data ($programs programs for $channels channels)"
-    }
-
-    fun formatEpgNoCached(): String {
-        return "EPG: No cached data found"
-    }
-
-    fun formatEpgFailedLoad(error: String): String {
-        return "EPG: Failed to load cached data ($error)"
-    }
-
     fun formatEpgPlaylistLoaded(channels: Int, catchupSupported: String): String {
         return "DVR: Playlist loaded ($channels channels, catch-up: $catchupSupported)"
     }
@@ -35,22 +20,6 @@ object StringFormatter {
 
     fun formatEpgPlaylistFailed(error: String): String {
         return "EPG: Playlist load failed ($error)"
-    }
-
-    fun formatEpgFetchStarted(): String {
-        return "EPG: Fetch started"
-    }
-
-    fun formatEpgFetchManual(): String {
-        return "EPG: Manual fetch requested"
-    }
-
-    fun formatEpgFetchComplete(programs: Int, channelsFound: Int, channelsRequested: Int): String {
-        return "EPG: Fetch complete ($programs programs, $channelsFound/$channelsRequested channels)"
-    }
-
-    fun formatEpgFetchFailed(error: String): String {
-        return "EPG: Fetch failed ($error)"
     }
 
     fun formatEpgUrlNotConfigured(): String {
@@ -75,30 +44,6 @@ object StringFormatter {
 
     fun formatEpgClockChanged(): String {
         return "EPG: System clock changed, refreshing current programs"
-    }
-
-    fun formatEpgCachedCoveringWindow(hoursAgo: Int, programs: Int): String {
-        return "EPG: Using cached data (fetched ${hoursAgo}h ago, $programs programs)"
-    }
-
-    fun formatEpgWindowNotCovered(): String {
-        return "EPG: Cached data does not cover desired window, fetching missing data"
-    }
-
-    fun formatEpgNoCachedFetching(): String {
-        return "EPG: No cached data, fetching from service"
-    }
-
-    fun formatEpgCachedOldRefresh(hoursAgo: Int): String {
-        return "EPG: Cached data is ${hoursAgo}h old, refreshing"
-    }
-
-    fun formatEpgNoChannels(): String {
-        return "EPG: No channels loaded yet, skipping fetch"
-    }
-
-    fun formatEpgNoChannelsSupport(): String {
-        return "EPG: No channels with EPG support, skipping fetch"
     }
 
     fun formatDvrRestarting(title: String): String {
@@ -140,7 +85,4 @@ object StringFormatter {
         return "Initialization failed: $error"
     }
 
-    fun formatErrorFailedLoadPlaylistWithMsg(error: String): String {
-        return "Failed to load playlist: $error"
-    }
 }

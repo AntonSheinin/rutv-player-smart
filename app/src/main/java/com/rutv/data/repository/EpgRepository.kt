@@ -7,19 +7,16 @@ import com.google.gson.Gson
 import com.google.gson.stream.JsonReader
 import com.google.gson.stream.JsonToken
 import com.rutv.data.model.EpgChannelRequest
-import com.rutv.data.model.EpgHealthResponse
 import com.rutv.data.model.EpgProgram
 import com.rutv.data.model.EpgRequest
 import com.rutv.data.model.EpgResponse
 import com.rutv.util.EpgConstants
-import com.rutv.util.Result
 import com.rutv.util.logDebug
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.io.Reader
 import java.net.HttpURLConnection
@@ -98,43 +95,6 @@ class EpgRepository @Inject constructor(
         NONE,
         CLOCK_CHANGED,
         TIMEZONE_CHANGED
-    }
-
-    suspend fun checkHealth(epgUrl: String): Result<Boolean> = withContext(Dispatchers.IO) {
-        try {
-            logDebug { "Checking EPG service health: $epgUrl/health" }
-            val connection = (URL("$epgUrl/health").openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = EpgConstants.EPG_HEALTH_TIMEOUT_MS
-                readTimeout = EpgConstants.EPG_HEALTH_TIMEOUT_MS
-            }
-
-            val responseCode = connection.responseCode
-            if (responseCode == 200) {
-                val response = connection.inputStream.bufferedReader().use { it.readText() }
-                val healthResponse = gson.fromJson(response, EpgHealthResponse::class.java)
-                connection.disconnect()
-                Result.Success(healthResponse.isHealthy)
-            } else {
-                connection.disconnect()
-                Timber.w("EPG health check failed with code: $responseCode")
-                Result.Error(Exception("Health check failed: $responseCode"))
-            }
-        } catch (e: javax.net.ssl.SSLException) {
-            Timber.e(e, "SSL/TLS error during EPG health check")
-            Result.Error(Exception("SSL connection error. Please check your network connection.", e))
-        } catch (e: java.net.SocketException) {
-            Timber.e(e, "Network error during EPG health check")
-            Result.Error(Exception("Network error. Please check your connection.", e))
-        } catch (e: java.net.UnknownHostException) {
-            Timber.e(e, "Host resolution error for EPG URL")
-            Result.Error(Exception("Cannot reach EPG server. Please verify the URL.", e))
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Timber.e(e, "Unexpected error during EPG health check")
-            Result.Error(e)
-        }
     }
 
     fun handleSystemTimeOrTimezoneChange(

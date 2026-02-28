@@ -51,7 +51,6 @@ data class MainViewState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val epgNotificationMessage: String? = null,
-    val epgLoadedTimestamp: Long = 0L, // Timestamp when EPG was last loaded, used to trigger adapter refresh
     val playlistSource: PlaylistSource = PlaylistSource.None,
     val lastPlaylistScrollIndex: Int = 0
 ) {

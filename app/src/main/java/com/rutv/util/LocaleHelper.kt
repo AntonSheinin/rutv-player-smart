@@ -54,16 +54,5 @@ object LocaleHelper {
             return context
         }
     }
-
-    /**
-     * Get Locale from locale code string
-     */
-    fun getLocaleFromCode(localeCode: String): Locale {
-        return when (localeCode) {
-            "ru" -> Locale("ru")
-            "en" -> Locale("en")
-            else -> Locale("en")
-        }
-    }
 }
 

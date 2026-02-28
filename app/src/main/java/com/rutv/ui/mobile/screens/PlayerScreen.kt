@@ -4,6 +4,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.annotation.SuppressLint
+import android.os.SystemClock
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -60,12 +61,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.awaitCancellation
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.abs
 import kotlin.math.max
 import timber.log.Timber
+import com.rutv.presentation.player.PlaybackIssue
 import com.rutv.presentation.player.PlayerState
+import java.lang.ref.WeakReference
 
 /**
  * Main Player Screen with Compose UI
@@ -78,13 +79,11 @@ fun PlayerScreen(
     actions: PlayerUiActions,
     onRegisterToggleControls: ((() -> Unit)) -> Unit,
     onControlsVisibilityChanged: ((Boolean) -> Unit)? = null,
-    onLogDebug: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    // Fast path: on a fresh install with no playlist/channels, keep composition minimal.
-    // The "no playlist" dialog is shown by MainActivity; rendering the full player UI here
-    // can cause heavy first-frame work and visible jank on some STBs.
-    if (!uiState.hasChannels && player == null) {
+    // Startup fast path: while the player is not attached yet, keep composition minimal.
+    // This avoids heavy focus/control/panel setup during the first frames on slower STBs.
+    if (player == null) {
         Box(
             modifier = modifier
                 .fillMaxSize()
@@ -99,21 +98,16 @@ fun PlayerScreen(
         return
     }
 
-    val debugLogger: (String) -> Unit = remember(uiState.showDebugLog, onLogDebug) {
-        { message: String ->
-            if (uiState.showDebugLog) {
-                onLogDebug?.invoke(message)
-            }
-        }
-    }
-    val focusManager = rememberPlayerFocusManager(initial = PlayerFocusDestination.NONE, log = debugLogger)
+    val focusManager = rememberPlayerFocusManager(initial = PlayerFocusDestination.NONE)
     val coroutineScope = rememberCoroutineScope()
     var showControls by remember { mutableStateOf(false) }
     var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
     var allowPlayerView by remember { mutableStateOf(false) }
-    var lastControlsInteractionAt by remember { mutableStateOf(System.currentTimeMillis()) }
+    val controlsAutoHideJobRef = remember { object { var job: Job? = null } }
     val controllerVisibilityCallback by rememberUpdatedState<(Boolean) -> Unit> { visible ->
-        showControls = visible
+        if (showControls != visible) {
+            showControls = visible
+        }
     }
 
     // Store focus requesters for custom controls (for ExoPlayer navigation)
@@ -155,13 +149,41 @@ fun PlayerScreen(
     var navigateToRotateCallback by remember { mutableStateOf<(() -> Unit)?>(null) }
     var setFavoritesFocusHint by remember { mutableStateOf<((Boolean) -> Unit)?>(null) }
     var setRotateFocusHint by remember { mutableStateOf<((Boolean) -> Unit)?>(null) }
+    // Track if we're navigating within player controls (ExoPlayer <-> Custom buttons)
+    var isNavigatingWithinPlayerControls by remember { mutableStateOf(false) }
+    val requestCustomControlFocus: (CustomControlFocusTarget) -> Unit = { target ->
+        isNavigatingWithinPlayerControls = true
+        when (target) {
+            CustomControlFocusTarget.Favorites -> setFavoritesFocusHint?.invoke(true)
+            CustomControlFocusTarget.Rotate -> setRotateFocusHint?.invoke(true)
+        }
+        val request = {
+            customControlFocusCoordinator.requestFocus(
+                target,
+                leftColumnFocusRequesters,
+                rightColumnFocusRequesters
+            )
+            isNavigatingWithinPlayerControls = false
+        }
+        playerViewRef?.post { request() } ?: request()
+    }
+    val latestRequestCustomControlFocus by rememberUpdatedState(newValue = requestCustomControlFocus)
+    val invokeNavigateToFavorites: () -> Unit = remember {
+        {
+            navigateToFavoritesCallback?.invoke()
+                ?: latestRequestCustomControlFocus(CustomControlFocusTarget.Favorites)
+        }
+    }
+    val invokeNavigateToRotate: () -> Unit = remember {
+        {
+            navigateToRotateCallback?.invoke()
+                ?: latestRequestCustomControlFocus(CustomControlFocusTarget.Rotate)
+        }
+    }
 
     // Focus Requesters for Channel Info Overlay buttons
     val overlayReturnToLiveFocus = remember { FocusRequester() }
     val overlayProgramInfoFocus = remember { FocusRequester() }
-
-    // Track if we're navigating within player controls (ExoPlayer <-> Custom buttons)
-    var isNavigatingWithinPlayerControls by remember { mutableStateOf(false) }
 
     val forceFavoritesHighlight: () -> Unit = {
         setFavoritesFocusHint?.invoke(true)
@@ -170,9 +192,34 @@ fun PlayerScreen(
         setRotateFocusHint?.invoke(true)
     }
 
-    // Toggle controls function - exposed to MainActivity for OK button
-    val registerControlsInteraction: () -> Unit = {
-        lastControlsInteractionAt = System.currentTimeMillis()
+    // Auto-hide controls without driving recomposition on every DPAD event.
+    val registerControlsInteraction: () -> Unit = registerControlsInteraction@{
+        val playerView = playerViewRef ?: return@registerControlsInteraction
+        controlsAutoHideJobRef.job?.cancel()
+        controlsAutoHideJobRef.job = coroutineScope.launch {
+            delay(3000L)
+            if (showControls) {
+                showControls = false
+                playerView.hideController()
+            }
+        }
+    }
+    val focusPrimaryPlayerControl: () -> Unit = remember(playerViewRef) {
+        {
+            playerViewRef?.post {
+                playerViewRef?.focusOnControl(
+                    "exo_play_pause",
+                    "exo_play",
+                    "exo_pause",
+                    "exo_rew",
+                    "exo_rew_with_amount",
+                    "exo_ffwd",
+                    "exo_ffwd_with_amount",
+                    "exo_prev",
+                    "exo_next"
+                )
+            }
+        }
     }
 
     val toggleControls: () -> Unit = {
@@ -193,21 +240,10 @@ fun PlayerScreen(
         onRegisterToggleControls(toggleControls)
     }
 
-    // Show controls initially if player is loaded (for first-time users)
-    LaunchedEffect(player) {
-        if (player != null && !showControls) {
-            showControls = true
-        }
-    }
-
     // Defer PlayerView inflation to *after* the first frame to avoid huge cold-start jank
     // (PlayerView inflation + controller setup can take hundreds of ms on some STBs).
     val localView = LocalView.current
     LaunchedEffect(player) {
-        if (player == null) {
-            allowPlayerView = false
-            return@LaunchedEffect
-        }
         // Post to the UI thread message queue after Compose has had a chance to draw.
         // This doesn't require any additional dependencies and works well on Android TV boxes.
         allowPlayerView = false
@@ -229,7 +265,7 @@ fun PlayerScreen(
                 // Request focus on ExoPlayer controls when PLAYER_CONTROLS is active
                 // Only if we're not in the middle of navigating within player controls
                 if (focusManager.currentDestination == PlayerFocusDestination.PLAYER_CONTROLS && !isNavigatingWithinPlayerControls) {
-                    focusExoPlayerControls(true)
+                    focusPrimaryPlayerControl()
                 }
             } else {
                 if (currentPlayerView.isControllerFullyVisible) {
@@ -243,15 +279,19 @@ fun PlayerScreen(
         onControlsVisibilityChanged?.invoke(showControls)
     }
 
-    LaunchedEffect(showControls, lastControlsInteractionAt, playerViewRef) {
-        if (!showControls) return@LaunchedEffect
-        val playerView = playerViewRef ?: return@LaunchedEffect
-        val timeoutMs = 3000L
-        // Suspend until cancelled (interaction changes) or timeout triggers (auto-hide).
-        val timedOut = withTimeoutOrNull(timeoutMs) { awaitCancellation() } == null
-        if (timedOut && showControls) {
-            showControls = false
-            playerView.hideController()
+    LaunchedEffect(showControls, playerViewRef) {
+        if (showControls) {
+            registerControlsInteraction()
+        } else {
+            controlsAutoHideJobRef.job?.cancel()
+            controlsAutoHideJobRef.job = null
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            controlsAutoHideJobRef.job?.cancel()
+            controlsAutoHideJobRef.job = null
         }
     }
 
@@ -286,62 +326,16 @@ fun PlayerScreen(
                 }
 
                 val currentFocus = focusManager.currentDestination
-                val panelsOpen = currentFocus != PlayerFocusDestination.NONE &&
-                    currentFocus != PlayerFocusDestination.PLAYER_CONTROLS
 
                 when (event.key) {
-                    Key.DirectionCenter, Key.Enter -> {
-                        if (currentFocus == PlayerFocusDestination.NONE) {
-                            false
-                        } else {
-                            false
-                        }
-                    }
-                    Key.DirectionLeft -> {
-                        if (currentFocus == PlayerFocusDestination.NONE) {
-                            lastFocusedPlaylistIndex = uiState.currentChannelFilteredIndex.coerceAtLeast(0)
-                            if (!uiState.showPlaylist) {
-                                actions.onTogglePlaylist()
-                            }
-                            registerControlsInteraction()
-                            true
-                        } else {
-                            false
-                        }
-                    }
-                    Key.DirectionRight -> {
-                        if (currentFocus == PlayerFocusDestination.NONE) {
-                            lastFocusedPlaylistIndex = uiState.currentChannelFilteredIndex.coerceAtLeast(0)
-                            if (!uiState.showPlaylist) {
-                                actions.onTogglePlaylist()
-                            }
-                            uiState.currentChannel?.tvgId?.let { actions.onShowEpgForChannel(it) }
-                            registerControlsInteraction()
-                            true
-                        } else {
-                            false
-                        }
-                    }
                     Key.Back -> {
-                        when (currentFocus) {
-                            PlayerFocusDestination.PROGRAM_DETAILS -> {
-                                actions.onCloseProgramDetails()
-                                true
-                            }
-                            PlayerFocusDestination.EPG_PANEL -> {
-                                actions.onCloseEpgPanel()
-                                true
-                            }
-                            PlayerFocusDestination.PLAYLIST_PANEL -> {
-                                actions.onClosePlaylist()
-                                true
-                            }
-                            PlayerFocusDestination.PLAYER_CONTROLS -> {
-                                showControls = false
-                                playerViewRef?.post { playerViewRef?.hideController() }
-                                true
-                            }
-                            else -> false
+                        // Keep only details-close handling here; playlist/EPG/control back handling is centralized
+                        // in MainActivity key dispatch for remote mode.
+                        if (currentFocus == PlayerFocusDestination.PROGRAM_DETAILS) {
+                            actions.onCloseProgramDetails()
+                            true
+                        } else {
+                            false
                         }
                     }
                     else -> false
@@ -376,20 +370,17 @@ fun PlayerScreen(
                     playerView.player = exoPlayer
                     playerView.resizeMode = uiState.currentResizeMode
                     val controlsSignature = ControlsSignature(
-                        isArchivePlayback = uiState.isArchivePlayback,
-                        programHash = (uiState.archiveProgram ?: uiState.currentProgram)?.hashCode() ?: 0,
-                        navigateLeftHash = navigateToFavoritesCallback?.hashCode() ?: 0,
-                        navigateRightHash = navigateToRotateCallback?.hashCode() ?: 0
+                        isArchivePlayback = uiState.isArchivePlayback
                     )
                     if (controlsSignature != lastControlsSignature) {
                         playerView.bindControls(
                             uiState = uiState,
                             actions = actions,
-                            onNavigateLeftToFavorites = navigateToFavoritesCallback,
-                            onNavigateRightToRotate = navigateToRotateCallback,
+                            onNavigateLeftToFavorites = invokeNavigateToFavorites,
+                            onNavigateRightToRotate = invokeNavigateToRotate,
                             onControlsInteraction = { registerControlsInteraction() },
-                            onForceFavoritesHighlight = { setFavoritesFocusHint?.invoke(true) },
-                            onForceRotateHighlight = { setRotateFocusHint?.invoke(true) },
+                            onForceFavoritesHighlight = forceFavoritesHighlight,
+                            onForceRotateHighlight = forceRotateHighlight,
                             onNavigateUpToOverlay = {
                                 // Navigate from ExoPlayer controls UP to Channel Info Overlay
                                 if (showControls) {
@@ -455,33 +446,13 @@ fun PlayerScreen(
                         // Navigate from ExoPlayer controls to custom buttons
                         // Don't check destination - allow navigation when controls are visible
                         registerControlsInteraction()
-                        isNavigatingWithinPlayerControls = true
-                        setFavoritesFocusHint?.invoke(true)
-                        // Use post for consistent timing
-                        playerViewRef?.post {
-                            customControlFocusCoordinator.requestFocus(
-                                CustomControlFocusTarget.Favorites,
-                                leftColumnFocusRequesters,
-                                rightColumnFocusRequesters
-                            )
-                            isNavigatingWithinPlayerControls = false
-                        }
+                        requestCustomControlFocus(CustomControlFocusTarget.Favorites)
                     }
                     navigateToRotateCallback = {
                         // Navigate from ExoPlayer controls to custom buttons
                         // Don't check destination - allow navigation when controls are visible
                         registerControlsInteraction()
-                        isNavigatingWithinPlayerControls = true
-                        setRotateFocusHint?.invoke(true)
-                        // Use post for consistent timing
-                        playerViewRef?.post {
-                            customControlFocusCoordinator.requestFocus(
-                                CustomControlFocusTarget.Rotate,
-                                leftColumnFocusRequesters,
-                                rightColumnFocusRequesters
-                            )
-                            isNavigatingWithinPlayerControls = false
-                        }
+                        requestCustomControlFocus(CustomControlFocusTarget.Rotate)
                     }
                 },
                 onRegisterForcedFocusHints = { setFav, setRot ->
@@ -526,12 +497,28 @@ fun PlayerScreen(
         val playbackError = remember(uiState.playerState) {
             uiState.playerState as? PlayerState.Error
         }
-        val playbackErrorText = playbackError?.issue?.userMessage
+        val playbackErrorText = playbackError?.let { localizedPlaybackIssueMessage(it.issue) }
         val playbackRetrying = playbackError?.isRetrying == true
-        val retryingLabel = stringResource(R.string.label_retrying_short)
+        val retryingLabel = if (playbackError != null &&
+            playbackError.retryAttempt > 0 &&
+            playbackError.retryMaxAttempts > 0
+        ) {
+            stringResource(
+                R.string.label_retrying_attempts_short,
+                playbackError.retryAttempt,
+                playbackError.retryMaxAttempts
+            )
+        } else {
+            stringResource(R.string.label_retrying_short)
+        }
         playbackErrorText?.let { text ->
+            val statusText = if (playbackRetrying) {
+                "$text - $retryingLabel"
+            } else {
+                text
+            }
             PlaybackStatusOverlay(
-                text = text,
+                text = statusText,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .padding(top = 88.dp)
@@ -567,6 +554,7 @@ fun PlayerScreen(
                 allChannels = allChannels,
                 visibleChannels = displayedChannels,
                 playlistTitleResId = uiState.playlistTitleResId,
+                selectedGroup = uiState.selectedGroup,
                 currentChannelIndex = uiState.currentChannelFilteredIndex,
                 currentChannelStatusText = if (playbackRetrying && playbackErrorText != null) {
                     "${playbackErrorText} - $retryingLabel"
@@ -699,6 +687,34 @@ private fun PlaybackStatusOverlay(
 }
 
 private const val MEDIA3_UI_PACKAGE = "androidx.media3.ui"
+private val CONTROL_LOOKUP_CACHE_TAG_KEY: Int = R.id.tag_player_control_lookup_cache
+private data class ControlLookupCache(
+    val candidateIdsByName: MutableMap<String, IntArray> = mutableMapOf(),
+    val viewByName: MutableMap<String, WeakReference<View>> = mutableMapOf()
+)
+
+private fun PlayerView.controlLookupCache(): ControlLookupCache {
+    val existing = getTag(CONTROL_LOOKUP_CACHE_TAG_KEY) as? ControlLookupCache
+    if (existing != null) return existing
+    return ControlLookupCache().also { setTag(CONTROL_LOOKUP_CACHE_TAG_KEY, it) }
+}
+
+@SuppressLint("DiscouragedApi")
+private fun PlayerView.resolveControlCandidateIds(name: String): IntArray {
+    val candidates = buildList {
+        resources.getIdentifier(name, "id", context.packageName)
+            .takeIf { it != 0 }?.let(::add)
+        resources.getIdentifier(name, "id", MEDIA3_UI_PACKAGE)
+            .takeIf { it != 0 }?.let(::add)
+        try {
+            Media3UiR.id::class.java.getField(name).getInt(null)
+        } catch (_: Exception) {
+            null
+        }?.let(::add)
+    }
+    return candidates.distinct().toIntArray()
+}
+
 private fun View.enableControl() {
     alpha = 1f
     isEnabled = true
@@ -711,19 +727,18 @@ private fun View.disableControl() {
 
 @SuppressLint("DiscouragedApi")
 private fun PlayerView.findControlView(name: String): View? {
-    val candidateIds = buildList {
-        resources.getIdentifier(name, "id", context.packageName)
-            .takeIf { it != 0 }?.let(::add)
-        resources.getIdentifier(name, "id", MEDIA3_UI_PACKAGE)
-            .takeIf { it != 0 }?.let(::add)
-        try {
-            Media3UiR.id::class.java.getField(name).getInt(null)
-        } catch (_: Exception) {
-            null
-        }?.let(::add)
+    val cache = controlLookupCache()
+    cache.viewByName[name]?.get()?.let { return it }
+
+    val candidateIds = cache.candidateIdsByName[name] ?: resolveControlCandidateIds(name).also {
+        cache.candidateIdsByName[name] = it
     }
+
     candidateIds.forEach { id ->
-        findViewById<View>(id)?.let { return it }
+        findViewById<View>(id)?.let { view ->
+            cache.viewByName[name] = WeakReference(view)
+            return view
+        }
     }
     return null
 }
@@ -746,10 +761,7 @@ private fun PlayerView.hideSettingsControls() {
 }
 
 private data class ControlsSignature(
-    val isArchivePlayback: Boolean,
-    val programHash: Int,
-    val navigateLeftHash: Int,
-    val navigateRightHash: Int
+    val isArchivePlayback: Boolean
 )
 
 private fun PlayerView.configurePlayerView(
@@ -855,282 +867,290 @@ private fun PlayerView.applyControlCustomizations(
         } else false
     }
 
-    // Intercept DPAD at PlayerView level to keep arrow keys within controls and enable long-press escape
-    setOnKeyListener { _, keyCode, event ->
-        if (event.action != android.view.KeyEvent.ACTION_DOWN) return@setOnKeyListener false
-        onControlsInteraction?.invoke()
-        when (keyCode) {
+    fun moveDownToTimeBar(): Boolean {
+        val timeBar = findControlView("exo_timebar") ?: findControlView("exo_progress")
+        if (timeBar?.isShown == true && timeBar.isFocusable) {
+            timeBar.requestFocus()
+            return true
+        }
+        return false
+    }
+
+    fun moveUpToOverlay(): Boolean {
+        onNavigateUpToOverlay?.invoke()
+        return true
+    }
+
+    fun navigateSideByLongPress(keyCode: Int): Boolean {
+        return when (keyCode) {
             android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
-                if (event.repeatCount > 0 || event.isLongPress) {
-                    onForceFavoritesHighlight?.invoke()
-                    post { onNavigateLeftToFavorites?.invoke() }
-                    return@setOnKeyListener true
-                }
-                false
+                onForceFavoritesHighlight?.invoke()
+                post { onNavigateLeftToFavorites?.invoke() }
+                true
             }
             android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                if (event.repeatCount > 0 || event.isLongPress) {
-                    onForceRotateHighlight?.invoke()
-                    post { onNavigateRightToRotate?.invoke() }
-                    return@setOnKeyListener true
-                }
-                false
-            }
-            android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
-                val timeBar = findControlView("exo_timebar") ?: findControlView("exo_progress")
-                if (timeBar?.isShown == true && timeBar.isFocusable) {
-                    timeBar.requestFocus()
-                    return@setOnKeyListener true
-                }
-                false
-            }
-            android.view.KeyEvent.KEYCODE_DPAD_UP -> {
-                // Navigate UP to overlay buttons
-                onNavigateUpToOverlay?.invoke()
-                return@setOnKeyListener true
+                onForceRotateHighlight?.invoke()
+                post { onNavigateRightToRotate?.invoke() }
+                true
             }
             else -> false
         }
     }
 
-    findControlView("exo_prev")?.apply {
-        visibility = View.VISIBLE
-        enableControl()
-        setOnClickListener { onRestartPlayback() }
-        isFocusable = true
-        isFocusableInTouchMode = false
-        setOnKeyListener { _, keyCode, event ->
-            if (event.action == android.view.KeyEvent.ACTION_DOWN && hasFocus()) {
-                onControlsInteraction?.invoke()
-                when (keyCode) {
-                    android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
+    data class HorizontalHandlingPolicy(
+        val deferShortPressUntilUp: Boolean = false
+    )
+
+    fun setupDpadKeyHandling(
+        view: View,
+        onShortHorizontal: (Int) -> Boolean,
+        onLongHorizontal: ((Int) -> Boolean)? = null,
+        onDown: (() -> Boolean)? = null,
+        onUp: (() -> Boolean)? = null,
+        horizontalPolicy: HorizontalHandlingPolicy = HorizontalHandlingPolicy()
+    ) {
+        var pendingHorizontalKey: Int? = null
+        var longPressTriggered = false
+        var longPressRunnable: Runnable? = null
+        var horizontalDownTimeMs: Long = 0L
+
+        fun isHorizontalKey(keyCode: Int): Boolean {
+            return keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT ||
+                keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT
+        }
+
+        fun clearLongPressWatch() {
+            longPressRunnable?.let { view.removeCallbacks(it) }
+            longPressRunnable = null
+        }
+
+        fun resetHorizontalState() {
+            pendingHorizontalKey = null
+            longPressTriggered = false
+            horizontalDownTimeMs = 0L
+        }
+
+        fun triggerLongPress(keyCode: Int): Boolean {
+            return onLongHorizontal?.invoke(keyCode) == true
+        }
+
+        fun startLongPressWatch(keyCode: Int) {
+            clearLongPressWatch()
+            val runnable = Runnable {
+                val stillPending = pendingHorizontalKey == keyCode
+                if (!stillPending) {
+                    longPressRunnable = null
+                    return@Runnable
+                }
+                if (!view.hasFocus()) {
+                    resetHorizontalState()
+                    longPressRunnable = null
+                    return@Runnable
+                }
+                longPressTriggered = triggerLongPress(keyCode)
+                longPressRunnable = null
+            }
+            longPressRunnable = runnable
+            view.postDelayed(runnable, EXO_HORIZONTAL_LONG_PRESS_MS)
+        }
+
+        view.setOnKeyListener { _, keyCode, event ->
+            if (!view.hasFocus()) {
+                clearLongPressWatch()
+                resetHorizontalState()
+                return@setOnKeyListener false
+            }
+            val isHorizontal = isHorizontalKey(keyCode)
+
+            when (event.action) {
+                android.view.KeyEvent.ACTION_DOWN -> {
+                    onControlsInteraction?.invoke()
+
+                    if (isHorizontal) {
+                        if (horizontalPolicy.deferShortPressUntilUp) {
+                            // If focus left this view after a previous long-press side jump,
+                            // KEY_UP may never reach this listener. Detect that stale state on
+                            // the next physical DOWN and restart tracking immediately.
+                            if (
+                                event.repeatCount == 0 &&
+                                pendingHorizontalKey == keyCode &&
+                                longPressRunnable == null
+                            ) {
+                                resetHorizontalState()
+                            }
+                            if (pendingHorizontalKey != keyCode) {
+                                pendingHorizontalKey = keyCode
+                                longPressTriggered = false
+                                horizontalDownTimeMs = SystemClock.uptimeMillis()
+                                startLongPressWatch(keyCode)
+                            }
+                            if (event.repeatCount > 0 || event.isLongPress) {
+                                if (!longPressTriggered) {
+                                    longPressTriggered = triggerLongPress(keyCode)
+                                }
+                                return@setOnKeyListener true
+                            }
+                            // For deferred controls (play/pause), resolve short-vs-long on KEY_UP.
+                            return@setOnKeyListener true
+                        }
+
                         if (event.repeatCount > 0 || event.isLongPress) {
-                            onForceFavoritesHighlight?.invoke()
-                            post { onNavigateLeftToFavorites?.invoke() }
-                            return@setOnKeyListener true
+                            return@setOnKeyListener triggerLongPress(keyCode)
                         }
-                        // Try to move within ExoPlayer controls, otherwise consume to prevent timebar
-                        return@setOnKeyListener moveWithinExo(this, toLeft = true) || true
+
+                        return@setOnKeyListener onShortHorizontal(keyCode)
                     }
-                    android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                        if (event.repeatCount > 0 || event.isLongPress) {
-                            onForceRotateHighlight?.invoke()
-                            post { onNavigateRightToRotate?.invoke() }
-                            return@setOnKeyListener true
-                        }
-                        return@setOnKeyListener moveWithinExo(this, toLeft = false)
+
+                    return@setOnKeyListener when (keyCode) {
+                        android.view.KeyEvent.KEYCODE_DPAD_DOWN -> onDown?.invoke() ?: false
+                        android.view.KeyEvent.KEYCODE_DPAD_UP -> onUp?.invoke() ?: false
+                        else -> false
                     }
-                    android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
-                        val timeBar = findControlView("exo_timebar") ?: findControlView("exo_progress")
-                        if (timeBar?.isShown == true && timeBar.isFocusable) {
-                            timeBar.requestFocus()
-                            return@setOnKeyListener true
-                        }
+                }
+
+                android.view.KeyEvent.ACTION_UP -> {
+                    if (!isHorizontal || !horizontalPolicy.deferShortPressUntilUp) {
                         return@setOnKeyListener false
                     }
-                    else -> return@setOnKeyListener false
+
+                    val pending = pendingHorizontalKey
+                    if (pending == null || pending != keyCode) {
+                        return@setOnKeyListener false
+                    }
+
+                    clearLongPressWatch()
+                    val pressDurationMs = (SystemClock.uptimeMillis() - horizontalDownTimeMs).coerceAtLeast(0L)
+                    pendingHorizontalKey = null
+                    if (!longPressTriggered && pressDurationMs >= EXO_HORIZONTAL_LONG_PRESS_MS) {
+                        longPressTriggered = triggerLongPress(keyCode)
+                    }
+                    if (longPressTriggered) {
+                        resetHorizontalState()
+                        return@setOnKeyListener true
+                    }
+                    val shortHandled = onShortHorizontal(keyCode)
+                    resetHorizontalState()
+                    return@setOnKeyListener shortHandled
                 }
+
+                else -> false
             }
-            false
         }
     }
 
-    findControlView("exo_next")?.apply {
-        visibility = View.VISIBLE
-        disableControl()
-        setOnClickListener(null)
-        // Make focusable so OK can activate it (even though disabled, for navigation)
-        isFocusable = true
-        isFocusableInTouchMode = false
-        setOnKeyListener { _, keyCode, event ->
-            if (event.action == android.view.KeyEvent.ACTION_DOWN && hasFocus()) {
-                onControlsInteraction?.invoke()
-                when (keyCode) {
-                    android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                        if (event.repeatCount > 0 || event.isLongPress) {
-                            onForceRotateHighlight?.invoke()
-                            post { onNavigateRightToRotate?.invoke() }
-                            return@setOnKeyListener true
-                        }
-                        return@setOnKeyListener moveWithinExo(this, toLeft = false)
-                    }
-                    android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
-                        if (event.repeatCount > 0 || event.isLongPress) {
-                            onForceFavoritesHighlight?.invoke()
-                            post { onNavigateLeftToFavorites?.invoke() }
-                            return@setOnKeyListener true
-                        }
-                        return@setOnKeyListener moveWithinExo(this, toLeft = true)
-                    }
-                    android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
-                        val timeBar = findControlView("exo_timebar") ?: findControlView("exo_progress")
-                        if (timeBar?.isShown == true && timeBar.isFocusable) {
-                            timeBar.requestFocus()
-                            return@setOnKeyListener true
-                        }
-                        return@setOnKeyListener false
-                    }
-                    else -> return@setOnKeyListener false
+    fun configureExoControl(
+        view: View,
+        enabled: Boolean = true,
+        onClick: (() -> Unit)? = null,
+        deferHorizontalShortPressUntilUp: Boolean = false,
+        consumeUnmovedHorizontalKeys: Set<Int> = emptySet()
+    ) {
+        view.visibility = View.VISIBLE
+        if (enabled) {
+            view.enableControl()
+        } else {
+            view.disableControl()
+        }
+        if (onClick != null) {
+            view.setOnClickListener { onClick() }
+        } else {
+            view.setOnClickListener(null)
+        }
+        view.isFocusable = true
+        view.isFocusableInTouchMode = false
+        setupDpadKeyHandling(
+            view = view,
+            onShortHorizontal = { keyCode ->
+                val moved = when (keyCode) {
+                    android.view.KeyEvent.KEYCODE_DPAD_LEFT -> moveWithinExo(view, toLeft = true)
+                    android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> moveWithinExo(view, toLeft = false)
+                    else -> false
                 }
-            }
-            false
+                moved || keyCode in consumeUnmovedHorizontalKeys
+            },
+            onLongHorizontal = { keyCode -> navigateSideByLongPress(keyCode) },
+            onDown = { moveDownToTimeBar() },
+            onUp = { moveUpToOverlay() },
+            horizontalPolicy = HorizontalHandlingPolicy(
+                deferShortPressUntilUp = deferHorizontalShortPressUntilUp
+            )
+        )
+    }
+
+    fun configureExoControlById(
+        controlId: String,
+        enabled: Boolean = true,
+        onClick: (() -> Unit)? = null,
+        deferHorizontalShortPressUntilUp: Boolean = false,
+        consumeUnmovedHorizontalKeys: Set<Int> = emptySet()
+    ) {
+        findControlView(controlId)?.let { view ->
+            configureExoControl(
+                view = view,
+                enabled = enabled,
+                onClick = onClick,
+                deferHorizontalShortPressUntilUp = deferHorizontalShortPressUntilUp,
+                consumeUnmovedHorizontalKeys = consumeUnmovedHorizontalKeys
+            )
         }
     }
+
+    configureExoControlById(
+        controlId = "exo_prev",
+        enabled = true,
+        onClick = onRestartPlayback,
+        consumeUnmovedHorizontalKeys = setOf(android.view.KeyEvent.KEYCODE_DPAD_LEFT)
+    )
+    configureExoControlById(
+        controlId = "exo_next",
+        enabled = false,
+        onClick = null,
+        consumeUnmovedHorizontalKeys = setOf(android.view.KeyEvent.KEYCODE_DPAD_RIGHT)
+    )
 
     listOf("exo_rew", "exo_rew_with_amount").forEach { controlId ->
-        findControlView(controlId)?.apply {
-            visibility = View.VISIBLE
-            enableControl()
-            setOnClickListener { onSeekBack() }
-            // Make focusable so OK can activate it
-            isFocusable = true
-            isFocusableInTouchMode = false
-            setOnKeyListener { _, keyCode, event ->
-                if (event.action == android.view.KeyEvent.ACTION_DOWN && hasFocus()) {
-                    onControlsInteraction?.invoke()
-                    when (keyCode) {
-                        android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
-                            if (event.repeatCount > 0 || event.isLongPress) {
-                                onForceFavoritesHighlight?.invoke()
-                                post { onNavigateLeftToFavorites?.invoke() }
-                                return@setOnKeyListener true
-                            }
-                            return@setOnKeyListener moveWithinExo(this, toLeft = true)
-                        }
-                        android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                            if (event.repeatCount > 0 || event.isLongPress) {
-                                onForceRotateHighlight?.invoke()
-                                post { onNavigateRightToRotate?.invoke() }
-                                return@setOnKeyListener true
-                            }
-                            return@setOnKeyListener moveWithinExo(this, toLeft = false)
-                        }
-                        android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
-                            val timeBar = findControlView("exo_timebar") ?: findControlView("exo_progress")
-                            if (timeBar?.isShown == true && timeBar.isFocusable) {
-                                timeBar.requestFocus()
-                                return@setOnKeyListener true
-                            }
-                            return@setOnKeyListener false
-                        }
-                        else -> return@setOnKeyListener false
-                    }
-                }
-                false
-            }
-        }
+        configureExoControlById(
+            controlId = controlId,
+            enabled = true,
+            onClick = onSeekBack
+        )
     }
 
     listOf("exo_ffwd", "exo_ffwd_with_amount").forEach { controlId ->
-        findControlView(controlId)?.apply {
-            visibility = View.VISIBLE
-            if (isArchivePlayback) {
-                enableControl()
-                setOnClickListener { onSeekForward() }
-            } else {
-                disableControl()
-                setOnClickListener(null)
-            }
-            isFocusable = true
-            isFocusableInTouchMode = false
-            setOnKeyListener { _, keyCode, event ->
-                if (event.action == android.view.KeyEvent.ACTION_DOWN && hasFocus()) {
-                    onControlsInteraction?.invoke()
-                    when (keyCode) {
-                        android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                            if (event.repeatCount > 0 || event.isLongPress) {
-                                onForceRotateHighlight?.invoke()
-                                post { onNavigateRightToRotate?.invoke() }
-                                return@setOnKeyListener true
-                            }
-                            return@setOnKeyListener moveWithinExo(this, toLeft = false)
-                        }
-                        android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
-                            if (event.repeatCount > 0 || event.isLongPress) {
-                                onForceFavoritesHighlight?.invoke()
-                                post { onNavigateLeftToFavorites?.invoke() }
-                                return@setOnKeyListener true
-                            }
-                            return@setOnKeyListener moveWithinExo(this, toLeft = true)
-                        }
-                        android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
-                            val timeBar = findControlView("exo_timebar") ?: findControlView("exo_progress")
-                            if (timeBar?.isShown == true && timeBar.isFocusable) {
-                                timeBar.requestFocus()
-                                return@setOnKeyListener true
-                            }
-                            return@setOnKeyListener false
-                        }
-                        else -> return@setOnKeyListener false
-                    }
-                }
-                false
-            }
-        }
+        val enabled = isArchivePlayback
+        configureExoControlById(
+            controlId = controlId,
+            enabled = enabled,
+            onClick = if (enabled) onSeekForward else null
+        )
     }
 
-    // Helper function to add long-press support to play/pause controls
-    fun setupPlayPauseControl(view: View) {
-        view.setOnKeyListener { _, keyCode, event ->
-            if (event.action == android.view.KeyEvent.ACTION_DOWN && view.hasFocus()) {
-                onControlsInteraction?.invoke()
-                when (keyCode) {
-                    android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
-                        if (event.repeatCount > 0 || event.isLongPress) {
-                            onForceFavoritesHighlight?.invoke()
-                            post { onNavigateLeftToFavorites?.invoke() }
-                            return@setOnKeyListener true
-                        }
-                        return@setOnKeyListener moveWithinExo(view, toLeft = true)
-                    }
-                    android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                        if (event.repeatCount > 0 || event.isLongPress) {
-                            onForceRotateHighlight?.invoke()
-                            post { onNavigateRightToRotate?.invoke() }
-                            return@setOnKeyListener true
-                        }
-                        return@setOnKeyListener moveWithinExo(view, toLeft = false)
-                    }
-                    android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
-                        val timeBar = findControlView("exo_timebar") ?: findControlView("exo_progress")
-                        if (timeBar?.isShown == true && timeBar.isFocusable) {
-                            timeBar.requestFocus()
-                            return@setOnKeyListener true
-                        }
-                        return@setOnKeyListener false
-                    }
-                    else -> return@setOnKeyListener false
-                }
-            }
-            false
-        }
-    }
-
-    findControlView("exo_pause")?.apply {
-        setOnClickListener { onPausePlayback() }
-        isFocusable = true
-        isFocusableInTouchMode = false
-        setupPlayPauseControl(this)
-    }
-    findControlView("exo_play")?.apply {
-        setOnClickListener { onResumePlayback() }
-        isFocusable = true
-        isFocusableInTouchMode = false
-        setupPlayPauseControl(this)
-    }
-    findControlView("exo_play_pause")?.apply {
-        setOnClickListener {
+    // Keep deferred short-vs-long behavior on play/pause controls for STB remotes.
+    configureExoControlById(
+        controlId = "exo_pause",
+        enabled = true,
+        onClick = onPausePlayback,
+        deferHorizontalShortPressUntilUp = true
+    )
+    configureExoControlById(
+        controlId = "exo_play",
+        enabled = true,
+        onClick = onResumePlayback,
+        deferHorizontalShortPressUntilUp = true
+    )
+    configureExoControlById(
+        controlId = "exo_play_pause",
+        enabled = true,
+        onClick = {
             val playerInstance = player
             if (playerInstance?.isPlaying == true) {
                 onPausePlayback()
             } else {
                 onResumePlayback()
             }
-        }
-        isFocusable = true
-        isFocusableInTouchMode = false
-        setupPlayPauseControl(this)
-    }
+        },
+        deferHorizontalShortPressUntilUp = true
+    )
 
     // Refactor progress bar: center it and position times on left/right sides
     val horizontalMarginDp = 120f // Leave space for custom buttons on sides
@@ -1148,37 +1168,22 @@ private fun PlayerView.applyControlCustomizations(
         }
         bar.isFocusable = true
         bar.isFocusableInTouchMode = false
-        bar.setOnKeyListener { _, keyCode, event ->
-            if (event.action == android.view.KeyEvent.ACTION_DOWN) {
-                onControlsInteraction?.invoke()
-                val isLeft = keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT
-                val isRight = keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT
-                if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_UP) {
-                    // Move back to play/pause/exo controls
-                    focusOnControl(
-                        "exo_play_pause",
-                        "exo_play",
-                        "exo_pause",
-                        "exo_rew",
-                        "exo_ffwd"
-                    )
-                    return@setOnKeyListener true
-                }
-                if (isLeft || isRight) {
-                    if (event.repeatCount > 0 || event.isLongPress) {
-                        if (isLeft) {
-                            onForceFavoritesHighlight?.invoke()
-                            post { onNavigateLeftToFavorites?.invoke() }
-                        } else {
-                            onForceRotateHighlight?.invoke()
-                            post { onNavigateRightToRotate?.invoke() }
-                        }
-                        return@setOnKeyListener true
-                    }
-                }
+        setupDpadKeyHandling(
+            view = bar,
+            onShortHorizontal = { false },
+            onLongHorizontal = { keyCode -> navigateSideByLongPress(keyCode) },
+            onUp = {
+                // Move back to play/pause/exo controls
+                focusOnControl(
+                    "exo_play_pause",
+                    "exo_play",
+                    "exo_pause",
+                    "exo_rew",
+                    "exo_ffwd"
+                )
+                true
             }
-            false
-        }
+        )
     }
 
     // Position time text views - they should already be in the layout on left/right
@@ -1201,3 +1206,40 @@ private fun PlayerView.focusOnControl(vararg controlNames: String) {
             (target.parent as? ViewGroup)?.requestChildFocus(target, target)
         }
 }
+
+@Composable
+private fun localizedPlaybackIssueMessage(issue: PlaybackIssue): String {
+    val rawMessage = issue.message?.trim().orEmpty()
+    val isSourceError = rawMessage.equals("source error", ignoreCase = true)
+
+    val base = when (issue) {
+        is PlaybackIssue.Suspended -> stringResource(R.string.playback_issue_suspended)
+        is PlaybackIssue.TokenNotFound -> stringResource(R.string.playback_issue_token_not_found)
+        is PlaybackIssue.NotFound -> stringResource(R.string.playback_issue_not_found)
+        is PlaybackIssue.Forbidden -> stringResource(R.string.playback_issue_forbidden)
+        is PlaybackIssue.HttpError -> {
+            if (issue.code < 0 && isSourceError) {
+                stringResource(R.string.playback_issue_source_error)
+            } else {
+                stringResource(R.string.playback_issue_http_error, issue.code)
+            }
+        }
+        is PlaybackIssue.Network -> stringResource(R.string.playback_issue_network)
+        is PlaybackIssue.Timeout -> stringResource(R.string.playback_issue_timeout)
+        is PlaybackIssue.Unknown -> {
+            if (isSourceError) {
+                stringResource(R.string.playback_issue_source_error)
+            } else {
+                stringResource(R.string.playback_issue_unknown)
+            }
+        }
+    }
+
+    val showExtra = rawMessage.isNotBlank() &&
+        !isSourceError &&
+        !rawMessage.equals(base, ignoreCase = true)
+
+    return if (showExtra) "$base: $rawMessage" else base
+}
+
+private const val EXO_HORIZONTAL_LONG_PRESS_MS = 300L

@@ -82,11 +82,6 @@ class LoadPlaylistUseCase @Inject constructor(
     ): Result<List<Channel>> {
         val source = preferencesRepository.playlistSource.first()
 
-        // If no source configured, return empty
-        if (source is PlaylistSource.None) {
-            return Result.Success(emptyList())
-        }
-
         // Get stored hash and current hash
         val storedHash = preferencesRepository.playlistHash.first()
         if (!forceReload && skipNetworkIfCacheAvailable && source is PlaylistSource.Url && storedHash.isNotBlank()) {

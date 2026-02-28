@@ -30,11 +30,13 @@ object DeviceHelper {
             // Check if device has D-pad (common in remotes)
             val sources = device.sources
             if (sources and InputDevice.SOURCE_DPAD != 0) {
+                remoteControlPresentCache.set(true)
                 return true
             }
 
             // Check if device has gamepad buttons (some remotes report as gamepad)
             if (sources and InputDevice.SOURCE_GAMEPAD != 0) {
+                remoteControlPresentCache.set(true)
                 return true
             }
 
@@ -54,12 +56,6 @@ object DeviceHelper {
     }
 
     /**
-     * Non-blocking hint: if we've already computed the presence of a remote, return it.
-     * Otherwise returns null.
-     */
-    fun hasRemoteControlCached(): Boolean? = remoteControlPresentCache.get()
-
-    /**
      * Check if remote input is currently active
      * Static flag configured at app start for TV/STB devices.
      */
@@ -75,29 +71,5 @@ object DeviceHelper {
         remoteMode.set(enabled)
     }
 
-    fun clearRemoteControlCache() {
-        remoteControlPresentCache.set(null)
-    }
-
-    /**
-     * Get list of connected remote-capable devices
-     * For debugging/logging purposes
-     */
-    fun getConnectedRemoteDevices(): List<String> {
-        val devices = mutableListOf<String>()
-        val deviceIds = InputDevice.getDeviceIds()
-
-        for (deviceId in deviceIds) {
-            val device = InputDevice.getDevice(deviceId) ?: continue
-            val sources = device.sources
-
-            if (sources and InputDevice.SOURCE_DPAD != 0 ||
-                sources and InputDevice.SOURCE_GAMEPAD != 0) {
-                devices.add("${device.name} (ID: $deviceId)")
-            }
-        }
-
-        return devices
-    }
 }
 

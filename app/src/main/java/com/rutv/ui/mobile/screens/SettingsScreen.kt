@@ -6,6 +6,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -34,6 +36,7 @@ import com.rutv.ui.theme.ruTvColors
 import com.rutv.util.Constants
 import com.rutv.util.DeviceHelper
 import com.rutv.util.PlayerConstants
+import com.rutv.util.decodePlaylistText
 import timber.log.Timber
 import androidx.compose.foundation.focusable
 import androidx.compose.ui.focus.FocusRequester
@@ -44,9 +47,9 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
-import com.rutv.ui.shared.components.remoteActivate
 import com.rutv.ui.shared.components.remoteBack
 import kotlinx.coroutines.launch
+import kotlin.math.min
 
 /**
  * Settings Screen with Compose UI
@@ -106,8 +109,16 @@ fun SettingsScreen(
                             }
                         }
                         val text = context.contentResolver.openInputStream(it)
-                            ?.bufferedReader()
-                            ?.use { reader -> reader.readText() }
+                            ?.use { input ->
+                                val maxBytes = Constants.MAX_PLAYLIST_SIZE_BYTES
+                                val bytes = input.readAtMost(maxBytes + 1)
+                                if (bytes.size > maxBytes) {
+                                    throw IllegalArgumentException(
+                                        "Playlist is too large (max ${maxBytes} bytes)"
+                                    )
+                                }
+                                decodePlaylistText(bytes)
+                            }
                         name to text
                     }
                     if (content.isNullOrEmpty()) {
@@ -137,9 +148,9 @@ fun SettingsScreen(
                             onClick = onBack,
                             contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
                             modifier = Modifier
-                                .focusable(enabled = DeviceHelper.isRemoteInputActive())
                                 .focusRequester(backButtonFocus)
-                                .onFocusChanged { isBackFocused = it.isFocused }
+                                .onFocusChanged { isBackFocused = it.hasFocus }
+                                .focusable(enabled = DeviceHelper.isRemoteInputActive())
                                 .then(focusIndicatorModifier(isFocused = isBackFocused))
                                 .remoteActivate(enabled = DeviceHelper.isRemoteInputActive(), onActivate = onBack)
                         ) {
@@ -174,7 +185,7 @@ fun SettingsScreen(
             modifier = modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp)
+                .padding(horizontal = 24.dp, vertical = 16.dp)
         ) {
             // Playlist Source Section
             item {
@@ -207,9 +218,9 @@ fun SettingsScreen(
                         onClick = { filePickerLauncher.launch("*/*") },
                         modifier = Modifier
                             .weight(1f)
-                            .focusable()
                             .focusRequester(fileButtonFocus)
-                            .onFocusChanged { fileButtonFocused = it.isFocused }
+                            .onFocusChanged { fileButtonFocused = it.hasFocus }
+                            .focusable()
                             .then(focusIndicatorModifier(isFocused = fileButtonFocused))
                             .remoteActivate(
                                 enabled = DeviceHelper.isRemoteInputActive(),
@@ -237,9 +248,9 @@ fun SettingsScreen(
                         onClick = { showUrlDialog = true },
                         modifier = Modifier
                             .weight(1f)
-                            .focusable()
                             .focusRequester(urlButtonFocus)
-                            .onFocusChanged { urlButtonFocused = it.isFocused }
+                            .onFocusChanged { urlButtonFocused = it.hasFocus }
+                            .focusable()
                             .then(focusIndicatorModifier(isFocused = urlButtonFocused))
                             .remoteActivate(
                                 enabled = DeviceHelper.isRemoteInputActive(),
@@ -278,9 +289,9 @@ fun SettingsScreen(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .focusable(enabled = DeviceHelper.isRemoteInputActive())
                         .focusRequester(reloadButtonFocus)
-                        .onFocusChanged { isFocused = it.isFocused }
+                        .onFocusChanged { isFocused = it.hasFocus }
+                        .focusable(enabled = DeviceHelper.isRemoteInputActive())
                         .then(focusIndicatorModifier(isFocused = isFocused))
                         .remoteActivate(
                             enabled = DeviceHelper.isRemoteInputActive(),
@@ -430,9 +441,9 @@ fun SettingsScreen(
                     onClick = onClearEpgCache,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .focusable(enabled = DeviceHelper.isRemoteInputActive())
                         .focusRequester(clearCacheButtonFocus)
-                        .onFocusChanged { isFocused = it.isFocused }
+                        .onFocusChanged { isFocused = it.hasFocus }
+                        .focusable(enabled = DeviceHelper.isRemoteInputActive())
                         .then(focusIndicatorModifier(isFocused = isFocused))
                         .remoteActivate(enabled = DeviceHelper.isRemoteInputActive(), onActivate = onClearEpgCache),
                     colors = ButtonDefaults.buttonColors(
@@ -498,6 +509,21 @@ fun SettingsScreen(
             }
         )
     }
+}
+
+private fun InputStream.readAtMost(limit: Int): ByteArray {
+    if (limit <= 0) return ByteArray(0)
+    val buffer = ByteArray(8 * 1024)
+    val output = ByteArrayOutputStream(min(8 * 1024, limit))
+    var total = 0
+    while (total < limit) {
+        val toRead = min(buffer.size, limit - total)
+        val read = read(buffer, 0, toRead)
+        if (read <= 0) break
+        output.write(buffer, 0, read)
+        total += read
+    }
+    return output.toByteArray()
 }
 
 @Composable
@@ -569,10 +595,10 @@ private fun SwitchSetting(
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .onFocusChanged { isFocused = it.hasFocus }
             .focusable()
-            .onFocusChanged { isFocused = it.isFocused }
             .then(focusIndicatorModifier(isFocused))
-            .padding(vertical = 8.dp)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
             .remoteActivate(
                 enabled = DeviceHelper.isRemoteInputActive(),
                 onActivate = { onCheckedChange(!checked) }
@@ -626,10 +652,10 @@ private fun TextInputSetting(
             onValueChange = { localValue = it },
             modifier = Modifier
                 .fillMaxWidth()
-                .focusable()
                 .onFocusChanged { focusState ->
-                    isFocused = focusState.isFocused
+                    isFocused = focusState.hasFocus
                 }
+                .focusable()
                 .then(focusIndicatorModifier(isFocused)),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = MaterialTheme.ruTvColors.gold,
@@ -679,8 +705,8 @@ private fun NumberInputSetting(
             readOnly = true,
             modifier = Modifier
                 .fillMaxWidth()
+                .onFocusChanged { isFocused = it.hasFocus }
                 .focusable()
-                .onFocusChanged { isFocused = it.isFocused }
                 .clickable(
                     interactionSource = interactionSource,
                     indication = null
@@ -956,8 +982,8 @@ private fun LanguageSelectorSetting(
                 modifier = Modifier
                     .menuAnchor()
                     .fillMaxWidth()
+                    .onFocusChanged { isFocused = it.hasFocus }
                     .focusable()
-                    .onFocusChanged { isFocused = it.isFocused }
                     .then(focusIndicatorModifier(isFocused))
                     .clickable(
                         interactionSource = interactionSource,

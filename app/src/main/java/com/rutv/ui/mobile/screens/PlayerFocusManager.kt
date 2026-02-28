@@ -8,6 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.focus.FocusRequester
+import com.rutv.ui.shared.components.requestFocusSafely
 
 /**
  * Represents distinct focus areas in the player screen.
@@ -30,7 +31,6 @@ enum class PlayerFocusDestination {
  * Replaces the older imperative focus coordinator with a declarative state machine.
  */
 class PlayerFocusManager(
-    private val log: ((String) -> Unit)?,
     initial: PlayerFocusDestination = PlayerFocusDestination.NONE
 ) {
     private val destinationState = mutableStateOf<PlayerFocusDestination>(initial)
@@ -48,7 +48,7 @@ class PlayerFocusManager(
         focusRegistry[destination] = requester
         // If this destination is currently active and we just registered, request focus
         if (destinationState.value == destination && requester != null) {
-            requester.requestFocus()
+            requester.requestFocusSafely()
         }
     }
 
@@ -67,7 +67,7 @@ class PlayerFocusManager(
     fun requestEnter(destination: PlayerFocusDestination) {
         if (destinationState.value == destination) {
             // Already at this destination, just ensure focus is requested
-            focusRegistry[destination]?.requestFocus()
+            focusRegistry[destination]?.requestFocusSafely()
             return
         }
 
@@ -75,7 +75,7 @@ class PlayerFocusManager(
 
         val requester = focusRegistry[destination]
         if (requester != null) {
-            requester.requestFocus()
+            requester.requestFocusSafely()
         }
     }
 
@@ -104,10 +104,9 @@ class PlayerFocusManager(
 
 @Composable
 fun rememberPlayerFocusManager(
-    initial: PlayerFocusDestination = PlayerFocusDestination.NONE,
-    log: ((String) -> Unit)? = null
-): PlayerFocusManager = remember(initial, log) {
-    PlayerFocusManager(log, initial)
+    initial: PlayerFocusDestination = PlayerFocusDestination.NONE
+): PlayerFocusManager = remember(initial) {
+    PlayerFocusManager(initial)
 }
 
 /**
@@ -121,9 +120,10 @@ fun PlayerFocusManager.WatchForPendingRequests() {
 
     LaunchedEffect(currentDest, requester) {
         if (requester != null) {
-            // Wait for at least one frame so layout/focus nodes are ready (no fixed delay).
-            withFrameNanos { }
-            requester.requestFocus()
+            repeat(6) {
+                if (requester.requestFocusSafely()) return@LaunchedEffect
+                withFrameNanos { }
+            }
         }
     }
 }

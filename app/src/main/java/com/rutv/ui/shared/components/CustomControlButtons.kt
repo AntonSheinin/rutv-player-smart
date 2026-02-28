@@ -22,7 +22,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -90,7 +90,10 @@ fun CustomControlButtons(
         var forceFavoritesVisual by remember { mutableStateOf(false) }
         var forceRotateVisual by remember { mutableStateOf(false) }
 
-        LaunchedEffect(Unit) {
+        // Register requesters/hints immediately after composition commit.
+        // Using SideEffect avoids a one-frame race where the first long-press navigation
+        // can arrive before registration callbacks from LaunchedEffect.
+        SideEffect {
             onRegisterFocusRequesters?.invoke(leftColumnFocusRequesters, rightColumnFocusRequesters)
             onRegisterForcedFocusHints?.invoke(
                 { hint -> forceFavoritesVisual = hint },

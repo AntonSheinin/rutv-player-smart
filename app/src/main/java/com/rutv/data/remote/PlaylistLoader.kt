@@ -6,11 +6,13 @@ import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.HttpDataSource
 import com.rutv.util.Constants
 import com.rutv.util.Result
+import com.rutv.util.decodePlaylistText
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.rutv.util.logDebug
 import timber.log.Timber
+import java.io.ByteArrayOutputStream
 import javax.inject.Inject
 import javax.inject.Singleton
 import javax.net.ssl.SSLException
@@ -49,21 +51,24 @@ class PlaylistLoader @Inject constructor(
             DataSourceInputStream(dataSource, spec).use { stream ->
                 val max = Constants.MAX_PLAYLIST_SIZE_BYTES
                 val buffer = ByteArray(8 * 1024)
-                val out = StringBuilder()
+                val out = ByteArrayOutputStream()
                 var total = 0
                 while (true) {
                     val toRead = buffer.size.coerceAtMost(max - total)
                     if (toRead <= 0) break
                     val read = stream.read(buffer, 0, toRead)
                     if (read <= 0) break
-                    out.append(String(buffer, 0, read, Charsets.UTF_8))
+                    out.write(buffer, 0, read)
                     total += read
                 }
                 if (total >= max) {
                     Timber.w("Playlist content reached size cap: $max bytes")
+                    return@use Result.Error(
+                        Exception("Playlist is too large (max ${max} bytes)")
+                    )
                 }
-                logDebug { "Loaded ${out.length} bytes from URL" }
-                Result.Success(out.toString())
+                logDebug { "Loaded $total bytes from URL" }
+                Result.Success(decodePlaylistText(out.toByteArray()))
             }
         } catch (e: HttpDataSource.InvalidResponseCodeException) {
             Timber.e(e, "HTTP ${e.responseCode} loading playlist from URL: $url")

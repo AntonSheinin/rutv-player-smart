@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -14,6 +15,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.unit.dp
 import com.rutv.ui.theme.ruTvColors
 import com.rutv.util.DeviceHelper
@@ -32,6 +34,7 @@ fun RemoteDialog(
     modifier: Modifier = Modifier,
     containerColor: androidx.compose.ui.graphics.Color = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f),
     shape: RoundedCornerShape = RoundedCornerShape(16.dp),
+    usePlatformDefaultWidth: Boolean = true,
     confirmButtonFocusRequester: FocusRequester? = null,
     dismissButtonFocusRequester: FocusRequester? = null,
     textFocusRequester: FocusRequester? = null,
@@ -47,7 +50,10 @@ fun RemoteDialog(
     // Request focus on confirm button when dialog opens in remote mode
     LaunchedEffect(isRemoteMode, autoFocusConfirm) {
         if (isRemoteMode && autoFocusConfirm) {
-            confirmFocus.requestFocus()
+            repeat(4) {
+                if (confirmFocus.requestFocusSafely()) return@LaunchedEffect
+                withFrameNanos { }
+            }
         }
     }
 
@@ -91,13 +97,11 @@ fun RemoteDialog(
                                 )?.let { target ->
                                     when (target) {
                                         DialogFocusPolicy.Target.TextField -> {
-                                            textFocusRequester?.requestFocus()
-                                            true
+                                            textFocusRequester?.requestFocusSafely() == true
                                         }
 
                                         DialogFocusPolicy.Target.SecondaryAction -> {
-                                            if (hasSecondary) dismissFocus.requestFocus()
-                                            true
+                                            hasSecondary && dismissFocus.requestFocusSafely()
                                         }
 
                                         DialogFocusPolicy.Target.PrimaryAction -> true
@@ -141,13 +145,11 @@ fun RemoteDialog(
                                     )?.let { target ->
                                         when (target) {
                                             DialogFocusPolicy.Target.TextField -> {
-                                                textFocusRequester?.requestFocus()
-                                                true
+                                                textFocusRequester?.requestFocusSafely() == true
                                             }
 
                                             DialogFocusPolicy.Target.PrimaryAction -> {
-                                                confirmFocus.requestFocus()
-                                                true
+                                                confirmFocus.requestFocusSafely()
                                             }
 
                                             DialogFocusPolicy.Target.SecondaryAction -> true
@@ -162,6 +164,7 @@ fun RemoteDialog(
         },
         containerColor = containerColor,
         shape = shape,
+        properties = DialogProperties(usePlatformDefaultWidth = usePlatformDefaultWidth),
         modifier = modifier
     )
 }

@@ -36,6 +36,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import timber.log.Timber
 import android.view.KeyEvent
 import android.content.res.Configuration
+import kotlinx.coroutines.delay
 
 /**
  * App main entry activity.
@@ -72,6 +73,8 @@ class MainActivity : ComponentActivity() {
     private var areControlsVisible = false
     private var pendingOkToggle = false
     private var okLongPressHandled = false
+    private var lastPanelNavigationAtMs = 0L
+    private var lastChannelNavigationAtMs = 0L
 
     override fun attachBaseContext(newBase: Context) {
         // Locale must be applied before resources are loaded; we read synchronously.
@@ -139,6 +142,16 @@ class MainActivity : ComponentActivity() {
         var showChannelDialog by remember { mutableStateOf(false) }
         var showGroupDialog by remember { mutableStateOf(false) }
         var channelInput by remember { mutableStateOf("") }
+
+        LaunchedEffect(Unit) {
+            // Signal ViewModel after the first frame so startup player init can be deferred
+            // outside the critical "activity displayed" path.
+            withFrameNanos { }
+            // Give the enter transition one more beat on slower STBs before kicking off
+            // playlist/db work that can compete for startup CPU.
+            delay(250L)
+            viewModel.onStartupUiReady()
+        }
 
         // Close App dialog state (shared between composable and onKeyDown)
         val showCloseAppDialogState = remember { mutableStateOf(false) }
@@ -238,7 +251,6 @@ class MainActivity : ComponentActivity() {
             actions = playerActions,
             onRegisterToggleControls = { callback -> toggleControlsCallbackState = callback },
             onControlsVisibilityChanged = { visible -> areControlsVisible = visible },
-            onLogDebug = { message -> viewModel.logDebug(message) },
             modifier = Modifier.fillMaxSize()
         )
 
@@ -270,13 +282,17 @@ class MainActivity : ComponentActivity() {
             onDismiss = { showChannelDialog = false }
         )
 
-        val channelGroups = remember(viewState.channels) {
-            viewState.channels
-                .flatMap { it.allGroups }
-                .map { it.trim() }
-                .filter { it.isNotBlank() }
-                .distinct()
-                .sorted()
+        val channelGroups = remember(viewState.channels, showGroupDialog) {
+            if (!showGroupDialog) {
+                emptyList()
+            } else {
+                viewState.channels
+                    .flatMap { it.allGroups }
+                    .map { it.trim() }
+                    .filter { it.isNotBlank() }
+                    .distinct()
+                    .sorted()
+            }
         }
 
         ChannelGroupDialog(
@@ -306,7 +322,7 @@ class MainActivity : ComponentActivity() {
 
     private val settingsLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
-    ) { result ->
+    ) { _ ->
         // Check if language was changed by comparing saved language
         val languageAfterSettings = LocaleHelper.getSavedLanguage(this)
         val languageChanged = languageBeforeSettings != languageAfterSettings
@@ -421,10 +437,12 @@ class MainActivity : ComponentActivity() {
             when (keyCode) {
                 // Channel navigation (direct, bypasses focus)
                 KeyEvent.KEYCODE_CHANNEL_UP -> {
+                    if (!shouldHandleChannelNavigation(event)) return true
                     switchChannelUp()
                     return true
                 }
                 KeyEvent.KEYCODE_CHANNEL_DOWN -> {
+                    if (!shouldHandleChannelNavigation(event)) return true
                     switchChannelDown()
                     return true
                 }
@@ -445,26 +463,8 @@ class MainActivity : ComponentActivity() {
                 KeyEvent.KEYCODE_7,
                 KeyEvent.KEYCODE_8,
                 KeyEvent.KEYCODE_9 -> {
-                    // Handle number input when channel dialog is shown
-                    // Extract digit and append to channelInput
-                    val digit = when (keyCode) {
-                        KeyEvent.KEYCODE_0 -> '0'
-                        KeyEvent.KEYCODE_1 -> '1'
-                        KeyEvent.KEYCODE_2 -> '2'
-                        KeyEvent.KEYCODE_3 -> '3'
-                        KeyEvent.KEYCODE_4 -> '4'
-                        KeyEvent.KEYCODE_5 -> '5'
-                        KeyEvent.KEYCODE_6 -> '6'
-                        KeyEvent.KEYCODE_7 -> '7'
-                        KeyEvent.KEYCODE_8 -> '8'
-                        KeyEvent.KEYCODE_9 -> '9'
-                        else -> null
-                    }
-                    digit?.let {
-                        // This will be handled in the composable via state
-                        // For now, pass through to let Compose handle it
-                    }
-                    return super.onKeyDown(keyCode, event) // Let Compose handle it - channelInput state will update via TextField
+                    // Let Compose input handlers process numeric input (dialogs/text fields).
+                    return super.onKeyDown(keyCode, event)
                 }
                 // Media controls - ExoPlayer handles these natively when player has focus
                 KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
@@ -535,6 +535,7 @@ class MainActivity : ComponentActivity() {
                     }
                     // Open playlist when in fullscreen (no panels visible) OR when only EPG is visible
                     if (!currentState.showPlaylist && currentState.hasChannels) {
+                        if (!shouldHandlePanelNavigation(event)) return true
                         viewModel.openPlaylist()
                         return true
                     }
@@ -549,6 +550,7 @@ class MainActivity : ComponentActivity() {
                     }
                     // Open only EPG panel when in fullscreen mode
                     if (!currentState.showPlaylist && !currentState.showEpgPanel) {
+                        if (!shouldHandlePanelNavigation(event)) return true
                         val tvgId = currentState.currentChannel?.tvgId
                         if (!tvgId.isNullOrBlank()) {
                             viewModel.showEpgForChannel(tvgId)
@@ -561,10 +563,12 @@ class MainActivity : ComponentActivity() {
                 // Up/Down arrows - switch channels in fullscreen mode
                 // Note: When panels/controls are open, these are filtered out before we get here
                 KeyEvent.KEYCODE_DPAD_UP -> {
+                    if (!shouldHandleChannelNavigation(event)) return true
                     switchChannelUp()
                     return true
                 }
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
+                    if (!shouldHandleChannelNavigation(event)) return true
                     switchChannelDown()
                     return true
                 }
@@ -672,5 +676,31 @@ class MainActivity : ComponentActivity() {
         }
         val prevIndex = if (currentIndex > 0) currentIndex - 1 else channels.size - 1
         viewModel.playChannel(prevIndex)
+    }
+
+    private fun shouldHandlePanelNavigation(event: KeyEvent): Boolean {
+        if (event.repeatCount > 0 || event.isLongPress) {
+            return false
+        }
+        val now = event.eventTime
+        val minGapMs = 900L
+        if (now - lastPanelNavigationAtMs < minGapMs) {
+            return false
+        }
+        lastPanelNavigationAtMs = now
+        return true
+    }
+
+    private fun shouldHandleChannelNavigation(event: KeyEvent): Boolean {
+        if (event.repeatCount > 0 || event.isLongPress) {
+            return false
+        }
+        val now = event.eventTime
+        val minGapMs = 450L
+        if (now - lastChannelNavigationAtMs < minGapMs) {
+            return false
+        }
+        lastChannelNavigationAtMs = now
+        return true
     }
 }

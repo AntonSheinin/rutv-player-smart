@@ -25,7 +25,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -100,6 +99,7 @@ internal fun PlaylistPanel(
     allChannels: List<Channel>,
     visibleChannels: List<Channel>,
     playlistTitleResId: Int,
+    selectedGroup: String?,
     currentChannelIndex: Int,
     currentChannelStatusText: String? = null,
     initialScrollIndex: Int,
@@ -119,6 +119,27 @@ internal fun PlaylistPanel(
 ) {
     val channels = allChannels
     val displayedList = visibleChannels
+    val channelIndexByUrl = remember(channels) {
+        buildMap(channels.size) {
+            channels.forEachIndexed { index, channel ->
+                if (!containsKey(channel.url)) {
+                    put(channel.url, index)
+                }
+            }
+        }
+    }
+    val displayedAbsoluteIndices = remember(displayedList, channelIndexByUrl, channels.size) {
+        displayedList.mapIndexed { index, channel ->
+            channelIndexByUrl[channel.url] ?: index.coerceIn(0, (channels.size - 1).coerceAtLeast(0))
+        }
+    }
+    val displayedPositionByAbsolute = remember(displayedAbsoluteIndices) {
+        buildMap(displayedAbsoluteIndices.size) {
+            displayedAbsoluteIndices.forEachIndexed { position, absoluteIndex ->
+                put(absoluteIndex, position)
+            }
+        }
+    }
 
     val resolvedInitialIndex = when {
         channels.isEmpty() -> -1
@@ -126,7 +147,7 @@ internal fun PlaylistPanel(
         initialScrollIndex in channels.indices -> initialScrollIndex
         else -> 0
     }
-    val initialListIndex = if (displayedList.isEmpty()) 0 else resolvedInitialIndex.coerceIn(0, displayedList.lastIndex)
+    val initialListIndex = displayedPositionByAbsolute[resolvedInitialIndex] ?: 0
     val listState = rememberLazyListState(
         initialFirstVisibleItemIndex = max(initialListIndex, 0),
         initialFirstVisibleItemScrollOffset = 0
@@ -135,18 +156,22 @@ internal fun PlaylistPanel(
     var playlistHasFocus by remember { mutableStateOf(false) }
     var okDownTimestampMs by remember { mutableLongStateOf(0L) }
     var okLongPressHandled by remember { mutableStateOf(false) }
+    var lastHorizontalNavigationAtMs by remember { mutableLongStateOf(0L) }
     // IMPORTANT: do not key this on displayedList.size.
     // Search may request more items, which changes displayedList.size; if we key on it,
     // we lose the pending search target and the first attempt "does nothing" until reopening.
     // Also avoid re-keying on scroll index updates to prevent snapping back after search.
     var pendingInitialCenterIndex by remember(channels, currentChannelIndex) {
         mutableStateOf(
-            resolvedInitialIndex.takeIf { displayedList.isNotEmpty() && it in displayedList.indices }
+            resolvedInitialIndex.takeIf { displayedList.isNotEmpty() && it in channels.indices }
         )
     }
     var showSearchDialog by remember { mutableStateOf(false) }
     var searchText by remember { mutableStateOf("") }
     val isRemoteMode = DeviceHelper.isRemoteInputActive()
+    val allGroupLabel = stringResource(R.string.playlist_group_all)
+    val group = selectedGroup?.trim().orEmpty().ifBlank { allGroupLabel }
+    val playlistTitleText = stringResource(R.string.playlist_group_title_format, group)
     LaunchedEffect(showSearchDialog) {
         if (showSearchDialog) {
             playlistHasFocus = false
@@ -163,7 +188,19 @@ internal fun PlaylistPanel(
     var channelThatOpenedEpg by remember { mutableStateOf<Int?>(null) }
     var pendingScrollJob by remember { mutableStateOf<Job?>(null) }
 
-    val focusChannel: (Int, Boolean) -> Boolean = { targetIndex, play ->
+    fun shouldHandleHorizontalNavigation(event: androidx.compose.ui.input.key.KeyEvent): Boolean {
+        val repeat = event.nativeKeyEvent?.repeatCount ?: 0
+        if (repeat > 0) return false
+        val eventTime = event.nativeKeyEvent?.eventTime ?: System.currentTimeMillis()
+        val minGapMs = 700L
+        if (eventTime - lastHorizontalNavigationAtMs < minGapMs) {
+            return false
+        }
+        lastHorizontalNavigationAtMs = eventTime
+        return true
+    }
+
+    val focusChannel: (Int, Boolean) -> Boolean = focusChannel@ { targetIndex, play ->
         when {
             targetIndex !in channels.indices -> false
             play -> {
@@ -172,7 +209,7 @@ internal fun PlaylistPanel(
                 onChannelClick(targetIndex)
                 true
             }
-            targetIndex !in displayedList.indices -> {
+            !displayedPositionByAbsolute.containsKey(targetIndex) -> {
                 // For focus-only operations, check if in displayedList
                 onRequestMoreChannels(targetIndex + PLAYLIST_PREFETCH_MARGIN)
                 false
@@ -181,16 +218,17 @@ internal fun PlaylistPanel(
                 focusedChannelIndex = targetIndex
                 onChannelFocused?.invoke(targetIndex)
                 playlistHasFocus = true
-                val shouldScroll = !listState.isItemFullyVisible(targetIndex)
+                val targetPosition = displayedPositionByAbsolute[targetIndex] ?: return@focusChannel false
+                val shouldScroll = !listState.isItemFullyVisible(targetPosition)
                 if (shouldScroll) {
                     val scrollOffset = when {
-                        targetIndex <= 0 -> 0
-                        targetIndex >= channels.lastIndex -> 0
+                        targetPosition <= 0 -> 0
+                        targetPosition >= displayedList.lastIndex -> 0
                         else -> -160
                     }
                     pendingScrollJob?.cancel()
                     pendingScrollJob = coroutineScope.launch {
-                        listState.scrollToItem(targetIndex, scrollOffset = scrollOffset)
+                        listState.scrollToItem(targetPosition, scrollOffset = scrollOffset)
                     }.apply {
                         invokeOnCompletion { pendingScrollJob = null }
                     }
@@ -250,7 +288,7 @@ internal fun PlaylistPanel(
     }
 
     LaunchedEffect(displayedList.size, focusedChannelIndex, channels.size) {
-        if (focusedChannelIndex in channels.indices && focusedChannelIndex !in displayedList.indices) {
+        if (focusedChannelIndex in channels.indices && !displayedPositionByAbsolute.containsKey(focusedChannelIndex)) {
             onRequestMoreChannels(focusedChannelIndex + PLAYLIST_PREFETCH_MARGIN)
         }
     }
@@ -265,12 +303,13 @@ internal fun PlaylistPanel(
             pendingInitialCenterIndex = null
             return@LaunchedEffect
         }
-        if (targetIndex !in displayedList.indices) {
+        val targetPosition = displayedPositionByAbsolute[targetIndex]
+        if (targetPosition == null) {
             onRequestMoreChannels(targetIndex + PLAYLIST_PREFETCH_MARGIN)
             return@LaunchedEffect
         }
         listState.awaitFirstLayout()
-        listState.centerOn(targetIndex)
+        listState.centerOn(targetPosition)
         focusedChannelIndex = targetIndex
         onChannelFocused?.invoke(targetIndex)
         onUpdateScrollIndex(targetIndex)
@@ -287,13 +326,13 @@ internal fun PlaylistPanel(
     LaunchedEffect(epgOpenIndex, isRemoteMode, displayedList.size) {
         if (epgOpenIndex >= 0 && epgOpenIndex < channels.size) {
             channelThatOpenedEpg = epgOpenIndex
-            if (epgOpenIndex !in displayedList.indices) {
+            if (!displayedPositionByAbsolute.containsKey(epgOpenIndex)) {
                 onRequestMoreChannels(epgOpenIndex + PLAYLIST_PREFETCH_MARGIN)
             }
         } else if (epgOpenIndex < 0 && channelThatOpenedEpg != null) {
             val channelIndex = channelThatOpenedEpg!!
             if (channelIndex >= 0 && channelIndex < channels.size && isRemoteMode) {
-                if (channelIndex !in displayedList.indices) {
+                if (!displayedPositionByAbsolute.containsKey(channelIndex)) {
                     onRequestMoreChannels(channelIndex + PLAYLIST_PREFETCH_MARGIN)
                 } else {
                     listState.awaitFirstLayout()
@@ -315,10 +354,12 @@ internal fun PlaylistPanel(
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 when (event.key) {
                     Key.DirectionLeft -> {
+                        if (!shouldHandleHorizontalNavigation(event)) return@onPreviewKeyEvent true
                         showSearchDialog = true
                         true
                     }
                     Key.DirectionRight -> {
+                        if (!shouldHandleHorizontalNavigation(event)) return@onPreviewKeyEvent true
                         val currentIdx = when {
                             focusedChannelIndex >= 0 -> focusedChannelIndex
                             currentChannelIndex in channels.indices -> currentChannelIndex
@@ -357,21 +398,13 @@ internal fun PlaylistPanel(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = stringResource(playlistTitleResId),
+                        text = playlistTitleText,
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.ruTvColors.gold,
-                        modifier = Modifier.weight(1f, fill = false)
+                        modifier = Modifier.weight(1f, fill = false),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
-                    IconButton(
-                        onClick = { showSearchDialog = true },
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = stringResource(R.string.cd_search_channel),
-                            tint = MaterialTheme.ruTvColors.gold
-                        )
-                    }
                 }
                 IconButton(
                     onClick = onClose,
@@ -436,30 +469,18 @@ internal fun PlaylistPanel(
                                 KeyEventType.KeyDown -> {
                                     when (event.key) {
                                         Key.DirectionUp -> {
-                                            // Find previous channel in displayedList, then get its index in channels
-                                            val currentDisplayedIndex = displayedList.indexOfFirst {
-                                                channels.indexOf(it) == focusedChannelIndex
-                                            }
+                                            val currentDisplayedIndex = displayedPositionByAbsolute[focusedChannelIndex] ?: -1
                                             if (currentDisplayedIndex > 0) {
-                                                val prevChannel = displayedList[currentDisplayedIndex - 1]
-                                                val prevChannelIndex = channels.indexOf(prevChannel)
-                                                if (prevChannelIndex >= 0) {
-                                                    focusChannel(prevChannelIndex, false)
-                                                }
+                                                val previousAbsoluteIndex = displayedAbsoluteIndices[currentDisplayedIndex - 1]
+                                                focusChannel(previousAbsoluteIndex, false)
                                             }
                                             true
                                         }
                                         Key.DirectionDown -> {
-                                            // Find next channel in displayedList, then get its index in channels
-                                            val currentDisplayedIndex = displayedList.indexOfFirst {
-                                                channels.indexOf(it) == focusedChannelIndex
-                                            }
+                                            val currentDisplayedIndex = displayedPositionByAbsolute[focusedChannelIndex] ?: -1
                                             if (currentDisplayedIndex >= 0 && currentDisplayedIndex < displayedList.lastIndex) {
-                                                val nextChannel = displayedList[currentDisplayedIndex + 1]
-                                                val nextChannelIndex = channels.indexOf(nextChannel)
-                                                if (nextChannelIndex >= 0) {
-                                                    focusChannel(nextChannelIndex, false)
-                                                }
+                                                val nextAbsoluteIndex = displayedAbsoluteIndices[currentDisplayedIndex + 1]
+                                                focusChannel(nextAbsoluteIndex, false)
                                             }
                                             true
                                         }
@@ -480,10 +501,12 @@ internal fun PlaylistPanel(
                                             true
                                         }
                                         Key.DirectionLeft -> {
+                                            if (!shouldHandleHorizontalNavigation(event)) return@onPreviewKeyEvent true
                                             onRequestEpgFocus?.invoke()
                                             true
                                         }
                                         Key.DirectionRight -> {
+                                            if (!shouldHandleHorizontalNavigation(event)) return@onPreviewKeyEvent true
                                             onRequestEpgFocus?.invoke()
                                             true
                                         }
@@ -527,16 +550,7 @@ internal fun PlaylistPanel(
                             }
                         }
                     ) { index, channel ->
-                        val actualIndex = remember(channel.url) {
-                            val byUrl = channels.indexOfFirst { it.url == channel.url }
-                            val byRef = channels.indexOf(channel)
-                            when {
-                                byUrl >= 0 -> byUrl
-                                byRef >= 0 -> byRef
-                                channels.isNotEmpty() -> index.coerceIn(0, channels.lastIndex)
-                                else -> -1
-                            }
-                        }
+                        val actualIndex = displayedAbsoluteIndices.getOrNull(index) ?: -1
                         val resolvedIndex = actualIndex.takeIf { it >= 0 } ?: return@itemsIndexed
                         val programInfo = if (showCurrentProgramInChannelList) {
                             currentProgramsMap[channel.tvgId]

@@ -13,6 +13,9 @@ import com.rutv.util.LocaleHelper
 import dagger.hilt.android.HiltAndroidApp
 import com.rutv.util.logDebug
 import timber.log.Timber
+import java.net.CookieHandler
+import java.net.CookieManager
+import java.net.CookiePolicy
 
 /**
  * Application class for RuTV
@@ -29,6 +32,16 @@ class RuTvApplication : Application(), ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
+
+        // Keep HTTP cookies across playlist fetches and stream segment requests.
+        // Some IPTV backends bind token/session state to cookies.
+        if (CookieHandler.getDefault() == null) {
+            CookieHandler.setDefault(
+                CookieManager().apply {
+                    setCookiePolicy(CookiePolicy.ACCEPT_ALL)
+                }
+            )
+        }
 
         // Initialize Timber for logging
         if (isDebuggable()) {

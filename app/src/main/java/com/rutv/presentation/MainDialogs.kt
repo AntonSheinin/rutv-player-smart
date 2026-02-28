@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -40,6 +41,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
@@ -49,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import com.rutv.R
 import com.rutv.ui.shared.components.RemoteDialog
 import com.rutv.ui.shared.components.focusIndicatorModifier
+import com.rutv.ui.shared.components.requestFocusSafely
 import com.rutv.ui.shared.components.remoteDialogTextFieldNavigation
 import com.rutv.ui.theme.ruTvColors
 import com.rutv.util.DeviceHelper
@@ -139,7 +142,7 @@ internal fun GoToChannelDialog(
         withFrameNanos { }
         var attempts = 0
         while (attempts < 6 && !isTextFieldFocused.value) {
-            textFieldFocus.requestFocus()
+            textFieldFocus.requestFocusSafely()
             withFrameNanos { }
             attempts++
         }
@@ -152,7 +155,7 @@ internal fun GoToChannelDialog(
                 if (visible) {
                     imeWasVisible.value = true
                 } else if (imeWasVisible.value && isTextFieldFocused.value) {
-                    confirmButtonFocus.requestFocus()
+                    confirmButtonFocus.requestFocusSafely()
                 }
             }
     }
@@ -202,7 +205,7 @@ internal fun GoToChannelDialog(
                         if (channelInput.length < 4) {
                             onChannelInputChange(channelInput + number)
                         }
-                        textFieldFocus.requestFocus()
+                        textFieldFocus.requestFocusSafely()
                         true
                     } else {
                         false
@@ -236,7 +239,7 @@ internal fun GoToChannelDialog(
                 ),
                 keyboardActions = KeyboardActions(
                     onDone = {
-                        confirmButtonFocus.requestFocus()
+                        confirmButtonFocus.requestFocusSafely()
                     }
                 ),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -293,9 +296,12 @@ internal fun ChannelGroupDialog(
     val initialIndex = remember(groups, selectedGroup) {
         groups.indexOfFirst { it == selectedGroup }.takeIf { it >= 0 } ?: 0
     }
+    val screenWidthDp = LocalConfiguration.current.screenWidthDp.dp
+    val dialogWidth = remember(screenWidthDp) {
+        (screenWidthDp * 0.28f).coerceIn(180.dp, 220.dp)
+    }
     val dialogModifier = modifier
-        .fillMaxWidth(0.6f)
-        .widthIn(max = 520.dp)
+        .width(dialogWidth)
         .border(
             2.dp,
             MaterialTheme.ruTvColors.gold.copy(alpha = 0.7f),
@@ -306,8 +312,8 @@ internal fun ChannelGroupDialog(
         if (!show) return@LaunchedEffect
         withFrameNanos { }
         when {
-            groups.isNotEmpty() -> groupFocusRequesters.getOrNull(initialIndex)?.requestFocus()
-            else -> resetFocus.requestFocus()
+            groups.isNotEmpty() -> groupFocusRequesters.getOrNull(initialIndex)?.requestFocusSafely() == true
+            else -> resetFocus.requestFocusSafely()
         }
     }
 
@@ -318,6 +324,7 @@ internal fun ChannelGroupDialog(
         dismissButtonFocusRequester = cancelFocus,
         textFocusRequester = groupFocusRequesters.getOrNull(initialIndex),
         containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f),
+        usePlatformDefaultWidth = false,
         onConfirm = {
             onReset()
             onDismiss()
@@ -362,15 +369,15 @@ internal fun ChannelGroupDialog(
                                     when (event.key) {
                                         Key.DirectionDown -> {
                                             if (index < groups.lastIndex) {
-                                                groupFocusRequesters[index + 1].requestFocus()
+                                                groupFocusRequesters[index + 1].requestFocusSafely()
                                             } else {
-                                                resetFocus.requestFocus()
+                                                resetFocus.requestFocusSafely()
                                             }
                                             true
                                         }
                                         Key.DirectionUp -> {
                                             if (index > 0) {
-                                                groupFocusRequesters[index - 1].requestFocus()
+                                                groupFocusRequesters[index - 1].requestFocusSafely()
                                             }
                                             true
                                         }

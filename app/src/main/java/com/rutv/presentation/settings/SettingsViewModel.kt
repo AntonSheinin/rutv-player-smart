@@ -1,10 +1,8 @@
 package com.rutv.presentation.settings
 
-import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rutv.data.model.PlayerConfig
-import com.rutv.data.repository.ChannelRepository
 import com.rutv.data.repository.PreferencesRepository
 import com.rutv.domain.usecase.LoadPlaylistUseCase
 import com.rutv.data.repository.EpgRepository
@@ -26,7 +24,6 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val preferencesRepository: PreferencesRepository,
-    private val channelRepository: ChannelRepository,
     private val loadPlaylistUseCase: LoadPlaylistUseCase,
     private val epgRepository: EpgRepository
 ) : ViewModel() {
@@ -236,7 +233,7 @@ class SettingsViewModel @Inject constructor(
      * Reload current playlist
      */
     fun reloadPlaylist() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             _viewState.update { it.copy(isLoading = true, error = null) }
 
             when (val result = loadPlaylistUseCase.reload()) {
@@ -315,48 +312,40 @@ class SettingsViewModel @Inject constructor(
      * Update debug log visibility
      */
     fun setDebugLogEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            val currentConfig = _viewState.value.playerConfig
-            val newConfig = currentConfig.copy(showDebugLog = enabled)
-            updatePlayerConfig(newConfig)
-        }
+        val currentConfig = _viewState.value.playerConfig
+        val newConfig = currentConfig.copy(showDebugLog = enabled)
+        updatePlayerConfig(newConfig)
     }
 
     /**
      * Update FFmpeg audio setting
      */
     fun setFfmpegAudioEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            val currentConfig = _viewState.value.playerConfig
-            val newConfig = currentConfig.copy(useFfmpegAudio = enabled)
-            updatePlayerConfig(newConfig)
-        }
+        val currentConfig = _viewState.value.playerConfig
+        val newConfig = currentConfig.copy(useFfmpegAudio = enabled)
+        updatePlayerConfig(newConfig)
     }
 
     /**
      * Update FFmpeg video setting
      */
     fun setFfmpegVideoEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            val currentConfig = _viewState.value.playerConfig
-            val newConfig = currentConfig.copy(useFfmpegVideo = enabled)
-            updatePlayerConfig(newConfig)
-        }
+        val currentConfig = _viewState.value.playerConfig
+        val newConfig = currentConfig.copy(useFfmpegVideo = enabled)
+        updatePlayerConfig(newConfig)
     }
 
     /**
      * Update buffer seconds
      */
     fun setBufferSeconds(seconds: Int) {
-        viewModelScope.launch {
-            val clampedSeconds = seconds.coerceIn(
-                PlayerConstants.MIN_BUFFER_SECONDS,
-                PlayerConstants.MAX_BUFFER_SECONDS
-            )
-            val currentConfig = _viewState.value.playerConfig
-            val newConfig = currentConfig.copy(bufferSeconds = clampedSeconds)
-            updatePlayerConfig(newConfig)
-        }
+        val clampedSeconds = seconds.coerceIn(
+            PlayerConstants.MIN_BUFFER_SECONDS,
+            PlayerConstants.MAX_BUFFER_SECONDS
+        )
+        val currentConfig = _viewState.value.playerConfig
+        val newConfig = currentConfig.copy(bufferSeconds = clampedSeconds)
+        updatePlayerConfig(newConfig)
     }
 
     fun setShowCurrentProgramInChannelList(enabled: Boolean) {
@@ -482,7 +471,6 @@ class SettingsViewModel @Inject constructor(
 
     /**
      * Set app language
-     * This method can be called from runBlocking to ensure it completes synchronously
      */
     suspend fun setAppLanguage(localeCode: String) {
         try {

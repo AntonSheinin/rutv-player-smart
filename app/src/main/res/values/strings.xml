@@ -76,7 +76,7 @@
     <string name="settings_unknown_file">Unknown file</string>
     <string name="settings_language">Language</string>
     <string name="settings_language_english">English</string>
-    <string name="settings_language_russian">Русский</string>
+    <string name="settings_language_russian">Russian</string>
     <string name="settings_playlist_info_file">Loaded from file (stored locally)</string>
     <string name="settings_playlist_info_url">Loaded from URL</string>
     <string name="settings_playlist_info_none">No playlist loaded</string>
@@ -86,6 +86,8 @@
     <!-- Channel Info -->
     <string name="playlist_title_channels">Channels</string>
     <string name="playlist_title_favorites">Favorites</string>
+    <string name="playlist_group_title_format">channels : %1$s</string>
+    <string name="playlist_group_all">all</string>
     <string name="epg_panel_title">Programs guide</string>
     <string name="program_details_title">Program Details</string>
     <string name="channel_info_format">#%1$d &#8226; %2$s</string>
@@ -109,6 +111,16 @@
     <string name="player_return_to_live">Return to Live</string>
     <string name="player_archive_label">DVR &#8226; %1$s</string>
     <string name="label_retrying_short">Retrying</string>
+    <string name="label_retrying_attempts_short">Retrying %1$d/%2$d</string>
+    <string name="playback_issue_suspended">Stream is suspended by provider</string>
+    <string name="playback_issue_token_not_found">Token not found (access denied)</string>
+    <string name="playback_issue_not_found">Stream not found</string>
+    <string name="playback_issue_forbidden">Access denied</string>
+    <string name="playback_issue_http_error">Stream error (HTTP %1$d)</string>
+    <string name="playback_issue_network">Network error while loading stream</string>
+    <string name="playback_issue_timeout">Timeout while loading stream</string>
+    <string name="playback_issue_source_error">Source error</string>
+    <string name="playback_issue_unknown">Playback error</string>
     <string name="archive_prompt_title">Playback Finished</string>
     <string name="archive_prompt_message">Continue with &quot;%1$s&quot;?</string>
     <string name="archive_prompt_message_no_next">Archive playback finished.</string>
@@ -121,4 +133,5 @@
     <!-- Debug & Logging -->
     <string name="debug_log_title">Debug Log</string>
 </resources>
+
 

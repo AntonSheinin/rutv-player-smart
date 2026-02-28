@@ -39,6 +39,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -76,12 +77,14 @@ import com.rutv.ui.shared.presentation.LayoutConstants
 import com.rutv.ui.shared.presentation.TimeFormatter
 import com.rutv.ui.theme.ruTvColors
 import com.rutv.util.DeviceHelper
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.max
 import java.time.Instant
 import java.time.ZoneId
 import java.util.Date
+import java.util.concurrent.TimeUnit
 
 @UnstableApi
 @Composable
@@ -106,24 +109,38 @@ internal fun EpgPanel(
     modifier: Modifier = Modifier
 ) {
     val coroutineScope = rememberCoroutineScope()
-    val currentTime = System.currentTimeMillis()
+    var currentTime by remember(channel?.tvgId) { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(channel?.tvgId) {
+        while (true) {
+            delay(30_000L)
+            currentTime = System.currentTimeMillis()
+        }
+    }
     val isRemoteMode = DeviceHelper.isRemoteInputActive()
     var epgListHasFocus by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var datePickerSelectionIndex by remember { mutableIntStateOf(0) }
+    var lastHorizontalNavigationAtMs by remember(channel?.tvgId) { mutableLongStateOf(0L) }
     DisposableEffect(Unit) {
         onDispose { epgListHasFocus = false }
     }
 
     // Find current program index in original list
-    val currentProgramIndex = programs.indexOfFirst { program ->
-        val start = program.startTimeMillis
-        val end = program.stopTimeMillis
-        start > 0L && end > 0L && currentTime in start..end
+    val currentProgramIndex = remember(programs, currentTime) {
+        programs.indexOfFirst { program ->
+            val start = program.startTimeMillis
+            val end = program.stopTimeMillis
+            start > 0L && end > 0L && currentTime in start..end
+        }
+    }
+    val catchupWindowMillis = remember(channel?.tvgId, channel?.catchupDays) {
+        channel
+            ?.takeIf { it.supportsCatchup() }
+            ?.let { TimeUnit.DAYS.toMillis(it.catchupDays.toLong()) }
     }
 
     // Build items list with date delimiters to calculate correct scroll position
-    val (epgItems, programItemIndices) = remember(programs) {
+    val (epgItems, programItemIndices) = remember(programs, currentTime, catchupWindowMillis) {
         val itemsList = mutableListOf<EpgUiItem>()
         val indexMap = MutableList(programs.size) { -1 }
         var lastDate = ""
@@ -131,15 +148,47 @@ internal fun EpgPanel(
             val programDate = TimeFormatter.formatEpgDate(Date(program.startTimeMillis))
             if (programDate != lastDate) {
                 val absoluteIndex = itemsList.size
-                itemsList.add(EpgUiItem(absoluteIndex, "date_$programDate", programDate))
+                itemsList.add(
+                    EpgUiItem(
+                        absoluteIndex = absoluteIndex,
+                        key = "date_$programDate",
+                        payload = programDate,
+                        programIndex = -1,
+                        isPast = false,
+                        isArchiveCandidate = false
+                    )
+                )
                 lastDate = programDate
             }
+            val isPast = program.stopTimeMillis > 0L && program.stopTimeMillis <= currentTime
+            val isArchiveCandidate = catchupWindowMillis != null &&
+                isPast &&
+                program.startTimeMillis > 0L &&
+                currentTime - program.startTimeMillis <= catchupWindowMillis
             val baseKey = programStableKey(program, index)
             val absoluteIndex = itemsList.size
-            itemsList.add(EpgUiItem(absoluteIndex, "program_$baseKey", program))
+            itemsList.add(
+                EpgUiItem(
+                    absoluteIndex = absoluteIndex,
+                    key = "program_$baseKey",
+                    payload = program,
+                    programIndex = index,
+                    isPast = isPast,
+                    isArchiveCandidate = isArchiveCandidate
+                )
+            )
             indexMap[index] = absoluteIndex
         }
         itemsList to indexMap
+    }
+    val programUiItemsByIndex = remember(epgItems) {
+        buildMap(programs.size) {
+            epgItems.forEach { item ->
+                if (item.programIndex >= 0) {
+                    put(item.programIndex, item)
+                }
+            }
+        }
     }
 
     val dateEntries = remember(
@@ -236,6 +285,19 @@ internal fun EpgPanel(
         }
         return true
     }
+
+    fun shouldHandleHorizontalNavigation(event: androidx.compose.ui.input.key.KeyEvent): Boolean {
+        val repeat = event.nativeKeyEvent?.repeatCount ?: 0
+        if (repeat > 0) return false
+        val eventTime = event.nativeKeyEvent?.eventTime ?: System.currentTimeMillis()
+        val minGapMs = 700L
+        if (eventTime - lastHorizontalNavigationAtMs < minGapMs) {
+            return false
+        }
+        lastHorizontalNavigationAtMs = eventTime
+        return true
+    }
+
     LaunchedEffect(channel?.tvgId) {
         pendingProgramCenterIndex = resolvedInitialItemIndex
     }
@@ -500,14 +562,7 @@ internal fun EpgPanel(
                                         Key.DirectionCenter, Key.Enter -> {
                                             val program = programs.getOrNull(focusedProgramIndex)
                                             if (program != null) {
-                                                val isPast = program.stopTimeMillis > 0 && program.stopTimeMillis <= currentTime
-                                                val catchupWindowMillis = channel
-                                                    ?.takeIf { it.supportsCatchup() }
-                                                    ?.let { java.util.concurrent.TimeUnit.DAYS.toMillis(it.catchupDays.toLong()) }
-                                                val isArchiveCandidate = catchupWindowMillis != null &&
-                                                    isPast &&
-                                                    program.startTimeMillis > 0 &&
-                                                    currentTime - program.startTimeMillis <= catchupWindowMillis
+                                                val isArchiveCandidate = programUiItemsByIndex[focusedProgramIndex]?.isArchiveCandidate == true
                                                 // Allow playing archive even if already in archive playback (to switch programs)
                                                 val canPlayArchive = isArchiveCandidate
                                                 val isLongPress = (event.nativeKeyEvent?.repeatCount ?: 0) > 0
@@ -525,16 +580,18 @@ internal fun EpgPanel(
                                             true
                                         }
                                         Key.DirectionLeft -> {
+                                            if (!shouldHandleHorizontalNavigation(event)) return@onPreviewKeyEvent true
                                             if (isPlaylistOpen) {
                                                 onNavigateLeftToChannels?.invoke()
+                                                epgListHasFocus = false
+                                                onClose()
                                             } else {
                                                 onOpenPlaylist?.invoke()
                                             }
-                                            epgListHasFocus = false
-                                            onClose()
                                             true
                                         }
                                         Key.DirectionRight -> {
+                                            if (!shouldHandleHorizontalNavigation(event)) return@onPreviewKeyEvent true
                                             if (dateEntries.isNotEmpty()) {
                                                 datePickerSelectionIndex = todayEntryIndex
                                                 showDatePicker = true
@@ -575,16 +632,10 @@ internal fun EpgPanel(
                                 EpgDateDelimiter(date = data)
                             }
                             is EpgProgram -> {
-                                val programIndex = programs.indexOf(data)
+                                val programIndex = entry.programIndex
                                 if (programIndex < 0) return@items
-                                val isPast = data.stopTimeMillis > 0 && data.stopTimeMillis <= currentTime
-                                val catchupWindowMillis = channel
-                                    ?.takeIf { it.supportsCatchup() }
-                                    ?.let { java.util.concurrent.TimeUnit.DAYS.toMillis(it.catchupDays.toLong()) }
-                                val isArchiveCandidate = catchupWindowMillis != null &&
-                                    isPast &&
-                                    data.startTimeMillis > 0 &&
-                                    currentTime - data.startTimeMillis <= catchupWindowMillis
+                                val isPast = entry.isPast
+                                val isArchiveCandidate = entry.isArchiveCandidate
                                 // Allow playing archive even if already in archive playback
                                 val canPlayArchive = isArchiveCandidate
 
@@ -694,7 +745,10 @@ private data class CenterKeyAction(
 private data class EpgUiItem(
     val absoluteIndex: Int,
     val key: String,
-    val payload: Any
+    val payload: Any,
+    val programIndex: Int,
+    val isPast: Boolean,
+    val isArchiveCandidate: Boolean
 )
 
 internal data class EpgDateEntry(

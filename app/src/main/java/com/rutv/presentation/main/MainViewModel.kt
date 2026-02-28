@@ -5,6 +5,7 @@ package com.rutv.presentation.main
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.util.UnstableApi
@@ -34,6 +35,8 @@ import com.rutv.util.logDebug
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -97,6 +100,29 @@ class MainViewModel @Inject constructor(
     private val epgPastLoadMutex = Mutex()
     private val epgFutureLoadMutex = Mutex()
     private val playlistLoadRequestId = AtomicLong(0)
+    private var epgPanelLoadJob: Job? = null
+    private var startupPlayerInitJob: Job? = null
+    private val startupPlayerInitLock = Any()
+    @Volatile
+    private var startupUiReadyForPlayback: Boolean = false
+    @Volatile
+    private var startupLoadStarted: Boolean = false
+    @Volatile
+    private var pendingStartupPlayerInit: StartupPlayerInitRequest? = null
+    @Volatile
+    private var lastEpgRequestTvgId: String = ""
+    @Volatile
+    private var lastEpgRequestAtMs: Long = 0L
+    @Volatile
+    private var isDebugLogEnabled: Boolean = false
+    @Volatile
+    private var channelIndexByUrl: Map<String, Int> = emptyMap()
+    @Volatile
+    private var filteredIndexByUrl: Map<String, Int> = emptyMap()
+    @Volatile
+    private var lastChannelSwitchMainIndex: Int = -1
+    @Volatile
+    private var lastChannelSwitchAtMs: Long = 0L
 
     private fun postEpgNotification() {
         if (_viewState.value.epgNotificationMessage == EPG_LOADED_MESSAGE) return
@@ -111,6 +137,78 @@ class MainViewModel @Inject constructor(
 
     private fun isLatestPlaylistLoad(loadId: Long): Boolean = playlistLoadRequestId.get() == loadId
 
+    fun onStartupUiReady() {
+        var shouldStartInitialLoad = false
+        val pendingRequest = synchronized(startupPlayerInitLock) {
+            if (startupUiReadyForPlayback) {
+                null
+            } else {
+                startupUiReadyForPlayback = true
+                if (!startupLoadStarted) {
+                    startupLoadStarted = true
+                    shouldStartInitialLoad = true
+                }
+                pendingStartupPlayerInit.also { pendingStartupPlayerInit = null }
+            }
+        }
+        if (shouldStartInitialLoad) {
+            initializeApp()
+        }
+        pendingRequest?.let { launchStartupPlayerInitialization(it) }
+    }
+
+    private fun clearPendingStartupPlayerInitialization() {
+        synchronized(startupPlayerInitLock) {
+            pendingStartupPlayerInit = null
+        }
+        startupPlayerInitJob?.cancel()
+        startupPlayerInitJob = null
+    }
+
+    private fun queueStartupPlayerInitialization(loadId: Long, channels: List<Channel>) {
+        val request = StartupPlayerInitRequest(loadId = loadId, channels = channels)
+        val shouldLaunchNow = synchronized(startupPlayerInitLock) {
+            if (!startupUiReadyForPlayback) {
+                pendingStartupPlayerInit = request
+                false
+            } else {
+                true
+            }
+        }
+        if (shouldLaunchNow) {
+            launchStartupPlayerInitialization(request)
+        }
+    }
+
+    private fun launchStartupPlayerInitialization(request: StartupPlayerInitRequest) {
+        startupPlayerInitJob?.cancel()
+        startupPlayerInitJob = viewModelScope.launch(Dispatchers.IO) {
+            if (!isLatestPlaylistLoad(request.loadId)) return@launch
+            val channels = request.channels
+            if (channels.isEmpty()) return@launch
+
+            delay(STARTUP_PLAYER_INIT_DELAY_MS)
+            if (!isLatestPlaylistLoad(request.loadId)) return@launch
+            val startChannel = initializePlayerUseCase(channels)
+            if (!isLatestPlaylistLoad(request.loadId)) return@launch
+
+            val startIndex = startChannel?.url?.let { url ->
+                findMainChannelIndex(url).takeIf { idx -> idx >= 0 }
+            } ?: 0
+            ensureChannelVisibility(startIndex)
+
+            // EPG preload is useful, but expensive on low-end STBs. Push it out of the
+            // "first seconds after startup" window to avoid competing with initial rendering.
+            startChannel?.let { channel ->
+                viewModelScope.launch(Dispatchers.IO) {
+                    delay(STARTUP_EPG_PRELOAD_DELAY_MS)
+                    if (!isLatestPlaylistLoad(request.loadId)) return@launch
+                    preloadChannelEpg(channel)
+                }
+            }
+        }
+    }
+
     private fun getCachedPrograms(tvgId: String): List<EpgProgram>? =
         synchronized(epgCacheLock) { epgProgramCache[tvgId] }
 
@@ -120,6 +218,35 @@ class MainViewModel @Inject constructor(
 
     private fun clearCachedPrograms() {
         synchronized(epgCacheLock) { epgProgramCache.clear() }
+    }
+
+    private fun buildUrlIndex(channels: List<Channel>): Map<String, Int> {
+        if (channels.isEmpty()) return emptyMap()
+        val result = LinkedHashMap<String, Int>(channels.size)
+        channels.forEachIndexed { index, channel ->
+            if (!result.containsKey(channel.url)) {
+                result[channel.url] = index
+            }
+        }
+        return result
+    }
+
+    private fun updateChannelIndexMap(channels: List<Channel>) {
+        channelIndexByUrl = buildUrlIndex(channels)
+    }
+
+    private fun updateFilteredIndexMap(channels: List<Channel>) {
+        filteredIndexByUrl = buildUrlIndex(channels)
+    }
+
+    private fun findMainChannelIndex(url: String?): Int {
+        if (url.isNullOrBlank()) return -1
+        return channelIndexByUrl[url] ?: -1
+    }
+
+    private fun findFilteredChannelIndex(url: String?): Int {
+        if (url.isNullOrBlank()) return -1
+        return filteredIndexByUrl[url] ?: -1
     }
 
     private fun updateEpgPanelState(
@@ -142,6 +269,9 @@ class MainViewModel @Inject constructor(
     }
 
     init {
+        // Keep startup in loading state until `onStartupUiReady()` kicks off initial load.
+        _viewState.update { it.copy(isLoading = true) }
+
         // --- Player state collection ---
         // The player is the source of truth for what is currently playing.
         viewModelScope.launch {
@@ -150,8 +280,7 @@ class MainViewModel @Inject constructor(
 
                 when (state) {
                     is PlayerState.Ready -> {
-                        val filteredIndex = _viewState.value.filteredChannels
-                            .indexOfFirst { it.url == state.channel.url }
+                        val filteredIndex = findFilteredChannelIndex(state.channel.url)
                         _viewState.update {
                             val channelChanged = it.currentChannelIndex != state.index ||
                                 it.currentChannel?.url != state.channel.url
@@ -173,8 +302,7 @@ class MainViewModel @Inject constructor(
                     }
                     is PlayerState.Archive -> {
                         if (state.endReason == null) {
-                            val filteredIndex = _viewState.value.filteredChannels
-                                .indexOfFirst { it.url == state.channel.url }
+                            val filteredIndex = findFilteredChannelIndex(state.channel.url)
                             _viewState.update {
                                 it.copy(
                                     currentChannel = state.channel,
@@ -227,6 +355,7 @@ class MainViewModel @Inject constructor(
         // Reflect the toggle in view state, and clear accumulated debug messages when disabled.
         viewModelScope.launch {
             debugEnabledFlow.collect { enabled ->
+                isDebugLogEnabled = enabled
                 _viewState.update { it.copy(showDebugLog = enabled) }
                 if (!enabled) {
                     debugMessageMutex.withLock {
@@ -267,9 +396,9 @@ class MainViewModel @Inject constructor(
             }
         }
 
-        // Initialize app: load playlist and initialize the player.
-        // EPG is fetched lazily; we may preload it for the start channel after initialization.
-        initializeApp()
+        // Startup optimization:
+        // defer initial playlist+player initialization until first UI frame is drawn.
+        // See [onStartupUiReady].
     }
 
     /**
@@ -278,6 +407,7 @@ class MainViewModel @Inject constructor(
      */
     private fun initializeApp() {
         val loadId = nextPlaylistLoadId()
+        clearPendingStartupPlayerInitialization()
         viewModelScope.launch(Dispatchers.IO) {
             loadPlaylistAndPlayer(loadId)
         }
@@ -302,11 +432,8 @@ class MainViewModel @Inject constructor(
     private fun updateFilteredChannels(filtered: List<Channel>) {
         val visibleCount = filtered.size.coerceAtMost(DEFAULT_VISIBLE_CHANNELS)
         val currentChannelUrl = _viewState.value.currentChannel?.url
-        val playingIndex = if (!currentChannelUrl.isNullOrBlank()) {
-            filtered.indexOfFirst { it.url == currentChannelUrl }
-        } else {
-            -1
-        }
+        updateFilteredIndexMap(filtered)
+        val playingIndex = findFilteredChannelIndex(currentChannelUrl)
         _viewState.update { current ->
             if (current.filteredChannels === filtered && current.visibleChannelCount == visibleCount) {
                 current
@@ -346,6 +473,7 @@ class MainViewModel @Inject constructor(
                             error = null
                         )
                     }
+                    updateChannelIndexMap(channels)
                     if (!isLatestPlaylistLoad(loadId)) return
                     if (channels.isNotEmpty()) {
                         val catchupSupported = channels.count { it.supportsCatchup() }
@@ -358,45 +486,44 @@ class MainViewModel @Inject constructor(
 
 
                     if (channels.isNotEmpty()) {
-                        // Initializes PlayerManager using persisted PlayerConfig + last played index.
-                        // The use case returns the selected start channel for optional EPG preload.
-                        val startChannel = initializePlayerUseCase(channels)
-
-                        startChannel?.let { preloadChannelEpg(it) }
-                        val startIndex = startChannel?.let { ch ->
-                            channels.indexOf(ch).takeIf { idx -> idx >= 0 }
-                        } ?: 0
-                        val filtered = filterChannelsUseCase(
-                            channels,
-                            _viewState.value.showFavoritesOnly,
-                            _viewState.value.selectedGroup
-                        )
-                        val filteredIndex = startChannel?.let { ch ->
-                            filtered.indexOfFirst { it.url == ch.url }
-                        } ?: if (filtered.isNotEmpty()) 0 else -1
-                        ensureChannelVisibility(filteredIndex)
+                        // Startup optimization: initialize player only after the first UI frame.
+                        // This reduces heavy main-thread work during Activity first draw.
+                        queueStartupPlayerInitialization(loadId, channels)
                     }
 
                     // Background refresh for URL playlists to get fresh content without blocking cold start.
                     if (source is PlaylistSource.Url) {
                         viewModelScope.launch(Dispatchers.IO) {
+                            delay(STARTUP_URL_REFRESH_DELAY_MS)
+                            if (!isLatestPlaylistLoad(loadId)) return@launch
                             when (val refreshed = initializeAppUseCase.refreshUrlPlaylistInBackground()) {
                                 is Result.Success -> {
                                     if (!isLatestPlaylistLoad(loadId)) return@launch
                                     val newChannels = refreshed.data
                                     val oldChannels = _viewState.value.channels
                                     if (newChannels.isNotEmpty() && newChannels != oldChannels) {
-                                        // Try to preserve the currently playing channel by URL when replacing the list.
-                                        val currentUrl = _viewState.value.currentChannel?.url
-                                        val newIndex = currentUrl?.let { url ->
-                                            newChannels.indexOfFirst { it.url == url }
-                                        } ?: -1
+                                        val newIndexByUrl = buildUrlIndex(newChannels)
+                                        // Preserve currently playing channel by URL, fallback to previous index.
+                                        val currentState = _viewState.value
+                                        val currentUrl = currentState.currentChannel?.url
+                                        val newIndex = currentUrl?.let { url -> newIndexByUrl[url] ?: -1 } ?: -1
+                                        val fallbackIndex = currentState.currentChannelIndex
+                                            .takeIf { it in newChannels.indices }
+                                            ?: 0
+                                        val resolvedIndex = if (newIndex >= 0) newIndex else fallbackIndex
+                                        val resolvedChannel = currentUrl?.let { url ->
+                                            newChannels.firstOrNull { it.url == url }
+                                        } ?: newChannels.getOrNull(resolvedIndex)
+
                                         _viewState.update { current ->
                                             current.copy(
                                                 channels = newChannels,
-                                                currentChannelIndex = if (newIndex >= 0) newIndex else current.currentChannelIndex
+                                                currentChannelIndex = resolvedIndex,
+                                                currentChannel = resolvedChannel ?: current.currentChannel
                                             )
                                         }
+                                        updateChannelIndexMap(newChannels)
+                                        playerManager.refreshChannels(newChannels, resolvedIndex)
                                     }
                                 }
                                 else -> Unit // ignore background refresh errors on startup
@@ -483,6 +610,7 @@ class MainViewModel @Inject constructor(
                                 error = null
                             )
                         }
+                        updateChannelIndexMap(channels)
                         if (programsMapToUse.isNotEmpty()) {
                             postEpgNotification()
                         }
@@ -520,7 +648,7 @@ class MainViewModel @Inject constructor(
 
                             val channelForPreload = resumeChannel ?: startChannel ?: channels.first()
                             preloadChannelEpg(channelForPreload)
-                            val preloadIndex = channels.indexOf(channelForPreload).takeIf { it >= 0 } ?: 0
+                            val preloadIndex = findMainChannelIndex(channelForPreload.url).takeIf { it >= 0 } ?: 0
                             ensureChannelVisibility(preloadIndex)
                         }
                     }
@@ -588,8 +716,7 @@ class MainViewModel @Inject constructor(
                             currentProgramsMap = emptyMap(),
                             epgPrograms = emptyList(),
                             epgLoadedFromUtc = 0L,
-                            epgLoadedToUtc = 0L,
-                            epgLoadedTimestamp = 0L
+                            epgLoadedToUtc = 0L
                         )
                     }
                     _viewState.value.currentChannel?.let { preloadChannelEpg(it) }
@@ -604,8 +731,7 @@ class MainViewModel @Inject constructor(
                             currentProgramsMap = emptyMap(),
                             epgPrograms = emptyList(),
                             epgLoadedFromUtc = 0L,
-                            epgLoadedToUtc = 0L,
-                            epgLoadedTimestamp = 0L
+                            epgLoadedToUtc = 0L
                         )
                     }
                     _viewState.value.currentChannel?.let { preloadChannelEpg(it) }
@@ -637,7 +763,7 @@ class MainViewModel @Inject constructor(
             if (index !in channelList.indices) return@launch
 
             val channel = channelList[index]
-            val mainIndex = currentState.channels.indexOf(channel)
+            val mainIndex = findMainChannelIndex(channel.url)
             if (mainIndex < 0) return@launch
 
             playChannelInternal(channel, mainIndex)
@@ -656,12 +782,19 @@ class MainViewModel @Inject constructor(
     }
 
     private suspend fun playChannelInternal(channel: Channel, mainIndex: Int) {
-        val filteredIndex = _viewState.value.filteredChannels.indexOfFirst { it.url == channel.url }
+        val now = SystemClock.elapsedRealtime()
+        val isRapidDuplicate = lastChannelSwitchMainIndex == mainIndex &&
+            (now - lastChannelSwitchAtMs) < DUPLICATE_CHANNEL_SWITCH_GUARD_MS
+        if (isRapidDuplicate) {
+            logDebug { "Ignoring duplicate rapid channel switch to index=$mainIndex" }
+            return
+        }
+        lastChannelSwitchMainIndex = mainIndex
+        lastChannelSwitchAtMs = now
+
+        val filteredIndex = findFilteredChannelIndex(channel.url)
         playerManager.setAutoRetrySuppressed(false)
         playerManager.playChannel(mainIndex)
-
-        // Save last played index
-        preferencesRepository.saveLastPlayedIndex(mainIndex)
 
         // Hide playlist and EPG
         _viewState.update {
@@ -675,6 +808,12 @@ class MainViewModel @Inject constructor(
                 currentChannelFilteredIndex = filteredIndex,
                 currentChannel = channel
             )
+        }
+
+        // DataStore writes can be slow enough to delay state updates and cause duplicate
+        // "switch to same channel" requests on rapid remote key presses.
+        viewModelScope.launch(Dispatchers.IO) {
+            preferencesRepository.saveLastPlayedIndex(mainIndex)
         }
     }
 
@@ -702,12 +841,14 @@ class MainViewModel @Inject constructor(
                                 currentChannel = updatedCurrent ?: current.currentChannel
                             )
                         }
+                        updateChannelIndexMap(updatedChannels)
                         preferencesRepository.updateFavorite(channelUrl, channelToUpdate?.tvgId, newStatus)
                     } else {
                         // Fallback to full reload if the channel isn't in memory (unexpected).
                         val reloaded = channelRepository.getAllChannels()
                         if (reloaded is Result.Success) {
                             _viewState.update { it.copy(channels = reloaded.data) }
+                            updateChannelIndexMap(reloaded.data)
                             val reloadedChannel = reloaded.data.firstOrNull { it.url == channelUrl }
                             preferencesRepository.updateFavorite(channelUrl, reloadedChannel?.tvgId, newStatus)
                         }
@@ -887,23 +1028,47 @@ class MainViewModel @Inject constructor(
      * Show EPG for channel
      */
     fun showEpgForChannel(tvgId: String) {
+        val now = System.currentTimeMillis()
+        if (tvgId == lastEpgRequestTvgId && (now - lastEpgRequestAtMs) < 1200L) {
+            return
+        }
+        lastEpgRequestTvgId = tvgId
+        lastEpgRequestAtMs = now
+
         // UI responsiveness: open panel immediately using cached programs if we have them,
         // then refresh in the background (IO) and replace the list.
         getCachedPrograms(tvgId)?.let { cachedPrograms ->
             val cachedCurrent = cachedPrograms.firstOrNull { it.isCurrent() }
-            updateEpgPanelState(tvgId, cachedPrograms, cachedCurrent)
+            val state = _viewState.value
+            // Avoid deep list equality checks on rapid DPAD navigation; only update when panel/channel
+            // context changes or when panel is empty and we can populate from cache.
+            val shouldUpdatePanel =
+                !state.showEpgPanel ||
+                state.epgChannelTvgId != tvgId ||
+                (state.epgPrograms.isEmpty() && cachedPrograms.isNotEmpty())
+            if (shouldUpdatePanel) {
+                updateEpgPanelState(tvgId, cachedPrograms, cachedCurrent)
+            }
         } ?: run {
-            _viewState.update {
-                it.copy(
-                    showEpgPanel = true,
-                    epgChannelTvgId = tvgId,
-                    epgPrograms = emptyList(),
-                    currentProgram = null
-                )
+            _viewState.update { state ->
+                if (state.showEpgPanel && state.epgChannelTvgId == tvgId && state.epgPrograms.isEmpty()) {
+                    state
+                } else {
+                    state.copy(
+                        showEpgPanel = true,
+                        epgChannelTvgId = tvgId,
+                        epgPrograms = emptyList(),
+                        currentProgram = null
+                    )
+                }
             }
         }
 
-        viewModelScope.launch(Dispatchers.IO) {
+        if (_viewState.value.epgChannelTvgId == tvgId && epgPanelLoadJob?.isActive == true) {
+            return
+        }
+        epgPanelLoadJob?.cancel()
+        epgPanelLoadJob = viewModelScope.launch(Dispatchers.IO) {
             try {
                 val result = fetchEpgProgramsUseCase(
                     tvgId = tvgId,
@@ -947,6 +1112,10 @@ class MainViewModel @Inject constructor(
             } catch (e: Exception) {
                 Timber.e(e, "Failed to load EPG for channel $tvgId")
                 appendDebugMessage(DebugMessage(StringFormatter.formatEpgLoadFailed(tvgId, e.message ?: StringFormatter.formatErrorUnknown())))
+            } finally {
+                if (epgPanelLoadJob == this.coroutineContext[Job]) {
+                    epgPanelLoadJob = null
+                }
             }
         }
     }
@@ -1167,8 +1336,8 @@ class MainViewModel @Inject constructor(
         )
         val started = playerManager.playArchive(channel, program)
         if (!started) return
-        val channelIndex = _viewState.value.channels.indexOfFirst { it.url == channel.url }.coerceAtLeast(0)
-        val filteredIndex = _viewState.value.filteredChannels.indexOfFirst { it.url == channel.url }
+        val channelIndex = findMainChannelIndex(channel.url).coerceAtLeast(0)
+        val filteredIndex = findFilteredChannelIndex(channel.url)
 
         _viewState.update {
             it.copy(
@@ -1306,21 +1475,13 @@ class MainViewModel @Inject constructor(
     }
 
     private suspend fun appendDebugMessage(message: DebugMessage) {
+        if (!isDebugLogEnabled) return
         debugMessageMutex.withLock {
             debugMessageList.add(message)
             while (debugMessageList.size > 200) {
                 debugMessageList.removeAt(0)
             }
             _viewState.update { it.copy(debugMessages = debugMessageList.toList()) }
-        }
-    }
-
-    /**
-     * Add a debug message (public wrapper for MainActivity and other components)
-     */
-    fun logDebug(message: String) {
-        viewModelScope.launch {
-            appendDebugMessage(DebugMessage(message))
         }
     }
 
@@ -1443,7 +1604,16 @@ class MainViewModel @Inject constructor(
 
     private companion object {
         const val EPG_LOADED_MESSAGE = "EPG loaded"
+        private const val DUPLICATE_CHANNEL_SWITCH_GUARD_MS = 1200L
+        private const val STARTUP_PLAYER_INIT_DELAY_MS = 250L
+        private const val STARTUP_EPG_PRELOAD_DELAY_MS = 3500L
+        private const val STARTUP_URL_REFRESH_DELAY_MS = 6000L
         private const val CHANNEL_PAGE_SIZE = 60
         private const val CHANNEL_PREFETCH_MARGIN = 8
     }
 }
+
+private data class StartupPlayerInitRequest(
+    val loadId: Long,
+    val channels: List<Channel>
+)

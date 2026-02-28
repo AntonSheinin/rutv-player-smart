@@ -163,10 +163,3 @@ data class EpgResponse(
     @SerializedName("total_programs") val totalPrograms: Int,
     @SerializedName("epg") val epg: Map<String, List<EpgProgram>>
 )
-
-data class EpgHealthResponse(
-    @SerializedName("status") val status: String
-) {
-    val isHealthy: Boolean
-        get() = status.equals("ok", ignoreCase = true)
-}

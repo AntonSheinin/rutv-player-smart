@@ -44,6 +44,8 @@ interface ChannelDao {
         val existingFavoriteTvgIds = favoriteTvgIds ?: getFavoriteTvgIds()
         val favoriteUrlSet = existingFavoriteUrls.toSet()
         val favoriteTvgIdSet = existingFavoriteTvgIds.toSet()
+        // Full replacement: remove stale channels that disappeared from a new playlist snapshot.
+        deleteAllChannels()
         insertChannels(channels)
         if (favoriteUrlSet.isEmpty() && favoriteTvgIdSet.isEmpty()) {
             return emptyList()
