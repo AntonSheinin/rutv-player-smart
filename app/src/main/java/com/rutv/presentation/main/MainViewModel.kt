@@ -5,7 +5,6 @@ package com.rutv.presentation.main
 
 import android.annotation.SuppressLint
 import android.content.Intent
-import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.util.UnstableApi
@@ -120,9 +119,7 @@ class MainViewModel @Inject constructor(
     @Volatile
     private var filteredIndexByUrl: Map<String, Int> = emptyMap()
     @Volatile
-    private var lastChannelSwitchMainIndex: Int = -1
-    @Volatile
-    private var lastChannelSwitchAtMs: Long = 0L
+    private var lastPersistedPlayedIndex: Int = -1
 
     private fun postEpgNotification() {
         if (_viewState.value.epgNotificationMessage == EPG_LOADED_MESSAGE) return
@@ -294,6 +291,7 @@ class MainViewModel @Inject constructor(
                                 archivePrompt = null
                             )
                         }
+                        persistLastPlayedIndexIfNeeded(state.index)
                         ensureChannelVisibility(filteredIndex)
                         // Update current program (will wait if EPG not loaded yet)
                         viewModelScope.launch(Dispatchers.Default) {
@@ -446,6 +444,15 @@ class MainViewModel @Inject constructor(
             }
         }
         ensureChannelVisibility(playingIndex)
+    }
+
+    private fun persistLastPlayedIndexIfNeeded(index: Int) {
+        if (index < 0) return
+        if (index == lastPersistedPlayedIndex) return
+        lastPersistedPlayedIndex = index
+        viewModelScope.launch(Dispatchers.IO) {
+            preferencesRepository.saveLastPlayedIndex(index)
+        }
     }
 
     fun requestMoreChannels(targetIndex: Int) {
@@ -763,10 +770,32 @@ class MainViewModel @Inject constructor(
             if (index !in channelList.indices) return@launch
 
             val channel = channelList[index]
-            val mainIndex = findMainChannelIndex(channel.url)
+            val mainIndex = resolveMainIndex(channel, currentState.channels)
             if (mainIndex < 0) return@launch
 
-            playChannelInternal(channel, mainIndex)
+            playChannelInternal(mainIndex)
+        }
+    }
+
+    fun switchChannelRelative(delta: Int) {
+        if (delta == 0) return
+        viewModelScope.launch {
+            val currentState = _viewState.value
+            val channelList = currentState.filteredChannels
+            if (channelList.isEmpty()) return@launch
+
+            val currentIndex = currentState.currentChannelFilteredIndex
+                .takeIf { it in channelList.indices }
+                ?: currentState.currentChannel
+                    ?.let { channel -> channelList.indexOfFirst { it == channel }.takeIf { idx -> idx >= 0 } }
+                ?: 0
+
+            val normalized = ((currentIndex + delta) % channelList.size + channelList.size) % channelList.size
+            val channel = channelList[normalized]
+            val mainIndex = resolveMainIndex(channel, currentState.channels)
+            if (mainIndex < 0) return@launch
+
+            playChannelInternal(mainIndex)
         }
     }
 
@@ -776,23 +805,22 @@ class MainViewModel @Inject constructor(
     fun playChannelByMainIndex(index: Int) {
         viewModelScope.launch {
             val currentState = _viewState.value
-            val channel = currentState.channels.getOrNull(index) ?: return@launch
-            playChannelInternal(channel, index)
+            if (index !in currentState.channels.indices) return@launch
+            playChannelInternal(index)
         }
     }
 
-    private suspend fun playChannelInternal(channel: Channel, mainIndex: Int) {
-        val now = SystemClock.elapsedRealtime()
-        val isRapidDuplicate = lastChannelSwitchMainIndex == mainIndex &&
-            (now - lastChannelSwitchAtMs) < DUPLICATE_CHANNEL_SWITCH_GUARD_MS
-        if (isRapidDuplicate) {
-            logDebug { "Ignoring duplicate rapid channel switch to index=$mainIndex" }
-            return
+    private fun resolveMainIndex(channel: Channel, allChannels: List<Channel>): Int {
+        val exactIndex = allChannels.indexOfFirst { it == channel }
+        if (exactIndex >= 0) return exactIndex
+        val positionIndex = allChannels.indexOfFirst {
+            it.position == channel.position && it.url == channel.url && it.title == channel.title
         }
-        lastChannelSwitchMainIndex = mainIndex
-        lastChannelSwitchAtMs = now
+        if (positionIndex >= 0) return positionIndex
+        return findMainChannelIndex(channel.url)
+    }
 
-        val filteredIndex = findFilteredChannelIndex(channel.url)
+    private fun playChannelInternal(mainIndex: Int) {
         playerManager.setAutoRetrySuppressed(false)
         playerManager.playChannel(mainIndex)
 
@@ -803,17 +831,8 @@ class MainViewModel @Inject constructor(
                 showEpgPanel = false,
                 isArchivePlayback = false,
                 isTimeshiftPlayback = false,
-                archiveProgram = null,
-                currentChannelIndex = mainIndex,
-                currentChannelFilteredIndex = filteredIndex,
-                currentChannel = channel
+                archiveProgram = null
             )
-        }
-
-        // DataStore writes can be slow enough to delay state updates and cause duplicate
-        // "switch to same channel" requests on rapid remote key presses.
-        viewModelScope.launch(Dispatchers.IO) {
-            preferencesRepository.saveLastPlayedIndex(mainIndex)
         }
     }
 
@@ -1604,7 +1623,6 @@ class MainViewModel @Inject constructor(
 
     private companion object {
         const val EPG_LOADED_MESSAGE = "EPG loaded"
-        private const val DUPLICATE_CHANNEL_SWITCH_GUARD_MS = 1200L
         private const val STARTUP_PLAYER_INIT_DELAY_MS = 250L
         private const val STARTUP_EPG_PRELOAD_DELAY_MS = 3500L
         private const val STARTUP_URL_REFRESH_DELAY_MS = 6000L

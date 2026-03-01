@@ -74,7 +74,6 @@ class MainActivity : ComponentActivity() {
     private var pendingOkToggle = false
     private var okLongPressHandled = false
     private var lastPanelNavigationAtMs = 0L
-    private var lastChannelNavigationAtMs = 0L
 
     override fun attachBaseContext(newBase: Context) {
         // Locale must be applied before resources are loaded; we read synchronously.
@@ -437,13 +436,13 @@ class MainActivity : ComponentActivity() {
             when (keyCode) {
                 // Channel navigation (direct, bypasses focus)
                 KeyEvent.KEYCODE_CHANNEL_UP -> {
-                    if (!shouldHandleChannelNavigation(event)) return true
-                    switchChannelUp()
+                    if (!shouldHandleChannelSwitchPress(event)) return true
+                    viewModel.switchChannelRelative(+1)
                     return true
                 }
                 KeyEvent.KEYCODE_CHANNEL_DOWN -> {
-                    if (!shouldHandleChannelNavigation(event)) return true
-                    switchChannelDown()
+                    if (!shouldHandleChannelSwitchPress(event)) return true
+                    viewModel.switchChannelRelative(-1)
                     return true
                 }
                 // Menu button - context dependent
@@ -563,13 +562,13 @@ class MainActivity : ComponentActivity() {
                 // Up/Down arrows - switch channels in fullscreen mode
                 // Note: When panels/controls are open, these are filtered out before we get here
                 KeyEvent.KEYCODE_DPAD_UP -> {
-                    if (!shouldHandleChannelNavigation(event)) return true
-                    switchChannelUp()
+                    if (!shouldHandleChannelSwitchPress(event)) return true
+                    viewModel.switchChannelRelative(+1)
                     return true
                 }
                 KeyEvent.KEYCODE_DPAD_DOWN -> {
-                    if (!shouldHandleChannelNavigation(event)) return true
-                    switchChannelDown()
+                    if (!shouldHandleChannelSwitchPress(event)) return true
+                    viewModel.switchChannelRelative(-1)
                     return true
                 }
                 // BACK button - context dependent
@@ -647,37 +646,6 @@ class MainActivity : ComponentActivity() {
         return super.onKeyUp(keyCode, event)
     }
 
-    /**
-     * Handle channel switching
-     */
-    private fun switchChannelUp() {
-        val state = viewModel.viewState.value
-        val channels = state.filteredChannels
-        if (channels.isEmpty()) return
-        val currentUrl = state.currentChannel?.url
-        val currentIndex = if (currentUrl.isNullOrBlank()) {
-            0
-        } else {
-            channels.indexOfFirst { it.url == currentUrl }.takeIf { it >= 0 } ?: 0
-        }
-        val nextIndex = if (currentIndex < channels.size - 1) currentIndex + 1 else 0
-        viewModel.playChannel(nextIndex)
-    }
-
-    private fun switchChannelDown() {
-        val state = viewModel.viewState.value
-        val channels = state.filteredChannels
-        if (channels.isEmpty()) return
-        val currentUrl = state.currentChannel?.url
-        val currentIndex = if (currentUrl.isNullOrBlank()) {
-            0
-        } else {
-            channels.indexOfFirst { it.url == currentUrl }.takeIf { it >= 0 } ?: 0
-        }
-        val prevIndex = if (currentIndex > 0) currentIndex - 1 else channels.size - 1
-        viewModel.playChannel(prevIndex)
-    }
-
     private fun shouldHandlePanelNavigation(event: KeyEvent): Boolean {
         if (event.repeatCount > 0 || event.isLongPress) {
             return false
@@ -691,16 +659,7 @@ class MainActivity : ComponentActivity() {
         return true
     }
 
-    private fun shouldHandleChannelNavigation(event: KeyEvent): Boolean {
-        if (event.repeatCount > 0 || event.isLongPress) {
-            return false
-        }
-        val now = event.eventTime
-        val minGapMs = 450L
-        if (now - lastChannelNavigationAtMs < minGapMs) {
-            return false
-        }
-        lastChannelNavigationAtMs = now
-        return true
+    private fun shouldHandleChannelSwitchPress(event: KeyEvent): Boolean {
+        return event.repeatCount == 0 && !event.isLongPress
     }
 }
