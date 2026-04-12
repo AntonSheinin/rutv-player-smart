@@ -10,6 +10,8 @@ import com.rutv.data.local.entity.ChannelEntity
 /**
  * Data Access Object for Channel operations
  */
+data class AspectRatioEntry(val url: String, val aspectRatio: Int)
+
 @Dao
 interface ChannelDao {
 
@@ -34,6 +36,12 @@ interface ChannelDao {
     @Query("UPDATE channels SET isFavorite = 1 WHERE url IN (:urls)")
     suspend fun markFavorites(urls: List<String>)
 
+    @Query("SELECT url, aspectRatio FROM channels WHERE aspectRatio != 0")
+    suspend fun getCustomAspectRatios(): List<AspectRatioEntry>
+
+    @Query("UPDATE channels SET aspectRatio = :aspectRatio WHERE url = :url")
+    suspend fun restoreAspectRatio(url: String, aspectRatio: Int)
+
     @Transaction
     suspend fun replaceChannelsPreservingFavorites(
         channels: List<ChannelEntity>,
@@ -42,11 +50,20 @@ interface ChannelDao {
     ): List<String> {
         val existingFavoriteUrls = favoriteUrls ?: getFavoriteUrls()
         val existingFavoriteTvgIds = favoriteTvgIds ?: getFavoriteTvgIds()
+        val existingAspectRatios = getCustomAspectRatios()
         val favoriteUrlSet = existingFavoriteUrls.toSet()
         val favoriteTvgIdSet = existingFavoriteTvgIds.toSet()
+        val aspectRatioMap = existingAspectRatios.associate { it.url to it.aspectRatio }
         // Full replacement: remove stale channels that disappeared from a new playlist snapshot.
         deleteAllChannels()
         insertChannels(channels)
+        // Restore aspect ratios
+        for (channel in channels) {
+            val savedRatio = aspectRatioMap[channel.url]
+            if (savedRatio != null && savedRatio != 0) {
+                restoreAspectRatio(channel.url, savedRatio)
+            }
+        }
         if (favoriteUrlSet.isEmpty() && favoriteTvgIdSet.isEmpty()) {
             return emptyList()
         }

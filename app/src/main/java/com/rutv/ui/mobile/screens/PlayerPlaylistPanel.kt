@@ -41,7 +41,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -72,12 +71,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.media3.common.util.UnstableApi
 import com.rutv.R
 import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
 import com.rutv.ui.mobile.components.ChannelListItem
 import com.rutv.ui.shared.components.RemoteDialog
+import com.rutv.ui.shared.components.RemotePressLifecycle
 import com.rutv.ui.shared.components.remoteDialogTextFieldNavigation
 import com.rutv.ui.shared.components.awaitFirstLayout
 import com.rutv.ui.shared.components.focusIndicatorModifier
@@ -93,7 +92,6 @@ import kotlinx.coroutines.flow.first
 import kotlin.math.max
 import java.util.Locale
 
-@UnstableApi
 @Composable
 internal fun PlaylistPanel(
     allChannels: List<Channel>,
@@ -154,9 +152,7 @@ internal fun PlaylistPanel(
     )
     val coroutineScope = rememberCoroutineScope()
     var playlistHasFocus by remember { mutableStateOf(false) }
-    var okDownTimestampMs by remember { mutableLongStateOf(0L) }
-    var okLongPressHandled by remember { mutableStateOf(false) }
-    var lastHorizontalNavigationAtMs by remember { mutableLongStateOf(0L) }
+    val centerPress = remember { RemotePressLifecycle() }
     // IMPORTANT: do not key this on displayedList.size.
     // Search may request more items, which changes displayedList.size; if we key on it,
     // we lose the pending search target and the first attempt "does nothing" until reopening.
@@ -187,18 +183,6 @@ internal fun PlaylistPanel(
     val closeButtonFocus = remember { FocusRequester() }
     var channelThatOpenedEpg by remember { mutableStateOf<Int?>(null) }
     var pendingScrollJob by remember { mutableStateOf<Job?>(null) }
-
-    fun shouldHandleHorizontalNavigation(event: androidx.compose.ui.input.key.KeyEvent): Boolean {
-        val repeat = event.nativeKeyEvent?.repeatCount ?: 0
-        if (repeat > 0) return false
-        val eventTime = event.nativeKeyEvent?.eventTime ?: System.currentTimeMillis()
-        val minGapMs = 700L
-        if (eventTime - lastHorizontalNavigationAtMs < minGapMs) {
-            return false
-        }
-        lastHorizontalNavigationAtMs = eventTime
-        return true
-    }
 
     val focusChannel: (Int, Boolean) -> Boolean = focusChannel@ { targetIndex, play ->
         when {
@@ -247,6 +231,7 @@ internal fun PlaylistPanel(
 
     DisposableEffect(Unit) {
         onDispose {
+            centerPress.reset()
             focusManager.unregisterEntry(PlayerFocusDestination.PLAYLIST_PANEL)
             focusManager.registerFocusCallback(PlayerFocusDestination.PLAYLIST_PANEL, null)
             val latestFocusedIndex = focusedChannelIndex
@@ -349,35 +334,7 @@ internal fun PlaylistPanel(
         modifier = modifier
             .fillMaxHeight()
             .width(LayoutConstants.PlaylistPanelWidth)
-            .padding(LayoutConstants.DefaultPadding)
-            .onPreviewKeyEvent { event ->
-                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                when (event.key) {
-                    Key.DirectionLeft -> {
-                        if (!shouldHandleHorizontalNavigation(event)) return@onPreviewKeyEvent true
-                        showSearchDialog = true
-                        true
-                    }
-                    Key.DirectionRight -> {
-                        if (!shouldHandleHorizontalNavigation(event)) return@onPreviewKeyEvent true
-                        val currentIdx = when {
-                            focusedChannelIndex >= 0 -> focusedChannelIndex
-                            currentChannelIndex in channels.indices -> currentChannelIndex
-                            else -> -1
-                        }
-                        val channel = channels.getOrNull(currentIdx)
-                        if (channel?.hasEpg == true) {
-                            playlistHasFocus = false
-                            onShowPrograms(channel.tvgId)
-                            onRequestEpgFocus?.invoke()
-                            true
-                        } else {
-                            false
-                        }
-                    }
-                    else -> false
-                }
-            },
+            .padding(LayoutConstants.DefaultPadding),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f)
         ),
@@ -436,7 +393,6 @@ internal fun PlaylistPanel(
 
             Box(modifier = Modifier.fillMaxSize()) {
                 val isEpgPanelVisible = epgOpenIndex >= 0
-                val longPressThresholdMs = 450L // used for press-duration fallback
 
                 LaunchedEffect(Unit) {
                     if (!isRemoteMode) return@LaunchedEffect
@@ -485,30 +441,44 @@ internal fun PlaylistPanel(
                                             true
                                         }
                                         Key.DirectionCenter, Key.Enter -> {
-                                            val repeat = event.nativeKeyEvent?.repeatCount ?: 0
-                                            if (repeat > 0) {
-                                                // Treat first repeat as long-press activation (no delay-based job)
-                                                if (!okLongPressHandled) {
-                                                    okLongPressHandled = true
-                                                    channels.getOrNull(focusedChannelIndex)?.let { channel ->
-                                                        onFavoriteClick(channel.url)
-                                                    }
+                                            centerPress.onDown(
+                                                repeatCount = event.nativeKeyEvent?.repeatCount ?: 0,
+                                                isLongPress = event.nativeKeyEvent?.isLongPress == true
+                                            ) {
+                                                val channel = channels.getOrNull(focusedChannelIndex)
+                                                if (channel != null) {
+                                                    onFavoriteClick(channel.url)
+                                                    true
+                                                } else {
+                                                    false
                                                 }
-                                            } else if (okDownTimestampMs == 0L) {
-                                                okDownTimestampMs = event.nativeKeyEvent?.downTime ?: System.currentTimeMillis()
-                                                okLongPressHandled = false
                                             }
-                                            true
                                         }
                                         Key.DirectionLeft -> {
-                                            if (!shouldHandleHorizontalNavigation(event)) return@onPreviewKeyEvent true
-                                            onRequestEpgFocus?.invoke()
+                                            val isRepeat = (event.nativeKeyEvent?.repeatCount ?: 0) > 0 ||
+                                                event.nativeKeyEvent?.isLongPress == true
+                                            if (isRepeat) return@onPreviewKeyEvent true
+                                            showSearchDialog = true
                                             true
                                         }
                                         Key.DirectionRight -> {
-                                            if (!shouldHandleHorizontalNavigation(event)) return@onPreviewKeyEvent true
-                                            onRequestEpgFocus?.invoke()
-                                            true
+                                            val isRepeat = (event.nativeKeyEvent?.repeatCount ?: 0) > 0 ||
+                                                event.nativeKeyEvent?.isLongPress == true
+                                            if (isRepeat) return@onPreviewKeyEvent true
+                                            val currentIdx = when {
+                                                focusedChannelIndex >= 0 -> focusedChannelIndex
+                                                currentChannelIndex in channels.indices -> currentChannelIndex
+                                                else -> -1
+                                            }
+                                            val channel = channels.getOrNull(currentIdx)
+                                            if (channel?.hasEpg == true) {
+                                                playlistHasFocus = false
+                                                onShowPrograms(channel.tvgId)
+                                                onRequestEpgFocus?.invoke()
+                                                true
+                                            } else {
+                                                false
+                                            }
                                         }
                                         else -> false
                                     }
@@ -516,19 +486,11 @@ internal fun PlaylistPanel(
                                 KeyEventType.KeyUp -> {
                                     when (event.key) {
                                         Key.DirectionCenter, Key.Enter -> {
-                                            val upTime = event.nativeKeyEvent?.eventTime ?: System.currentTimeMillis()
-                                            val downTime = okDownTimestampMs.takeIf { it > 0 } ?: upTime
-                                            val pressDuration = upTime - downTime
-                                            val channel = channels.getOrNull(focusedChannelIndex)
-                                            if (channel != null && !okLongPressHandled) {
-                                                if (pressDuration >= longPressThresholdMs) {
-                                                    onFavoriteClick(channel.url)
-                                                } else {
+                                            centerPress.onUp {
+                                                channels.getOrNull(focusedChannelIndex)?.let {
                                                     focusChannel(focusedChannelIndex, true)
                                                 }
                                             }
-                                            okDownTimestampMs = 0L
-                                            okLongPressHandled = false
                                             true
                                         }
                                         else -> false

@@ -5,6 +5,7 @@ lifecycle = "2.8.6"
 media3 = "1.8.0"
 nextlib-media3ext = "1.8.0-0.9.0"
 coroutines = "1.8.1"
+kotlinx-collections-immutable = "0.3.8"
 room = "2.6.1"
 hilt = "2.57.2"
 datastore = "1.1.1"
@@ -40,6 +41,8 @@ nextlib-media3ext = { module = "io.github.anilbeesetti:nextlib-media3ext", versi
 
 coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
+
+kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "kotlinx-collections-immutable" }
 
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }

@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import timber.log.Timber
+import java.io.File
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -38,6 +39,7 @@ class PreferencesRepository @Inject constructor(
 ) {
 
     private val dataStore = context.dataStore
+    private val playlistCacheFile = File(context.filesDir, "playlist_cache.m3u8")
 
     // SharedPreferences for language setting (synchronous access in attachBaseContext)
     private val sharedPrefs: SharedPreferences = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
@@ -93,9 +95,20 @@ class PreferencesRepository @Inject constructor(
             val type = preferences[PreferencesKeys.PLAYLIST_TYPE]
             when (type) {
                 PlaylistSource.TYPE_FILE -> {
-                    val content = preferences[PreferencesKeys.PLAYLIST_CONTENT] ?: ""
                     val displayName = preferences[PreferencesKeys.PLAYLIST_FILE_NAME]
-                    PlaylistSource.File(content, displayName)
+                    val content = readPlaylistFile()
+                    if (content != null) {
+                        PlaylistSource.File(content, displayName)
+                    } else {
+                        // Migration: DataStore still has content from before file-based storage
+                        val legacyContent = preferences[PreferencesKeys.PLAYLIST_CONTENT]
+                        if (!legacyContent.isNullOrEmpty()) {
+                            writePlaylistFile(legacyContent)
+                            PlaylistSource.File(legacyContent, displayName)
+                        } else {
+                            PlaylistSource.None
+                        }
+                    }
                 }
                 PlaylistSource.TYPE_URL -> {
                     val url = preferences[PreferencesKeys.PLAYLIST_URL] ?: ""
@@ -106,9 +119,10 @@ class PreferencesRepository @Inject constructor(
         }
 
     suspend fun savePlaylistFromFile(content: String, displayName: String?) {
+        writePlaylistFile(content)
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.PLAYLIST_TYPE] = PlaylistSource.TYPE_FILE
-            preferences[PreferencesKeys.PLAYLIST_CONTENT] = content
+            preferences.remove(PreferencesKeys.PLAYLIST_CONTENT) // no longer stored in DataStore
             if (!displayName.isNullOrBlank()) {
                 preferences[PreferencesKeys.PLAYLIST_FILE_NAME] = displayName
             } else {
@@ -116,10 +130,11 @@ class PreferencesRepository @Inject constructor(
             }
             preferences.remove(PreferencesKeys.PLAYLIST_URL)
         }
-        logDebug { "Saved playlist from file" }
+        logDebug { "Saved playlist from file (${content.length} chars)" }
     }
 
     suspend fun savePlaylistFromUrl(url: String) {
+        playlistCacheFile.delete()
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.PLAYLIST_TYPE] = PlaylistSource.TYPE_URL
             preferences[PreferencesKeys.PLAYLIST_URL] = url
@@ -401,5 +416,28 @@ class PreferencesRepository @Inject constructor(
             preferences[PreferencesKeys.APP_LANGUAGE] = localeCode
         }
         logDebug { "Saved app language: $localeCode (commit success: $success)" }
+    }
+
+    private fun readPlaylistFile(): String? {
+        return try {
+            if (playlistCacheFile.exists()) playlistCacheFile.readText() else null
+        } catch (e: IOException) {
+            Timber.e(e, "Failed to read playlist cache file")
+            null
+        }
+    }
+
+    private fun writePlaylistFile(content: String) {
+        try {
+            val tempFile = File(playlistCacheFile.parentFile, "${playlistCacheFile.name}.tmp")
+            tempFile.writeText(content)
+            if (!tempFile.renameTo(playlistCacheFile)) {
+                // renameTo can fail on some filesystems; fall back to direct write
+                playlistCacheFile.writeText(content)
+                tempFile.delete()
+            }
+        } catch (e: IOException) {
+            Timber.e(e, "Failed to write playlist cache file")
+        }
     }
 }

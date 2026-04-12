@@ -1,13 +1,11 @@
 package com.rutv.presentation.player
 
-import androidx.media3.common.util.UnstableApi
 import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
 
 /**
  * Represents the state of the player
  */
-@UnstableApi
 sealed class PlayerState {
     object Idle : PlayerState()
     object Buffering : PlayerState()

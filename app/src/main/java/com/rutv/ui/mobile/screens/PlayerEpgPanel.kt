@@ -65,7 +65,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import androidx.media3.common.util.UnstableApi
 import com.rutv.R
 import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
@@ -73,6 +72,7 @@ import com.rutv.ui.mobile.components.EpgDateDelimiter
 import com.rutv.ui.mobile.components.EpgProgramItem
 import com.rutv.ui.shared.components.awaitFirstLayout
 import com.rutv.ui.shared.components.focusIndicatorModifier
+import com.rutv.ui.shared.components.RemotePressLifecycle
 import com.rutv.ui.shared.presentation.LayoutConstants
 import com.rutv.ui.shared.presentation.TimeFormatter
 import com.rutv.ui.theme.ruTvColors
@@ -86,7 +86,6 @@ import java.time.ZoneId
 import java.util.Date
 import java.util.concurrent.TimeUnit
 
-@UnstableApi
 @Composable
 internal fun EpgPanel(
     programs: List<EpgProgram>,
@@ -120,9 +119,12 @@ internal fun EpgPanel(
     var epgListHasFocus by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var datePickerSelectionIndex by remember { mutableIntStateOf(0) }
-    var lastHorizontalNavigationAtMs by remember(channel?.tvgId) { mutableLongStateOf(0L) }
+    val centerPress = remember(channel?.tvgId) { RemotePressLifecycle() }
     DisposableEffect(Unit) {
-        onDispose { epgListHasFocus = false }
+        onDispose {
+            epgListHasFocus = false
+            centerPress.reset()
+        }
     }
 
     // Find current program index in original list
@@ -260,9 +262,6 @@ internal fun EpgPanel(
     var pendingCenterKeyAction by remember(channel?.tvgId) {
         mutableStateOf<CenterKeyAction?>(null)
     }
-    var centerKeyConsumedAsLongPress by remember(channel?.tvgId) {
-        mutableStateOf(false)
-    }
     var pendingFocusDateRange by remember(channel?.tvgId) {
         mutableStateOf<LongRange?>(null)
     }
@@ -283,18 +282,6 @@ internal fun EpgPanel(
                 listState.scrollToItem(itemIndex, scrollOffset = -200)
             }
         }
-        return true
-    }
-
-    fun shouldHandleHorizontalNavigation(event: androidx.compose.ui.input.key.KeyEvent): Boolean {
-        val repeat = event.nativeKeyEvent?.repeatCount ?: 0
-        if (repeat > 0) return false
-        val eventTime = event.nativeKeyEvent?.eventTime ?: System.currentTimeMillis()
-        val minGapMs = 700L
-        if (eventTime - lastHorizontalNavigationAtMs < minGapMs) {
-            return false
-        }
-        lastHorizontalNavigationAtMs = eventTime
         return true
     }
 
@@ -565,22 +552,26 @@ internal fun EpgPanel(
                                                 val isArchiveCandidate = programUiItemsByIndex[focusedProgramIndex]?.isArchiveCandidate == true
                                                 // Allow playing archive even if already in archive playback (to switch programs)
                                                 val canPlayArchive = isArchiveCandidate
-                                                val isLongPress = (event.nativeKeyEvent?.repeatCount ?: 0) > 0
-                                                if (isLongPress) {
-                                                    if (!centerKeyConsumedAsLongPress) {
-                                                        onProgramClick(program)
-                                                        centerKeyConsumedAsLongPress = true
-                                                    }
-                                                    pendingCenterKeyAction = null
-                                                } else {
+                                                val repeatCount = event.nativeKeyEvent?.repeatCount ?: 0
+                                                val isLongPress = event.nativeKeyEvent?.isLongPress == true
+                                                if (repeatCount == 0 && !isLongPress) {
                                                     pendingCenterKeyAction = CenterKeyAction(program, canPlayArchive)
-                                                    centerKeyConsumedAsLongPress = false
+                                                }
+                                                centerPress.onDown(
+                                                    repeatCount = repeatCount,
+                                                    isLongPress = isLongPress
+                                                ) {
+                                                    pendingCenterKeyAction = null
+                                                    onProgramClick(program)
+                                                    true
                                                 }
                                             }
                                             true
                                         }
                                         Key.DirectionLeft -> {
-                                            if (!shouldHandleHorizontalNavigation(event)) return@onPreviewKeyEvent true
+                                            val isRepeat = (event.nativeKeyEvent?.repeatCount ?: 0) > 0 ||
+                                                event.nativeKeyEvent?.isLongPress == true
+                                            if (isRepeat) return@onPreviewKeyEvent true
                                             if (isPlaylistOpen) {
                                                 onNavigateLeftToChannels?.invoke()
                                                 epgListHasFocus = false
@@ -591,7 +582,9 @@ internal fun EpgPanel(
                                             true
                                         }
                                         Key.DirectionRight -> {
-                                            if (!shouldHandleHorizontalNavigation(event)) return@onPreviewKeyEvent true
+                                            val isRepeat = (event.nativeKeyEvent?.repeatCount ?: 0) > 0 ||
+                                                event.nativeKeyEvent?.isLongPress == true
+                                            if (isRepeat) return@onPreviewKeyEvent true
                                             if (dateEntries.isNotEmpty()) {
                                                 datePickerSelectionIndex = todayEntryIndex
                                                 showDatePicker = true
@@ -605,16 +598,18 @@ internal fun EpgPanel(
                                 }
                                 KeyEventType.KeyUp -> {
                                     if (isCenterKey) {
-                                        val pendingAction = pendingCenterKeyAction
-                                        if (pendingAction != null && !centerKeyConsumedAsLongPress) {
-                                            if (pendingAction.canPlayArchive) {
-                                                onPlayArchive(pendingAction.program)
-                                            } else {
-                                                onProgramClick(pendingAction.program)
+                                        centerPress.onUp {
+                                            val pendingAction = pendingCenterKeyAction
+                                            if (pendingAction != null) {
+                                                if (pendingAction.canPlayArchive) {
+                                                    onPlayArchive(pendingAction.program)
+                                                } else {
+                                                    onProgramClick(pendingAction.program)
+                                                }
                                             }
+                                            pendingCenterKeyAction = null
                                         }
                                         pendingCenterKeyAction = null
-                                        centerKeyConsumedAsLongPress = false
                                     }
                                     true
                                 }

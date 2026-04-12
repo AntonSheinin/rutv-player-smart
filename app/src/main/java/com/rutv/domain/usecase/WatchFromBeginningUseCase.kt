@@ -55,7 +55,6 @@ class WatchFromBeginningUseCase @Inject constructor() {
                     Result.Success(info)
                 }
                 is Result.Error -> windowResult
-                is Result.Loading -> Result.Error(Exception("Unexpected loading state"))
             }
 
         } catch (e: CancellationException) {

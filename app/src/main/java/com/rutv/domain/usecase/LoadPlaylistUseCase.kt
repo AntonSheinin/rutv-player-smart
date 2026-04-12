@@ -1,11 +1,10 @@
 package com.rutv.domain.usecase
 
-import androidx.media3.common.util.UnstableApi
 import com.rutv.data.model.Channel
 import com.rutv.data.model.PlaylistSource
 import com.rutv.data.remote.PlaylistLoader
 import com.rutv.data.remote.PlaylistParser
-import com.rutv.data.repository.ChannelRepository
+import com.rutv.domain.repository.ChannelRepository
 import com.rutv.data.repository.PreferencesRepository
 import com.rutv.util.Result
 import kotlinx.coroutines.CancellationException
@@ -26,9 +25,8 @@ import javax.inject.Inject
  * Cold start optimization:
  * - When `skipNetworkIfCacheAvailable=true` and a URL playlist is configured, we can return the
  *   cached channels immediately if we have a stored hash + non-empty DB. This makes startup fast,
- *   while a background refresh can update later (see `InitializeAppUseCase` usage).
+ *   while a background refresh can update later (see `MainViewModel.loadPlaylistAndPlayer`).
  */
-@UnstableApi
 class LoadPlaylistUseCase @Inject constructor(
     private val channelRepository: ChannelRepository,
     private val preferencesRepository: PreferencesRepository,
@@ -68,7 +66,7 @@ class LoadPlaylistUseCase @Inject constructor(
                 if (channel.position == index) channel else channel.copy(position = index)
             } else {
                 channel.copy(
-                    aspectRatio = existing.aspectRatio,
+                    resizeMode = existing.resizeMode,
                     position = index
                 )
             }
@@ -99,7 +97,6 @@ class LoadPlaylistUseCase @Inject constructor(
                 when (val result = playlistLoader.loadFromUrl(source.url)) {
                     is Result.Success -> result.data
                     is Result.Error -> return result
-                    is Result.Loading -> return Result.Error(Exception("Unexpected loading state"))
                 }
             }
             is PlaylistSource.None -> return Result.Success(emptyList())
@@ -210,7 +207,6 @@ class LoadPlaylistUseCase @Inject constructor(
                 Result.Success(channelsWithFavorites)
             }
             is Result.Error -> saveResult
-            is Result.Loading -> Result.Error(Exception("Unexpected loading state"))
         }
     }
 

@@ -25,28 +25,14 @@
     <string name="button_open_settings">Open Settings</string>
     <string name="button_exit">Exit</string>
     <string name="button_save">Save</string>
-    <string name="button_select">Select</string>
 
     <!-- Input Hints -->
     <string name="hint_channel_number">Enter channel number (1-%1$d)</string>
     <string name="hint_search_channel">Enter channel name</string>
     <string name="hint_m3u_url">Enter M3U/M3U8 URL</string>
 
-    <!-- Virtual Keyboard -->
-    <string name="keyboard_backspace">Backspace</string>
-    <string name="keyboard_enter">Enter</string>
-    <string name="keyboard_close">Close</string>
-
-    <!-- File Browser -->
-    <string name="file_browser_title">Select File</string>
-    <string name="file_browser_parent">.. (Parent Directory)</string>
-    <string name="file_browser_no_files">No files in this directory</string>
-    <string name="file_browser_cancel">Cancel</string>
-    <string name="file_browser_up">Up</string>
-
     <!-- Status -->
     <string name="status_playing">&#x25B6; Playing</string>
-    <string name="status_file">File</string>
 
     <!-- Playlist / Settings -->
     <string name="settings_playlist_source">Playlist Source</string>
@@ -101,10 +87,8 @@
     <string name="cd_favorites_button">Show favorites</string>
     <string name="cd_playlist_button">Show playlist</string>
     <string name="cd_settings_button">Open settings</string>
-    <string name="cd_go_to_channel_button">Go to channel number</string>
     <string name="cd_channel_groups_button">Choose channel group</string>
     <string name="cd_close_playlist">Close playlist</string>
-    <string name="cd_search_channel">Search channel</string>
     <string name="cd_aspect_ratio_button">Change aspect ratio</string>
     <string name="cd_orientation_button">Rotate video</string>
     <string name="cd_epg_archive_indicator">Available in archive</string>

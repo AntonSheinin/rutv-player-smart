@@ -1,15 +1,18 @@
 package com.rutv.ui.mobile.screens
 
 import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.Composable
 import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
+import com.rutv.data.model.ResizeMode
 import com.rutv.presentation.main.ArchivePrompt
 import com.rutv.presentation.main.MainViewState
 import com.rutv.presentation.player.DebugMessage
 import com.rutv.presentation.player.PlayerState
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.toImmutableList
 
 /**
  * Lightweight snapshot of the fields PlayerScreen actually needs.
@@ -17,9 +20,9 @@ import com.rutv.presentation.player.PlayerState
  */
 @Immutable
 data class PlayerUiState(
-    val allChannels: List<Channel>,
-    val filteredChannels: List<Channel>,
-    val visibleChannels: List<Channel>,
+    val allChannels: ImmutableList<Channel>,
+    val filteredChannels: ImmutableList<Channel>,
+    val visibleChannels: ImmutableList<Channel>,
     val playlistTitleResId: Int,
     val selectedGroup: String?,
     val hasChannels: Boolean,
@@ -33,20 +36,20 @@ data class PlayerUiState(
     val isTimeshiftPlayback: Boolean,
     val showPlaylist: Boolean,
     val showEpgPanel: Boolean,
-    val epgPrograms: List<EpgProgram>,
+    val epgPrograms: ImmutableList<EpgProgram>,
     val epgChannelTvgId: String,
     val epgChannel: Channel?,
     val epgDaysPast: Int,
     val epgDaysAhead: Int,
     val epgLoadedFromUtc: Long,
     val epgLoadedToUtc: Long,
-    val currentProgramsMap: Map<String, EpgProgram?>,
+    val currentProgramsMap: ImmutableMap<String, EpgProgram?>,
     val showCurrentProgramInChannelList: Boolean,
     val showDebugLog: Boolean,
-    val debugMessages: List<DebugMessage>,
+    val debugMessages: ImmutableList<DebugMessage>,
     val archivePrompt: ArchivePrompt?,
     val epgNotificationMessage: String?,
-    val currentResizeMode: Int,
+    val currentResizeMode: ResizeMode,
     val playerState: PlayerState,
     val lastPlaylistScrollIndex: Int
 )
@@ -84,52 +87,16 @@ data class PlayerUiActions(
 
 @Composable
 fun rememberPlayerUiState(viewState: MainViewState): PlayerUiState {
-    val epgChannel = remember(viewState.epgChannelTvgId, viewState.channels, viewState.currentChannel) {
-        viewState.channels.firstOrNull { it.tvgId == viewState.epgChannelTvgId }
+    return remember(viewState) {
+        val epgChannel = viewState.channels.firstOrNull { it.tvgId == viewState.epgChannelTvgId }
             ?: viewState.currentChannel
-    }
 
-    val visibleChannels = remember(viewState.filteredChannels, viewState.visibleChannelCount) {
-        if (viewState.visibleChannelCount >= viewState.filteredChannels.size) {
+        val visibleChannels = if (viewState.visibleChannelCount >= viewState.filteredChannels.size) {
             viewState.filteredChannels
         } else {
-            viewState.filteredChannels.take(viewState.visibleChannelCount)
+            viewState.filteredChannels.take(viewState.visibleChannelCount).toImmutableList()
         }
-    }
 
-    return remember(
-        viewState.filteredChannels,
-        viewState.visibleChannelCount,
-        viewState.playlistTitleResId,
-        viewState.selectedGroup,
-        viewState.hasChannels,
-        viewState.currentChannel,
-        viewState.currentChannelIndex,
-        viewState.currentChannelFilteredIndex,
-        viewState.currentProgram,
-        viewState.archiveProgram,
-        viewState.selectedProgramDetails,
-        viewState.isArchivePlayback,
-        viewState.isTimeshiftPlayback,
-        viewState.showPlaylist,
-        viewState.showEpgPanel,
-        viewState.epgPrograms,
-        viewState.epgChannelTvgId,
-        epgChannel,
-        viewState.epgDaysPast,
-        viewState.epgDaysAhead,
-        viewState.epgLoadedFromUtc,
-        viewState.epgLoadedToUtc,
-        viewState.currentProgramsMap,
-        viewState.showCurrentProgramInChannelList,
-        viewState.showDebugLog,
-        viewState.debugMessages,
-        viewState.archivePrompt,
-        viewState.epgNotificationMessage,
-        viewState.currentResizeMode,
-        viewState.playerState,
-        viewState.lastPlaylistScrollIndex
-    ) {
         PlayerUiState(
             allChannels = viewState.channels,
             filteredChannels = viewState.filteredChannels,

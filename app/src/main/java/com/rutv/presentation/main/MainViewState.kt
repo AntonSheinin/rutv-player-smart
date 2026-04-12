@@ -1,23 +1,27 @@
 package com.rutv.presentation.main
 
 import androidx.compose.runtime.Immutable
-import androidx.media3.common.util.UnstableApi
 import com.rutv.R
 import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
 import com.rutv.data.model.PlaylistSource
+import com.rutv.data.model.ResizeMode
 import com.rutv.presentation.player.DebugMessage
 import com.rutv.presentation.player.PlayerState
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
 
 /**
  * UI State for MainActivity
- * Marked as Immutable to optimize recomposition - all properties are read-only
+ * Marked as Immutable to optimize recomposition — all properties are read-only
+ * and collection types use kotlinx-collections-immutable for true stability.
  */
-@UnstableApi
 @Immutable
 data class MainViewState(
-    val channels: List<Channel> = emptyList(),
-    val filteredChannels: List<Channel> = emptyList(),
+    val channels: ImmutableList<Channel> = persistentListOf(),
+    val filteredChannels: ImmutableList<Channel> = persistentListOf(),
     val visibleChannelCount: Int = DEFAULT_VISIBLE_CHANNELS,
     val selectedGroup: String? = null,
     val currentChannel: Channel? = null,
@@ -28,14 +32,14 @@ data class MainViewState(
     val showFavoritesOnly: Boolean = false,
     val showEpgPanel: Boolean = false,
     val epgChannelTvgId: String = "", // TVG ID of channel whose EPG is open
-    val epgPrograms: List<EpgProgram> = emptyList(),
+    val epgPrograms: ImmutableList<EpgProgram> = persistentListOf(),
     val epgLoadedFromUtc: Long = 0L,
     val epgLoadedToUtc: Long = 0L,
     val epgDaysPast: Int = 0,
     val epgDaysAhead: Int = 0,
     val currentProgram: EpgProgram? = null,
     val selectedProgramDetails: EpgProgram? = null, // Program selected for details view
-    val currentProgramsMap: Map<String, EpgProgram?> = emptyMap(),
+    val currentProgramsMap: ImmutableMap<String, EpgProgram?> = persistentMapOf(),
     /**
      * UI performance toggle: when disabled we avoid populating [currentProgramsMap] and the playlist
      * panel won't show "current program" under each channel.
@@ -45,14 +49,16 @@ data class MainViewState(
     val isTimeshiftPlayback: Boolean = false,
     val archiveProgram: EpgProgram? = null,
     val archivePrompt: ArchivePrompt? = null,
-    val debugMessages: List<DebugMessage> = emptyList(),
+    val debugMessages: ImmutableList<DebugMessage> = persistentListOf(),
     val showDebugLog: Boolean = false,
-    val currentResizeMode: Int = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT,
+    val currentResizeMode: ResizeMode = ResizeMode.FIT,
     val isLoading: Boolean = false,
     val error: String? = null,
     val epgNotificationMessage: String? = null,
     val playlistSource: PlaylistSource = PlaylistSource.None,
-    val lastPlaylistScrollIndex: Int = 0
+    val lastPlaylistScrollIndex: Int = 0,
+    val areControlsVisible: Boolean = false,
+    val showCloseAppDialog: Boolean = false
 ) {
     val playlistTitleResId: Int
         get() = if (showFavoritesOnly) R.string.playlist_title_favorites else R.string.playlist_title_channels
@@ -64,7 +70,6 @@ data class MainViewState(
         get() = playlistSource !is PlaylistSource.None
 }
 
-@UnstableApi
 @Immutable
 data class ArchivePrompt(
     val channel: Channel,

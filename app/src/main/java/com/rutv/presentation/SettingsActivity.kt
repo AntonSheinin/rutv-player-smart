@@ -20,7 +20,6 @@ import com.rutv.ui.theme.RuTvTheme
 import com.rutv.util.LocaleHelper
 import com.rutv.util.logDebug
 import dagger.hilt.android.AndroidEntryPoint
-import timber.log.Timber
 
 /**
  * Settings Activity - Refactored to use Jetpack Compose
@@ -78,7 +77,7 @@ class SettingsActivity : ComponentActivity() {
             viewState = viewState,
             onLoadFile = { content: String, displayName: String? ->
                 coroutineScope.launch {
-                    val ok = viewModel.savePlaylistFromFileAndAwait(content, displayName)
+                    val ok = viewModel.savePlaylistFromFile(content, displayName)
                     if (ok) {
                         // Return to MainActivity; it will reload playlist in `settingsLauncher` callback.
                         setResult(android.app.Activity.RESULT_OK)
@@ -88,7 +87,7 @@ class SettingsActivity : ComponentActivity() {
             },
             onLoadUrl = { url: String ->
                 coroutineScope.launch {
-                    val ok = viewModel.savePlaylistFromUrlAndAwait(url)
+                    val ok = viewModel.savePlaylistFromUrl(url)
                     if (ok) {
                         setResult(android.app.Activity.RESULT_OK)
                         finish()
@@ -142,15 +141,9 @@ class SettingsActivity : ComponentActivity() {
                 if (localeCode == viewState.selectedLanguage) {
                     return@SettingsScreen
                 }
-                coroutineScope.launch {
-                    viewModel.setAppLanguage(localeCode)
-                    if (viewModel.viewState.value.error == null) {
-                        // Set result to indicate language changed
-                        setResult(android.app.Activity.RESULT_OK, Intent().putExtra("language_changed", true))
-                        // Recreate activity to apply new locale
-                        recreate()
-                    }
-                }
+                viewModel.setAppLanguage(localeCode)
+                setResult(android.app.Activity.RESULT_OK, Intent().putExtra("language_changed", true))
+                recreate()
             },
             onBack = { finish() },
             modifier = Modifier.fillMaxSize()

@@ -56,7 +56,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.media3.common.util.UnstableApi
 import com.rutv.R
 import com.rutv.data.model.EpgProgram
 import com.rutv.ui.shared.components.focusIndicatorModifier
@@ -67,7 +66,6 @@ import com.rutv.util.DeviceHelper
 import kotlinx.coroutines.launch
 import java.util.Date
 
-@UnstableApi
 @Composable
 internal fun ProgramDetailsPanel(
     program: EpgProgram,
@@ -255,7 +253,6 @@ internal fun ProgramDetailsPanel(
     }
 }
 
-@UnstableApi
 @Composable
 internal fun DebugLogPanel(
     messages: List<String>,

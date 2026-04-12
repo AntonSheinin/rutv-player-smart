@@ -1,10 +1,9 @@
-@file:Suppress("unused")
-
 package com.rutv.data.local.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.rutv.data.model.Channel
+import com.rutv.data.model.ResizeMode
 import org.json.JSONArray
 
 /**
@@ -41,7 +40,7 @@ data class ChannelEntity(
         catchupDays = catchupDays,
         catchupSource = catchupSource,
         isFavorite = isFavorite,
-        aspectRatio = aspectRatio,
+        resizeMode = ResizeMode.fromInt(aspectRatio),
         position = position
     )
 
@@ -59,7 +58,7 @@ data class ChannelEntity(
             catchupDays = channel.catchupDays,
             catchupSource = channel.catchupSource,
             isFavorite = channel.isFavorite,
-            aspectRatio = channel.aspectRatio,
+            aspectRatio = channel.resizeMode.intValue,
             position = channel.position
         )
 

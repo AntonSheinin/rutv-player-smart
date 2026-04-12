@@ -29,6 +29,7 @@ android {
 
     buildTypes {
         debug {
+            applicationIdSuffix ".dev"
             signingConfig signingConfigs.debug
             manifestPlaceholders = [usesCleartextTraffic: "true"]
         }
@@ -70,6 +71,10 @@ android {
     }
 }
 
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
     coreLibraryDesugaring libs.desugar.jdk
     implementation libs.androidx.core.ktx
@@ -106,6 +111,9 @@ dependencies {
     // Coroutines
     implementation libs.coroutines.core
     implementation libs.coroutines.android
+
+    // Immutable collections for Compose stability
+    implementation libs.kotlinx.collections.immutable
 
     // Room Database
     implementation libs.room.runtime

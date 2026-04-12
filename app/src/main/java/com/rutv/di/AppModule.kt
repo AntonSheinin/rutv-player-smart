@@ -1,5 +1,3 @@
-@file:Suppress("unused")
-
 package com.rutv.di
 
 import android.content.Context
@@ -23,7 +21,6 @@ import javax.inject.Singleton
  */
 @Module
 @InstallIn(SingletonComponent::class)
-@Suppress("unused")
 object AppModule {
 
     @Provides
@@ -34,6 +31,10 @@ object AppModule {
             AppDatabase::class.java,
             Constants.DATABASE_NAME
         )
+            // Channel data is re-fetched from playlist source on reload; only favorites
+            // and aspect ratio preferences are user-specific. Destructive migration is
+            // acceptable as a safety net, but prefer writing explicit migrations for
+            // future schema changes to preserve favorites.
             .fallbackToDestructiveMigration()
             .build()
     }

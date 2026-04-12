@@ -45,7 +45,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.media3.common.util.UnstableApi
 import com.rutv.R
 import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
@@ -53,7 +52,6 @@ import com.rutv.ui.shared.components.focusIndicatorModifier
 import com.rutv.ui.theme.ruTvColors
 import com.rutv.util.DeviceHelper
 
-@UnstableApi
 @Composable
 internal fun ChannelInfoOverlay(
     channelNumber: Int,
@@ -64,6 +62,7 @@ internal fun ChannelInfoOverlay(
     archiveProgram: EpgProgram?,
     onReturnToLive: () -> Unit,
     onShowProgramInfo: (EpgProgram) -> Unit,
+    onNavigateDown: () -> Unit,
     returnToLiveFocusRequester: FocusRequester,
     programInfoFocusRequester: FocusRequester,
     modifier: Modifier = Modifier
@@ -133,6 +132,7 @@ internal fun ChannelInfoOverlay(
                     showPrimary = isArchivePlayback || isTimeshiftPlayback,
                     secondaryProgram = program,
                     onSecondary = onShowProgramInfo,
+                    onNavigateDown = onNavigateDown,
                     returnToLiveFocusRequester = returnToLiveFocusRequester,
                     programInfoFocusRequester = programInfoFocusRequester
                 )
@@ -148,6 +148,7 @@ private fun ChannelOverlayButtons(
     showPrimary: Boolean,
     secondaryProgram: EpgProgram,
     onSecondary: (EpgProgram) -> Unit,
+    onNavigateDown: () -> Unit,
     returnToLiveFocusRequester: FocusRequester,
     programInfoFocusRequester: FocusRequester
 ) {
@@ -163,6 +164,8 @@ private fun ChannelOverlayButtons(
                 ReturnToLiveButton(
                     onClick = onPrimary,
                     focusRequester = returnToLiveFocusRequester,
+                    onNavigateDown = onNavigateDown,
+                    onNavigateRight = { programInfoFocusRequester.requestFocus() },
                     buttonHeight = CHANNEL_BUTTON_HEIGHT
                 )
             }
@@ -171,17 +174,22 @@ private fun ChannelOverlayButtons(
                 program = secondaryProgram,
                 buttonHeight = CHANNEL_BUTTON_HEIGHT,
                 onShowProgramInfo = onSecondary,
-                focusRequester = programInfoFocusRequester
+                focusRequester = programInfoFocusRequester,
+                onNavigateDown = onNavigateDown,
+                onNavigateLeft = if (showPrimary) {
+                    { returnToLiveFocusRequester.requestFocus() }
+                } else null
             )
         }
     }
 }
 
-@UnstableApi
 @Composable
 internal fun ReturnToLiveButton(
     onClick: () -> Unit,
     focusRequester: FocusRequester,
+    onNavigateDown: (() -> Unit)? = null,
+    onNavigateRight: (() -> Unit)? = null,
     buttonHeight: Dp = 48.dp
 ) {
     var isFocused by remember { mutableStateOf(false) }
@@ -204,6 +212,15 @@ internal fun ReturnToLiveButton(
                             onClick()
                             true
                         }
+                        Key.DirectionDown -> {
+                            onNavigateDown?.invoke()
+                            true
+                        }
+                        Key.DirectionRight -> {
+                            onNavigateRight?.invoke()
+                            true
+                        }
+                        Key.DirectionLeft, Key.DirectionUp -> true
                         else -> false
                     }
                 } else false
@@ -213,13 +230,14 @@ internal fun ReturnToLiveButton(
     }
 }
 
-@UnstableApi
 @Composable
 internal fun ProgramInfoButton(
     program: EpgProgram,
     buttonHeight: Dp,
     onShowProgramInfo: (EpgProgram) -> Unit,
     focusRequester: FocusRequester,
+    onNavigateDown: (() -> Unit)? = null,
+    onNavigateLeft: (() -> Unit)? = null,
     containerColor: Color = MaterialTheme.ruTvColors.darkBackground,
     iconSizeMultiplier: Float = 0.75f
 ) {
@@ -247,6 +265,17 @@ internal fun ProgramInfoButton(
                                 onShowProgramInfo(program)
                                 true
                             }
+                            Key.DirectionDown -> {
+                                onNavigateDown?.invoke()
+                                true
+                            }
+                            Key.DirectionLeft -> {
+                                if (onNavigateLeft != null) {
+                                    onNavigateLeft()
+                                }
+                                true
+                            }
+                            Key.DirectionRight, Key.DirectionUp -> true
                             else -> false
                         }
                     } else false

@@ -1,6 +1,5 @@
 package com.rutv.data.remote
 
-import androidx.media3.common.util.UnstableApi
 import com.rutv.data.model.Channel
 import com.rutv.util.logDebug
 import javax.inject.Inject
@@ -20,7 +19,6 @@ import javax.inject.Singleton
  * - URLs are taken as-is (the player later handles redirects, headers, etc.).
  * - We assume one URL per `#EXTINF:`; if the playlist is malformed the entry may be skipped.
  */
-@UnstableApi
 @Singleton
 class PlaylistParser @Inject constructor() {
 

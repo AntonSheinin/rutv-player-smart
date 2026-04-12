@@ -2,7 +2,7 @@ package com.rutv.domain.usecase
 
 import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
-import com.rutv.data.repository.EpgRepository
+import com.rutv.domain.repository.EpgRepository
 import com.rutv.data.repository.PreferencesRepository
 import com.rutv.util.Result
 import kotlinx.coroutines.CancellationException

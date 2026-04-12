@@ -3,15 +3,17 @@ package com.rutv.presentation.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rutv.data.model.PlayerConfig
+import com.rutv.data.model.PlaylistSource
 import com.rutv.data.repository.PreferencesRepository
 import com.rutv.domain.usecase.LoadPlaylistUseCase
-import com.rutv.data.repository.EpgRepository
+import com.rutv.domain.repository.EpgRepository
 import com.rutv.util.Constants
 import com.rutv.util.PlayerConstants
 import com.rutv.util.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,124 +37,78 @@ class SettingsViewModel @Inject constructor(
         loadSettings()
     }
 
-    /**
-     * Load current settings
-     */
     private fun loadSettings() {
         viewModelScope.launch {
-            // Load playlist source
-            preferencesRepository.playlistSource.collect { source ->
-                _viewState.update { it.copy(playlistSource = source) }
+            combine(
+                preferencesRepository.playlistSource,
+                preferencesRepository.epgUrl,
+                preferencesRepository.epgDaysAhead,
+                preferencesRepository.epgDaysPast,
+                preferencesRepository.epgPageDays
+            ) { source, epgUrl, daysAhead, daysPast, pageDays ->
+                SettingsSnapshot(source, epgUrl, daysAhead, daysPast, pageDays)
+            }.collect { snap ->
+                _viewState.update {
+                    it.copy(
+                        playlistSource = snap.source,
+                        epgUrl = snap.epgUrl,
+                        epgDaysAhead = snap.daysAhead,
+                        epgDaysPast = snap.daysPast,
+                        epgPageDays = snap.pageDays
+                    )
+                }
             }
         }
 
         viewModelScope.launch {
-            // Load EPG URL
-            preferencesRepository.epgUrl.collect { url ->
-                _viewState.update { it.copy(epgUrl = url) }
+            combine(
+                preferencesRepository.playerConfig,
+                preferencesRepository.showCurrentProgramInChannelList,
+                preferencesRepository.autoRetryEnabled,
+                preferencesRepository.autoRetryMaxAttempts,
+                preferencesRepository.autoRetryPeriodSeconds
+            ) { config, showCurrent, retryEnabled, retryMax, retryPeriod ->
+                PlayerSettingsSnapshot(config, showCurrent, retryEnabled, retryMax, retryPeriod)
+            }.collect { snap ->
+                _viewState.update {
+                    it.copy(
+                        playerConfig = snap.config,
+                        showCurrentProgramInChannelList = snap.showCurrent,
+                        autoRetryEnabled = snap.retryEnabled,
+                        autoRetryMaxAttempts = snap.retryMax,
+                        autoRetryPeriodSeconds = snap.retryPeriod
+                    )
+                }
             }
         }
 
         viewModelScope.launch {
-            // Load EPG days ahead
-            preferencesRepository.epgDaysAhead.collect { days ->
-                _viewState.update { it.copy(epgDaysAhead = days) }
-            }
-        }
-
-        viewModelScope.launch {
-            // Load EPG days past (depth)
-            preferencesRepository.epgDaysPast.collect { days ->
-                _viewState.update { it.copy(epgDaysPast = days) }
-            }
-        }
-
-        viewModelScope.launch {
-            // Load EPG page size (days per page)
-            preferencesRepository.epgPageDays.collect { days ->
-                _viewState.update { it.copy(epgPageDays = days) }
-            }
-        }
-
-        viewModelScope.launch {
-            // Load player config
-            preferencesRepository.playerConfig.collect { config ->
-                _viewState.update { it.copy(playerConfig = config) }
-            }
-        }
-
-        viewModelScope.launch {
-            // Toggle: show "current program" under channels in the playlist panel.
-            preferencesRepository.showCurrentProgramInChannelList.collect { enabled ->
-                _viewState.update { it.copy(showCurrentProgramInChannelList = enabled) }
-            }
-        }
-
-        viewModelScope.launch {
-            preferencesRepository.autoRetryEnabled.collect { enabled ->
-                _viewState.update { it.copy(autoRetryEnabled = enabled) }
-            }
-        }
-
-        viewModelScope.launch {
-            preferencesRepository.autoRetryMaxAttempts.collect { attempts ->
-                _viewState.update { it.copy(autoRetryMaxAttempts = attempts) }
-            }
-        }
-
-        viewModelScope.launch {
-            preferencesRepository.autoRetryPeriodSeconds.collect { seconds ->
-                _viewState.update { it.copy(autoRetryPeriodSeconds = seconds) }
-            }
-        }
-
-        viewModelScope.launch {
-            // Load app language
             preferencesRepository.appLanguage.collect { language ->
                 _viewState.update { it.copy(selectedLanguage = language) }
             }
         }
     }
 
-    /**
-     * Save playlist from file content
-     */
-    fun savePlaylistFromFile(content: String, displayName: String?) {
-        viewModelScope.launch {
-            if (content.length.toLong() > Constants.MAX_PLAYLIST_SIZE_BYTES) {
-                _viewState.update {
-                    it.copy(error = "Playlist too large: ${content.length} bytes")
-                }
-                Timber.e("Playlist too large: ${content.length} bytes")
-                return@launch
-            }
+    private data class SettingsSnapshot(
+        val source: PlaylistSource,
+        val epgUrl: String,
+        val daysAhead: Int,
+        val daysPast: Int,
+        val pageDays: Int
+    )
 
-            try {
-                preferencesRepository.savePlaylistFromFile(content, displayName)
-                _viewState.update {
-                    it.copy(
-                        successMessage = displayName?.let { name -> "Playlist \"$name\" saved" } ?: "Playlist saved from file",
-                        error = null
-                    )
-                }
-                logDebug { "Playlist saved from file" }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _viewState.update {
-                    it.copy(error = "Failed to save playlist: ${e.message}")
-                }
-                Timber.e(e, "Failed to save playlist from file")
-            }
-        }
-    }
+    private data class PlayerSettingsSnapshot(
+        val config: PlayerConfig,
+        val showCurrent: Boolean,
+        val retryEnabled: Boolean,
+        val retryMax: Int,
+        val retryPeriod: Int
+    )
 
     /**
      * Save playlist from file content and return whether it succeeded.
-     * This is used by SettingsActivity so it doesn't call `finish()` before the write completes
-     * (which would cancel ViewModel coroutines and make "Load from file" appear broken).
      */
-    suspend fun savePlaylistFromFileAndAwait(content: String, displayName: String?): Boolean {
+    suspend fun savePlaylistFromFile(content: String, displayName: String?): Boolean {
         if (content.length.toLong() > Constants.MAX_PLAYLIST_SIZE_BYTES) {
             _viewState.update { it.copy(error = "Playlist too large: ${content.length} bytes") }
             Timber.e("Playlist too large: ${content.length} bytes")
@@ -178,39 +134,9 @@ class SettingsViewModel @Inject constructor(
     }
 
     /**
-     * Save playlist from URL
+     * Save playlist from URL and return whether it succeeded.
      */
-    fun savePlaylistFromUrl(url: String) {
-        viewModelScope.launch {
-            if (url.isBlank()) {
-                _viewState.update { it.copy(error = "URL cannot be empty") }
-                return@launch
-            }
-
-            try {
-                preferencesRepository.savePlaylistFromUrl(url)
-                _viewState.update {
-                    it.copy(
-                        successMessage = "Playlist URL saved",
-                        error = null
-                    )
-                }
-                logDebug { "Playlist URL saved: $url" }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _viewState.update {
-                    it.copy(error = "Failed to save URL: ${e.message}")
-                }
-                Timber.e(e, "Failed to save playlist URL")
-            }
-        }
-    }
-
-    /**
-     * Save playlist from URL and return whether it succeeded (see [savePlaylistFromFileAndAwait]).
-     */
-    suspend fun savePlaylistFromUrlAndAwait(url: String): Boolean {
+    suspend fun savePlaylistFromUrl(url: String): Boolean {
         if (url.isBlank()) {
             _viewState.update { it.copy(error = "URL cannot be empty") }
             return false
@@ -255,9 +181,6 @@ class SettingsViewModel @Inject constructor(
                         )
                     }
                     Timber.e(result.exception, "Failed to reload playlist")
-                }
-                is Result.Loading -> {
-                    // Already in loading state
                 }
             }
         }
@@ -472,15 +395,17 @@ class SettingsViewModel @Inject constructor(
     /**
      * Set app language
      */
-    suspend fun setAppLanguage(localeCode: String) {
-        try {
-            preferencesRepository.saveAppLanguage(localeCode)
-            logDebug { "App language saved: $localeCode" }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to save app language")
-            _viewState.update { it.copy(error = "Failed to save language preference: ${e.message}") }
+    fun setAppLanguage(localeCode: String) {
+        viewModelScope.launch {
+            try {
+                preferencesRepository.saveAppLanguage(localeCode)
+                logDebug { "App language saved: $localeCode" }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to save app language")
+                _viewState.update { it.copy(error = "Failed to save language preference: ${e.message}") }
+            }
         }
     }
 }

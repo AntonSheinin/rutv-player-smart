@@ -3,7 +3,7 @@ package com.rutv.util
 import android.content.Context
 import android.view.InputDevice
 import android.view.KeyEvent
-import timber.log.Timber
+import com.rutv.util.logDebug
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -45,13 +45,13 @@ object DeviceHelper {
                 // Verify it's not a physical keyboard by checking if it has D-pad keys
                 if (device.hasKeys(KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN).any { it }) {
                     remoteControlPresentCache.set(true)
-                    Timber.d("Remote detection: found remote-like keyboard in ${System.currentTimeMillis() - start}ms")
+                    logDebug { "Remote detection: found remote-like keyboard in ${System.currentTimeMillis() - start}ms" }
                     return true
                 }
             }
         }
         remoteControlPresentCache.set(false)
-        Timber.d("Remote detection: no remote found in ${System.currentTimeMillis() - start}ms (devices=${deviceIds.size})")
+        logDebug { "Remote detection: no remote found in ${System.currentTimeMillis() - start}ms (devices=${deviceIds.size})" }
         return false
     }
 

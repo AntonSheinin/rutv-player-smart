@@ -17,6 +17,7 @@ import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.ExoPlaybackException
 import androidx.media3.exoplayer.Renderer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.audio.AudioRendererEventListener
@@ -31,6 +32,7 @@ import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
 import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
 import com.rutv.data.model.PlayerConfig
+import com.rutv.util.ArchiveUrlBuilder
 import com.rutv.util.PlayerConstants
 import com.rutv.data.repository.PreferencesRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -49,8 +51,8 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.CancellationException
 import com.rutv.util.logDebug
 import timber.log.Timber
@@ -88,13 +90,15 @@ class PlayerManager @Inject constructor(
 ) {
 
     private var player: ExoPlayer? = null
+    private var playerListener: Player.Listener? = null
+    private var analyticsListener: AnalyticsListener? = null
     private var channels: List<Channel> = emptyList()
     private var liveMediaItemsCache: List<MediaItem> = emptyList()
 
     private val _playerState = MutableStateFlow<PlayerState>(PlayerState.Idle)
     val playerState: StateFlow<PlayerState> = _playerState.asStateFlow()
 
-    private val _debugMessages = MutableSharedFlow<DebugMessage>(replay = 100, extraBufferCapacity = 100)
+    private val _debugMessages = MutableSharedFlow<DebugMessage>(replay = 0, extraBufferCapacity = 50)
     val debugMessages: SharedFlow<DebugMessage> = _debugMessages.asSharedFlow()
 
     private var bufferingStartTime: Long = 0
@@ -110,8 +114,8 @@ class PlayerManager @Inject constructor(
     private var archiveChannel: Channel? = null
     private var lastLiveIndex: Int = 0
     private var pendingArchiveSeek: Boolean = false
-    private var networkScope = newNetworkScope()
-    private lateinit var httpDataSourceFactory: DefaultHttpDataSource.Factory
+    private var archiveProbeJob: Job? = null
+
     private var attemptedFfmpegAudioFallback: Boolean = false
     private var autoRetryJob: Job? = null
     private var autoRetryTargetIndex: Int = -1
@@ -123,46 +127,50 @@ class PlayerManager @Inject constructor(
     private val playbackCommands = CommandQueue<PlaybackCommand>(capacity = CommandQueue.UNLIMITED)
     private val deferredPlaybackCommands = ArrayDeque<PlaybackCommand>()
     private var playbackCommandProcessorJob: Job? = null
+    private var preferencesCollectorJob: Job? = null
     private var liveSwitchRequestSeq: Long = 0L
     private var pendingLiveSwitch: PendingLiveSwitch? = null
     private var unknownSwitchErrorCount: Int = 0
 
-    init {
-        playbackCommandProcessorJob = mainScope.launch {
-            processPlaybackCommands()
+    /**
+     * Start (or restart) the command processor and preferences collector.
+     * Idempotent — skips if jobs are already active.
+     * Called from MainViewModel.init to ensure the singleton is ready for a new ViewModel instance.
+     */
+    fun prepare() {
+        if (playbackCommandProcessorJob?.isActive != true) {
+            playbackCommandProcessorJob = mainScope.launch {
+                processPlaybackCommands()
+            }
         }
-        mainScope.launch {
-            preferencesRepository.autoRetryEnabled.collect { enabled ->
-                autoRetryEnabled = enabled
-                if (!enabled) {
-                    stopAutoRetry()
-                    clearRetryingState()
+        if (preferencesCollectorJob?.isActive != true) {
+            preferencesCollectorJob = mainScope.launch {
+                combine(
+                    preferencesRepository.autoRetryEnabled,
+                    preferencesRepository.autoRetryMaxAttempts,
+                    preferencesRepository.autoRetryPeriodSeconds
+                ) { enabled, attempts, seconds ->
+                    Triple(enabled, attempts, seconds)
+                }.collect { (enabled, attempts, seconds) ->
+                    autoRetryEnabled = enabled
+                    autoRetryMaxAttempts = attempts.coerceIn(
+                        PlayerConstants.MIN_AUTO_RETRY_MAX_ATTEMPTS,
+                        PlayerConstants.MAX_AUTO_RETRY_MAX_ATTEMPTS
+                    )
+                    autoRetryIntervalMs = seconds.coerceIn(
+                        PlayerConstants.MIN_AUTO_RETRY_PERIOD_SECONDS,
+                        PlayerConstants.MAX_AUTO_RETRY_PERIOD_SECONDS
+                    ) * 1_000L
+                    if (!enabled) {
+                        stopAutoRetry()
+                        clearRetryingState()
+                    }
                 }
-            }
-        }
-        mainScope.launch {
-            preferencesRepository.autoRetryMaxAttempts.collect { attempts ->
-                autoRetryMaxAttempts = attempts.coerceIn(
-                    PlayerConstants.MIN_AUTO_RETRY_MAX_ATTEMPTS,
-                    PlayerConstants.MAX_AUTO_RETRY_MAX_ATTEMPTS
-                )
-            }
-        }
-        mainScope.launch {
-            preferencesRepository.autoRetryPeriodSeconds.collect { seconds ->
-                val clamped = seconds.coerceIn(
-                    PlayerConstants.MIN_AUTO_RETRY_PERIOD_SECONDS,
-                    PlayerConstants.MAX_AUTO_RETRY_PERIOD_SECONDS
-                )
-                autoRetryIntervalMs = clamped * 1_000L
             }
         }
     }
 
-    private fun newNetworkScope(): CoroutineScope =
-        CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
-    private fun submitPlaybackCommand(command: PlaybackCommand) {
+private fun submitPlaybackCommand(command: PlaybackCommand) {
         if (playbackCommands.trySend(command).isSuccess) return
         mainScope.launch {
             playbackCommands.send(command)
@@ -235,11 +243,35 @@ class PlayerManager @Inject constructor(
         unknownSwitchErrorCount = 0
     }
 
-    private fun isStaleLiveError(currentIndex: Int): Boolean {
-        val pending = pendingLiveSwitch ?: return false
+    private fun resolveErrorMediaItemIndex(error: PlaybackException, currentIndex: Int): Int {
+        val exoError = error as? ExoPlaybackException ?: return currentIndex
+        val periodUid = exoError.mediaPeriodId?.periodUid ?: return currentIndex
+        val timeline = player?.currentTimeline ?: return currentIndex
+        if (timeline.isEmpty) return currentIndex
+        val periodIndex = timeline.getIndexOfPeriod(periodUid)
+        return if (periodIndex != C.INDEX_UNSET) periodIndex else currentIndex
+    }
+
+    private fun resolveErrorChannelIndex(currentIndex: Int, errorIndex: Int): Int {
+        return when {
+            errorIndex in channels.indices -> errorIndex
+            currentIndex in channels.indices -> currentIndex
+            else -> -1
+        }
+    }
+
+    private fun isStaleLiveError(currentIndex: Int, errorIndex: Int): Boolean {
         if (isArchivePlayback) return false
-        if (currentIndex < 0) return false
-        return pending.targetIndex != currentIndex
+        val pending = pendingLiveSwitch
+        if (pending != null) {
+            val candidateIndex = when {
+                errorIndex >= 0 -> errorIndex
+                currentIndex >= 0 -> currentIndex
+                else -> return false
+            }
+            return pending.targetIndex != candidateIndex
+        }
+        return currentIndex >= 0 && errorIndex >= 0 && currentIndex != errorIndex
     }
 
     private fun shouldRetryUnknownIssue(): Boolean {
@@ -650,7 +682,7 @@ class PlayerManager @Inject constructor(
                 .setPrioritizeTimeOverSizeThresholds(true)
                 .build()
 
-            val httpDataSourceFactory = ensureHttpDataSourceFactory()
+            val httpDataSourceFactory = baseHttpDataSourceFactory
 
             val hlsExtractorFactory = DefaultHlsExtractorFactory(
                 DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES,
@@ -695,10 +727,14 @@ class PlayerManager @Inject constructor(
                     repeatMode = Player.REPEAT_MODE_ALL
 
                     // Add analytics listener
-                    addAnalyticsListener(createAnalyticsListener())
+                    val analytics = createAnalyticsListener()
+                    analyticsListener = analytics
+                    addAnalyticsListener(analytics)
 
                     // Add player listener
-                    addListener(createPlayerListener())
+                    val listener = createPlayerListener()
+                    playerListener = listener
+                    addListener(listener)
 
                     // Seek to start index
                     if (startIndex >= 0 && startIndex < channels.size) {
@@ -837,10 +873,7 @@ class PlayerManager @Inject constructor(
                 mediaItem?.let {
                     val currentIndex = player?.currentMediaItemIndex ?: return
                     val channel = channels.getOrNull(currentIndex) ?: return
-
-                    markLiveSwitchCompleted(currentIndex)
-                    logDebug { "Channel transition to: ${channel.title} (#${currentIndex + 1})" }
-                    _playerState.value = PlayerState.Ready(channel, currentIndex)
+                    logDebug { "Channel transition observed: ${channel.title} (#${currentIndex + 1})" }
                 }
             }
 
@@ -931,10 +964,14 @@ class PlayerManager @Inject constructor(
 
             override fun onPlayerError(error: PlaybackException) {
                 val currentIndex = player?.currentMediaItemIndex ?: -1
-                val channel = channels.getOrNull(currentIndex)
+                val errorIndex = resolveErrorMediaItemIndex(error, currentIndex)
+                val channelIndex = resolveErrorChannelIndex(currentIndex, errorIndex)
+                val channel = channels.getOrNull(channelIndex)
                 val errorMsg = error.message ?: "Unknown error"
-                if (isStaleLiveError(currentIndex)) {
-                    addDebugMessage("  -> Ignoring stale playback error from an outdated switch request")
+                if (isStaleLiveError(currentIndex, errorIndex)) {
+                    addDebugMessage(
+                        "  -> Ignoring stale playback error from an outdated switch request (current=$currentIndex, error=$errorIndex)"
+                    )
                     return
                 }
 
@@ -948,18 +985,18 @@ class PlayerManager @Inject constructor(
                 }
 
                 val issue = classifyPlaybackIssue(error)
-                val shouldRetry = currentIndex >= 0 && shouldAutoRetry(error, issue)
+                val shouldRetry = channelIndex >= 0 && shouldAutoRetry(error, issue)
                 if (shouldRetry) {
-                    val startingRetry = autoRetryJob?.isActive != true || autoRetryTargetIndex != currentIndex
-                    startAutoRetry(currentIndex)
+                    val startingRetry = autoRetryJob?.isActive != true || autoRetryTargetIndex != channelIndex
+                    startAutoRetry(channelIndex)
                     if (startingRetry) {
                         val periodSeconds = maxOf(1, (autoRetryIntervalMs / 1000L).toInt())
                         addDebugMessage("  -> Auto-retrying source every ${periodSeconds}s")
                     }
                 } else {
                     stopAutoRetry()
-                    if (!isArchivePlayback && currentIndex >= 0) {
-                        markLiveSwitchCompleted(currentIndex)
+                    if (!isArchivePlayback && channelIndex >= 0) {
+                        markLiveSwitchCompleted(channelIndex)
                     }
                 }
                 _playerState.value = PlayerState.Error(
@@ -1047,7 +1084,7 @@ class PlayerManager @Inject constructor(
 
     private fun playArchiveInternal(channel: Channel, program: EpgProgram): Boolean {
         val playerInstance = player ?: return false
-        val archiveUrl = channel.buildArchiveUrl(program)
+        val archiveUrl = ArchiveUrlBuilder.buildArchiveUrl(channel, program)
         if (archiveUrl.isNullOrBlank()) {
             addDebugMessage("DVR: ${channel.title} does not provide a catch-up URL")
             return false
@@ -1163,18 +1200,11 @@ class PlayerManager @Inject constructor(
         pendingArchiveSeek = false
     }
 
-    private fun ensureHttpDataSourceFactory(): DefaultHttpDataSource.Factory {
-        if (!::httpDataSourceFactory.isInitialized) {
-            // Reuse app-wide HTTP configuration so playlist loader and player share
-            // identical request/session behavior.
-            httpDataSourceFactory = baseHttpDataSourceFactory
-        }
-        return httpDataSourceFactory
-    }
 
     private fun probeArchiveUri(uri: Uri, program: EpgProgram) {
-        networkScope.launch {
-            val factory = ensureHttpDataSourceFactory()
+        archiveProbeJob?.cancel()
+        archiveProbeJob = workerScope.launch(Dispatchers.IO) {
+            val factory = baseHttpDataSourceFactory
             val headSource = factory.createDataSource()
             try {
                 val headSpec = DataSpec.Builder()
@@ -1330,18 +1360,19 @@ class PlayerManager @Inject constructor(
      * Release player resources
      */
     fun release() {
-        mainScope.launch {
-            playbackCommandProcessorJob?.cancel()
-            playbackCommandProcessorJob = null
-            while (true) {
-                val pending = playbackCommands.tryReceive().getOrNull() ?: break
-                if (pending is PlaybackCommand.PlayArchive) {
-                    pending.result.complete(false)
-                }
+        playbackCommandProcessorJob?.cancel()
+        playbackCommandProcessorJob = null
+        preferencesCollectorJob?.cancel()
+        preferencesCollectorJob = null
+        // Drain pending commands synchronously
+        while (true) {
+            val pending = playbackCommands.tryReceive().getOrNull() ?: break
+            if (pending is PlaybackCommand.PlayArchive) {
+                pending.result.complete(false)
             }
-            deferredPlaybackCommands.clear()
-            releaseInternal()
         }
+        deferredPlaybackCommands.clear()
+        releaseInternal()
     }
 
     private fun releaseInternal() {
@@ -1349,11 +1380,17 @@ class PlayerManager @Inject constructor(
         stopAutoRetry()
         clearPendingLiveSwitch()
         isUserPaused = false
-        player?.stop()
-        player?.release()
+        player?.let { p ->
+            playerListener?.let { p.removeListener(it) }
+            analyticsListener?.let { p.removeAnalyticsListener(it) }
+            p.stop()
+            p.release()
+        }
         player = null
-        networkScope.cancel()
-        networkScope = newNetworkScope()
+        playerListener = null
+        analyticsListener = null
+        archiveProbeJob?.cancel()
+        archiveProbeJob = null
         isArchivePlayback = false
         archiveChannel = null
         archiveProgram = null

@@ -4,7 +4,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.annotation.SuppressLint
-import android.os.SystemClock
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -20,12 +19,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -54,6 +47,8 @@ import com.rutv.ui.mobile.screens.PlayerFocusDestination
 import com.rutv.ui.shared.components.ArchivePromptDialog
 import com.rutv.ui.shared.components.EpgNotificationToast
 import com.rutv.ui.shared.components.CustomControlButtons
+import com.rutv.ui.shared.components.RemotePressRegistry
+import com.rutv.ui.shared.components.requestFocusSafely
 import com.rutv.ui.theme.ruTvColors
 import com.rutv.ui.shared.presentation.LayoutConstants
 import kotlinx.coroutines.Job
@@ -184,6 +179,24 @@ fun PlayerScreen(
     // Focus Requesters for Channel Info Overlay buttons
     val overlayReturnToLiveFocus = remember { FocusRequester() }
     val overlayProgramInfoFocus = remember { FocusRequester() }
+
+    // Pending overlay focus request — driven from Android View key listeners,
+    // consumed by a LaunchedEffect that can reliably move Compose focus.
+    var pendingOverlayFocusTarget by remember { mutableStateOf<FocusRequester?>(null) }
+    LaunchedEffect(pendingOverlayFocusTarget) {
+        val target = pendingOverlayFocusTarget ?: return@LaunchedEffect
+        // Clear Android View focus first so Compose can claim it
+        playerViewRef?.clearFocus()
+        // Retry across frames — the overlay node may not be attached yet on slower STBs
+        repeat(5) {
+            if (target.requestFocusSafely()) {
+                pendingOverlayFocusTarget = null
+                return@LaunchedEffect
+            }
+            withFrameNanos { }
+        }
+        pendingOverlayFocusTarget = null
+    }
 
     val forceFavoritesHighlight: () -> Unit = {
         setFavoritesFocusHint?.invoke(true)
@@ -316,31 +329,6 @@ fun PlayerScreen(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.ruTvColors.darkBackground)
-            .onPreviewKeyEvent { event ->
-                // Fullscreen playback DPAD handling
-                val isRemote = DeviceHelper.isRemoteInputActive()
-                if (!isRemote || event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-
-                if (showControls) {
-                    registerControlsInteraction()
-                }
-
-                val currentFocus = focusManager.currentDestination
-
-                when (event.key) {
-                    Key.Back -> {
-                        // Keep only details-close handling here; playlist/EPG/control back handling is centralized
-                        // in MainActivity key dispatch for remote mode.
-                        if (currentFocus == PlayerFocusDestination.PROGRAM_DETAILS) {
-                            actions.onCloseProgramDetails()
-                            true
-                        } else {
-                            false
-                        }
-                    }
-                    else -> false
-                }
-            }
     ) {
         // EPG Notification
         EpgNotificationToast(
@@ -368,7 +356,7 @@ fun PlayerScreen(
                 update = { playerView ->
                     playerViewRef = playerView
                     playerView.player = exoPlayer
-                    playerView.resizeMode = uiState.currentResizeMode
+                    playerView.resizeMode = uiState.currentResizeMode.intValue
                     val controlsSignature = ControlsSignature(
                         isArchivePlayback = uiState.isArchivePlayback
                     )
@@ -384,11 +372,12 @@ fun PlayerScreen(
                             onNavigateUpToOverlay = {
                                 // Navigate from ExoPlayer controls UP to Channel Info Overlay
                                 if (showControls) {
-                                    // prioritize Return to Live if visible, else Info
-                                    if (uiState.isArchivePlayback || uiState.isTimeshiftPlayback) {
-                                        overlayReturnToLiveFocus.requestFocus()
+                                    // Set pending target — LaunchedEffect will clear Android View
+                                    // focus and retry Compose focus across frames
+                                    pendingOverlayFocusTarget = if (uiState.isArchivePlayback || uiState.isTimeshiftPlayback) {
+                                        overlayReturnToLiveFocus
                                     } else {
-                                        overlayProgramInfoFocus.requestFocus()
+                                        overlayProgramInfoFocus
                                     }
                                 }
                             }
@@ -483,6 +472,7 @@ fun PlayerScreen(
                     archiveProgram = uiState.archiveProgram,
                     onReturnToLive = actions.onReturnToLive,
                     onShowProgramInfo = actions.onShowProgramDetails,
+                    onNavigateDown = { focusPrimaryPlayerControl() },
                     returnToLiveFocusRequester = overlayReturnToLiveFocus,
                     programInfoFocusRequester = overlayProgramInfoFocus,
                     modifier = Modifier
@@ -769,10 +759,21 @@ private fun PlayerView.configurePlayerView(
     onControllerVisibilityChanged: (Boolean) -> Unit
 ) {
     useController = true
+    // Controller visibility is app-driven via a single key-routing owner in MainActivity.
+    // Prevent PlayerView from auto-showing controls on internal heuristics.
+    try {
+        val method = PlayerView::class.java.getMethod(
+            "setControllerAutoShow",
+            Boolean::class.javaPrimitiveType
+        )
+        method.invoke(this, false)
+    } catch (_: Exception) {
+        // Method not available, ignore
+    }
     // Keep controller visible until we explicitly hide it (we manage timeout ourselves)
     controllerShowTimeoutMs = Int.MAX_VALUE
     controllerHideOnTouch = false
-    resizeMode = uiState.currentResizeMode
+    resizeMode = uiState.currentResizeMode.intValue
     setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
     setShowShuffleButton(false)
     setShowSubtitleButton(false)
@@ -910,53 +911,20 @@ private fun PlayerView.applyControlCustomizations(
         horizontalPolicy: HorizontalHandlingPolicy = HorizontalHandlingPolicy()
     ) {
         var pendingHorizontalKey: Int? = null
-        var longPressTriggered = false
-        var longPressRunnable: Runnable? = null
-        var horizontalDownTimeMs: Long = 0L
+        val horizontalPresses = RemotePressRegistry<Int>()
 
         fun isHorizontalKey(keyCode: Int): Boolean {
             return keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT ||
                 keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT
         }
 
-        fun clearLongPressWatch() {
-            longPressRunnable?.let { view.removeCallbacks(it) }
-            longPressRunnable = null
-        }
-
         fun resetHorizontalState() {
             pendingHorizontalKey = null
-            longPressTriggered = false
-            horizontalDownTimeMs = 0L
-        }
-
-        fun triggerLongPress(keyCode: Int): Boolean {
-            return onLongHorizontal?.invoke(keyCode) == true
-        }
-
-        fun startLongPressWatch(keyCode: Int) {
-            clearLongPressWatch()
-            val runnable = Runnable {
-                val stillPending = pendingHorizontalKey == keyCode
-                if (!stillPending) {
-                    longPressRunnable = null
-                    return@Runnable
-                }
-                if (!view.hasFocus()) {
-                    resetHorizontalState()
-                    longPressRunnable = null
-                    return@Runnable
-                }
-                longPressTriggered = triggerLongPress(keyCode)
-                longPressRunnable = null
-            }
-            longPressRunnable = runnable
-            view.postDelayed(runnable, EXO_HORIZONTAL_LONG_PRESS_MS)
+            horizontalPresses.resetAll()
         }
 
         view.setOnKeyListener { _, keyCode, event ->
             if (!view.hasFocus()) {
-                clearLongPressWatch()
                 resetHorizontalState()
                 return@setOnKeyListener false
             }
@@ -968,36 +936,36 @@ private fun PlayerView.applyControlCustomizations(
 
                     if (isHorizontal) {
                         if (horizontalPolicy.deferShortPressUntilUp) {
-                            // If focus left this view after a previous long-press side jump,
-                            // KEY_UP may never reach this listener. Detect that stale state on
-                            // the next physical DOWN and restart tracking immediately.
-                            if (
-                                event.repeatCount == 0 &&
-                                pendingHorizontalKey == keyCode &&
-                                longPressRunnable == null
+                            if (event.repeatCount == 0 && pendingHorizontalKey != null && pendingHorizontalKey != keyCode) {
+                                horizontalPresses.reset(pendingHorizontalKey!!)
+                            }
+                            pendingHorizontalKey = keyCode
+                            horizontalPresses.onDown(
+                                key = keyCode,
+                                repeatCount = event.repeatCount,
+                                isLongPress = event.isLongPress
                             ) {
-                                resetHorizontalState()
+                                onLongHorizontal?.invoke(keyCode) == true
                             }
-                            if (pendingHorizontalKey != keyCode) {
-                                pendingHorizontalKey = keyCode
-                                longPressTriggered = false
-                                horizontalDownTimeMs = SystemClock.uptimeMillis()
-                                startLongPressWatch(keyCode)
-                            }
-                            if (event.repeatCount > 0 || event.isLongPress) {
-                                if (!longPressTriggered) {
-                                    longPressTriggered = triggerLongPress(keyCode)
-                                }
-                                return@setOnKeyListener true
-                            }
-                            // For deferred controls (play/pause), resolve short-vs-long on KEY_UP.
                             return@setOnKeyListener true
                         }
 
                         if (event.repeatCount > 0 || event.isLongPress) {
-                            return@setOnKeyListener triggerLongPress(keyCode)
+                            horizontalPresses.onDown(
+                                key = keyCode,
+                                repeatCount = event.repeatCount,
+                                isLongPress = event.isLongPress
+                            ) {
+                                onLongHorizontal?.invoke(keyCode) == true
+                            }
+                            return@setOnKeyListener true
                         }
 
+                        horizontalPresses.onDown(
+                            key = keyCode,
+                            repeatCount = 0,
+                            isLongPress = false
+                        ) { false }
                         return@setOnKeyListener onShortHorizontal(keyCode)
                     }
 
@@ -1009,7 +977,12 @@ private fun PlayerView.applyControlCustomizations(
                 }
 
                 android.view.KeyEvent.ACTION_UP -> {
-                    if (!isHorizontal || !horizontalPolicy.deferShortPressUntilUp) {
+                    if (!isHorizontal) {
+                        return@setOnKeyListener false
+                    }
+
+                    if (!horizontalPolicy.deferShortPressUntilUp) {
+                        horizontalPresses.reset(keyCode)
                         return@setOnKeyListener false
                     }
 
@@ -1018,19 +991,10 @@ private fun PlayerView.applyControlCustomizations(
                         return@setOnKeyListener false
                     }
 
-                    clearLongPressWatch()
-                    val pressDurationMs = (SystemClock.uptimeMillis() - horizontalDownTimeMs).coerceAtLeast(0L)
                     pendingHorizontalKey = null
-                    if (!longPressTriggered && pressDurationMs >= EXO_HORIZONTAL_LONG_PRESS_MS) {
-                        longPressTriggered = triggerLongPress(keyCode)
+                    return@setOnKeyListener horizontalPresses.onUpWithResult(keyCode) {
+                        onShortHorizontal(keyCode)
                     }
-                    if (longPressTriggered) {
-                        resetHorizontalState()
-                        return@setOnKeyListener true
-                    }
-                    val shortHandled = onShortHorizontal(keyCode)
-                    resetHorizontalState()
-                    return@setOnKeyListener shortHandled
                 }
 
                 else -> false
@@ -1125,18 +1089,16 @@ private fun PlayerView.applyControlCustomizations(
         )
     }
 
-    // Keep deferred short-vs-long behavior on play/pause controls for STB remotes.
+    // Keep play/pause horizontal navigation immediate.
     configureExoControlById(
         controlId = "exo_pause",
         enabled = true,
-        onClick = onPausePlayback,
-        deferHorizontalShortPressUntilUp = true
+        onClick = onPausePlayback
     )
     configureExoControlById(
         controlId = "exo_play",
         enabled = true,
-        onClick = onResumePlayback,
-        deferHorizontalShortPressUntilUp = true
+        onClick = onResumePlayback
     )
     configureExoControlById(
         controlId = "exo_play_pause",
@@ -1148,8 +1110,7 @@ private fun PlayerView.applyControlCustomizations(
             } else {
                 onResumePlayback()
             }
-        },
-        deferHorizontalShortPressUntilUp = true
+        }
     )
 
     // Refactor progress bar: center it and position times on left/right sides
@@ -1241,5 +1202,3 @@ private fun localizedPlaybackIssueMessage(issue: PlaybackIssue): String {
 
     return if (showExtra) "$base: $rawMessage" else base
 }
-
-private const val EXO_HORIZONTAL_LONG_PRESS_MS = 300L
