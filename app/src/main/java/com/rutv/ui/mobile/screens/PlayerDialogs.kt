@@ -59,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import com.rutv.R
 import com.rutv.data.model.EpgProgram
 import com.rutv.ui.shared.components.focusIndicatorModifier
+import com.rutv.ui.shared.components.requestFocusSafely
 import com.rutv.ui.shared.presentation.LayoutConstants
 import com.rutv.ui.shared.presentation.TimeFormatter
 import com.rutv.ui.theme.ruTvColors
@@ -82,7 +83,7 @@ internal fun ProgramDetailsPanel(
 
     LaunchedEffect(isRemoteMode) {
         if (isRemoteMode) {
-            contentFocusRequester.requestFocus()
+            contentFocusRequester.requestFocusSafely()
         }
     }
 
@@ -132,7 +133,7 @@ internal fun ProgramDetailsPanel(
                                         true
                                     }
                                     Key.DirectionDown -> {
-                                        contentFocusRequester.requestFocus()
+                                        contentFocusRequester.requestFocusSafely()
                                         true
                                     }
                                     else -> false
@@ -183,7 +184,7 @@ internal fun ProgramDetailsPanel(
                                     val atTop = listState.firstVisibleItemIndex == 0 &&
                                         listState.firstVisibleItemScrollOffset == 0
                                     if (atTop) {
-                                        closeButtonFocus.requestFocus()
+                                        closeButtonFocus.requestFocusSafely()
                                     } else {
                                         coroutineScope.launch {
                                             listState.scrollByIfPossible(-scrollStepPx)

@@ -218,7 +218,8 @@ class MainActivity : ComponentActivity() {
             onClearEpgNotification = { viewModel.clearEpgNotification() },
             onUpdatePlaylistScrollIndex = { index -> viewModel.updatePlaylistScrollIndex(index) },
             onRequestMoreChannels = { index -> viewModel.requestMoreChannels(index) },
-            onEnsureEpgDateRange = { start, end -> viewModel.ensureEpgForDateRange(start, end) }
+            onEnsureEpgDateRange = { start, end -> viewModel.ensureEpgForDateRange(start, end) },
+            onVisibleChannelsChanged = { tvgIds -> viewModel.onVisibleChannelsChanged(tvgIds) }
         )
 
         PlayerScreen(

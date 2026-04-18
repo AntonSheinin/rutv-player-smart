@@ -566,6 +566,7 @@ fun PlayerScreen(
                 onClose = actions.onClosePlaylist,
                 onUpdateScrollIndex = actions.onUpdatePlaylistScrollIndex,
                 onRequestMoreChannels = actions.onRequestMoreChannels,
+                onVisibleChannelsChanged = actions.onVisibleChannelsChanged,
                 focusManager = focusManager,
                 onChannelFocused = { index ->
                     if (index >= 0) {

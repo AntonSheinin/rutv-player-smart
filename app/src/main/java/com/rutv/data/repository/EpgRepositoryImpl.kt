@@ -64,7 +64,8 @@ class EpgRepositoryImpl @Inject constructor(
                 return size > WINDOW_CACHE_CAPACITY
             }
         }
-    private val windowInFlight = mutableMapOf<WindowKey, Deferred<List<EpgProgram>>>()
+    private val windowInFlight = mutableMapOf<WindowKey, Deferred<SingleFetchResult>>()
+    private val batchInFlight = mutableMapOf<BatchWindowKey, Deferred<FetchResult?>>()
 
     private val channelDataMutex = Mutex()
     private val channelPrograms =
@@ -77,6 +78,9 @@ class EpgRepositoryImpl @Inject constructor(
     private var currentProgramsCache: Map<String, EpgProgram?>? = null
     private var currentProgramsCacheTime: Long = 0L
     private val currentProgramsCacheTtl = 60_000L
+
+    // Backend regen timestamp from the last response. Guarded by channelDataMutex.
+    private var lastEpgUpdateAtSeen: String? = null
 
     private var truncationWarningLogged = false
 
@@ -136,8 +140,18 @@ class EpgRepositoryImpl @Inject constructor(
     ): List<EpgProgram> = coroutineScope {
         ensureCacheFresh()
         val key = WindowKey(epgUrl, tvgId, fromUtcMillis, toUtcMillis)
-        windowCacheMutex.withLock {
-            windowCache[key]?.let { return@coroutineScope it }
+        // The EPG backend refreshes once a day, so any window that overlaps "now" must
+        // hit the network on each call — otherwise a stale in-memory copy shadows the
+        // nightly refresh until the calendar day rolls over. Past-only windows (archive
+        // paging) can't change after broadcast and continue to use the cache.
+        val now = System.currentTimeMillis()
+        val windowOverlapsNow = now in fromUtcMillis..toUtcMillis
+        if (!windowOverlapsNow) {
+            windowCacheMutex.withLock {
+                windowCache[key]?.let { return@coroutineScope it }
+            }
+        } else {
+            logDebug { "Bypassing windowCache for $tvgId (window overlaps now)" }
         }
 
         val deferred = windowCacheMutex.withLock {
@@ -148,16 +162,87 @@ class EpgRepositoryImpl @Inject constructor(
         }
 
         try {
-            val result = deferred.await()
+            val fetched = deferred.await()
+            handleLastEpgUpdateAtChange(fetched.lastEpgUpdateAt)
+            val result = fetched.programs
             windowCacheMutex.withLock {
                 windowCache[key] = result
             }
-            rememberProgramsForChannel(tvgId, result)
+            rememberProgramsForChannel(tvgId, result, fromUtcMillis, toUtcMillis)
             cacheCurrentProgramSnapshot(tvgId, result)
             result
         } finally {
             windowCacheMutex.withLock {
                 windowInFlight.remove(key)
+            }
+        }
+    }
+
+    override suspend fun getWindowedProgramsForChannels(
+        epgUrl: String,
+        tvgIds: List<String>,
+        fromUtcMillis: Long,
+        toUtcMillis: Long
+    ): Map<String, List<EpgProgram>> = coroutineScope {
+        if (tvgIds.isEmpty()) return@coroutineScope emptyMap()
+        ensureCacheFresh()
+
+        val now = System.currentTimeMillis()
+        val windowOverlapsNow = now in fromUtcMillis..toUtcMillis
+        val result = mutableMapOf<String, List<EpgProgram>>()
+        val toFetch: List<String>
+
+        if (!windowOverlapsNow) {
+            val misses = mutableListOf<String>()
+            windowCacheMutex.withLock {
+                for (tvgId in tvgIds.distinct()) {
+                    val key = WindowKey(epgUrl, tvgId, fromUtcMillis, toUtcMillis)
+                    val cached = windowCache[key]
+                    if (cached != null) {
+                        result[tvgId] = cached
+                    } else {
+                        misses.add(tvgId)
+                    }
+                }
+            }
+            toFetch = misses
+        } else {
+            logDebug { "Bypassing windowCache for batch of ${tvgIds.size} channels (window overlaps now)" }
+            toFetch = tvgIds.distinct()
+        }
+
+        if (toFetch.isEmpty()) return@coroutineScope result
+
+        val batchKey = BatchWindowKey(epgUrl, toFetch.sorted(), fromUtcMillis, toUtcMillis)
+        val deferred = windowCacheMutex.withLock {
+            batchInFlight[batchKey] ?: async(Dispatchers.IO) {
+                executeFetch(epgUrl, toFetch, fromUtcMillis, toUtcMillis)
+            }.also { batchInFlight[batchKey] = it }
+        }
+
+        try {
+            val fetched = deferred.await()
+            if (fetched != null) {
+                handleLastEpgUpdateAtChange(fetched.lastEpgUpdateAt)
+                for (tvgId in toFetch) {
+                    val programs = trimProgramsToWindow(
+                        fetched.programsByTvgId[tvgId].orEmpty(),
+                        fromUtcMillis,
+                        toUtcMillis
+                    )
+                    val key = WindowKey(epgUrl, tvgId, fromUtcMillis, toUtcMillis)
+                    windowCacheMutex.withLock {
+                        windowCache[key] = programs
+                    }
+                    rememberProgramsForChannel(tvgId, programs, fromUtcMillis, toUtcMillis)
+                    cacheCurrentProgramSnapshot(tvgId, programs)
+                    result[tvgId] = programs
+                }
+            }
+            result
+        } finally {
+            windowCacheMutex.withLock {
+                batchInFlight.remove(batchKey)
             }
         }
     }
@@ -195,11 +280,13 @@ class EpgRepositoryImpl @Inject constructor(
         windowCacheMutex.withLock {
             windowCache.clear()
             windowInFlight.clear()
+            batchInFlight.clear()
         }
         channelDataMutex.withLock {
             channelPrograms.clear()
             currentProgramsCache = null
             currentProgramsCacheTime = 0
+            lastEpgUpdateAtSeen = null
         }
         logDebug { "EPG cache cleared (lazy windows + current programs)" }
     }
@@ -230,13 +317,25 @@ class EpgRepositoryImpl @Inject constructor(
         }
     }
 
-    private suspend fun rememberProgramsForChannel(tvgId: String, programs: List<EpgProgram>) {
+    private suspend fun rememberProgramsForChannel(
+        tvgId: String,
+        programs: List<EpgProgram>,
+        fromUtcMillis: Long,
+        toUtcMillis: Long
+    ) {
         if (programs.isEmpty()) return
         channelDataMutex.withLock {
             val existing = channelPrograms[tvgId]?.toList() ?: emptyList()
-            val merged = LinkedHashMap<String, EpgProgram>(existing.size + programs.size)
+            // Drop existing programs that fall inside the fetched window: the fresh
+            // response is authoritative for that range, so programs the backend
+            // removed (or whose timing shifted within the window) must not linger.
+            // Programs outside the window (loaded via archive paging) stay put.
+            val preserved = existing.filter { program ->
+                program.startUtcMillis !in fromUtcMillis..toUtcMillis
+            }
+            val merged = LinkedHashMap<String, EpgProgram>(preserved.size + programs.size)
             fun key(program: EpgProgram) = program.id.ifBlank { "${program.startUtcMillis}:${program.title}" }
-            existing.forEach { merged[key(it)] = it }
+            preserved.forEach { merged[key(it)] = it }
             programs.forEach { merged[key(it)] = it }
             val sorted = merged.values.sortedBy { it.startUtcMillis }
             // Keep memory bounded even if callers request very large windows repeatedly.
@@ -254,19 +353,37 @@ class EpgRepositoryImpl @Inject constructor(
         tvgId: String,
         fromUtcMillis: Long,
         toUtcMillis: Long
-    ): List<EpgProgram> {
+    ): SingleFetchResult {
+        val fetched = executeFetch(epgUrl, listOf(tvgId), fromUtcMillis, toUtcMillis)
+            ?: return SingleFetchResult(emptyList(), "")
+        val programs = trimProgramsToWindow(
+            fetched.programsByTvgId[tvgId].orEmpty(),
+            fromUtcMillis,
+            toUtcMillis
+        )
+        return SingleFetchResult(programs, fetched.lastEpgUpdateAt)
+    }
+
+    // EPG backend expects a POST with:
+    // - channel IDs (xmltv_id)
+    // - a timezone ID string for server-side conversions
+    // - optional ISO8601 from/to filters
+    // Backend supports batching; callers (single-channel or batch) funnel through here.
+    private fun executeFetch(
+        epgUrl: String,
+        tvgIds: List<String>,
+        fromUtcMillis: Long,
+        toUtcMillis: Long
+    ): FetchResult? {
+        if (tvgIds.isEmpty()) return null
         var connection: HttpURLConnection? = null
         return try {
             val deviceTimezone = TimeZone.getDefault().id
             val fromIso = Instant.ofEpochMilli(fromUtcMillis).toString()
             val toIso = Instant.ofEpochMilli(toUtcMillis).toString()
 
-            // EPG backend expects a POST with:
-            // - channel IDs (xmltv_id)
-            // - a timezone ID string for server-side conversions
-            // - optional ISO8601 from/to filters
             val request = EpgRequest(
-                channels = listOf(EpgChannelRequest(xmltvId = tvgId)),
+                channels = tvgIds.map { EpgChannelRequest(xmltvId = it) },
                 timezone = deviceTimezone,
                 fromDate = fromIso,
                 toDate = toIso
@@ -289,32 +406,51 @@ class EpgRepositoryImpl @Inject constructor(
 
             val code = connection.responseCode
             if (code != 200) {
-                Timber.e("EPG single-channel HTTP error: $code")
-                return emptyList()
+                Timber.e("EPG HTTP error: $code (channels=${tvgIds.size})")
+                return null
             }
 
             val response = connection.inputStream.bufferedReader().use { reader ->
                 parseEpgResponseStreaming(reader)
-            } ?: return emptyList()
+            } ?: return null
 
-            val programs = response.epg[tvgId] ?: emptyList()
-            trimProgramsToWindow(programs, fromUtcMillis, toUtcMillis)
+            FetchResult(response.epg, response.lastEpgUpdateAt)
         } catch (e: javax.net.ssl.SSLException) {
-            Timber.e(e, "SSL/TLS error fetching single-channel EPG")
-            emptyList()
+            Timber.e(e, "SSL/TLS error fetching EPG")
+            null
         } catch (e: java.net.SocketException) {
-            Timber.e(e, "Network error fetching single-channel EPG")
-            emptyList()
+            Timber.e(e, "Network error fetching EPG")
+            null
         } catch (e: java.net.UnknownHostException) {
             Timber.e(e, "Host resolution error for EPG URL")
-            emptyList()
+            null
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Timber.e(e, "Failed to fetch single-channel EPG window")
-            emptyList()
+            Timber.e(e, "Failed to fetch EPG window")
+            null
         } finally {
             connection?.disconnect()
+        }
+    }
+
+    // Detects a backend regeneration between calls. The field itself lives in the response body,
+    // so this is a post-fetch consistency check, not a way to skip network calls. On change we
+    // invalidate windowCache + currentProgramsCache so subsequent accesses re-fetch; channelPrograms
+    // gets overwritten lazily by rememberProgramsForChannel on each re-fetch.
+    private suspend fun handleLastEpgUpdateAtChange(newTimestamp: String) {
+        if (newTimestamp.isBlank()) return
+        val changed = channelDataMutex.withLock {
+            val prev = lastEpgUpdateAtSeen
+            lastEpgUpdateAtSeen = newTimestamp
+            prev != null && prev != newTimestamp
+        }
+        if (!changed) return
+        Timber.i("EPG backend regenerated (last_epg_update_at changed); invalidating window/current caches")
+        windowCacheMutex.withLock { windowCache.clear() }
+        channelDataMutex.withLock {
+            currentProgramsCache = null
+            currentProgramsCacheTime = 0
         }
     }
 
@@ -356,6 +492,7 @@ class EpgRepositoryImpl @Inject constructor(
         val jsonReader = JsonReader(reader)
         var updateMode = ""
         var timestamp = ""
+        var lastEpgUpdateAt = ""
         var channelsRequested = 0
         var channelsFound = 0
         var totalPrograms = 0
@@ -367,6 +504,7 @@ class EpgRepositoryImpl @Inject constructor(
                 when (jsonReader.nextName()) {
                     "update_mode" -> updateMode = jsonReader.safeNextString(MAX_FIELD_LENGTH_TITLE)
                     "timestamp" -> timestamp = jsonReader.safeNextString(MAX_FIELD_LENGTH_TIME)
+                    "last_epg_update_at" -> lastEpgUpdateAt = jsonReader.safeNextString(MAX_FIELD_LENGTH_TIME)
                     "channels_requested" -> channelsRequested = jsonReader.nextInt()
                     "channels_found" -> channelsFound = jsonReader.nextInt()
                     "total_programs" -> totalPrograms = jsonReader.nextInt()
@@ -387,7 +525,7 @@ class EpgRepositoryImpl @Inject constructor(
                 }
             }
             jsonReader.endObject()
-            return EpgResponse(updateMode, timestamp, channelsRequested, channelsFound, totalPrograms, epgMap)
+            return EpgResponse(updateMode, timestamp, lastEpgUpdateAt, channelsRequested, channelsFound, totalPrograms, epgMap)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -446,6 +584,23 @@ class EpgRepositoryImpl @Inject constructor(
         val tvgId: String,
         val fromUtcMillis: Long,
         val toUtcMillis: Long
+    )
+
+    private data class BatchWindowKey(
+        val epgUrl: String,
+        val sortedTvgIds: List<String>,
+        val fromUtcMillis: Long,
+        val toUtcMillis: Long
+    )
+
+    private data class FetchResult(
+        val programsByTvgId: Map<String, List<EpgProgram>>,
+        val lastEpgUpdateAt: String
+    )
+
+    private data class SingleFetchResult(
+        val programs: List<EpgProgram>,
+        val lastEpgUpdateAt: String
     )
 }
 

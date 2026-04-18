@@ -49,6 +49,7 @@ import com.rutv.R
 import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
 import com.rutv.ui.shared.components.focusIndicatorModifier
+import com.rutv.ui.shared.components.requestFocusSafely
 import com.rutv.ui.theme.ruTvColors
 import com.rutv.util.DeviceHelper
 
@@ -165,7 +166,7 @@ private fun ChannelOverlayButtons(
                     onClick = onPrimary,
                     focusRequester = returnToLiveFocusRequester,
                     onNavigateDown = onNavigateDown,
-                    onNavigateRight = { programInfoFocusRequester.requestFocus() },
+                    onNavigateRight = { programInfoFocusRequester.requestFocusSafely() },
                     buttonHeight = CHANNEL_BUTTON_HEIGHT
                 )
             }
@@ -177,7 +178,7 @@ private fun ChannelOverlayButtons(
                 focusRequester = programInfoFocusRequester,
                 onNavigateDown = onNavigateDown,
                 onNavigateLeft = if (showPrimary) {
-                    { returnToLiveFocusRequester.requestFocus() }
+                    { returnToLiveFocusRequester.requestFocusSafely() }
                 } else null
             )
         }

@@ -11,6 +11,7 @@ import com.rutv.domain.repository.EpgRepository
 import com.rutv.data.repository.PreferencesRepository
 import com.rutv.domain.usecase.filterChannels
 import com.rutv.domain.usecase.FetchEpgProgramsUseCase
+import com.rutv.domain.usecase.FetchVisibleCurrentProgramsUseCase
 import com.rutv.domain.usecase.LoadPlaylistUseCase
 import com.rutv.domain.usecase.PlayArchiveProgramUseCase
 import com.rutv.domain.usecase.WatchFromBeginningUseCase
@@ -68,6 +69,7 @@ class MainViewModel @Inject constructor(
     private val preferencesRepository: PreferencesRepository,
     private val loadPlaylistUseCase: LoadPlaylistUseCase,
     private val fetchEpgProgramsUseCase: FetchEpgProgramsUseCase,
+    private val fetchVisibleCurrentProgramsUseCase: FetchVisibleCurrentProgramsUseCase,
     private val playArchiveProgramUseCase: PlayArchiveProgramUseCase,
     private val watchFromBeginningUseCase: WatchFromBeginningUseCase
 ) : ViewModel() {
@@ -87,6 +89,10 @@ class MainViewModel @Inject constructor(
     private val startupInitiated = AtomicBoolean(false)
     private var lastEpgRequestTvgId: String = ""
     private var lastEpgRequestAtMs: Long = 0L
+    // tvgIds currently on-screen in the playlist panel; written by the UI (debounced),
+    // read by the day-roll / pref-toggle handlers to repopulate `currentProgramsMap`.
+    private val visibleChannelTvgIds = MutableStateFlow<List<String>>(emptyList())
+    private var visibilityPreloadJob: Job? = null
     // Single-writer (main thread via StateFlow.update) with background readers —
     // @Volatile ensures readers see the latest snapshot without synchronization.
     @Volatile
@@ -262,6 +268,7 @@ class MainViewModel @Inject constructor(
             preferencesRepository.showCurrentProgramInChannelList
                 .distinctUntilChanged()
                 .collect { enabled ->
+                    val wasEnabled = _viewState.value.showCurrentProgramInChannelList
                     _viewState.update { current ->
                         val clearedMap = if (enabled) current.currentProgramsMap else persistentMapOf()
                         if (current.showCurrentProgramInChannelList == enabled &&
@@ -273,6 +280,12 @@ class MainViewModel @Inject constructor(
                                 showCurrentProgramInChannelList = enabled,
                                 currentProgramsMap = clearedMap
                             )
+                        }
+                    }
+                    if (enabled && !wasEnabled) {
+                        visibilityPreloadJob?.cancel()
+                        visibilityPreloadJob = viewModelScope.launch(Dispatchers.IO) {
+                            refreshVisibleCurrentPrograms()
                         }
                     }
                 }
@@ -660,6 +673,7 @@ class MainViewModel @Inject constructor(
                         )
                     }
                     _viewState.value.currentChannel?.let { preloadChannelEpg(it) }
+                    refreshVisibleCurrentPrograms()
                 }
                 EpgRepository.TimeChangeResult.CLOCK_CHANGED -> {
                     Timber.i("System clock changed (action=$action); refreshing current program cache")
@@ -674,6 +688,7 @@ class MainViewModel @Inject constructor(
                         )
                     }
                     _viewState.value.currentChannel?.let { preloadChannelEpg(it) }
+                    refreshVisibleCurrentPrograms()
                 }
                 EpgRepository.TimeChangeResult.NONE -> {
                     logDebug { "Ignoring system time change broadcast (action=$action, trigger=$trigger)" }
@@ -969,6 +984,64 @@ class MainViewModel @Inject constructor(
     }
 
     /**
+     * Called by the playlist panel (debounced) with the tvgIds currently visible on-screen.
+     * Batches a single EPG fetch for channels that don't yet have a cached "now playing" entry,
+     * and merges the results into [MainViewState.currentProgramsMap].
+     *
+     * The active channel is excluded because [preloadChannelEpg] already drives its preload
+     * with a richer (past + future) window.
+     */
+    fun onVisibleChannelsChanged(tvgIds: List<String>) {
+        visibleChannelTvgIds.value = tvgIds
+        if (!_viewState.value.showCurrentProgramInChannelList) return
+        visibilityPreloadJob?.cancel()
+        visibilityPreloadJob = viewModelScope.launch(Dispatchers.IO) {
+            refreshVisibleCurrentPrograms()
+        }
+    }
+
+    private suspend fun refreshVisibleCurrentPrograms() {
+        val tvgIds = visibleChannelTvgIds.value
+        if (tvgIds.isEmpty()) return
+        val state = _viewState.value
+        if (!state.showCurrentProgramInChannelList) return
+
+        val channelsByTvgId = state.channels.associateBy { it.tvgId }
+        val activeTvgId = state.currentChannel?.tvgId
+        val alreadyLoaded = state.currentProgramsMap
+        val now = System.currentTimeMillis()
+
+        val toFetch = tvgIds.filter { tvgId ->
+            tvgId.isNotBlank() &&
+                tvgId != activeTvgId &&
+                channelsByTvgId[tvgId]?.hasEpg == true &&
+                // Never fetched this day → fetch. Already-fetched "no current program" (null)
+                // stays null until day-roll/pref-toggle clears the map, preventing thrash on
+                // channels with EPG gaps. Stored program that has ended → fetch to roll over.
+                (!alreadyLoaded.containsKey(tvgId) ||
+                    alreadyLoaded[tvgId]?.isCurrent(now) == false)
+        }.distinct()
+
+        if (toFetch.isEmpty()) return
+
+        val result = fetchVisibleCurrentProgramsUseCase(tvgIds = toFetch, nowUtcMillis = now)
+        if (result is Result.Error) {
+            Timber.w(result.exception, "Failed to preload visible current programs")
+            return
+        }
+        val current = (result as Result.Success).data
+        if (current.isEmpty()) return
+
+        _viewState.update { s ->
+            if (!s.showCurrentProgramInChannelList) return@update s
+            val merged = s.currentProgramsMap.toMutableMap().apply {
+                current.forEach { (tvgId, program) -> this[tvgId] = program }
+            }.toImmutableMap()
+            s.copy(currentProgramsMap = merged)
+        }
+    }
+
+    /**
      * Show EPG for channel
      */
     fun showEpgForChannel(tvgId: String) {
@@ -1067,7 +1140,13 @@ class MainViewModel @Inject constructor(
             try {
                 val tvgId = _viewState.value.epgChannelTvgId.ifBlank { return@launch }
                 val epgUrl = preferencesRepository.epgUrl.first().ifBlank { return@launch }
-                val pastDays = preferencesRepository.epgDaysPast.first().coerceAtLeast(0)
+                val prefPastDays = preferencesRepository.epgDaysPast.first().coerceAtLeast(0)
+                val channelCatchupDays = _viewState.value.channels
+                    .firstOrNull { it.tvgId == tvgId }
+                    ?.catchupDays
+                    ?.coerceAtLeast(0)
+                    ?: 0
+                val pastDays = maxOf(prefPastDays, channelCatchupDays)
                 val stepDays = preferencesRepository.epgPageDays.first().coerceAtLeast(1)
                 val extensionDays = stepDays + 1
 
@@ -1352,8 +1431,8 @@ class MainViewModel @Inject constructor(
     }
 
     /**
-     * Update current program for channel
-     * Safely retrieves current program from EPG and updates view state
+     * Update current program for channel.
+     * Checks the in-memory cache first; if empty, triggers a server fetch via preloadChannelEpg.
      */
     private suspend fun updateCurrentProgram(channel: Channel) {
         val currentChannel = _viewState.value.currentChannel
@@ -1379,6 +1458,10 @@ class MainViewModel @Inject constructor(
                 }
                 state.copy(currentProgram = program, currentProgramsMap = updatedMap)
             }
+            // Always refresh from the server: the EPG backend updates nightly, so the
+            // cached program (if any) may be stale. The repository bypasses its cache
+            // for windows overlapping now, and windowInFlight dedupes concurrent calls.
+            preloadChannelEpg(channel)
         } catch (e: Exception) {
             Timber.e(e, "Error updating current program for ${channel.title}")
             _viewState.update { state ->

@@ -82,7 +82,8 @@ data class PlayerUiActions(
     val onClearEpgNotification: () -> Unit,
     val onUpdatePlaylistScrollIndex: (Int) -> Unit,
     val onRequestMoreChannels: (Int) -> Unit,
-    val onEnsureEpgDateRange: (Long, Long) -> Unit
+    val onEnsureEpgDateRange: (Long, Long) -> Unit,
+    val onVisibleChannelsChanged: (List<String>) -> Unit
 )
 
 @Composable

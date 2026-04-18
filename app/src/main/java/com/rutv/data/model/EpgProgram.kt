@@ -158,6 +158,7 @@ data class EpgRequest(
 data class EpgResponse(
     @SerializedName("update_mode") val updateMode: String,
     @SerializedName("timestamp") val timestamp: String,
+    @SerializedName("last_epg_update_at") val lastEpgUpdateAt: String = "",
     @SerializedName("channels_requested") val channelsRequested: Int,
     @SerializedName("channels_found") val channelsFound: Int,
     @SerializedName("total_programs") val totalPrograms: Int,

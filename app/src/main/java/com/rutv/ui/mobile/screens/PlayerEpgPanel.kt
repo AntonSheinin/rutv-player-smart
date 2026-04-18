@@ -73,6 +73,7 @@ import com.rutv.ui.mobile.components.EpgProgramItem
 import com.rutv.ui.shared.components.awaitFirstLayout
 import com.rutv.ui.shared.components.focusIndicatorModifier
 import com.rutv.ui.shared.components.RemotePressLifecycle
+import com.rutv.ui.shared.components.requestFocusSafely
 import com.rutv.ui.shared.presentation.LayoutConstants
 import com.rutv.ui.shared.presentation.TimeFormatter
 import com.rutv.ui.theme.ruTvColors
@@ -319,7 +320,7 @@ internal fun EpgPanel(
                 ?: resolvedInitialItemIndex
             pendingProgramCenterIndex = targetItemIndex
             listState.awaitFirstLayout()
-            lazyColumnFocusRequester.requestFocus()
+            lazyColumnFocusRequester.requestFocusSafely()
         }
     }
 
@@ -775,7 +776,7 @@ internal fun EpgDatePickerDialog(
     var closeButtonFocused by remember { mutableStateOf(false) }
 
     LaunchedEffect(entries) {
-        listFocusRequester.requestFocus()
+        listFocusRequester.requestFocusSafely()
     }
 
     LaunchedEffect(selectedIndex, entries.size) {
@@ -824,7 +825,7 @@ internal fun EpgDatePickerDialog(
                                     }
                                     Key.DirectionDown -> {
                                         selectedIndex = 0
-                                        listFocusRequester.requestFocus()
+                                        listFocusRequester.requestFocusSafely()
                                         true
                                     }
                                     else -> false
@@ -861,7 +862,7 @@ internal fun EpgDatePickerDialog(
                                     }
                                     Key.DirectionUp -> {
                                         if (selectedIndex == 0) {
-                                            closeButtonFocusRequester.requestFocus()
+                                            closeButtonFocusRequester.requestFocusSafely()
                                             true
                                         } else {
                                             selectedIndex = (selectedIndex - 1).coerceAtLeast(0)

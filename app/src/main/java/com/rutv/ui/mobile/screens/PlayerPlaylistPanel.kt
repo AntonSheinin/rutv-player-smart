@@ -80,12 +80,15 @@ import com.rutv.ui.shared.components.RemotePressLifecycle
 import com.rutv.ui.shared.components.remoteDialogTextFieldNavigation
 import com.rutv.ui.shared.components.awaitFirstLayout
 import com.rutv.ui.shared.components.focusIndicatorModifier
+import com.rutv.ui.shared.components.requestFocusSafely
 import com.rutv.ui.shared.presentation.LayoutConstants
 import com.rutv.ui.theme.ruTvColors
 import com.rutv.util.DeviceHelper
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
@@ -110,6 +113,7 @@ internal fun PlaylistPanel(
     onClose: () -> Unit,
     onUpdateScrollIndex: (Int) -> Unit,
     onRequestMoreChannels: (Int) -> Unit,
+    onVisibleChannelsChanged: (List<String>) -> Unit,
     focusManager: PlayerFocusManager,
     onChannelFocused: ((Int) -> Unit)? = null,
     onRequestEpgFocus: (() -> Unit)? = null,
@@ -253,7 +257,7 @@ internal fun PlaylistPanel(
     // When playlist panel becomes active, ensure focus is on the list
     LaunchedEffect(focusManager.currentDestination) {
         if (focusManager.currentDestination == PlayerFocusDestination.PLAYLIST_PANEL) {
-            lazyColumnFocusRequester.requestFocus()
+            lazyColumnFocusRequester.requestFocusSafely()
         }
     }
 
@@ -322,7 +326,7 @@ internal fun PlaylistPanel(
                 } else {
                     listState.awaitFirstLayout()
                     focusChannel(channelIndex, false)
-                    lazyColumnFocusRequester.requestFocus()
+                    lazyColumnFocusRequester.requestFocusSafely()
                     playlistHasFocus = true
                 }
             }
@@ -397,7 +401,7 @@ internal fun PlaylistPanel(
                 LaunchedEffect(Unit) {
                     if (!isRemoteMode) return@LaunchedEffect
                     listState.awaitFirstLayout()
-                    lazyColumnFocusRequester.requestFocus()
+                    lazyColumnFocusRequester.requestFocusSafely()
                     playlistHasFocus = true
                 }
 
@@ -555,6 +559,22 @@ internal fun PlaylistPanel(
                         }
                 }
 
+                // Visibility-driven EPG preload for visible rows' "now playing" subtitle.
+                // Gated on the pref so disabling it short-circuits at the UI boundary.
+                if (showCurrentProgramInChannelList) {
+                    LaunchedEffect(listState, displayedList) {
+                        @OptIn(FlowPreview::class)
+                        snapshotFlow {
+                            listState.layoutInfo.visibleItemsInfo.mapNotNull { info ->
+                                displayedList.getOrNull(info.index)?.tvgId?.takeIf { it.isNotBlank() }
+                            }
+                        }
+                            .distinctUntilChanged()
+                            .debounce(250L)
+                            .collect { tvgIds -> onVisibleChannelsChanged(tvgIds) }
+                    }
+                }
+
                 val showScrollbar by remember {
                     derivedStateOf { listState.canScrollForward || listState.canScrollBackward }
                 }
@@ -623,7 +643,7 @@ internal fun PlaylistPanel(
                     withFrameNanos { }
                     var attempts = 0
                     while (attempts < 6 && !isSearchFieldFocused.value) {
-                        searchFieldFocusRequester.requestFocus()
+                        searchFieldFocusRequester.requestFocusSafely()
                         withFrameNanos { }
                         attempts++
                     }
@@ -636,7 +656,7 @@ internal fun PlaylistPanel(
                             if (visible) {
                                 imeWasVisible.value = true
                             } else if (imeWasVisible.value && isSearchFieldFocused.value) {
-                                okButtonFocusRequester.requestFocus()
+                                okButtonFocusRequester.requestFocusSafely()
                             }
                         }
                 }
@@ -692,7 +712,7 @@ internal fun PlaylistPanel(
                                     // Requirement: pressing ENTER on the virtual keyboard should
                                     // close the keyboard and move focus to the OK button.
                                     keyboardController?.hide()
-                                    okButtonFocusRequester.requestFocus()
+                                    okButtonFocusRequester.requestFocusSafely()
                                 }
                             ),
                             modifier = Modifier
@@ -707,7 +727,7 @@ internal fun PlaylistPanel(
                                     when (event.key) {
                                         // Requirement: DPAD DOWN moves focus to OK button.
                                         Key.DirectionDown -> {
-                                            okButtonFocusRequester.requestFocus()
+                                            okButtonFocusRequester.requestFocusSafely()
                                             true
                                         }
                                         else -> false

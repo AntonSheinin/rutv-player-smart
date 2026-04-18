@@ -32,6 +32,7 @@ import com.rutv.presentation.settings.SettingsViewState
 import com.rutv.ui.shared.components.RemoteDialog
 import com.rutv.ui.shared.components.remoteActivate
 import com.rutv.ui.shared.components.focusIndicatorModifier
+import com.rutv.ui.shared.components.requestFocusSafely
 import com.rutv.ui.theme.ruTvColors
 import com.rutv.util.Constants
 import com.rutv.util.DeviceHelper
@@ -230,7 +231,7 @@ fun SettingsScreen(
                                 if (event.type != KeyEventType.KeyDown || !DeviceHelper.isRemoteInputActive()) return@onKeyEvent false
                                 when (event.key) {
                                     Key.DirectionRight -> {
-                                        urlButtonFocus.requestFocus()
+                                        urlButtonFocus.requestFocusSafely()
                                         true
                                     }
                                     else -> false
@@ -260,7 +261,7 @@ fun SettingsScreen(
                                 if (event.type != KeyEventType.KeyDown || !DeviceHelper.isRemoteInputActive()) return@onKeyEvent false
                                 when (event.key) {
                                     Key.DirectionLeft -> {
-                                        fileButtonFocus.requestFocus()
+                                        fileButtonFocus.requestFocusSafely()
                                         true
                                     }
                                     else -> false
@@ -771,7 +772,7 @@ private fun NumberInputDialog(
     }
 
     LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
+        focusRequester.requestFocusSafely()
     }
 
     RemoteDialog(
@@ -807,7 +808,7 @@ private fun NumberInputDialog(
                             if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
                             when (event.key) {
                                 Key.DirectionDown -> {
-                                    confirmFocusRequester.requestFocus()
+                                    confirmFocusRequester.requestFocusSafely()
                                     true
                                 }
                                 else -> false
@@ -866,7 +867,7 @@ private fun UrlInputDialog(
     }
 
     LaunchedEffect(Unit) {
-        inputFocusRequester.requestFocus()
+        inputFocusRequester.requestFocusSafely()
     }
 
     RemoteDialog(
@@ -890,7 +891,7 @@ private fun UrlInputDialog(
                         if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
                         when (event.key) {
                             Key.DirectionDown -> {
-                                confirmFocusRequester.requestFocus()
+                                confirmFocusRequester.requestFocusSafely()
                                 true
                             }
                             else -> false

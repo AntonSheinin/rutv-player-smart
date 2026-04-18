@@ -57,7 +57,7 @@ fun Modifier.remoteDialogTextFieldNavigation(
     if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
     when (event.key) {
         Key.DirectionDown -> {
-            primaryActionFocusRequester.requestFocus()
+            primaryActionFocusRequester.requestFocusSafely()
             true
         }
         Key.Back -> {

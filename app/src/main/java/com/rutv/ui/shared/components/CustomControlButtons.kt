@@ -140,7 +140,7 @@ fun CustomControlButtons(
                 else -> null
             }
             return target?.let {
-                it.requestFocus()
+                it.requestFocusSafely()
                 true
             } ?: false
         }
@@ -387,13 +387,13 @@ private fun ControlColumn(
                                     }
                                     Key.DirectionUp -> {
                                         if (index > 0) {
-                                            focusRequesters[index - 1].requestFocus()
+                                            focusRequesters[index - 1].requestFocusSafely()
                                         }
                                         true
                                     }
                                     Key.DirectionDown -> {
                                         if (index < buttons.size - 1) {
-                                            focusRequesters[index + 1].requestFocus()
+                                            focusRequesters[index + 1].requestFocusSafely()
                                         }
                                         true
                                     }

@@ -24,6 +24,13 @@ interface EpgRepository {
         toUtcMillis: Long
     ): List<EpgProgram>
 
+    suspend fun getWindowedProgramsForChannels(
+        epgUrl: String,
+        tvgIds: List<String>,
+        fromUtcMillis: Long,
+        toUtcMillis: Long
+    ): Map<String, List<EpgProgram>>
+
     suspend fun getCurrentProgram(tvgId: String): EpgProgram?
 
     suspend fun getProgramsForChannel(tvgId: String): List<EpgProgram>
