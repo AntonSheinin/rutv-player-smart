@@ -1015,11 +1015,9 @@ class MainViewModel @Inject constructor(
             tvgId.isNotBlank() &&
                 tvgId != activeTvgId &&
                 channelsByTvgId[tvgId]?.hasEpg == true &&
-                // Never fetched this day → fetch. Already-fetched "no current program" (null)
-                // stays null until day-roll/pref-toggle clears the map, preventing thrash on
-                // channels with EPG gaps. Stored program that has ended → fetch to roll over.
-                (!alreadyLoaded.containsKey(tvgId) ||
-                    alreadyLoaded[tvgId]?.isCurrent(now) == false)
+                // Fetch unless we already have a program that still covers "now".
+                // Either no entry, a null entry, or an ended program → re-fetch.
+                alreadyLoaded[tvgId]?.isCurrent(now) != true
         }.distinct()
 
         if (toFetch.isEmpty()) return
@@ -1030,6 +1028,10 @@ class MainViewModel @Inject constructor(
             return
         }
         val current = (result as Result.Success).data
+        val nonNullCount = current.count { it.value != null }
+        logDebug {
+            "refreshVisibleCurrentPrograms: fetched ${toFetch.size}, got ${current.size} entries, $nonNullCount current"
+        }
         if (current.isEmpty()) return
 
         _viewState.update { s ->
