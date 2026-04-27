@@ -131,6 +131,7 @@ class PlayerManager @Inject constructor(
     private var liveSwitchRequestSeq: Long = 0L
     private var pendingLiveSwitch: PendingLiveSwitch? = null
     private var unknownSwitchErrorCount: Int = 0
+    private var lastLiveSwitchCompletedAtMs: Long = 0L
 
     /**
      * Start (or restart) the command processor and preferences collector.
@@ -235,6 +236,8 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
         if (pending.targetIndex == currentIndex) {
             pendingLiveSwitch = null
             unknownSwitchErrorCount = 0
+            lastLiveSwitchCompletedAtMs = System.currentTimeMillis()
+            Timber.w("markLiveSwitchCompleted: target=%d cleared, grace window starts", currentIndex)
         }
     }
 
@@ -243,35 +246,44 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
         unknownSwitchErrorCount = 0
     }
 
-    private fun resolveErrorMediaItemIndex(error: PlaybackException, currentIndex: Int): Int {
-        val exoError = error as? ExoPlaybackException ?: return currentIndex
-        val periodUid = exoError.mediaPeriodId?.periodUid ?: return currentIndex
-        val timeline = player?.currentTimeline ?: return currentIndex
-        if (timeline.isEmpty) return currentIndex
+    private fun resolveErrorMediaItemIndex(error: PlaybackException): Int? {
+        val exoError = error as? ExoPlaybackException ?: return null
+        val periodUid = exoError.mediaPeriodId?.periodUid ?: return null
+        val timeline = player?.currentTimeline ?: return null
+        if (timeline.isEmpty) return null
         val periodIndex = timeline.getIndexOfPeriod(periodUid)
-        return if (periodIndex != C.INDEX_UNSET) periodIndex else currentIndex
+        return periodIndex.takeIf { it != C.INDEX_UNSET }
     }
 
-    private fun resolveErrorChannelIndex(currentIndex: Int, errorIndex: Int): Int {
+    private fun resolveErrorChannelIndex(currentIndex: Int, errorIndex: Int?): Int {
         return when {
-            errorIndex in channels.indices -> errorIndex
+            errorIndex != null && errorIndex in channels.indices -> errorIndex
             currentIndex in channels.indices -> currentIndex
             else -> -1
         }
     }
 
-    private fun isStaleLiveError(currentIndex: Int, errorIndex: Int): Boolean {
+    private fun isStaleLiveError(currentIndex: Int, errorIndex: Int?): Boolean {
         if (isArchivePlayback) return false
         val pending = pendingLiveSwitch
         if (pending != null) {
-            val candidateIndex = when {
-                errorIndex >= 0 -> errorIndex
-                currentIndex >= 0 -> currentIndex
-                else -> return false
-            }
-            return pending.targetIndex != candidateIndex
+            // Switch in flight: surface only errors we can positively pin to the target.
+            // Unmappable origin (errorIndex == null) is a stale leftover from the
+            // previous stream, not a fault of the new channel.
+            return errorIndex != pending.targetIndex
         }
-        return currentIndex >= 0 && errorIndex >= 0 && currentIndex != errorIndex
+        // No pending switch — but a switch we just completed may still produce late
+        // stale errors (delayed CDN responses, manifest-refresh failures from the
+        // prior stream that won the race against cancellation). Within a short grace
+        // window after completion, treat any error that does not pin positively to
+        // the current channel (mapped to a different index OR unmappable origin) as
+        // stale. Outside the window, behave normally — unmappable errors at that
+        // point are renderer/DRM failures worth surfacing.
+        val sinceCompletion = System.currentTimeMillis() - lastLiveSwitchCompletedAtMs
+        if (sinceCompletion in 0 until SWITCH_COMPLETED_STALE_GRACE_MS) {
+            return errorIndex == null || errorIndex != currentIndex
+        }
+        return errorIndex != null && errorIndex != currentIndex
     }
 
     private fun shouldRetryUnknownIssue(): Boolean {
@@ -964,25 +976,38 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
 
             override fun onPlayerError(error: PlaybackException) {
                 val currentIndex = player?.currentMediaItemIndex ?: -1
-                val errorIndex = resolveErrorMediaItemIndex(error, currentIndex)
+                val errorIndex = resolveErrorMediaItemIndex(error)
                 val channelIndex = resolveErrorChannelIndex(currentIndex, errorIndex)
                 val channel = channels.getOrNull(channelIndex)
                 val errorMsg = error.message ?: "Unknown error"
+                val pendingSnapshot = pendingLiveSwitch
+                val sinceCompletion = System.currentTimeMillis() - lastLiveSwitchCompletedAtMs
+                Timber.w(
+                    "onPlayerError: code=%d msg=%s currentIdx=%d errorIdx=%s pendingTarget=%s sinceCompletionMs=%d",
+                    error.errorCode, errorMsg, currentIndex,
+                    errorIndex?.toString() ?: "null",
+                    pendingSnapshot?.targetIndex?.toString() ?: "null",
+                    sinceCompletion
+                )
                 if (isStaleLiveError(currentIndex, errorIndex)) {
+                    Timber.w("  -> SUPPRESSED as stale (current=%d error=%s pending=%s)",
+                        currentIndex, errorIndex?.toString() ?: "null",
+                        pendingSnapshot?.targetIndex?.toString() ?: "null")
                     addDebugMessage(
                         "  -> Ignoring stale playback error from an outdated switch request (current=$currentIndex, error=$errorIndex)"
                     )
                     return
                 }
 
-                addDebugMessage("✗ Error: ${channel?.title ?: "Unknown"}")
-                addDebugMessage("  → $errorMsg")
-
                 if (shouldTryFfmpegAudioFallback(error)) {
                     if (attemptFfmpegAudioFallback()) {
                         return
                     }
                 }
+
+                Timber.w("  -> SURFACING error for channel=%s", channel?.title ?: "null")
+                addDebugMessage("✗ Error: ${channel?.title ?: "Unknown"}")
+                addDebugMessage("  → $errorMsg")
 
                 val issue = classifyPlaybackIssue(error)
                 val shouldRetry = channelIndex >= 0 && shouldAutoRetry(error, issue)
@@ -1048,8 +1073,15 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
         }
 
         logDebug { "Switching to channel index $safeIndex" }
+        Timber.w("switchToLiveChannel: from=%d to=%d", currentIndex, safeIndex)
         isUserPaused = false
         stopAutoRetry()
+        // Surface "Buffering" immediately so the UI reflects the in-progress switch
+        // rather than (a) keeping a stale Forbidden/NotFound overlay from the prior
+        // channel or (b) continuing to show the previous Ready(channel) until the
+        // new content loads. The duplicate-skip above already covers the case where
+        // the user re-taps the currently-playing channel.
+        _playerState.value = PlayerState.Buffering
         markLiveSwitchRequested(safeIndex)
 
         if (isArchivePlayback) {
@@ -1061,6 +1093,13 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
             }
             playerInstance.playWhenReady = true
             playerInstance.play()
+            // The prior buffering timer (now invalidated by the channel change) would
+            // self-exit, but onPlaybackStateChanged does not re-fire when the player
+            // stays in STATE_BUFFERING across the seek. Re-arm explicitly so the new
+            // channel has a watchdog and the pending-switch rescue path can fire.
+            stopBufferingCheck()
+            bufferingStartTime = System.currentTimeMillis()
+            startBufferingCheck()
         }
 
         lastLiveIndex = safeIndex
@@ -1405,15 +1444,31 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
      */
     private fun startBufferingCheck() {
         bufferingCheckJob?.cancel()
+        val playerInstance = player ?: return
+        val startedIndex = playerInstance.currentMediaItemIndex
         bufferingCheckJob = mainScope.launch {
             val startTime = bufferingStartTime
             if (startTime <= 0L) return@launch
             delay(PlayerConstants.BUFFERING_TIMEOUT_MS)
             val p = player ?: return@launch
-            if (bufferingStartTime != startTime || p.playbackState != Player.STATE_BUFFERING) return@launch
+            if (bufferingStartTime != startTime ||
+                p.playbackState != Player.STATE_BUFFERING ||
+                p.currentMediaItemIndex != startedIndex
+            ) return@launch
             val bufferingDuration = System.currentTimeMillis() - startTime
             addDebugMessage("Buffering timeout (${bufferingDuration / 1000}s)")
             stopBufferingCheck()
+
+            // Switch in flight that never reached READY: release suppression and
+            // surface a Timeout so the user is not left on a frozen Buffering UI.
+            if (pendingLiveSwitch != null) {
+                clearPendingLiveSwitch()
+                _playerState.value = PlayerState.Error(
+                    issue = PlaybackIssue.Timeout("Stream did not start"),
+                    channel = channels.getOrNull(startedIndex)
+                )
+            }
+
             p.playWhenReady = false
         }
     }
@@ -1495,6 +1550,7 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
 
     private companion object {
         private const val MAX_UNKNOWN_RETRIES_DURING_SWITCH = 2
+        private const val SWITCH_COMPLETED_STALE_GRACE_MS = 3_000L
     }
 
     private val sensitivePattern = Regex("(?i)((token|auth|sig|key|session)[^=]*)=[^&]*")
