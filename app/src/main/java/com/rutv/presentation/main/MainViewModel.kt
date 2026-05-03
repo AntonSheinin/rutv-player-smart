@@ -184,6 +184,7 @@ class MainViewModel @Inject constructor(
         _viewState.update {
             it.copy(
                 showEpgPanel = true,
+                isEpgLoading = false,
                 epgChannelTvgId = tvgId,
                 epgPrograms = programs.toImmutableList(),
                 currentProgram = currentProgram
@@ -765,6 +766,7 @@ class MainViewModel @Inject constructor(
             it.copy(
                 showPlaylist = false,
                 showEpgPanel = false,
+                isEpgLoading = false,
                 isArchivePlayback = false,
                 isTimeshiftPlayback = false,
                 archiveProgram = null
@@ -830,6 +832,7 @@ class MainViewModel @Inject constructor(
                 showPlaylist = showPlaylist,
                 showFavoritesOnly = false,
                 showEpgPanel = false,
+                isEpgLoading = false,
                 selectedProgramDetails = if (showPlaylist) current.selectedProgramDetails else null
             )
         }
@@ -846,6 +849,7 @@ class MainViewModel @Inject constructor(
                 showPlaylist = true,
                 showFavoritesOnly = showFavoritesOnly,
                 showEpgPanel = false,
+                isEpgLoading = false,
                 selectedProgramDetails = null
             )
         }
@@ -864,7 +868,8 @@ class MainViewModel @Inject constructor(
             it.copy(
                 showPlaylist = showPlaylist,
                 showFavoritesOnly = true,
-                showEpgPanel = false
+                showEpgPanel = false,
+                isEpgLoading = false
             )
         }
     }
@@ -900,6 +905,7 @@ class MainViewModel @Inject constructor(
             current.copy(
                 showPlaylist = false,
                 showEpgPanel = false,
+                isEpgLoading = false,
                 selectedProgramDetails = null
             )
         }
@@ -912,6 +918,7 @@ class MainViewModel @Inject constructor(
         _viewState.update { current ->
             current.copy(
                 showEpgPanel = false,
+                isEpgLoading = false,
                 selectedProgramDetails = null
             )
         }
@@ -1071,16 +1078,22 @@ class MainViewModel @Inject constructor(
                     (state.epgPrograms.isEmpty() && cachedPrograms.isNotEmpty())
                 if (shouldUpdatePanel) {
                     updateEpgPanelState(tvgId, cachedPrograms, cachedCurrent)
+                    _viewState.update { state ->
+                        if (state.epgChannelTvgId == tvgId) state.copy(isEpgLoading = false) else state
+                    }
                 }
             } else {
                 _viewState.update { state ->
                     if (state.showEpgPanel && state.epgChannelTvgId == tvgId && state.epgPrograms.isEmpty()) {
-                        state
+                        state.copy(isEpgLoading = true)
                     } else {
                         state.copy(
                             showEpgPanel = true,
+                            isEpgLoading = true,
                             epgChannelTvgId = tvgId,
                             epgPrograms = persistentListOf(),
+                            epgLoadedFromUtc = 0L,
+                            epgLoadedToUtc = 0L,
                             currentProgram = null
                         )
                     }
@@ -1094,6 +1107,9 @@ class MainViewModel @Inject constructor(
                 if (result is Result.Error) {
                     // Preserve existing UX: if URL isn't configured, show a friendly debug message and return.
                     appendDebugMessage(DebugMessage(StringFormatter.formatEpgUrlNotConfigured()))
+                    _viewState.update { state ->
+                        if (state.epgChannelTvgId == tvgId) state.copy(isEpgLoading = false) else state
+                    }
                     return@launch
                 }
                 if (_viewState.value.epgChannelTvgId != tvgId) return@launch
@@ -1114,6 +1130,7 @@ class MainViewModel @Inject constructor(
                         epgLoadedFromUtc = window.fromUtcMillis,
                         epgLoadedToUtc = window.toUtcMillis,
                         showEpgPanel = true,
+                        isEpgLoading = false,
                         epgChannelTvgId = tvgId,
                         epgPrograms = programs.toImmutableList(),
                         currentProgram = current
@@ -1128,6 +1145,9 @@ class MainViewModel @Inject constructor(
             } catch (e: Exception) {
                 Timber.e(e, "Failed to load EPG for channel $tvgId")
                 appendDebugMessage(DebugMessage(StringFormatter.formatEpgLoadFailed(tvgId, e.message ?: StringFormatter.formatErrorUnknown())))
+                _viewState.update { state ->
+                    if (state.epgChannelTvgId == tvgId) state.copy(isEpgLoading = false) else state
+                }
             } finally {
                 if (epgPanelLoadJob == this.coroutineContext[Job]) {
                     epgPanelLoadJob = null
@@ -1196,7 +1216,6 @@ class MainViewModel @Inject constructor(
                 val epgUrl = preferencesRepository.epgUrl.first().ifBlank { return@launch }
                 val daysAhead = preferencesRepository.epgDaysAhead.first().coerceAtLeast(0)
                 val stepDays = preferencesRepository.epgPageDays.first().coerceAtLeast(1)
-                val extensionDays = stepDays + 1
 
                 val zone = java.time.ZonedDateTime.now().zone
                 val globalTo = java.time.ZonedDateTime.now()
@@ -1207,12 +1226,13 @@ class MainViewModel @Inject constructor(
                     .toInstant().toEpochMilli()
 
                 val currentTo = _viewState.value.epgLoadedToUtc
+                if (currentTo <= 0L) return@launch
                 if (currentTo >= globalTo) return@launch
 
                 val nextDayStart = java.time.Instant.ofEpochMilli(currentTo)
                     .atZone(zone)
                     .toLocalDate()
-                    .plusDays(stepDays.toLong())
+                    .plusDays(1L)
                     .atStartOfDay(zone)
                     .toInstant().toEpochMilli()
                 val newFrom = nextDayStart
@@ -1220,7 +1240,7 @@ class MainViewModel @Inject constructor(
                     java.time.Instant.ofEpochMilli(currentTo)
                         .atZone(zone)
                         .toLocalDate()
-                        .plusDays(extensionDays.toLong())
+                        .plusDays(stepDays.toLong())
                         .atTime(java.time.LocalTime.of(23, 59, 59))
                         .atZone(zone)
                         .toInstant().toEpochMilli()
@@ -1369,6 +1389,7 @@ class MainViewModel @Inject constructor(
                 currentProgram = program,
                 showPlaylist = false,
                 showEpgPanel = false,
+                isEpgLoading = false,
                 archivePrompt = null
             )
         }

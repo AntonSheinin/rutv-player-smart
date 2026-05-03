@@ -75,6 +75,8 @@
     <string name="playlist_group_title_format">channels : %1$s</string>
     <string name="playlist_group_all">all</string>
     <string name="epg_panel_title">Programs guide</string>
+    <string name="epg_loading">Loading programs...</string>
+    <string name="epg_no_programs">No programs available</string>
     <string name="program_details_title">Program Details</string>
     <string name="channel_info_format">#%1$d &#8226; %2$s</string>
 

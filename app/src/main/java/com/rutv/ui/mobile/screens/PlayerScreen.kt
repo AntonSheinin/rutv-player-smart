@@ -580,10 +580,11 @@ fun PlayerScreen(
 
         // EPG Panel
         val epgChannel = uiState.epgChannel
-        if (uiState.showEpgPanel && uiState.epgPrograms.isNotEmpty()) {
+        if (uiState.showEpgPanel) {
             EpgPanel(
                 programs = uiState.epgPrograms,
                 channel = epgChannel,
+                isLoading = uiState.isEpgLoading,
                 onProgramClick = actions.onShowProgramDetails,
                 onPlayArchive = actions.onPlayArchiveProgram,
                 isArchivePlayback = uiState.isArchivePlayback,

@@ -237,7 +237,7 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
             pendingLiveSwitch = null
             unknownSwitchErrorCount = 0
             lastLiveSwitchCompletedAtMs = System.currentTimeMillis()
-            Timber.w("markLiveSwitchCompleted: target=%d cleared, grace window starts", currentIndex)
+            logDebug { "markLiveSwitchCompleted: target=$currentIndex cleared, grace window starts" }
         }
     }
 
@@ -982,17 +982,18 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
                 val errorMsg = error.message ?: "Unknown error"
                 val pendingSnapshot = pendingLiveSwitch
                 val sinceCompletion = System.currentTimeMillis() - lastLiveSwitchCompletedAtMs
-                Timber.w(
-                    "onPlayerError: code=%d msg=%s currentIdx=%d errorIdx=%s pendingTarget=%s sinceCompletionMs=%d",
-                    error.errorCode, errorMsg, currentIndex,
-                    errorIndex?.toString() ?: "null",
-                    pendingSnapshot?.targetIndex?.toString() ?: "null",
-                    sinceCompletion
-                )
+                logDebug {
+                    "onPlayerError: code=${error.errorCode} msg=$errorMsg currentIdx=$currentIndex " +
+                        "errorIdx=${errorIndex?.toString() ?: "null"} " +
+                        "pendingTarget=${pendingSnapshot?.targetIndex?.toString() ?: "null"} " +
+                        "sinceCompletionMs=$sinceCompletion"
+                }
                 if (isStaleLiveError(currentIndex, errorIndex)) {
-                    Timber.w("  -> SUPPRESSED as stale (current=%d error=%s pending=%s)",
-                        currentIndex, errorIndex?.toString() ?: "null",
-                        pendingSnapshot?.targetIndex?.toString() ?: "null")
+                    logDebug {
+                        "  -> SUPPRESSED as stale (current=$currentIndex " +
+                            "error=${errorIndex?.toString() ?: "null"} " +
+                            "pending=${pendingSnapshot?.targetIndex?.toString() ?: "null"})"
+                    }
                     addDebugMessage(
                         "  -> Ignoring stale playback error from an outdated switch request (current=$currentIndex, error=$errorIndex)"
                     )
@@ -1005,7 +1006,7 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
                     }
                 }
 
-                Timber.w("  -> SURFACING error for channel=%s", channel?.title ?: "null")
+                logDebug { "  -> SURFACING error for channel=${channel?.title ?: "null"}" }
                 addDebugMessage("✗ Error: ${channel?.title ?: "Unknown"}")
                 addDebugMessage("  → $errorMsg")
 
@@ -1073,7 +1074,7 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
         }
 
         logDebug { "Switching to channel index $safeIndex" }
-        Timber.w("switchToLiveChannel: from=%d to=%d", currentIndex, safeIndex)
+        logDebug { "switchToLiveChannel: from=$currentIndex to=$safeIndex" }
         isUserPaused = false
         stopAutoRetry()
         // Surface "Buffering" immediately so the UI reflects the in-progress switch
@@ -1406,6 +1407,11 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
         // Drain pending commands synchronously
         while (true) {
             val pending = playbackCommands.tryReceive().getOrNull() ?: break
+            if (pending is PlaybackCommand.PlayArchive) {
+                pending.result.complete(false)
+            }
+        }
+        deferredPlaybackCommands.forEach { pending ->
             if (pending is PlaybackCommand.PlayArchive) {
                 pending.result.complete(false)
             }

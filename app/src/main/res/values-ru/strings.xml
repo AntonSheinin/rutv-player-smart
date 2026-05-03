@@ -75,6 +75,8 @@
     <string name="playlist_group_title_format">каналы : %1$s</string>
     <string name="playlist_group_all">все</string>
     <string name="epg_panel_title">Программа передач</string>
+    <string name="epg_loading">Загрузка программы...</string>
+    <string name="epg_no_programs">Программа недоступна</string>
     <string name="program_details_title">Описание передачи</string>
     <string name="channel_info_format">#%1$d &#8226; %2$s</string>
 

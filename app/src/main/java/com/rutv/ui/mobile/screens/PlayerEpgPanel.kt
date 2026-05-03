@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -91,6 +92,7 @@ import java.util.concurrent.TimeUnit
 internal fun EpgPanel(
     programs: List<EpgProgram>,
     channel: Channel?,
+    isLoading: Boolean,
     onProgramClick: (EpgProgram) -> Unit,
     onPlayArchive: (EpgProgram) -> Unit,
     isArchivePlayback: Boolean,
@@ -646,6 +648,30 @@ internal fun EpgPanel(
                                 )
                             }
                         }
+                    }
+                }
+
+                if (epgItems.isEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                color = MaterialTheme.ruTvColors.gold
+                            )
+                        }
+                        Text(
+                            text = stringResource(
+                                if (isLoading) R.string.epg_loading
+                                else R.string.epg_no_programs
+                            ),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.ruTvColors.textSecondary
+                        )
                     }
                 }
 
