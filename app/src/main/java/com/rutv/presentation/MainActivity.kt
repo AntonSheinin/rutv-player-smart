@@ -24,6 +24,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rutv.R
 import com.rutv.presentation.main.MainViewModel
+import com.rutv.presentation.player.PreviewPlayerFactory
 import com.rutv.ui.mobile.screens.PlayerScreen
 import com.rutv.ui.mobile.screens.PlayerUiActions
 import com.rutv.ui.mobile.screens.rememberPlayerUiState
@@ -37,6 +38,7 @@ import timber.log.Timber
 import android.view.KeyEvent
 import android.content.res.Configuration
 import kotlinx.coroutines.delay
+import javax.inject.Inject
 
 /**
  * App main entry activity.
@@ -56,6 +58,9 @@ import kotlinx.coroutines.delay
 class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
+
+    @Inject
+    lateinit var previewPlayerFactory: PreviewPlayerFactory
 
     // Track if we've shown the no-playlist prompt
     private var hasShownNoPlaylistPrompt = false
@@ -225,6 +230,7 @@ class MainActivity : ComponentActivity() {
         PlayerScreen(
             uiState = playerUiState,
             player = viewModel.getPlayer(),
+            previewPlayerFactory = previewPlayerFactory,
             actions = playerActions,
             onRegisterToggleControls = { callback -> toggleControlsCallback = callback },
             onControlsVisibilityChanged = { visible -> viewModel.setControlsVisible(visible) },

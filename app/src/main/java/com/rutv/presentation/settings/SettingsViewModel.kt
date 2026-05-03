@@ -62,21 +62,31 @@ class SettingsViewModel @Inject constructor(
 
         viewModelScope.launch {
             combine(
-                preferencesRepository.playerConfig,
-                preferencesRepository.showCurrentProgramInChannelList,
-                preferencesRepository.autoRetryEnabled,
-                preferencesRepository.autoRetryMaxAttempts,
-                preferencesRepository.autoRetryPeriodSeconds
-            ) { config, showCurrent, retryEnabled, retryMax, retryPeriod ->
-                PlayerSettingsSnapshot(config, showCurrent, retryEnabled, retryMax, retryPeriod)
+                combine(
+                    preferencesRepository.playerConfig,
+                    preferencesRepository.showCurrentProgramInChannelList,
+                    preferencesRepository.channelPreviewEnabled
+                ) { config, showCurrent, previewEnabled ->
+                    PlayerUiSettingsSnapshot(config, showCurrent, previewEnabled)
+                },
+                combine(
+                    preferencesRepository.autoRetryEnabled,
+                    preferencesRepository.autoRetryMaxAttempts,
+                    preferencesRepository.autoRetryPeriodSeconds
+                ) { retryEnabled, retryMax, retryPeriod ->
+                    RetrySettingsSnapshot(retryEnabled, retryMax, retryPeriod)
+                }
+            ) { playerSettings, retrySettings ->
+                PlayerSettingsSnapshot(playerSettings, retrySettings)
             }.collect { snap ->
                 _viewState.update {
                     it.copy(
-                        playerConfig = snap.config,
-                        showCurrentProgramInChannelList = snap.showCurrent,
-                        autoRetryEnabled = snap.retryEnabled,
-                        autoRetryMaxAttempts = snap.retryMax,
-                        autoRetryPeriodSeconds = snap.retryPeriod
+                        playerConfig = snap.player.config,
+                        showCurrentProgramInChannelList = snap.player.showCurrent,
+                        channelPreviewEnabled = snap.player.previewEnabled,
+                        autoRetryEnabled = snap.retry.enabled,
+                        autoRetryMaxAttempts = snap.retry.maxAttempts,
+                        autoRetryPeriodSeconds = snap.retry.periodSeconds
                     )
                 }
             }
@@ -98,11 +108,20 @@ class SettingsViewModel @Inject constructor(
     )
 
     private data class PlayerSettingsSnapshot(
+        val player: PlayerUiSettingsSnapshot,
+        val retry: RetrySettingsSnapshot
+    )
+
+    private data class PlayerUiSettingsSnapshot(
         val config: PlayerConfig,
         val showCurrent: Boolean,
-        val retryEnabled: Boolean,
-        val retryMax: Int,
-        val retryPeriod: Int
+        val previewEnabled: Boolean
+    )
+
+    private data class RetrySettingsSnapshot(
+        val enabled: Boolean,
+        val maxAttempts: Int,
+        val periodSeconds: Int
     )
 
     /**
@@ -279,6 +298,18 @@ class SettingsViewModel @Inject constructor(
                 throw e
             } catch (e: Exception) {
                 Timber.e(e, "Failed to save showCurrentProgramInChannelList")
+            }
+        }
+    }
+
+    fun setChannelPreviewEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            try {
+                preferencesRepository.saveChannelPreviewEnabled(enabled)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to save channelPreviewEnabled")
             }
         }
     }

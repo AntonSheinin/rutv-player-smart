@@ -5,6 +5,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.Composable
 import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
+import com.rutv.data.model.PlayerConfig
 import com.rutv.data.model.ResizeMode
 import com.rutv.presentation.main.ArchivePrompt
 import com.rutv.presentation.main.MainViewState
@@ -46,7 +47,9 @@ data class PlayerUiState(
     val epgLoadedToUtc: Long,
     val currentProgramsMap: ImmutableMap<String, EpgProgram?>,
     val showCurrentProgramInChannelList: Boolean,
+    val channelPreviewEnabled: Boolean,
     val showDebugLog: Boolean,
+    val playerConfig: PlayerConfig,
     val debugMessages: ImmutableList<DebugMessage>,
     val archivePrompt: ArchivePrompt?,
     val epgNotificationMessage: String?,
@@ -126,7 +129,9 @@ fun rememberPlayerUiState(viewState: MainViewState): PlayerUiState {
             epgLoadedToUtc = viewState.epgLoadedToUtc,
             currentProgramsMap = viewState.currentProgramsMap,
             showCurrentProgramInChannelList = viewState.showCurrentProgramInChannelList,
+            channelPreviewEnabled = viewState.channelPreviewEnabled,
             showDebugLog = viewState.showDebugLog,
+            playerConfig = viewState.playerConfig,
             debugMessages = viewState.debugMessages,
             archivePrompt = viewState.archivePrompt,
             epgNotificationMessage = viewState.epgNotificationMessage,

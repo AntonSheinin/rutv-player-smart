@@ -33,6 +33,8 @@
 
     <!-- Status -->
     <string name="status_playing">&#x25B6; Играет</string>
+    <string name="channel_preview_now_playing">Сейчас в эфире</string>
+    <string name="channel_preview_unavailable">Предпросмотр недоступен</string>
 
     <!-- Playlist / Settings -->
     <string name="settings_playlist_source">Источник плейлиста</string>
@@ -48,6 +50,7 @@
     <string name="settings_auto_retry_max_attempts">Макс. количество попыток</string>
     <string name="settings_auto_retry_period_seconds">Период повтора (секунды)</string>
     <string name="settings_show_current_program_in_list">Показывать текущую программу в списке каналов</string>
+    <string name="settings_channel_preview_enabled">Показывать окно предпросмотра канала</string>
     <string name="settings_epg_config">Настройки EPG</string>
     <string name="settings_epg_url">EPG XML URL</string>
     <string name="settings_epg_days_ahead">Дни EPG вперед</string>

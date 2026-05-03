@@ -259,9 +259,18 @@ class MainViewModel @Inject constructor(
             }
         }
 
-        val debugEnabledFlow = preferencesRepository.playerConfig
+        val playerConfigFlow = preferencesRepository.playerConfig
+            .distinctUntilChanged()
+
+        val debugEnabledFlow = playerConfigFlow
             .map { it.showDebugLog }
             .distinctUntilChanged()
+
+        viewModelScope.launch {
+            playerConfigFlow.collect { config ->
+                _viewState.update { it.copy(playerConfig = config) }
+            }
+        }
 
         // Playlist performance toggle: whether to populate per-channel "current program" cache
         // for list items. When disabled we keep `currentProgramsMap` empty to reduce recompositions.
@@ -289,6 +298,14 @@ class MainViewModel @Inject constructor(
                             refreshVisibleCurrentPrograms()
                         }
                     }
+                }
+        }
+
+        viewModelScope.launch {
+            preferencesRepository.channelPreviewEnabled
+                .distinctUntilChanged()
+                .collect { enabled ->
+                    _viewState.update { it.copy(channelPreviewEnabled = enabled) }
                 }
         }
 

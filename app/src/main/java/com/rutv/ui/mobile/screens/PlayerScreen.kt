@@ -6,6 +6,8 @@ import android.widget.FrameLayout
 import android.annotation.SuppressLint
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
@@ -19,10 +21,12 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.focus.FocusRequester
@@ -31,6 +35,9 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.focusable
 import androidx.compose.ui.platform.LocalView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.rutv.util.DeviceHelper
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
@@ -60,7 +67,9 @@ import kotlin.math.abs
 import kotlin.math.max
 import timber.log.Timber
 import com.rutv.presentation.player.PlaybackIssue
+import com.rutv.presentation.player.ChannelPreviewPlaybackState
 import com.rutv.presentation.player.PlayerState
+import com.rutv.presentation.player.PreviewPlayerFactory
 import java.lang.ref.WeakReference
 
 /**
@@ -71,6 +80,7 @@ import java.lang.ref.WeakReference
 fun PlayerScreen(
     uiState: PlayerUiState,
     player: ExoPlayer?,
+    previewPlayerFactory: PreviewPlayerFactory,
     actions: PlayerUiActions,
     onRegisterToggleControls: ((() -> Unit)) -> Unit,
     onControlsVisibilityChanged: ((Boolean) -> Unit)? = null,
@@ -325,9 +335,91 @@ fun PlayerScreen(
     // Watch for pending focus requests (handles race conditions when requester not yet registered)
     focusManager.WatchForPendingRequests()
 
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val previewController = remember(previewPlayerFactory, context, uiState.playerConfig) {
+        previewPlayerFactory.create(context, uiState.playerConfig)
+    }
+    val previewPlaybackState by previewController.state.collectAsState()
+    var previewTarget by remember { mutableStateOf<ChannelPreviewTarget?>(null) }
+    var rootSize by remember { mutableStateOf(IntSize.Zero) }
+    var previewLifecycleActive by remember {
+        mutableStateOf(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
+    }
+
+    DisposableEffect(previewController) {
+        onDispose {
+            previewController.release()
+        }
+    }
+
+    DisposableEffect(previewController, lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> previewLifecycleActive = true
+                Lifecycle.Event.ON_STOP -> {
+                    previewLifecycleActive = false
+                    previewController.stopForLifecycle()
+                }
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    LaunchedEffect(
+        previewTarget,
+        uiState.channelPreviewEnabled,
+        uiState.showPlaylist,
+        uiState.showEpgPanel,
+        uiState.selectedProgramDetails,
+        uiState.currentChannel?.url,
+        previewLifecycleActive
+    ) {
+        val target = previewTarget
+        val shouldStop = target == null ||
+            !uiState.channelPreviewEnabled ||
+            !previewLifecycleActive ||
+            !uiState.showPlaylist ||
+            uiState.showEpgPanel ||
+            uiState.selectedProgramDetails != null ||
+            !target.playlistHasFocus ||
+            target.url.isBlank() ||
+            target.url == uiState.currentChannel?.url
+
+        if (shouldStop) {
+            previewController.stop()
+            return@LaunchedEffect
+        }
+
+        delay(CHANNEL_PREVIEW_DEBOUNCE_MS)
+        if (!previewLifecycleActive) return@LaunchedEffect
+        previewController.preview(target.url)
+    }
+
+    LaunchedEffect(uiState.showPlaylist) {
+        if (uiState.showPlaylist && uiState.channelPreviewEnabled) {
+            previewController.resetSession()
+        } else {
+            previewTarget = null
+            previewController.stop()
+        }
+    }
+
+    LaunchedEffect(uiState.channelPreviewEnabled) {
+        if (!uiState.channelPreviewEnabled) {
+            previewTarget = null
+            previewController.stop()
+        }
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
+            .onSizeChanged { rootSize = it }
             .background(MaterialTheme.ruTvColors.darkBackground)
     ) {
         // EPG Notification
@@ -560,10 +652,22 @@ fun PlayerScreen(
                 },
                 currentProgramsMap = uiState.currentProgramsMap,
                 showCurrentProgramInChannelList = uiState.showCurrentProgramInChannelList,
-                onChannelClick = actions.onPlayChannel,
+                onChannelClick = { index ->
+                    previewTarget = null
+                    previewController.stop()
+                    actions.onPlayChannel(index)
+                },
                 onFavoriteClick = actions.onToggleFavorite,
-                onShowPrograms = actions.onShowEpgForChannel,
-                onClose = actions.onClosePlaylist,
+                onShowPrograms = { tvgId ->
+                    previewTarget = null
+                    previewController.stop()
+                    actions.onShowEpgForChannel(tvgId)
+                },
+                onClose = {
+                    previewTarget = null
+                    previewController.stop()
+                    actions.onClosePlaylist()
+                },
                 onUpdateScrollIndex = actions.onUpdatePlaylistScrollIndex,
                 onRequestMoreChannels = actions.onRequestMoreChannels,
                 onVisibleChannelsChanged = actions.onVisibleChannelsChanged,
@@ -573,8 +677,54 @@ fun PlayerScreen(
                         lastFocusedPlaylistIndex = index
                     }
                 },
-                onRequestEpgFocus = { focusManager.requestEnter(PlayerFocusDestination.EPG_PANEL) },
+                onPreviewTargetChanged = { target -> previewTarget = target },
+                onRequestEpgFocus = {
+                    previewTarget = null
+                    previewController.stop()
+                    focusManager.requestEnter(PlayerFocusDestination.EPG_PANEL)
+                },
                 modifier = Modifier.align(Alignment.CenterStart)
+            )
+        }
+
+        val effectivePreviewTarget = previewTarget?.takeIf {
+            uiState.showPlaylist &&
+                uiState.channelPreviewEnabled &&
+                !uiState.showEpgPanel &&
+                uiState.selectedProgramDetails == null &&
+                it.playlistHasFocus
+        }
+        val unavailablePreviewUrl = (previewPlaybackState as? ChannelPreviewPlaybackState.Unavailable)?.url
+        val showNowPlayingPreview = effectivePreviewTarget?.url == uiState.currentChannel?.url
+        val showUnavailablePreview =
+            effectivePreviewTarget != null &&
+                unavailablePreviewUrl == effectivePreviewTarget.url
+        val activePreviewUrl = when (val state = previewPlaybackState) {
+            is ChannelPreviewPlaybackState.Loading -> state.url
+            is ChannelPreviewPlaybackState.Playing -> state.url
+            else -> null
+        }
+        val showVideoPreview =
+            effectivePreviewTarget != null &&
+                !showNowPlayingPreview &&
+                !showUnavailablePreview &&
+                previewPlaybackState !is ChannelPreviewPlaybackState.SessionDisabled &&
+                activePreviewUrl == effectivePreviewTarget.url
+
+        if (effectivePreviewTarget != null &&
+            (showNowPlayingPreview || showUnavailablePreview || showVideoPreview)
+        ) {
+            ChannelPreviewOverlay(
+                target = effectivePreviewTarget,
+                rootSize = rootSize,
+                previewController = previewController,
+                showVideo = showVideoPreview,
+                placeholderText = when {
+                    showNowPlayingPreview -> stringResource(R.string.channel_preview_now_playing)
+                    showUnavailablePreview -> stringResource(R.string.channel_preview_unavailable)
+                    else -> null
+                },
+                modifier = Modifier.align(Alignment.TopStart)
             )
         }
 
@@ -678,7 +828,92 @@ private fun PlaybackStatusOverlay(
     }
 }
 
+@Composable
+private fun ChannelPreviewOverlay(
+    target: ChannelPreviewTarget,
+    rootSize: IntSize,
+    previewController: com.rutv.presentation.player.ChannelPreviewController,
+    showVideo: Boolean,
+    placeholderText: String?,
+    modifier: Modifier = Modifier
+) {
+    val density = LocalDensity.current
+    val previewWidth = 256.dp
+    val previewHeight = 144.dp
+    val previewWidthPx = with(density) { previewWidth.roundToPx() }
+    val previewHeightPx = with(density) { previewHeight.roundToPx() }
+    val x = LayoutConstants.DefaultPadding + LayoutConstants.PlaylistPanelWidth + CHANNEL_PREVIEW_LIST_GAP_DP.dp
+    val y = with(density) {
+        val desiredCenter = LayoutConstants.DefaultPadding.roundToPx() +
+            LayoutConstants.ToolbarHeight.roundToPx() +
+            CHANNEL_PREVIEW_ROW_CENTER_ADJUST_DP.dp.roundToPx() +
+            target.rowTopPx +
+            (target.rowHeightPx / 2)
+        val maxY = (rootSize.height - previewHeightPx - LayoutConstants.DefaultPadding.roundToPx())
+            .coerceAtLeast(LayoutConstants.DefaultPadding.roundToPx())
+        (desiredCenter - (previewHeightPx / 2))
+            .coerceIn(LayoutConstants.DefaultPadding.roundToPx(), maxY)
+            .toDp()
+    }
+    val maxX = with(density) {
+        (rootSize.width - previewWidthPx - LayoutConstants.DefaultPadding.roundToPx())
+            .coerceAtLeast(LayoutConstants.DefaultPadding.roundToPx())
+            .toDp()
+    }
+    val clampedX = minOf(x, maxX)
+
+    Box(
+        modifier = modifier
+            .offset(x = clampedX, y = y)
+            .size(width = previewWidth, height = previewHeight)
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.96f))
+            .border(
+                BorderStroke(1.dp, MaterialTheme.ruTvColors.gold.copy(alpha = 0.8f)),
+                RoundedCornerShape(8.dp)
+            )
+    ) {
+        if (showVideo) {
+            AndroidView(
+                factory = {
+                    previewController.obtainPlayerView().apply {
+                        useController = false
+                        isFocusable = false
+                        isFocusableInTouchMode = false
+                    }
+                },
+                update = { playerView ->
+                    playerView.useController = false
+                    playerView.isFocusable = false
+                    playerView.isFocusableInTouchMode = false
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+        if (placeholderText != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.92f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = placeholderText,
+                    color = MaterialTheme.ruTvColors.textPrimary,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+            }
+        }
+    }
+}
+
 private const val MEDIA3_UI_PACKAGE = "androidx.media3.ui"
+private const val CHANNEL_PREVIEW_DEBOUNCE_MS = 500L
+private const val CHANNEL_PREVIEW_LIST_GAP_DP = 4
+private const val CHANNEL_PREVIEW_ROW_CENTER_ADJUST_DP = 8
 private val CONTROL_LOOKUP_CACHE_TAG_KEY: Int = R.id.tag_player_control_lookup_cache
 private data class ControlLookupCache(
     val candidateIdsByName: MutableMap<String, IntArray> = mutableMapOf(),

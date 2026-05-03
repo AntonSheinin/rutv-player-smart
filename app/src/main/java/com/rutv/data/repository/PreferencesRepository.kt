@@ -73,6 +73,7 @@ class PreferencesRepository @Inject constructor(
         // UI performance/UX: showing per-channel "current program" in the playlist requires
         // frequent state updates as time progresses. Some devices prefer a simpler list.
         val SHOW_CURRENT_PROGRAM_IN_CHANNEL_LIST = booleanPreferencesKey("show_current_program_in_channel_list")
+        val CHANNEL_PREVIEW_ENABLED = booleanPreferencesKey("channel_preview_enabled")
 
         val LAST_PLAYED_INDEX = intPreferencesKey("last_played_index")
 
@@ -357,6 +358,18 @@ class PreferencesRepository @Inject constructor(
             preferences[PreferencesKeys.SHOW_CURRENT_PROGRAM_IN_CHANNEL_LIST] = enabled
         }
         logDebug { "Saved show current program in channel list: $enabled" }
+    }
+
+    val channelPreviewEnabled: Flow<Boolean> = dataStore.data
+        .map { preferences ->
+            preferences[PreferencesKeys.CHANNEL_PREVIEW_ENABLED] ?: true
+        }
+
+    suspend fun saveChannelPreviewEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.CHANNEL_PREVIEW_ENABLED] = enabled
+        }
+        logDebug { "Saved channel preview enabled: $enabled" }
     }
 
     /**

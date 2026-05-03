@@ -71,6 +71,7 @@ fun SettingsScreen(
     onAutoRetryMaxAttemptsChanged: (Int) -> Unit,
     onAutoRetryPeriodSecondsChanged: (Int) -> Unit,
     onShowCurrentProgramInChannelListChanged: (Boolean) -> Unit,
+    onChannelPreviewEnabledChanged: (Boolean) -> Unit,
     onEpgUrlChanged: (String) -> Unit,
     onEpgDaysAheadChanged: (Int) -> Unit,
     onEpgDaysPastChanged: (Int) -> Unit,
@@ -387,6 +388,14 @@ fun SettingsScreen(
                     label = stringResource(R.string.settings_show_current_program_in_list),
                     checked = viewState.showCurrentProgramInChannelList,
                     onCheckedChange = onShowCurrentProgramInChannelListChanged
+                )
+            }
+
+            item {
+                SwitchSetting(
+                    label = stringResource(R.string.settings_channel_preview_enabled),
+                    checked = viewState.channelPreviewEnabled,
+                    onCheckedChange = onChannelPreviewEnabledChanged
                 )
             }
 

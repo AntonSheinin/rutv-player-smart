@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -116,6 +117,7 @@ internal fun PlaylistPanel(
     onVisibleChannelsChanged: (List<String>) -> Unit,
     focusManager: PlayerFocusManager,
     onChannelFocused: ((Int) -> Unit)? = null,
+    onPreviewTargetChanged: (ChannelPreviewTarget?) -> Unit = {},
     onRequestEpgFocus: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -175,6 +177,7 @@ internal fun PlaylistPanel(
     LaunchedEffect(showSearchDialog) {
         if (showSearchDialog) {
             playlistHasFocus = false
+            onPreviewTargetChanged(null)
         }
     }
 
@@ -235,6 +238,7 @@ internal fun PlaylistPanel(
 
     DisposableEffect(Unit) {
         onDispose {
+            onPreviewTargetChanged(null)
             centerPress.reset()
             focusManager.unregisterEntry(PlayerFocusDestination.PLAYLIST_PANEL)
             focusManager.registerFocusCallback(PlayerFocusDestination.PLAYLIST_PANEL, null)
@@ -477,6 +481,7 @@ internal fun PlaylistPanel(
                                             val channel = channels.getOrNull(currentIdx)
                                             if (channel?.hasEpg == true) {
                                                 playlistHasFocus = false
+                                                onPreviewTargetChanged(null)
                                                 onShowPrograms(channel.tvgId)
                                                 onRequestEpgFocus?.invoke()
                                                 true
@@ -538,6 +543,30 @@ internal fun PlaylistPanel(
                             modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp)
                         )
                     }
+                }
+
+                LaunchedEffect(
+                    listState,
+                    displayedList,
+                    displayedPositionByAbsolute,
+                    focusedChannelIndex,
+                    playlistHasFocus,
+                    showSearchDialog,
+                    epgOpenIndex
+                ) {
+                    snapshotFlow {
+                        buildPreviewTarget(
+                            listState = listState,
+                            channels = channels,
+                            displayedPositionByAbsolute = displayedPositionByAbsolute,
+                            focusedChannelIndex = focusedChannelIndex,
+                            playlistHasFocus = playlistHasFocus,
+                            searchOpen = showSearchDialog,
+                            epgOpenIndex = epgOpenIndex
+                        )
+                    }
+                        .distinctUntilChanged()
+                        .collect { target -> onPreviewTargetChanged(target) }
                 }
 
                 LaunchedEffect(listState, displayedList.size, channels.size) {
@@ -791,3 +820,37 @@ internal fun PlaylistPanel(
 }
 
 private const val PLAYLIST_PREFETCH_MARGIN = 8
+
+internal data class ChannelPreviewTarget(
+    val index: Int,
+    val url: String,
+    val rowTopPx: Int,
+    val rowHeightPx: Int,
+    val playlistHasFocus: Boolean
+)
+
+private fun buildPreviewTarget(
+    listState: LazyListState,
+    channels: List<Channel>,
+    displayedPositionByAbsolute: Map<Int, Int>,
+    focusedChannelIndex: Int,
+    playlistHasFocus: Boolean,
+    searchOpen: Boolean,
+    epgOpenIndex: Int
+): ChannelPreviewTarget? {
+    if (!playlistHasFocus || searchOpen || epgOpenIndex >= 0) return null
+    if (focusedChannelIndex !in channels.indices) return null
+    val channel = channels[focusedChannelIndex]
+    if (channel.url.isBlank()) return null
+    val displayedPosition = displayedPositionByAbsolute[focusedChannelIndex] ?: return null
+    val itemInfo = listState.layoutInfo.visibleItemsInfo
+        .firstOrNull { it.index == displayedPosition }
+        ?: return null
+    return ChannelPreviewTarget(
+        index = focusedChannelIndex,
+        url = channel.url,
+        rowTopPx = itemInfo.offset,
+        rowHeightPx = itemInfo.size,
+        playlistHasFocus = playlistHasFocus
+    )
+}

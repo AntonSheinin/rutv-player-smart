@@ -16,6 +16,7 @@ data class SettingsViewState(
     val epgPageDays: Int = 1,
     val playerConfig: PlayerConfig = PlayerConfig(),
     val showCurrentProgramInChannelList: Boolean = true,
+    val channelPreviewEnabled: Boolean = true,
     val autoRetryEnabled: Boolean = true,
     val autoRetryMaxAttempts: Int = PlayerConstants.DEFAULT_AUTO_RETRY_MAX_ATTEMPTS,
     val autoRetryPeriodSeconds: Int = PlayerConstants.DEFAULT_AUTO_RETRY_PERIOD_SECONDS,

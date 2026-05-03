@@ -124,6 +124,9 @@ class SettingsActivity : ComponentActivity() {
             onShowCurrentProgramInChannelListChanged = { enabled: Boolean ->
                 viewModel.setShowCurrentProgramInChannelList(enabled)
             },
+            onChannelPreviewEnabledChanged = { enabled: Boolean ->
+                viewModel.setChannelPreviewEnabled(enabled)
+            },
             onEpgUrlChanged = { url: String ->
                 viewModel.saveEpgUrl(url)
             },

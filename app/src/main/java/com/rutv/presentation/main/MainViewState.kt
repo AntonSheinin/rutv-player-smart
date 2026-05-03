@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.rutv.R
 import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
+import com.rutv.data.model.PlayerConfig
 import com.rutv.data.model.PlaylistSource
 import com.rutv.data.model.ResizeMode
 import com.rutv.presentation.player.DebugMessage
@@ -46,12 +47,14 @@ data class MainViewState(
      * panel won't show "current program" under each channel.
      */
     val showCurrentProgramInChannelList: Boolean = true,
+    val channelPreviewEnabled: Boolean = true,
     val isArchivePlayback: Boolean = false,
     val isTimeshiftPlayback: Boolean = false,
     val archiveProgram: EpgProgram? = null,
     val archivePrompt: ArchivePrompt? = null,
     val debugMessages: ImmutableList<DebugMessage> = persistentListOf(),
     val showDebugLog: Boolean = false,
+    val playerConfig: PlayerConfig = PlayerConfig(),
     val currentResizeMode: ResizeMode = ResizeMode.FIT,
     val isLoading: Boolean = false,
     val error: String? = null,
