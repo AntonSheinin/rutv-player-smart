@@ -842,7 +842,7 @@ private fun ChannelPreviewOverlay(
     val previewHeight = 144.dp
     val previewWidthPx = with(density) { previewWidth.roundToPx() }
     val previewHeightPx = with(density) { previewHeight.roundToPx() }
-    val x = LayoutConstants.DefaultPadding + LayoutConstants.PlaylistPanelWidth + CHANNEL_PREVIEW_LIST_GAP_DP.dp
+    val x = LayoutConstants.PlaylistPanelWidth - LayoutConstants.DefaultPadding + CHANNEL_PREVIEW_LIST_GAP_DP.dp
     val y = with(density) {
         val desiredCenter = LayoutConstants.DefaultPadding.roundToPx() +
             LayoutConstants.ToolbarHeight.roundToPx() +
@@ -912,7 +912,7 @@ private fun ChannelPreviewOverlay(
 
 private const val MEDIA3_UI_PACKAGE = "androidx.media3.ui"
 private const val CHANNEL_PREVIEW_DEBOUNCE_MS = 500L
-private const val CHANNEL_PREVIEW_LIST_GAP_DP = 4
+private const val CHANNEL_PREVIEW_LIST_GAP_DP = 8
 private const val CHANNEL_PREVIEW_ROW_CENTER_ADJUST_DP = 8
 private val CONTROL_LOOKUP_CACHE_TAG_KEY: Int = R.id.tag_player_control_lookup_cache
 private data class ControlLookupCache(

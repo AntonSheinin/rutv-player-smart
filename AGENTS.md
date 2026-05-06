@@ -93,7 +93,7 @@ Use the repo script:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/profile-adb.ps1 `
-  -Serial 10.100.102.10:5555 `
+-Serial 10.100.102.10:5555 `
   -PackageName com.rutv `
   -ActivityName com.rutv/.presentation.MainActivity `
   -LaunchRuns 3 `
