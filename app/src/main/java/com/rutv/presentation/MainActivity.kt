@@ -141,9 +141,11 @@ class MainActivity : ComponentActivity() {
         var channelInput by remember { mutableStateOf("") }
 
         LaunchedEffect(Unit) {
+            logDebug { "PERF MainScreen composed" }
             // Signal ViewModel after the first frame so startup player init can be deferred
             // outside the critical "activity displayed" path.
             withFrameNanos { }
+            logDebug { "PERF first_compose_frame" }
             // Give the enter transition one more beat on slower STBs before kicking off
             // playlist/db work that can compete for startup CPU.
             delay(250L)

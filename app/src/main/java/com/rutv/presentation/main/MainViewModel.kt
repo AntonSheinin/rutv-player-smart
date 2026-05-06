@@ -1,5 +1,6 @@
 package com.rutv.presentation.main
 import android.content.Intent
+import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rutv.data.model.ResizeMode
@@ -25,6 +26,7 @@ import com.rutv.util.logDebug
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.coroutines.CancellationException
@@ -36,6 +38,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
@@ -100,6 +103,11 @@ class MainViewModel @Inject constructor(
     @Volatile
     private var filteredIndexByUrl: Map<String, Int> = emptyMap()
     private var lastPersistedPlayedIndex: Int = -1
+    private val perfStartMs = SystemClock.elapsedRealtime()
+
+    private fun logPerf(mark: String) {
+        logDebug { "PERF ${SystemClock.elapsedRealtime() - perfStartMs}ms $mark" }
+    }
 
     private fun postEpgNotification() {
         if (_viewState.value.epgNotificationMessage == EPG_LOADED_MESSAGE) return
@@ -116,6 +124,7 @@ class MainViewModel @Inject constructor(
 
     fun onStartupUiReady() {
         if (!startupInitiated.compareAndSet(false, true)) return
+        logPerf("startup_ui_ready")
         initializeApp()
     }
 
@@ -127,6 +136,7 @@ class MainViewModel @Inject constructor(
 
             delay(STARTUP_PLAYER_INIT_DELAY_MS)
             if (!isLatestPlaylistLoad(loadId)) return@launch
+            logPerf("player_init_requested")
             val startChannel = initializePlayer(channels)
             if (!isLatestPlaylistLoad(loadId)) return@launch
 
@@ -139,11 +149,22 @@ class MainViewModel @Inject constructor(
             // "first seconds after startup" window to avoid competing with initial rendering.
             startChannel?.let { channel ->
                 viewModelScope.launch(Dispatchers.IO) {
+                    waitForStartupPlayerReady(channel.url)
                     delay(STARTUP_EPG_PRELOAD_DELAY_MS)
                     if (!isLatestPlaylistLoad(loadId)) return@launch
+                    logPerf("startup_epg_preload_start")
                     preloadChannelEpg(channel)
                 }
             }
+        }
+    }
+
+    private suspend fun waitForStartupPlayerReady(channelUrl: String) {
+        withTimeoutOrNull(STARTUP_PLAYER_READY_WAIT_MS) {
+            playerManager.playerState
+                .filterIsInstance<PlayerState.Ready>()
+                .filter { it.channel.url == channelUrl }
+                .first()
         }
     }
 
@@ -212,6 +233,7 @@ class MainViewModel @Inject constructor(
 
                 when (state) {
                     is PlayerState.Ready -> {
+                        logPerf("player_ready channel=${state.index}")
                         val filteredIndex = findFilteredChannelIndex(state.channel.url)
                         _viewState.update {
                             val channelChanged = it.currentChannelIndex != state.index ||
@@ -362,6 +384,7 @@ class MainViewModel @Inject constructor(
      * This prevents race conditions and ensures EPG is ready
      */
     private fun initializeApp() {
+        logPerf("initialize_app")
         val loadId = nextPlaylistLoadId()
         startupPlayerInitJob?.cancel()
         startupPlayerInitJob = null
@@ -377,6 +400,7 @@ class MainViewModel @Inject constructor(
             val lastPlayedIndex = preferencesRepository.lastPlayedIndex.first()
             val startIndex = if (lastPlayedIndex in channels.indices) lastPlayedIndex else 0
             playerManager.initialize(channels, config, startIndex)
+            logPerf("player_initialize_submitted channels=${channels.size}")
             channels.getOrNull(startIndex)
         } catch (e: CancellationException) {
             throw e
@@ -448,6 +472,7 @@ class MainViewModel @Inject constructor(
             when (playlistResult) {
                 is Result.Success -> {
                     val channels = playlistResult.data
+                    logPerf("playlist_loaded channels=${channels.size}")
 
                     // Update state first so UI can render quickly (and show playlist / channel title).
                     _viewState.update {
@@ -572,6 +597,7 @@ class MainViewModel @Inject constructor(
                 when (result) {
                     is Result.Success -> {
                         val channels = result.data
+                        logPerf("playlist_reload_loaded channels=${channels.size}")
 
                         val programsMapToUse = if (forceReload) {
                             epgRepository.clearCache()
@@ -627,6 +653,7 @@ class MainViewModel @Inject constructor(
                             }
 
                             val channelForPreload = resumeChannel ?: startChannel ?: channels.first()
+                            delay(ACTIVE_EPG_REFRESH_DELAY_MS)
                             preloadChannelEpg(channelForPreload)
                             val preloadIndex = findMainChannelIndex(channelForPreload.url).takeIf { it >= 0 } ?: 0
                             ensureChannelVisibility(preloadIndex)
@@ -891,6 +918,19 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    private fun updatedCurrentProgramsMap(
+        current: ImmutableMap<String, EpgProgram?>,
+        tvgId: String,
+        program: EpgProgram?
+    ): ImmutableMap<String, EpgProgram?> {
+        if (current.containsKey(tvgId) && current[tvgId] == program) {
+            return current
+        }
+        return current.toMutableMap()
+            .apply { this[tvgId] = program }
+            .toImmutableMap()
+    }
+
     fun setChannelGroupFilter(group: String?) {
         val normalized = group?.trim().takeIf { !it.isNullOrBlank() }
         _viewState.update { current ->
@@ -981,11 +1021,14 @@ class MainViewModel @Inject constructor(
             _viewState.update { state ->
                 val shouldUpdateCurrent = state.currentChannel?.tvgId == channel.tvgId
                 val updatedMap = if (state.showCurrentProgramInChannelList) {
-                    state.currentProgramsMap.toMutableMap().apply {
-                        this[channel.tvgId] = currentProgram
-                    }.toImmutableMap()
+                    updatedCurrentProgramsMap(state.currentProgramsMap, channel.tvgId, currentProgram)
                 } else {
                     state.currentProgramsMap
+                }
+                if (updatedMap === state.currentProgramsMap &&
+                    (!shouldUpdateCurrent || currentProgram == null || state.currentProgram == currentProgram)
+                ) {
+                    return@update state
                 }
                 state.copy(
                     currentProgramsMap = updatedMap,
@@ -1016,10 +1059,12 @@ class MainViewModel @Inject constructor(
      * with a richer (past + future) window.
      */
     fun onVisibleChannelsChanged(tvgIds: List<String>) {
+        if (visibleChannelTvgIds.value == tvgIds) return
         visibleChannelTvgIds.value = tvgIds
         if (!_viewState.value.showCurrentProgramInChannelList) return
         visibilityPreloadJob?.cancel()
         visibilityPreloadJob = viewModelScope.launch(Dispatchers.IO) {
+            delay(VISIBLE_PROGRAM_REFRESH_DELAY_MS)
             refreshVisibleCurrentPrograms()
         }
     }
@@ -1060,10 +1105,16 @@ class MainViewModel @Inject constructor(
 
         _viewState.update { s ->
             if (!s.showCurrentProgramInChannelList) return@update s
-            val merged = s.currentProgramsMap.toMutableMap().apply {
-                current.forEach { (tvgId, program) -> this[tvgId] = program }
-            }.toImmutableMap()
-            s.copy(currentProgramsMap = merged)
+            var changed = false
+            val merged = s.currentProgramsMap.toMutableMap()
+            current.forEach { (tvgId, program) ->
+                if (!merged.containsKey(tvgId) || merged[tvgId] != program) {
+                    merged[tvgId] = program
+                    changed = true
+                }
+            }
+            if (!changed) return@update s
+            s.copy(currentProgramsMap = merged.toImmutableMap())
         }
     }
 
@@ -1136,11 +1187,20 @@ class MainViewModel @Inject constructor(
 
                 _viewState.update { state ->
                     val updatedMap = if (state.showCurrentProgramInChannelList) {
-                        state.currentProgramsMap.toMutableMap().apply {
-                            this[tvgId] = current
-                        }.toImmutableMap()
+                        updatedCurrentProgramsMap(state.currentProgramsMap, tvgId, current)
                     } else {
                         state.currentProgramsMap
+                    }
+                    if (updatedMap === state.currentProgramsMap &&
+                        state.epgLoadedFromUtc == window.fromUtcMillis &&
+                        state.epgLoadedToUtc == window.toUtcMillis &&
+                        state.showEpgPanel &&
+                        !state.isEpgLoading &&
+                        state.epgChannelTvgId == tvgId &&
+                        state.epgPrograms == programs &&
+                        state.currentProgram == current
+                    ) {
+                        return@update state
                     }
                     state.copy(
                         currentProgramsMap = updatedMap,
@@ -1490,18 +1550,22 @@ class MainViewModel @Inject constructor(
             _viewState.update { state ->
                 if (state.currentChannel?.url != channel.url) return@update state
                 val updatedMap = if (state.showCurrentProgramInChannelList) {
-                    state.currentProgramsMap.toMutableMap().apply {
-                        this[channel.tvgId] = program
-                    }.toImmutableMap()
+                    updatedCurrentProgramsMap(state.currentProgramsMap, channel.tvgId, program)
                 } else {
                     state.currentProgramsMap
+                }
+                if (state.currentProgram == program && updatedMap === state.currentProgramsMap) {
+                    return@update state
                 }
                 state.copy(currentProgram = program, currentProgramsMap = updatedMap)
             }
             // Always refresh from the server: the EPG backend updates nightly, so the
             // cached program (if any) may be stale. The repository bypasses its cache
             // for windows overlapping now, and windowInFlight dedupes concurrent calls.
-            preloadChannelEpg(channel)
+            delay(ACTIVE_EPG_REFRESH_DELAY_MS)
+            if (_viewState.value.currentChannel?.url == channel.url) {
+                preloadChannelEpg(channel)
+            }
         } catch (e: Exception) {
             Timber.e(e, "Error updating current program for ${channel.title}")
             _viewState.update { state ->
@@ -1654,8 +1718,11 @@ class MainViewModel @Inject constructor(
     private companion object {
         const val EPG_LOADED_MESSAGE = "EPG loaded"
         private const val STARTUP_PLAYER_INIT_DELAY_MS = 250L
+        private const val STARTUP_PLAYER_READY_WAIT_MS = 5000L
         private const val STARTUP_EPG_PRELOAD_DELAY_MS = 3500L
         private const val STARTUP_URL_REFRESH_DELAY_MS = 6000L
+        private const val ACTIVE_EPG_REFRESH_DELAY_MS = 1500L
+        private const val VISIBLE_PROGRAM_REFRESH_DELAY_MS = 700L
         private const val CHANNEL_PAGE_SIZE = 60
         private const val CHANNEL_PREFETCH_MARGIN = 8
     }

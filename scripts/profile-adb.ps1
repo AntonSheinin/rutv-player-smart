@@ -49,6 +49,7 @@ $results = [ordered]@{
     activity = $ActivityName
     launch = @()
     gfxinfo = [ordered]@{}
+    sections = [ordered]@{}
     meminfo = [ordered]@{}
     cpuSamples = @()
     perfLogHighlights = @()
@@ -78,23 +79,59 @@ for ($i = 1; $i -le $LaunchRuns; $i++) {
     Start-Sleep -Seconds 2
 }
 
-# Gfxinfo during a small interaction window
-& "$adb" -s $Serial shell dumpsys gfxinfo $PackageName reset | Out-Null
-& "$adb" -s $Serial shell am force-stop $PackageName | Out-Null
-Start-Sleep -Milliseconds 500
-& "$adb" -s $Serial shell am start -n $ActivityName | Out-Null
-Start-Sleep -Seconds 4
+function Read-GfxSection([string]$Name) {
+    $section = [ordered]@{}
+    $gfx = & "$adb" -s $Serial shell dumpsys gfxinfo $PackageName
+    $gfxLines = $gfx | Select-String -Pattern "Total frames rendered|Janky frames|50th percentile|90th percentile|95th percentile|99th percentile|Number Missed Vsync|Number Slow UI thread|Number Slow bitmap uploads|Number Slow issue draw commands"
+    foreach ($line in $gfxLines) {
+        $section[$line.Line.Trim()] = $true
+    }
+    $results.sections[$Name] = $section
+    return $section
+}
+
+function Start-AppForProfile([int]$WarmupSeconds = 4) {
+    & "$adb" -s $Serial shell dumpsys gfxinfo $PackageName reset | Out-Null
+    & "$adb" -s $Serial shell am force-stop $PackageName | Out-Null
+    Start-Sleep -Milliseconds 500
+    & "$adb" -s $Serial shell am start -n $ActivityName | Out-Null
+    Start-Sleep -Seconds $WarmupSeconds
+}
+
+# Combined startup + simple horizontal interaction, preserved as the main gate.
+Start-AppForProfile -WarmupSeconds 4
 for ($i = 0; $i -lt $InteractionSteps; $i++) {
     & "$adb" -s $Serial shell input keyevent 22 | Out-Null
     & "$adb" -s $Serial shell input keyevent 21 | Out-Null
     Start-Sleep -Milliseconds 350
 }
 Start-Sleep -Seconds 2
-$gfx = & "$adb" -s $Serial shell dumpsys gfxinfo $PackageName
-$gfxLines = $gfx | Select-String -Pattern "Total frames rendered|Janky frames|50th percentile|90th percentile|95th percentile|99th percentile|Number Missed Vsync|Number Slow UI thread|Number Slow bitmap uploads|Number Slow issue draw commands"
-foreach ($line in $gfxLines) {
-    $results.gfxinfo[$line.Line.Trim()] = $true
+$combined = Read-GfxSection "combined_startup_interaction"
+foreach ($key in $combined.Keys) { $results.gfxinfo[$key] = $true }
+
+# Playlist-focused profile: wait for playback setup, open playlist, navigate visible rows.
+Start-AppForProfile -WarmupSeconds 6
+& "$adb" -s $Serial shell input keyevent 21 | Out-Null
+Start-Sleep -Seconds 1
+for ($i = 0; $i -lt $InteractionSteps; $i++) {
+    & "$adb" -s $Serial shell input keyevent 20 | Out-Null
+    & "$adb" -s $Serial shell input keyevent 19 | Out-Null
+    Start-Sleep -Milliseconds 250
 }
+Start-Sleep -Seconds 1
+Read-GfxSection "playlist_navigation" | Out-Null
+
+# EPG-focused profile: wait for playback setup, open EPG, navigate rows/date edge work.
+Start-AppForProfile -WarmupSeconds 6
+& "$adb" -s $Serial shell input keyevent 22 | Out-Null
+Start-Sleep -Seconds 2
+for ($i = 0; $i -lt $InteractionSteps; $i++) {
+    & "$adb" -s $Serial shell input keyevent 20 | Out-Null
+    & "$adb" -s $Serial shell input keyevent 19 | Out-Null
+    Start-Sleep -Milliseconds 250
+}
+Start-Sleep -Seconds 1
+Read-GfxSection "epg_navigation" | Out-Null
 
 # Meminfo
 $mem = & "$adb" -s $Serial shell dumpsys meminfo $PackageName
@@ -140,6 +177,12 @@ if ($launchTotals.Count -gt 0) {
 
 Write-Host "`n=== Gfxinfo Highlights ==="
 $results.gfxinfo.Keys | ForEach-Object { Write-Host $_ }
+
+Write-Host "`n=== Gfxinfo Sections ==="
+$results.sections.GetEnumerator() | ForEach-Object {
+    Write-Host ("[{0}]" -f $_.Key)
+    $_.Value.Keys | ForEach-Object { Write-Host $_ }
+}
 
 Write-Host "`n=== Meminfo ==="
 $results.meminfo.GetEnumerator() | ForEach-Object { Write-Host ("{0}: {1}" -f $_.Key, $_.Value) }

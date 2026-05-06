@@ -46,6 +46,7 @@ import androidx.media3.ui.R as Media3UiR
 import com.rutv.R
 import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
+import com.rutv.data.model.PlayerConfig
 import com.rutv.ui.mobile.screens.PlayerUiState
 import com.rutv.ui.mobile.screens.PlayerUiActions
 import com.rutv.ui.mobile.screens.rememberPlayerViewHolder
@@ -67,9 +68,11 @@ import kotlin.math.abs
 import kotlin.math.max
 import timber.log.Timber
 import com.rutv.presentation.player.PlaybackIssue
+import com.rutv.presentation.player.ChannelPreviewController
 import com.rutv.presentation.player.ChannelPreviewPlaybackState
 import com.rutv.presentation.player.PlayerState
 import com.rutv.presentation.player.PreviewPlayerFactory
+import com.rutv.util.logDebug
 import java.lang.ref.WeakReference
 
 /**
@@ -337,36 +340,67 @@ fun PlayerScreen(
 
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val previewController = remember(previewPlayerFactory, context, uiState.playerConfig) {
-        previewPlayerFactory.create(context, uiState.playerConfig)
+    var previewController by remember { mutableStateOf<ChannelPreviewController?>(null) }
+    var previewControllerConfig by remember { mutableStateOf<PlayerConfig?>(null) }
+    var previewPlaybackState by remember {
+        mutableStateOf<ChannelPreviewPlaybackState>(ChannelPreviewPlaybackState.Idle)
     }
-    val previewPlaybackState by previewController.state.collectAsState()
     var previewTarget by remember { mutableStateOf<ChannelPreviewTarget?>(null) }
     var rootSize by remember { mutableStateOf(IntSize.Zero) }
     var previewLifecycleActive by remember {
         mutableStateOf(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
     }
+    val currentPreviewController by rememberUpdatedState(previewController)
 
-    DisposableEffect(previewController) {
+    DisposableEffect(Unit) {
         onDispose {
-            previewController.release()
+            currentPreviewController?.release()
+            previewController = null
+            previewControllerConfig = null
         }
     }
 
-    DisposableEffect(previewController, lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_START -> previewLifecycleActive = true
-                Lifecycle.Event.ON_STOP -> {
-                    previewLifecycleActive = false
-                    previewController.stopForLifecycle()
-                }
-                else -> Unit
-            }
+    LaunchedEffect(previewController) {
+        val controller = previewController
+        if (controller == null) {
+            previewPlaybackState = ChannelPreviewPlaybackState.Idle
+            return@LaunchedEffect
         }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
+        controller.state.collect { state -> previewPlaybackState = state }
+    }
+
+    LaunchedEffect(uiState.showPlaylist, uiState.channelPreviewEnabled, uiState.playerConfig) {
+        if (uiState.showPlaylist && uiState.channelPreviewEnabled) {
+            withFrameNanos { }
+            if (previewController == null || previewControllerConfig != uiState.playerConfig) {
+                previewController?.release()
+                logDebug { "PERF preview_controller_create" }
+                previewController = previewPlayerFactory.create(context, uiState.playerConfig)
+                previewControllerConfig = uiState.playerConfig
+            }
+            previewController?.resetSession()
+        } else {
+            previewTarget = null
+            previewController?.stop()
+        }
+    }
+
+    previewController?.let { controller ->
+        DisposableEffect(controller, lifecycleOwner) {
+            val observer = LifecycleEventObserver { _, event ->
+                when (event) {
+                    Lifecycle.Event.ON_START -> previewLifecycleActive = true
+                    Lifecycle.Event.ON_STOP -> {
+                        previewLifecycleActive = false
+                        controller.stopForLifecycle()
+                    }
+                    else -> Unit
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose {
+                lifecycleOwner.lifecycle.removeObserver(observer)
+            }
         }
     }
 
@@ -381,6 +415,7 @@ fun PlayerScreen(
     ) {
         val target = previewTarget
         val shouldStop = target == null ||
+            previewController == null ||
             !uiState.channelPreviewEnabled ||
             !previewLifecycleActive ||
             !uiState.showPlaylist ||
@@ -391,28 +426,20 @@ fun PlayerScreen(
             target.url == uiState.currentChannel?.url
 
         if (shouldStop) {
-            previewController.stop()
+            previewController?.stop()
             return@LaunchedEffect
         }
 
         delay(CHANNEL_PREVIEW_DEBOUNCE_MS)
         if (!previewLifecycleActive) return@LaunchedEffect
-        previewController.preview(target.url)
-    }
-
-    LaunchedEffect(uiState.showPlaylist) {
-        if (uiState.showPlaylist && uiState.channelPreviewEnabled) {
-            previewController.resetSession()
-        } else {
-            previewTarget = null
-            previewController.stop()
-        }
+        logDebug { "PERF preview_start" }
+        previewController?.preview(target.url)
     }
 
     LaunchedEffect(uiState.channelPreviewEnabled) {
         if (!uiState.channelPreviewEnabled) {
             previewTarget = null
-            previewController.stop()
+            previewController?.stop()
         }
     }
 
@@ -442,6 +469,7 @@ fun PlayerScreen(
                         )
                         playerViewRef = this
                         this.player = exoPlayer
+                        logDebug { "PERF player_view_attached" }
                         configurePlayerView(uiState, controllerVisibilityCallback)
                     }
                 },
@@ -452,7 +480,8 @@ fun PlayerScreen(
                     val controlsSignature = ControlsSignature(
                         isArchivePlayback = uiState.isArchivePlayback
                     )
-                    if (controlsSignature != lastControlsSignature) {
+                    if (showControls && controlsSignature != lastControlsSignature) {
+                        logDebug { "PERF player_controls_bind" }
                         playerView.bindControls(
                             uiState = uiState,
                             actions = actions,
@@ -654,18 +683,18 @@ fun PlayerScreen(
                 showCurrentProgramInChannelList = uiState.showCurrentProgramInChannelList,
                 onChannelClick = { index ->
                     previewTarget = null
-                    previewController.stop()
+                    previewController?.stop()
                     actions.onPlayChannel(index)
                 },
                 onFavoriteClick = actions.onToggleFavorite,
                 onShowPrograms = { tvgId ->
                     previewTarget = null
-                    previewController.stop()
+                    previewController?.stop()
                     actions.onShowEpgForChannel(tvgId)
                 },
                 onClose = {
                     previewTarget = null
-                    previewController.stop()
+                    previewController?.stop()
                     actions.onClosePlaylist()
                 },
                 onUpdateScrollIndex = actions.onUpdatePlaylistScrollIndex,
@@ -680,7 +709,7 @@ fun PlayerScreen(
                 onPreviewTargetChanged = { target -> previewTarget = target },
                 onRequestEpgFocus = {
                     previewTarget = null
-                    previewController.stop()
+                    previewController?.stop()
                     focusManager.requestEnter(PlayerFocusDestination.EPG_PANEL)
                 },
                 modifier = Modifier.align(Alignment.CenterStart)
@@ -711,13 +740,15 @@ fun PlayerScreen(
                 previewPlaybackState !is ChannelPreviewPlaybackState.SessionDisabled &&
                 activePreviewUrl == effectivePreviewTarget.url
 
+        val overlayPreviewController = previewController
         if (effectivePreviewTarget != null &&
+            overlayPreviewController != null &&
             (showNowPlayingPreview || showUnavailablePreview || showVideoPreview)
         ) {
             ChannelPreviewOverlay(
                 target = effectivePreviewTarget,
                 rootSize = rootSize,
-                previewController = previewController,
+                previewController = overlayPreviewController,
                 showVideo = showVideoPreview,
                 placeholderText = when {
                     showNowPlayingPreview -> stringResource(R.string.channel_preview_now_playing)
