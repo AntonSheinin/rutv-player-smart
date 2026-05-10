@@ -13,6 +13,7 @@ sealed class PlayerState {
     data class Archive(
         val channel: Channel,
         val program: EpgProgram,
+        val mode: ProgramDvrMode = ProgramDvrMode.ARCHIVE_PROGRAM,
         val endReason: ArchiveEndReason? = null
     ) : PlayerState()
     data class Error(
@@ -28,6 +29,21 @@ sealed class PlayerState {
 enum class ArchiveEndReason {
     COMPLETED
 }
+
+enum class ProgramDvrMode {
+    TIMESHIFT_CURRENT_PROGRAM,
+    ARCHIVE_PROGRAM
+}
+
+data class ProgramPlaybackProgress(
+    val mode: ProgramDvrMode,
+    val channel: Channel,
+    val program: EpgProgram,
+    val positionMs: Long,
+    val durationMs: Long,
+    val seekableDurationMs: Long,
+    val isPlaying: Boolean
+)
 
 /**
  * Debug message for logging

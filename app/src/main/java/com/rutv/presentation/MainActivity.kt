@@ -215,6 +215,8 @@ class MainActivity : ComponentActivity() {
             onRestartPlayback = { viewModel.restartCurrentPlayback() },
             onSeekBack = { viewModel.seekBackTenSeconds() },
             onSeekForward = { viewModel.seekForwardTenSeconds() },
+            onSeekBackOneMinute = { viewModel.seekBackOneMinute() },
+            onSeekForwardOneMinute = { viewModel.seekForwardOneMinute() },
             onPausePlayback = { viewModel.pausePlayback() },
             onResumePlayback = { viewModel.resumePlayback() },
             onArchivePromptContinue = { viewModel.continueArchiveFromPrompt() },

@@ -11,6 +11,7 @@ import com.rutv.presentation.main.ArchivePrompt
 import com.rutv.presentation.main.MainViewState
 import com.rutv.presentation.player.DebugMessage
 import com.rutv.presentation.player.PlayerState
+import com.rutv.presentation.player.ProgramPlaybackProgress
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.toImmutableList
@@ -31,10 +32,11 @@ data class PlayerUiState(
     val currentChannelIndex: Int,
     val currentChannelFilteredIndex: Int,
     val currentProgram: EpgProgram?,
-    val archiveProgram: EpgProgram?,
+    val programDvrProgram: EpgProgram?,
     val selectedProgramDetails: EpgProgram?,
     val isArchivePlayback: Boolean,
     val isTimeshiftPlayback: Boolean,
+    val programProgress: ProgramPlaybackProgress?,
     val showPlaylist: Boolean,
     val showEpgPanel: Boolean,
     val isEpgLoading: Boolean,
@@ -76,6 +78,8 @@ data class PlayerUiActions(
     val onRestartPlayback: () -> Unit,
     val onSeekBack: () -> Unit,
     val onSeekForward: () -> Unit,
+    val onSeekBackOneMinute: () -> Unit,
+    val onSeekForwardOneMinute: () -> Unit,
     val onPausePlayback: () -> Unit,
     val onResumePlayback: () -> Unit,
     val onArchivePromptContinue: () -> Unit,
@@ -113,10 +117,11 @@ fun rememberPlayerUiState(viewState: MainViewState): PlayerUiState {
             currentChannelIndex = viewState.currentChannelIndex,
             currentChannelFilteredIndex = viewState.currentChannelFilteredIndex,
             currentProgram = viewState.currentProgram,
-            archiveProgram = viewState.archiveProgram,
+            programDvrProgram = viewState.programDvrProgram,
             selectedProgramDetails = viewState.selectedProgramDetails,
             isArchivePlayback = viewState.isArchivePlayback,
             isTimeshiftPlayback = viewState.isTimeshiftPlayback,
+            programProgress = viewState.programProgress,
             showPlaylist = viewState.showPlaylist,
             showEpgPanel = viewState.showEpgPanel,
             isEpgLoading = viewState.isEpgLoading,

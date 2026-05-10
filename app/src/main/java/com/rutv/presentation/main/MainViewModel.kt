@@ -19,6 +19,7 @@ import com.rutv.domain.usecase.WatchFromBeginningUseCase
 import com.rutv.presentation.player.DebugMessage
 import com.rutv.presentation.player.PlayerManager
 import com.rutv.presentation.player.PlayerState
+import com.rutv.presentation.player.ProgramDvrMode
 import com.rutv.util.PlayerConstants
 import com.rutv.util.Result
 import com.rutv.util.StringFormatter
@@ -244,7 +245,8 @@ class MainViewModel @Inject constructor(
                                 currentChannelFilteredIndex = filteredIndex,
                                 isArchivePlayback = false,
                                 isTimeshiftPlayback = if (channelChanged) false else it.isTimeshiftPlayback,
-                                archiveProgram = null,
+                                programDvrProgram = null,
+                                programProgress = null,
                                 archivePrompt = null
                             )
                         }
@@ -262,9 +264,9 @@ class MainViewModel @Inject constructor(
                                 it.copy(
                                     currentChannel = state.channel,
                                     currentProgram = state.program,
-                                    isArchivePlayback = true,
-                                    isTimeshiftPlayback = false,
-                                    archiveProgram = state.program,
+                                    isArchivePlayback = state.mode == ProgramDvrMode.ARCHIVE_PROGRAM,
+                                    isTimeshiftPlayback = state.mode == ProgramDvrMode.TIMESHIFT_CURRENT_PROGRAM,
+                                    programDvrProgram = state.program,
                                     archivePrompt = null,
                                     currentChannelFilteredIndex = filteredIndex
                                 )
@@ -277,6 +279,22 @@ class MainViewModel @Inject constructor(
                         }
                     }
                     else -> Unit
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            playerManager.programProgress.collect { progress ->
+                _viewState.update {
+                    if (progress == null) {
+                        it.copy(programProgress = null)
+                    } else {
+                        it.copy(
+                            programProgress = progress,
+                            isArchivePlayback = progress.mode == ProgramDvrMode.ARCHIVE_PROGRAM,
+                            isTimeshiftPlayback = progress.mode == ProgramDvrMode.TIMESHIFT_CURRENT_PROGRAM
+                        )
+                    }
                 }
             }
         }
@@ -580,10 +598,13 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 if (!isLatestPlaylistLoad(loadId)) return@launch
-                val wasArchivePlayback = _viewState.value.isArchivePlayback
-                val archiveProgramToResume = _viewState.value.archiveProgram
-                val archiveChannelUrl = _viewState.value.currentChannel?.url
-                val archiveChannelTvgId = _viewState.value.currentChannel?.tvgId
+                val stateBeforeLoad = _viewState.value
+                val wasArchivePlayback = stateBeforeLoad.isArchivePlayback
+                val wasTimeshiftPlayback = stateBeforeLoad.isTimeshiftPlayback
+                val programDvrProgramToResume = stateBeforeLoad.programDvrProgram
+                val programProgressToResume = stateBeforeLoad.programProgress
+                val archiveChannelUrl = stateBeforeLoad.currentChannel?.url
+                val archiveChannelTvgId = stateBeforeLoad.currentChannel?.tvgId
 
                 _viewState.update { it.copy(isLoading = true, error = null) }
 
@@ -636,19 +657,33 @@ class MainViewModel @Inject constructor(
                             val startChannel = initializePlayer(channels)
 
                             val resumeChannel = when {
-                                wasArchivePlayback && archiveProgramToResume != null -> {
+                                (wasArchivePlayback || wasTimeshiftPlayback) && programDvrProgramToResume != null -> {
                                     channels.firstOrNull { it.url == archiveChannelUrl }
                                         ?: channels.firstOrNull { it.tvgId.isNotBlank() && it.tvgId == archiveChannelTvgId }
                                 }
                                 else -> null
                             }
-                            if (resumeChannel != null && archiveProgramToResume != null) {
+                            if (resumeChannel != null && programDvrProgramToResume != null) {
                                 withContext(Dispatchers.Main) {
-                                    startArchivePlayback(resumeChannel, archiveProgramToResume)
+                                    if (wasTimeshiftPlayback) {
+                                        startTimeshiftPlayback(
+                                            channel = resumeChannel,
+                                            program = programDvrProgramToResume,
+                                            initialOffsetMs = programProgressToResume?.positionMs ?: 0L,
+                                            startPaused = programProgressToResume?.isPlaying != true
+                                        )
+                                    } else {
+                                        startArchivePlayback(resumeChannel, programDvrProgramToResume)
+                                    }
                                 }
-                            } else if (wasArchivePlayback) {
+                            } else if (wasArchivePlayback || wasTimeshiftPlayback) {
                                 _viewState.update { state ->
-                                    state.copy(isArchivePlayback = false, isTimeshiftPlayback = false, archiveProgram = null)
+                                    state.copy(
+                                        isArchivePlayback = false,
+                                        isTimeshiftPlayback = false,
+                                        programDvrProgram = null,
+                                        programProgress = null
+                                    )
                                 }
                             }
 
@@ -813,7 +848,8 @@ class MainViewModel @Inject constructor(
                 isEpgLoading = false,
                 isArchivePlayback = false,
                 isTimeshiftPlayback = false,
-                archiveProgram = null
+                programDvrProgram = null,
+                programProgress = null
             )
         }
     }
@@ -1357,7 +1393,8 @@ class MainViewModel @Inject constructor(
                 it.copy(
                     isArchivePlayback = false,
                     isTimeshiftPlayback = false,
-                    archiveProgram = null,
+                    programDvrProgram = null,
+                    programProgress = null,
                     archivePrompt = null
                 )
             }
@@ -1384,7 +1421,12 @@ class MainViewModel @Inject constructor(
                 is Result.Success -> {
                     val info = result.data
                     appendDebugMessage(DebugMessage(StringFormatter.formatDvrRestarting(currentProgram.title)))
-                    startArchivePlayback(info.channel, info.program)
+                    startTimeshiftPlayback(
+                        channel = info.channel,
+                        program = info.program,
+                        initialOffsetMs = 0L,
+                        startPaused = false
+                    )
                 }
                 is Result.Error -> {
                     appendDebugMessage(DebugMessage(StringFormatter.formatDvrValidationFailed(result.message ?: StringFormatter.formatErrorUnknown())))
@@ -1395,42 +1437,175 @@ class MainViewModel @Inject constructor(
     }
 
     fun restartCurrentPlayback() {
-        if (_viewState.value.isArchivePlayback) {
-            playerManager.restartArchive()
+        if (_viewState.value.isArchivePlayback || _viewState.value.isTimeshiftPlayback) {
+            playerManager.restartProgram()
         } else {
             watchFromBeginning()
         }
     }
 
     fun seekBackTenSeconds() {
-        val wasArchive = _viewState.value.isArchivePlayback
         if (playerManager.seekBy(-PlayerConstants.SEEK_INCREMENT_MS)) {
-            if (!wasArchive) {
+            if (!_viewState.value.isArchivePlayback && _viewState.value.programProgress != null) {
                 _viewState.update { it.copy(isTimeshiftPlayback = true) }
             }
         }
     }
 
     fun seekForwardTenSeconds() {
-        val wasArchive = _viewState.value.isArchivePlayback
         if (playerManager.seekBy(PlayerConstants.SEEK_INCREMENT_MS)) {
-            if (!wasArchive) {
+            if (!_viewState.value.isArchivePlayback && _viewState.value.programProgress != null) {
                 _viewState.update { it.copy(isTimeshiftPlayback = true) }
             }
         }
     }
 
-    fun pausePlayback() {
-        playerManager.pause()
-        if (!_viewState.value.isArchivePlayback) {
-            _viewState.update { it.copy(isTimeshiftPlayback = true) }
+    fun seekBackOneMinute() {
+        seekProgramProgressBy(-PROGRAM_PROGRESS_SEEK_INCREMENT_MS)
+    }
+
+    fun seekForwardOneMinute() {
+        seekProgramProgressBy(PROGRAM_PROGRESS_SEEK_INCREMENT_MS)
+    }
+
+    private fun seekProgramProgressBy(deltaMs: Long) {
+        val state = _viewState.value
+        if (state.isArchivePlayback || state.isTimeshiftPlayback || state.programProgress != null) {
+            if (playerManager.seekBy(deltaMs)) {
+                if (!state.isArchivePlayback && _viewState.value.programProgress != null) {
+                    _viewState.update { it.copy(isTimeshiftPlayback = true) }
+                }
+            }
+            return
         }
+
+        val currentChannel = state.currentChannel
+        val currentProgram = state.currentProgram
+        if (currentChannel == null ||
+            currentProgram == null ||
+            !currentProgram.isCurrent() ||
+            !currentChannel.supportsCatchup()
+        ) {
+            postNotificationMessage("Timeshift is unavailable for this program")
+            return
+        }
+
+        viewModelScope.launch {
+            when (val result = watchFromBeginningUseCase(currentChannel, currentProgram)) {
+                is Result.Success -> {
+                    val info = result.data
+                    val durationMs = (info.program.stopTimeMillis - info.program.startTimeMillis).coerceAtLeast(1L)
+                    val availableMs = (System.currentTimeMillis() - info.program.startTimeMillis)
+                        .coerceIn(0L, durationMs)
+                    val targetOffsetMs = (availableMs + deltaMs).coerceIn(0L, availableMs)
+                    startTimeshiftPlayback(
+                        channel = info.channel,
+                        program = info.program,
+                        initialOffsetMs = targetOffsetMs,
+                        startPaused = false
+                    )
+                }
+                is Result.Error -> {
+                    postNotificationMessage("Timeshift is unavailable for this program")
+                    appendDebugMessage(
+                        DebugMessage(
+                            StringFormatter.formatDvrValidationFailed(
+                                result.message ?: StringFormatter.formatErrorUnknown()
+                            )
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    fun pausePlayback() {
+        val state = _viewState.value
+        if (!state.isArchivePlayback && !state.isTimeshiftPlayback) {
+            val currentChannel = state.currentChannel
+            val currentProgram = state.currentProgram
+            if (currentChannel != null &&
+                currentProgram != null &&
+                currentProgram.isCurrent() &&
+                currentChannel.supportsCatchup()
+            ) {
+                playerManager.pause()
+                viewModelScope.launch {
+                    when (val result = watchFromBeginningUseCase(currentChannel, currentProgram)) {
+                        is Result.Success -> {
+                            val info = result.data
+                            val offset = (System.currentTimeMillis() - info.program.startTimeMillis)
+                                .coerceIn(
+                                    0L,
+                                    (info.program.stopTimeMillis - info.program.startTimeMillis).coerceAtLeast(1L)
+                                )
+                            startTimeshiftPlayback(
+                                channel = info.channel,
+                                program = info.program,
+                                initialOffsetMs = offset,
+                                startPaused = true
+                            )
+                        }
+                        is Result.Error -> {
+                            postNotificationMessage("Timeshift is unavailable for this program")
+                            appendDebugMessage(
+                                DebugMessage(
+                                    StringFormatter.formatDvrValidationFailed(
+                                        result.message ?: StringFormatter.formatErrorUnknown()
+                                    )
+                                )
+                            )
+                        }
+                    }
+                }
+                return
+            }
+            postNotificationMessage("Timeshift is unavailable for this program")
+        }
+        playerManager.pause()
     }
 
     fun resumePlayback() {
         playerManager.resume()
-        if (!_viewState.value.isArchivePlayback) {
+        if (!_viewState.value.isArchivePlayback && _viewState.value.programProgress != null) {
             _viewState.update { it.copy(isTimeshiftPlayback = true) }
+        }
+    }
+
+    private suspend fun startTimeshiftPlayback(
+        channel: Channel,
+        program: EpgProgram,
+        initialOffsetMs: Long,
+        startPaused: Boolean
+    ) {
+        val durationMs = (program.stopTimeMillis - program.startTimeMillis).coerceAtLeast(1L)
+        val started = playerManager.playProgramDvr(
+            channel = channel,
+            program = program,
+            mode = ProgramDvrMode.TIMESHIFT_CURRENT_PROGRAM,
+            initialOffsetMs = initialOffsetMs.coerceIn(0L, durationMs),
+            startPaused = startPaused
+        )
+        if (!started) {
+            postNotificationMessage("Timeshift is unavailable for this program")
+            return
+        }
+        val channelIndex = findMainChannelIndex(channel.url).coerceAtLeast(0)
+        val filteredIndex = findFilteredChannelIndex(channel.url)
+        _viewState.update {
+            it.copy(
+                isArchivePlayback = false,
+                isTimeshiftPlayback = true,
+                programDvrProgram = program,
+                currentChannel = channel,
+                currentChannelIndex = channelIndex,
+                currentChannelFilteredIndex = filteredIndex,
+                currentProgram = program,
+                showPlaylist = false,
+                showEpgPanel = false,
+                isEpgLoading = false,
+                archivePrompt = null
+            )
         }
     }
 
@@ -1450,7 +1625,13 @@ class MainViewModel @Inject constructor(
                 )
             )
         )
-        val started = playerManager.playArchive(channel, program)
+        val started = playerManager.playProgramDvr(
+            channel = channel,
+            program = program,
+            mode = ProgramDvrMode.ARCHIVE_PROGRAM,
+            initialOffsetMs = 0L,
+            startPaused = false
+        )
         if (!started) return
         val channelIndex = findMainChannelIndex(channel.url).coerceAtLeast(0)
         val filteredIndex = findFilteredChannelIndex(channel.url)
@@ -1459,7 +1640,7 @@ class MainViewModel @Inject constructor(
             it.copy(
                 isArchivePlayback = true,
                 isTimeshiftPlayback = false,
-                archiveProgram = program,
+                programDvrProgram = program,
                 currentChannel = channel,
                 currentChannelIndex = channelIndex,
                 currentChannelFilteredIndex = filteredIndex,
@@ -1590,7 +1771,8 @@ class MainViewModel @Inject constructor(
             it.copy(
                 isArchivePlayback = false,
                 isTimeshiftPlayback = false,
-                archiveProgram = null,
+                programDvrProgram = null,
+                programProgress = null,
                 archivePrompt = ArchivePrompt(channel, program, nextProgram)
             )
         }
@@ -1723,6 +1905,7 @@ class MainViewModel @Inject constructor(
         private const val STARTUP_URL_REFRESH_DELAY_MS = 6000L
         private const val ACTIVE_EPG_REFRESH_DELAY_MS = 1500L
         private const val VISIBLE_PROGRAM_REFRESH_DELAY_MS = 700L
+        private const val PROGRAM_PROGRESS_SEEK_INCREMENT_MS = 60_000L
         private const val CHANNEL_PAGE_SIZE = 60
         private const val CHANNEL_PREFETCH_MARGIN = 8
     }

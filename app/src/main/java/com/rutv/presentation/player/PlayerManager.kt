@@ -101,6 +101,9 @@ class PlayerManager @Inject constructor(
     private val _debugMessages = MutableSharedFlow<DebugMessage>(replay = 0, extraBufferCapacity = 50)
     val debugMessages: SharedFlow<DebugMessage> = _debugMessages.asSharedFlow()
 
+    private val _programProgress = MutableStateFlow<ProgramPlaybackProgress?>(null)
+    val programProgress: StateFlow<ProgramPlaybackProgress?> = _programProgress.asStateFlow()
+
     private var bufferingStartTime: Long = 0
     private var bufferingCheckJob: Job? = null
 
@@ -109,11 +112,11 @@ class PlayerManager @Inject constructor(
     private val workerScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private var currentConfig: PlayerConfig? = null
-    private var isArchivePlayback: Boolean = false
-    private var archiveProgram: EpgProgram? = null
-    private var archiveChannel: Channel? = null
+    private var isProgramDvrPlayback: Boolean = false
+    private var currentProgramDvr: ProgramDvrSession? = null
+    private var pendingProgramDvrStart: PendingProgramDvrStart? = null
+    private var programProgressJob: Job? = null
     private var lastLiveIndex: Int = 0
-    private var pendingArchiveSeek: Boolean = false
     private var archiveProbeJob: Job? = null
 
     private var attemptedFfmpegAudioFallback: Boolean = false
@@ -207,10 +210,19 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
                     is PlaybackCommand.ReturnToLive -> {
                         returnToLiveInternal()
                     }
-                    is PlaybackCommand.PlayArchive -> {
-                        val started = runCatching { playArchiveInternal(command.channel, command.program) }
+                    is PlaybackCommand.PlayProgramDvr -> {
+                        val started = runCatching {
+                            playProgramDvrInternal(
+                                channel = command.channel,
+                                program = command.program,
+                                mode = command.mode,
+                                initialOffsetMs = command.initialOffsetMs,
+                                startPaused = command.startPaused,
+                                useEventFallback = command.useEventFallback
+                            )
+                        }
                             .getOrElse {
-                                Timber.e(it, "Failed to start archive playback")
+                                Timber.e(it, "Failed to start program DVR playback")
                                 false
                             }
                         command.result.complete(started)
@@ -246,6 +258,82 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
         unknownSwitchErrorCount = 0
     }
 
+    private fun clearProgramDvrState(clearProgress: Boolean = true) {
+        currentProgramDvr = null
+        pendingProgramDvrStart = null
+        stopProgramProgressUpdates()
+        if (clearProgress) {
+            _programProgress.value = null
+        }
+    }
+
+    private fun programDurationMs(program: EpgProgram): Long {
+        return (program.stopTimeMillis - program.startTimeMillis).coerceAtLeast(1L)
+    }
+
+    private fun programAvailableDurationMs(mode: ProgramDvrMode, program: EpgProgram): Long {
+        val duration = programDurationMs(program)
+        return when (mode) {
+            ProgramDvrMode.TIMESHIFT_CURRENT_PROGRAM ->
+                (System.currentTimeMillis() - program.startTimeMillis).coerceIn(0L, duration)
+            ProgramDvrMode.ARCHIVE_PROGRAM -> duration
+        }
+    }
+
+    private fun clampProgramOffset(offsetMs: Long, mode: ProgramDvrMode, program: EpgProgram): Long {
+        return offsetMs.coerceIn(0L, programAvailableDurationMs(mode, program))
+    }
+
+    private fun startProgramProgressUpdates() {
+        if (programProgressJob?.isActive == true) return
+        programProgressJob = mainScope.launch {
+            while (isActive) {
+                updateProgramProgress()
+                delay(PROGRAM_PROGRESS_UPDATE_MS)
+            }
+        }
+    }
+
+    private fun stopProgramProgressUpdates() {
+        programProgressJob?.cancel()
+        programProgressJob = null
+    }
+
+    private fun finishProgramDvrPlayback() {
+        pendingProgramDvrStart = null
+        stopProgramProgressUpdates()
+        _programProgress.value = null
+    }
+
+    private fun updateProgramProgress() {
+        val session = currentProgramDvr ?: run {
+            _programProgress.value = null
+            return
+        }
+        val playerInstance = player ?: run {
+            _programProgress.value = null
+            return
+        }
+        val mode = session.mode
+        val channel = session.channel
+        val program = session.program
+        val duration = programDurationMs(program)
+        val seekableDuration = programAvailableDurationMs(mode, program)
+        val position = playerInstance.currentPosition
+            .takeIf { it >= 0L }
+            ?.coerceIn(0L, duration)
+            ?: 0L
+        _programProgress.value = ProgramPlaybackProgress(
+            mode = mode,
+            channel = channel,
+            program = program,
+            positionMs = position,
+            durationMs = duration,
+            seekableDurationMs = seekableDuration,
+            isPlaying = playerInstance.isPlaying
+        )
+    }
+
     private fun resolveErrorMediaItemIndex(error: PlaybackException): Int? {
         val exoError = error as? ExoPlaybackException ?: return null
         val periodUid = exoError.mediaPeriodId?.periodUid ?: return null
@@ -264,7 +352,7 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
     }
 
     private fun isStaleLiveError(currentIndex: Int, errorIndex: Int?): Boolean {
-        if (isArchivePlayback) return false
+        if (isProgramDvrPlayback) return false
         val pending = pendingLiveSwitch
         if (pending != null) {
             // Switch in flight: surface only errors we can positively pin to the target.
@@ -335,6 +423,28 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
             (issueRetryable || isRetryableSourceError(error))
     }
 
+    private fun retryProgramDvrWithEventFallback(): Boolean {
+        val session = currentProgramDvr ?: return false
+        val mode = session.mode
+        val channel = session.channel
+        val program = session.program
+        if (session.usesEventFallback) return false
+        if (channel.catchupSource.isNotBlank()) return false
+        val offset = player?.currentPosition?.takeIf { it >= 0L }
+            ?: pendingProgramDvrStart?.initialOffsetMs
+            ?: 0L
+        val startPaused = isUserPaused
+        addDebugMessage("DVR: Retrying with event=true fallback")
+        return playProgramDvrInternal(
+            channel = channel,
+            program = program,
+            mode = mode,
+            initialOffsetMs = offset,
+            startPaused = startPaused,
+            useEventFallback = true
+        )
+    }
+
     private fun clearRetryingState() {
         val current = _playerState.value
         if (current is PlayerState.Error && current.isRetrying) {
@@ -387,7 +497,7 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
                     addDebugMessage("  -> Auto-retry attempt $attempts/$maxAttempts")
                     // For live streams, retry from the live edge instead of reusing the previous
                     // position, which can repeatedly hit stale/missing HLS segments.
-                    if (!isArchivePlayback) {
+                    if (!isProgramDvrPlayback) {
                         playerInstance.seekToDefaultPosition(targetIndex)
                     } else {
                         val pos = playerInstance.currentPosition.takeIf { it >= 0 } ?: C.TIME_UNSET
@@ -482,9 +592,10 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
         if (config.useFfmpegAudio) return false
 
         attemptedFfmpegAudioFallback = true
-        val archiveChannelSnapshot = if (isArchivePlayback) archiveChannel else null
-        val archiveProgramSnapshot = if (isArchivePlayback) archiveProgram else null
-        val startIndex = if (isArchivePlayback) {
+        val dvrSessionSnapshot = if (isProgramDvrPlayback) currentProgramDvr else null
+        val dvrPositionSnapshot = player?.currentPosition?.takeIf { it >= 0L } ?: 0L
+        val dvrPausedSnapshot = isUserPaused
+        val startIndex = if (isProgramDvrPlayback) {
             lastLiveIndex
         } else {
             player?.currentMediaItemIndex ?: lastLiveIndex
@@ -495,8 +606,15 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
         val mediaItems = buildMediaItems(channels)
         initializeInternal(channels, config.copy(useFfmpegAudio = true), startIndex, mediaItems)
 
-        if (archiveChannelSnapshot != null && archiveProgramSnapshot != null) {
-            playArchiveInternal(archiveChannelSnapshot, archiveProgramSnapshot)
+        if (dvrSessionSnapshot != null) {
+            playProgramDvrInternal(
+                channel = dvrSessionSnapshot.channel,
+                program = dvrSessionSnapshot.program,
+                mode = dvrSessionSnapshot.mode,
+                initialOffsetMs = dvrPositionSnapshot,
+                startPaused = dvrPausedSnapshot,
+                useEventFallback = dvrSessionSnapshot.usesEventFallback
+            )
         }
 
         return true
@@ -572,7 +690,7 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
             )
         }
 
-        val canReinitialize = currentConfig != null && !isArchivePlayback
+        val canReinitialize = currentConfig != null && !isProgramDvrPlayback
         if (!canReinitialize) {
             postRefresh(emptyList())
             return
@@ -638,7 +756,7 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
         val normalizedIndex = preferredIndex.coerceIn(0, channels.lastIndex)
         val config = currentConfig
 
-        if (config == null || isArchivePlayback) {
+        if (config == null || isProgramDvrPlayback) {
             this.channels = channels
             this.liveMediaItemsCache = if (mediaItems.isNotEmpty()) mediaItems else buildMediaItems(channels)
             lastLiveIndex = normalizedIndex
@@ -758,9 +876,8 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
                     playWhenReady = true
                 }
 
-            isArchivePlayback = false
-            archiveChannel = null
-            archiveProgram = null
+            isProgramDvrPlayback = false
+            clearProgramDvrState()
             lastLiveIndex = startIndex.coerceIn(0, channels.lastIndex.takeIf { channels.isNotEmpty() } ?: 0)
 
             addDebugMessage("━━━ PLAYER READY ━━━")
@@ -879,7 +996,7 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
     private fun createPlayerListener(): Player.Listener {
         return object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                if (isArchivePlayback) return
+                if (isProgramDvrPlayback) return
                 val retryingError = _playerState.value as? PlayerState.Error
                 if (retryingError?.isRetrying == true) return
                 mediaItem?.let {
@@ -894,6 +1011,7 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
                     reason == Player.PLAY_WHEN_READY_CHANGE_REASON_REMOTE
                 ) {
                     isUserPaused = !playWhenReady
+                    updateProgramProgress()
                     if (!playWhenReady) {
                         stopAutoRetry()
                         val retryingError = _playerState.value as? PlayerState.Error
@@ -912,17 +1030,47 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
                     when (playbackState) {
                         Player.STATE_READY -> {
                             stopAutoRetry()
-                            if (isArchivePlayback) {
+                            if (isProgramDvrPlayback) {
                                 clearPendingLiveSwitch()
-                                val channel = archiveChannel
-                                val program = archiveProgram
-                                if (channel != null && program != null) {
-                                    if (pendingArchiveSeek) {
-                                    player?.seekTo(0L)
-                                    pendingArchiveSeek = false
-                                }
+                                val session = currentProgramDvr
+                                if (session != null) {
+                                    val channel = session.channel
+                                    val program = session.program
+                                    val mode = session.mode
+                                    pendingProgramDvrStart?.let { pending ->
+                                        val seekTarget = clampProgramOffset(
+                                            pending.initialOffsetMs,
+                                            pending.mode,
+                                            program
+                                        )
+                                        player?.playWhenReady = false
+                                        player?.seekTo(seekTarget)
+                                        isUserPaused = pending.startPaused
+                                        addDebugMessage("DVR: Initial seek ${seekTarget / 1000}s (${pending.mode})")
+                                        pendingProgramDvrStart = null
+                                        if (!pending.startPaused) {
+                                            mainScope.launch {
+                                                delay(INITIAL_PROGRAM_SEEK_SETTLE_MS)
+                                                val activeSession = currentProgramDvr
+                                                val activePlayer = player
+                                                if (activeSession?.channel?.url == channel.url &&
+                                                    activeSession.program.startTimeMillis == program.startTimeMillis &&
+                                                    activePlayer != null
+                                                ) {
+                                                    if (activePlayer.currentPosition < seekTarget - INITIAL_PROGRAM_SEEK_TOLERANCE_MS) {
+                                                        activePlayer.seekTo(seekTarget)
+                                                    }
+                                                    activePlayer.playWhenReady = true
+                                                    activePlayer.play()
+                                                    updateProgramProgress()
+                                                }
+                                            }
+                                        }
+                                    }
                                 addDebugMessage("▶ DVR Playing: ${channel.title}")
-                                _playerState.value = PlayerState.Archive(channel, program)
+                                _playerState.value = PlayerState.Archive(channel, program, mode)
+                                updateProgramProgress()
+                                startProgramProgressUpdates()
                             }
                             stopBufferingCheck()
                             return
@@ -956,13 +1104,28 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
                     }
                     Player.STATE_ENDED -> {
                         stopBufferingCheck()
-                        if (isArchivePlayback) {
-                            val channel = archiveChannel
-                            val program = archiveProgram
-                            if (channel != null && program != null) {
-                                _playerState.value = PlayerState.Archive(channel, program, ArchiveEndReason.COMPLETED)
+                        if (isProgramDvrPlayback) {
+                            val session = currentProgramDvr
+                            if (session != null) {
+                                val channel = session.channel
+                                val program = session.program
+                                val mode = session.mode
+                                if (mode == ProgramDvrMode.ARCHIVE_PROGRAM) {
+                                    finishProgramDvrPlayback()
+                                    _playerState.value = PlayerState.Archive(
+                                        channel,
+                                        program,
+                                        mode,
+                                        ArchiveEndReason.COMPLETED
+                                    )
+                                } else {
+                                    if (retryProgramDvrWithEventFallback()) {
+                                        return
+                                    }
+                                    addDebugMessage("DVR: Timeshift reached available edge; returning to live")
+                                    returnToLiveInternal()
+                                }
                             }
-                            pendingArchiveSeek = false
                         } else {
                             addDebugMessage("⏹ Playback ended")
                             _playerState.value = PlayerState.Ended
@@ -978,7 +1141,7 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
                 val currentIndex = player?.currentMediaItemIndex ?: -1
                 val errorIndex = resolveErrorMediaItemIndex(error)
                 val channelIndex = resolveErrorChannelIndex(currentIndex, errorIndex)
-                val channel = channels.getOrNull(channelIndex)
+                val channel = if (isProgramDvrPlayback) currentProgramDvr?.channel else channels.getOrNull(channelIndex)
                 val errorMsg = error.message ?: "Unknown error"
                 val pendingSnapshot = pendingLiveSwitch
                 val sinceCompletion = System.currentTimeMillis() - lastLiveSwitchCompletedAtMs
@@ -1006,12 +1169,16 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
                     }
                 }
 
+                if (isProgramDvrPlayback && retryProgramDvrWithEventFallback()) {
+                    return
+                }
+
                 logDebug { "  -> SURFACING error for channel=${channel?.title ?: "null"}" }
                 addDebugMessage("✗ Error: ${channel?.title ?: "Unknown"}")
                 addDebugMessage("  → $errorMsg")
 
                 val issue = classifyPlaybackIssue(error)
-                val shouldRetry = channelIndex >= 0 && shouldAutoRetry(error, issue)
+                val shouldRetry = !isProgramDvrPlayback && channelIndex >= 0 && shouldAutoRetry(error, issue)
                 if (shouldRetry) {
                     val startingRetry = autoRetryJob?.isActive != true || autoRetryTargetIndex != channelIndex
                     startAutoRetry(channelIndex)
@@ -1021,7 +1188,7 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
                     }
                 } else {
                     stopAutoRetry()
-                    if (!isArchivePlayback && channelIndex >= 0) {
+                    if (!isProgramDvrPlayback && channelIndex >= 0) {
                         markLiveSwitchCompleted(channelIndex)
                     }
                 }
@@ -1036,7 +1203,9 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
                 stopBufferingCheck()
 
                 // Handle live window error
-                if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
+                if (!isProgramDvrPlayback &&
+                    error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW
+                ) {
                     addDebugMessage("  → Recovering: Seeking to live edge...")
                     player?.apply {
                         seekToDefaultPosition()
@@ -1063,7 +1232,7 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
         }
         val safeIndex = index.coerceIn(0, channels.lastIndex)
         val currentIndex = playerInstance.currentMediaItemIndex
-        val isSameLiveChannel = !isArchivePlayback && currentIndex == safeIndex
+        val isSameLiveChannel = !isProgramDvrPlayback && currentIndex == safeIndex
         val stateAllowsSkip = when (_playerState.value) {
             is PlayerState.Ready, is PlayerState.Buffering -> true
             else -> false
@@ -1085,7 +1254,7 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
         _playerState.value = PlayerState.Buffering
         markLiveSwitchRequested(safeIndex)
 
-        if (isArchivePlayback) {
+        if (isProgramDvrPlayback) {
             restoreLivePlaylist(safeIndex)
         } else {
             playerInstance.seekToDefaultPosition(safeIndex)
@@ -1104,27 +1273,46 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
         }
 
         lastLiveIndex = safeIndex
-        isArchivePlayback = false
-        archiveChannel = null
-        archiveProgram = null
-        pendingArchiveSeek = false
+        isProgramDvrPlayback = false
+        clearProgramDvrState()
     }
 
-    suspend fun playArchive(channel: Channel, program: EpgProgram): Boolean {
+    suspend fun playProgramDvr(
+        channel: Channel,
+        program: EpgProgram,
+        mode: ProgramDvrMode,
+        initialOffsetMs: Long,
+        startPaused: Boolean
+    ): Boolean {
         val result = CompletableDeferred<Boolean>()
         submitPlaybackCommand(
-            PlaybackCommand.PlayArchive(
+            PlaybackCommand.PlayProgramDvr(
                 channel = channel,
                 program = program,
+                mode = mode,
+                initialOffsetMs = initialOffsetMs,
+                startPaused = startPaused,
+                useEventFallback = false,
                 result = result
             )
         )
         return result.await()
     }
 
-    private fun playArchiveInternal(channel: Channel, program: EpgProgram): Boolean {
+    private fun playProgramDvrInternal(
+        channel: Channel,
+        program: EpgProgram,
+        mode: ProgramDvrMode,
+        initialOffsetMs: Long,
+        startPaused: Boolean,
+        useEventFallback: Boolean
+    ): Boolean {
         val playerInstance = player ?: return false
-        val archiveUrl = ArchiveUrlBuilder.buildArchiveUrl(channel, program)
+        val archiveUrl = ArchiveUrlBuilder.buildArchiveUrl(
+            channel = channel,
+            program = program,
+            useEventPlaylist = useEventFallback
+        )
         if (archiveUrl.isNullOrBlank()) {
             addDebugMessage("DVR: ${channel.title} does not provide a catch-up URL")
             return false
@@ -1146,11 +1334,19 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
             probeArchiveUri(uri, program)
         }
 
-        isArchivePlayback = true
-        archiveChannel = channel
-        archiveProgram = program
-        pendingArchiveSeek = true
-
+        isProgramDvrPlayback = true
+        currentProgramDvr = ProgramDvrSession(
+            channel = channel,
+            program = program,
+            mode = mode,
+            usesEventFallback = useEventFallback
+        )
+        val clampedInitialOffsetMs = clampProgramOffset(initialOffsetMs, mode, program)
+        pendingProgramDvrStart = PendingProgramDvrStart(
+            mode = mode,
+            initialOffsetMs = clampedInitialOffsetMs,
+            startPaused = startPaused
+        )
         playerInstance.stop()
         playerInstance.clearMediaItems()
 
@@ -1165,25 +1361,25 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
             .setMediaId("${channel.title}_${program.startUtcMillis}")
             .build()
 
-        playerInstance.setMediaItems(listOf(mediaItem), /* startIndex = */ 0, /* startPositionMs = */ 0L)
+        playerInstance.setMediaItems(
+            listOf(mediaItem),
+            /* startIndex = */ 0,
+            /* startPositionMs = */ clampedInitialOffsetMs
+        )
         playerInstance.repeatMode = Player.REPEAT_MODE_OFF
 
         playerInstance.prepare()
-        playerInstance.playWhenReady = true
-        playerInstance.play()
+        playerInstance.playWhenReady = false
 
         addDebugMessage("▶ DVR: ${channel.title} → ${program.title}")
-        _playerState.value = PlayerState.Archive(channel, program)
+        _playerState.value = PlayerState.Buffering
         return true
     }
 
-    fun restartArchive() {
-        if (!isArchivePlayback) return
-        player?.seekTo(0L)
-        pendingArchiveSeek = false
-    }
-
     fun seekBy(offsetMs: Long): Boolean {
+        if (currentProgramDvr != null) {
+            return seekByProgramOffset(offsetMs)
+        }
         val playerInstance = player ?: return false
         var target = playerInstance.currentPosition + offsetMs
         val duration = playerInstance.duration
@@ -1195,6 +1391,27 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
         return true
     }
 
+    fun seekToProgramOffset(offsetMs: Long): Boolean {
+        val playerInstance = player ?: return false
+        val session = currentProgramDvr ?: return false
+        val mode = session.mode
+        val program = session.program
+        val target = clampProgramOffset(offsetMs, mode, program)
+        playerInstance.seekTo(target)
+        updateProgramProgress()
+        return true
+    }
+
+    fun seekByProgramOffset(deltaMs: Long): Boolean {
+        val playerInstance = player ?: return false
+        val current = playerInstance.currentPosition.takeIf { it >= 0L } ?: 0L
+        return seekToProgramOffset(current + deltaMs)
+    }
+
+    fun restartProgram(): Boolean {
+        return seekToProgramOffset(0L)
+    }
+
     fun returnToLive() {
         submitPlaybackCommand(PlaybackCommand.ReturnToLive)
     }
@@ -1203,7 +1420,7 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
         isUserPaused = false
         stopAutoRetry()
         clearPendingLiveSwitch()
-        if (!isArchivePlayback) {
+        if (!isProgramDvrPlayback) {
             player?.let { exoPlayer ->
                 addDebugMessage("Return to live: resume live edge")
                 exoPlayer.seekToDefaultPosition()
@@ -1234,10 +1451,8 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
             prepare()
             playWhenReady = true
         }
-        isArchivePlayback = false
-        archiveChannel = null
-        archiveProgram = null
-        pendingArchiveSeek = false
+        isProgramDvrPlayback = false
+        clearProgramDvrState()
     }
 
 
@@ -1350,6 +1565,7 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
             )
         }
         player?.playWhenReady = false
+        updateProgramProgress()
     }
 
     fun cancelAutoRetry() {
@@ -1393,6 +1609,7 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
             }
             exoPlayer.playWhenReady = true
             exoPlayer.play()
+            updateProgramProgress()
         }
     }
 
@@ -1407,13 +1624,15 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
         // Drain pending commands synchronously
         while (true) {
             val pending = playbackCommands.tryReceive().getOrNull() ?: break
-            if (pending is PlaybackCommand.PlayArchive) {
-                pending.result.complete(false)
+            when (pending) {
+                is PlaybackCommand.PlayProgramDvr -> pending.result.complete(false)
+                else -> Unit
             }
         }
         deferredPlaybackCommands.forEach { pending ->
-            if (pending is PlaybackCommand.PlayArchive) {
-                pending.result.complete(false)
+            when (pending) {
+                is PlaybackCommand.PlayProgramDvr -> pending.result.complete(false)
+                else -> Unit
             }
         }
         deferredPlaybackCommands.clear()
@@ -1436,10 +1655,8 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
         analyticsListener = null
         archiveProbeJob?.cancel()
         archiveProbeJob = null
-        isArchivePlayback = false
-        archiveChannel = null
-        archiveProgram = null
-        pendingArchiveSeek = false
+        isProgramDvrPlayback = false
+        clearProgramDvrState()
         liveMediaItemsCache = emptyList()
         _playerState.value = PlayerState.Idle
         logDebug { "Player released" }
@@ -1547,16 +1764,36 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
         data class SwitchLive(val index: Int) : PlaybackCommand
         object ReturnToLive : PlaybackCommand
 
-        data class PlayArchive(
+        data class PlayProgramDvr(
             val channel: Channel,
             val program: EpgProgram,
+            val mode: ProgramDvrMode,
+            val initialOffsetMs: Long,
+            val startPaused: Boolean,
+            val useEventFallback: Boolean,
             val result: CompletableDeferred<Boolean>
         ) : PlaybackCommand
     }
 
+    private data class PendingProgramDvrStart(
+        val mode: ProgramDvrMode,
+        val initialOffsetMs: Long,
+        val startPaused: Boolean
+    )
+
+    private data class ProgramDvrSession(
+        val channel: Channel,
+        val program: EpgProgram,
+        val mode: ProgramDvrMode,
+        val usesEventFallback: Boolean
+    )
+
     private companion object {
         private const val MAX_UNKNOWN_RETRIES_DURING_SWITCH = 2
         private const val SWITCH_COMPLETED_STALE_GRACE_MS = 3_000L
+        private const val INITIAL_PROGRAM_SEEK_SETTLE_MS = 180L
+        private const val INITIAL_PROGRAM_SEEK_TOLERANCE_MS = 5_000L
+        private const val PROGRAM_PROGRESS_UPDATE_MS = 500L
     }
 
     private val sensitivePattern = Regex("(?i)((token|auth|sig|key|session)[^=]*)=[^&]*")

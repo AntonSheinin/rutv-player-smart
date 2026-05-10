@@ -34,7 +34,13 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.focusable
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -71,9 +77,13 @@ import com.rutv.presentation.player.PlaybackIssue
 import com.rutv.presentation.player.ChannelPreviewController
 import com.rutv.presentation.player.ChannelPreviewPlaybackState
 import com.rutv.presentation.player.PlayerState
+import com.rutv.presentation.player.ProgramPlaybackProgress
 import com.rutv.presentation.player.PreviewPlayerFactory
 import com.rutv.util.logDebug
 import java.lang.ref.WeakReference
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * Main Player Screen with Compose UI
@@ -123,7 +133,35 @@ fun PlayerScreen(
     var rightColumnFocusRequesters by remember { mutableStateOf<List<FocusRequester>?>(null) }
     var lastFocusedPlaylistIndex by remember { mutableIntStateOf(uiState.currentChannelFilteredIndex.coerceAtLeast(0)) }
     var lastControlsSignature by remember { mutableStateOf<ControlsSignature?>(null) }
+    var controlsClockMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
     val customControlFocusCoordinator = rememberCustomControlFocusCoordinator()
+    val programProgressFocusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(showControls, uiState.programProgress, uiState.currentProgram?.id) {
+        while (showControls && uiState.programProgress == null && uiState.currentProgram != null) {
+            controlsClockMillis = System.currentTimeMillis()
+            delay(1000L)
+        }
+    }
+
+    val programProgressDisplay = remember(
+        uiState.programProgress,
+        uiState.currentProgram,
+        uiState.programDvrProgram,
+        uiState.isArchivePlayback,
+        uiState.isTimeshiftPlayback,
+        controlsClockMillis
+    ) {
+        uiState.programProgress?.toProgramProgressDisplay()
+            ?: buildProgramProgressDisplay(
+                program = if (uiState.isArchivePlayback || uiState.isTimeshiftPlayback) {
+                    uiState.programDvrProgram
+                } else {
+                    uiState.currentProgram
+                },
+                nowMillis = controlsClockMillis
+            )
+    }
 
     // Helper function to focus ExoPlayer controls (consolidated logic)
     val focusExoPlayerControls: (Boolean) -> Unit = remember(playerViewRef) {
@@ -166,6 +204,7 @@ fun PlayerScreen(
             CustomControlFocusTarget.Rotate -> setRotateFocusHint?.invoke(true)
         }
         val request = {
+            playerViewRef?.clearFocus()
             customControlFocusCoordinator.requestFocus(
                 target,
                 leftColumnFocusRequesters,
@@ -255,6 +294,7 @@ fun PlayerScreen(
         playerViewRef?.post {
             if (newValue) {
                 playerViewRef?.showController()
+                playerViewRef?.setNativeTimeControlsVisible(false)
             } else {
                 playerViewRef?.hideController()
             }
@@ -288,6 +328,8 @@ fun PlayerScreen(
                 if (!currentPlayerView.isControllerFullyVisible) {
                     currentPlayerView.showController()
                 }
+                currentPlayerView.setNativeTimeControlsVisible(false)
+                currentPlayerView.post { currentPlayerView.setNativeTimeControlsVisible(false) }
                 // Request focus on ExoPlayer controls when PLAYER_CONTROLS is active
                 // Only if we're not in the middle of navigating within player controls
                 if (focusManager.currentDestination == PlayerFocusDestination.PLAYER_CONTROLS && !isNavigatingWithinPlayerControls) {
@@ -311,6 +353,7 @@ fun PlayerScreen(
         } else {
             controlsAutoHideJobRef.job?.cancel()
             controlsAutoHideJobRef.job = null
+            lastControlsSignature = null
         }
     }
 
@@ -478,18 +521,26 @@ fun PlayerScreen(
                     playerView.player = exoPlayer
                     playerView.resizeMode = uiState.currentResizeMode.intValue
                     val controlsSignature = ControlsSignature(
-                        isArchivePlayback = uiState.isArchivePlayback
+                        isArchivePlayback = uiState.isArchivePlayback,
+                        hasProgramProgress = uiState.programProgress != null,
+                        hasCustomProgressBar = programProgressDisplay != null,
+                        hideNativeTimeControls = showControls
                     )
                     if (showControls && controlsSignature != lastControlsSignature) {
                         logDebug { "PERF player_controls_bind" }
                         playerView.bindControls(
                             uiState = uiState,
+                            hasCustomProgressBar = programProgressDisplay != null,
+                            hideNativeTimeControls = showControls,
                             actions = actions,
                             onNavigateLeftToFavorites = invokeNavigateToFavorites,
                             onNavigateRightToRotate = invokeNavigateToRotate,
                             onControlsInteraction = { registerControlsInteraction() },
                             onForceFavoritesHighlight = forceFavoritesHighlight,
                             onForceRotateHighlight = forceRotateHighlight,
+                            onNavigateDownToProgramProgress = {
+                                programProgressFocusRequester.requestFocusSafely()
+                            },
                             onNavigateUpToOverlay = {
                                 // Navigate from ExoPlayer controls UP to Channel Info Overlay
                                 if (showControls) {
@@ -526,6 +577,7 @@ fun PlayerScreen(
                     if (focusManager.currentDestination == PlayerFocusDestination.PLAYER_CONTROLS) {
                         registerControlsInteraction()
                         isNavigatingWithinPlayerControls = true
+                        leftColumnFocusRequesters?.getOrNull(1)?.freeFocus()
                         // Use post for consistent timing with ExoPlayer controls
                         playerViewRef?.post {
                             focusExoPlayerControls(true)
@@ -539,6 +591,7 @@ fun PlayerScreen(
                     if (focusManager.currentDestination == PlayerFocusDestination.PLAYER_CONTROLS) {
                         registerControlsInteraction()
                         isNavigatingWithinPlayerControls = true
+                        rightColumnFocusRequesters?.getOrNull(1)?.freeFocus()
                         // Use post for consistent timing with ExoPlayer controls
                         playerViewRef?.post {
                             focusExoPlayerControls(false)
@@ -575,6 +628,23 @@ fun PlayerScreen(
 
         customControlFocusCoordinator.Bind(leftColumnFocusRequesters, rightColumnFocusRequesters)
 
+        if (showControls) {
+            programProgressDisplay?.let { progress ->
+                ProgramProgressOverlay(
+                    progress = progress,
+                    onSeekBack = actions.onSeekBackOneMinute,
+                    onSeekForward = actions.onSeekForwardOneMinute,
+                    onControlsInteraction = { registerControlsInteraction() },
+                    onNavigateUp = { focusExoPlayerControls(false) },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 28.dp)
+                        .fillMaxWidth(0.62f)
+                        .focusRequester(programProgressFocusRequester)
+                )
+            }
+        }
+
         // Channel Info Overlay (top center) - hide with controls
         // No animation - hide/show instantly together with ExoPlayer controls
         if (showControls) {
@@ -590,7 +660,7 @@ fun PlayerScreen(
                     currentProgram = uiState.currentProgram,
                     isArchivePlayback = uiState.isArchivePlayback,
                     isTimeshiftPlayback = uiState.isTimeshiftPlayback,
-                    archiveProgram = uiState.archiveProgram,
+                    archiveProgram = uiState.programDvrProgram,
                     onReturnToLive = actions.onReturnToLive,
                     onShowProgramInfo = actions.onShowProgramDetails,
                     onNavigateDown = { focusPrimaryPlayerControl() },
@@ -1018,8 +1088,33 @@ private fun PlayerView.hideSettingsControls() {
     }
 }
 
+private fun PlayerView.setNativeTimeControlsVisible(visible: Boolean) {
+    listOfNotNull(
+        findControlView("exo_timebar") ?: findControlView("exo_progress"),
+        findControlView("exo_position"),
+        findControlView("exo_duration"),
+        findControlView("exo_bottom_bar"),
+        findControlView("exo_progress_placeholder"),
+        findControlView("exo_controls_background")
+    ).forEach { view ->
+        view.visibility = if (visible) View.VISIBLE else View.INVISIBLE
+        view.isFocusable = visible
+    }
+}
+
 private data class ControlsSignature(
-    val isArchivePlayback: Boolean
+    val isArchivePlayback: Boolean,
+    val hasProgramProgress: Boolean,
+    val hasCustomProgressBar: Boolean,
+    val hideNativeTimeControls: Boolean
+)
+
+private data class ProgramProgressDisplay(
+    val program: EpgProgram,
+    val positionMs: Long,
+    val durationMs: Long,
+    val seekableDurationMs: Long,
+    val seekEnabled: Boolean
 )
 
 private fun PlayerView.configurePlayerView(
@@ -1069,17 +1164,22 @@ private fun PlayerView.configurePlayerView(
 
 private fun PlayerView.bindControls(
     uiState: PlayerUiState,
+    hasCustomProgressBar: Boolean,
+    hideNativeTimeControls: Boolean,
     actions: PlayerUiActions,
     onNavigateLeftToFavorites: (() -> Unit)?,
     onNavigateRightToRotate: (() -> Unit)?,
     onNavigateUpToOverlay: (() -> Unit)? = null,
     onControlsInteraction: (() -> Unit)?,
     onForceFavoritesHighlight: (() -> Unit)? = null,
-    onForceRotateHighlight: (() -> Unit)? = null
+    onForceRotateHighlight: (() -> Unit)? = null,
+    onNavigateDownToProgramProgress: (() -> Unit)? = null
 ) {
     applyControlCustomizations(
         isArchivePlayback = uiState.isArchivePlayback,
-        currentProgram = if (uiState.isArchivePlayback) uiState.archiveProgram else uiState.currentProgram,
+        hasProgramProgress = uiState.programProgress != null,
+        hasCustomProgressBar = hasCustomProgressBar,
+        hideNativeTimeControls = hideNativeTimeControls,
         onRestartPlayback = actions.onRestartPlayback,
         onSeekBack = actions.onSeekBack,
         onSeekForward = actions.onSeekForward,
@@ -1090,13 +1190,16 @@ private fun PlayerView.bindControls(
         onNavigateUpToOverlay = onNavigateUpToOverlay,
         onControlsInteraction = onControlsInteraction,
         onForceFavoritesHighlight = onForceFavoritesHighlight,
-        onForceRotateHighlight = onForceRotateHighlight
+        onForceRotateHighlight = onForceRotateHighlight,
+        onNavigateDownToProgramProgress = onNavigateDownToProgramProgress
     )
 }
 
 private fun PlayerView.applyControlCustomizations(
     isArchivePlayback: Boolean,
-    currentProgram: EpgProgram?,
+    hasProgramProgress: Boolean,
+    hasCustomProgressBar: Boolean,
+    hideNativeTimeControls: Boolean,
     onRestartPlayback: () -> Unit,
     onSeekBack: () -> Unit,
     onSeekForward: () -> Unit,
@@ -1107,7 +1210,8 @@ private fun PlayerView.applyControlCustomizations(
     onNavigateUpToOverlay: (() -> Unit)? = null,
     onControlsInteraction: (() -> Unit)? = null,
     onForceFavoritesHighlight: (() -> Unit)? = null,
-    onForceRotateHighlight: (() -> Unit)? = null
+    onForceRotateHighlight: (() -> Unit)? = null,
+    onNavigateDownToProgramProgress: (() -> Unit)? = null
 ) {
     setShowPreviousButton(true)
     setShowNextButton(true)
@@ -1137,6 +1241,13 @@ private fun PlayerView.applyControlCustomizations(
     }
 
     fun moveDownToTimeBar(): Boolean {
+        if (hasCustomProgressBar) {
+            onNavigateDownToProgramProgress?.invoke()
+            return true
+        }
+        if (hideNativeTimeControls) {
+            return false
+        }
         val timeBar = findControlView("exo_timebar") ?: findControlView("exo_progress")
         if (timeBar?.isShown == true && timeBar.isFocusable) {
             timeBar.requestFocus()
@@ -1349,7 +1460,7 @@ private fun PlayerView.applyControlCustomizations(
     }
 
     listOf("exo_ffwd", "exo_ffwd_with_amount").forEach { controlId ->
-        val enabled = isArchivePlayback
+        val enabled = isArchivePlayback || hasProgramProgress
         configureExoControlById(
             controlId = controlId,
             enabled = enabled,
@@ -1388,6 +1499,11 @@ private fun PlayerView.applyControlCustomizations(
     // Find the TimeBar/progress bar view
     val timeBar = findControlView("exo_timebar") ?: findControlView("exo_progress")
 
+    setNativeTimeControlsVisible(!hideNativeTimeControls)
+    if (hideNativeTimeControls) {
+        return
+    }
+
     // Center the progress bar by adjusting its layout margins (not translation)
     timeBar?.let { bar ->
         (bar.layoutParams as? android.view.ViewGroup.MarginLayoutParams)?.apply {
@@ -1419,7 +1535,6 @@ private fun PlayerView.applyControlCustomizations(
     // Just ensure they're vertically aligned with the progress bar
     val positionView = findControlView("exo_position")
     val durationView = findControlView("exo_duration")
-
     positionView?.translationY = 0f
     durationView?.translationY = 0f
 }
@@ -1434,6 +1549,153 @@ private fun PlayerView.focusOnControl(vararg controlNames: String) {
             target.requestFocus()
             (target.parent as? ViewGroup)?.requestChildFocus(target, target)
         }
+}
+
+private fun ProgramPlaybackProgress.toProgramProgressDisplay(): ProgramProgressDisplay {
+    return ProgramProgressDisplay(
+        program = program,
+        positionMs = positionMs,
+        durationMs = durationMs,
+        seekableDurationMs = seekableDurationMs,
+        seekEnabled = true
+    )
+}
+
+private fun buildProgramProgressDisplay(
+    program: EpgProgram?,
+    nowMillis: Long
+): ProgramProgressDisplay? {
+    program ?: return null
+    val durationMs = (program.stopTimeMillis - program.startTimeMillis).takeIf { it > 0L }
+        ?: return null
+    val positionMs = (nowMillis - program.startTimeMillis).coerceIn(0L, durationMs)
+    return ProgramProgressDisplay(
+        program = program,
+        positionMs = positionMs,
+        durationMs = durationMs,
+        seekableDurationMs = positionMs,
+        seekEnabled = false
+    )
+}
+
+@Composable
+private fun ProgramProgressOverlay(
+    progress: ProgramProgressDisplay,
+    onSeekBack: () -> Unit,
+    onSeekForward: () -> Unit,
+    onControlsInteraction: () -> Unit,
+    onNavigateUp: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val clockFormatter = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
+    val startLabel = remember(progress.program.startTimeMillis) {
+        clockFormatter.format(Date(progress.program.startTimeMillis))
+    }
+    val endLabel = remember(progress.program.stopTimeMillis) {
+        clockFormatter.format(Date(progress.program.stopTimeMillis))
+    }
+    val positionLabel = remember(progress.positionMs, progress.durationMs) {
+        "${formatProgramElapsed(progress.positionMs)} / ${formatProgramElapsed(progress.durationMs)}"
+    }
+    var isFocused by remember { mutableStateOf(false) }
+    val borderColor = if (isFocused) {
+        MaterialTheme.ruTvColors.gold
+    } else {
+        MaterialTheme.ruTvColors.textHint
+    }
+    val duration = progress.durationMs.coerceAtLeast(1L)
+    val positionFraction = (progress.positionMs.toFloat() / duration).coerceIn(0f, 1f)
+    val seekableFraction = (progress.seekableDurationMs.toFloat() / duration).coerceIn(0f, 1f)
+
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(MaterialTheme.ruTvColors.cardBackground.copy(alpha = 0.88f))
+            .border(1.dp, borderColor, RoundedCornerShape(6.dp))
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .onKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                when (event.key) {
+                    Key.DirectionLeft -> {
+                        onControlsInteraction()
+                        onSeekBack()
+                        true
+                    }
+                    Key.DirectionRight -> {
+                        onControlsInteraction()
+                        onSeekForward()
+                        true
+                    }
+                    Key.DirectionUp -> {
+                        onControlsInteraction()
+                        onNavigateUp()
+                        true
+                    }
+                    else -> false
+                }
+            }
+            .onFocusChanged { isFocused = it.isFocused }
+            .focusable(),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = startLabel,
+                color = MaterialTheme.ruTvColors.textSecondary,
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.width(54.dp)
+            )
+            Text(
+                text = positionLabel,
+                color = MaterialTheme.ruTvColors.textPrimary,
+                style = MaterialTheme.typography.labelLarge,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = endLabel,
+                color = MaterialTheme.ruTvColors.textSecondary,
+                style = MaterialTheme.typography.labelMedium,
+                textAlign = TextAlign.End,
+                modifier = Modifier.width(54.dp)
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(8.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(MaterialTheme.ruTvColors.textHint.copy(alpha = 0.55f))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(seekableFraction)
+                    .fillMaxHeight()
+                    .background(MaterialTheme.ruTvColors.textSecondary.copy(alpha = 0.45f))
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(positionFraction)
+                    .fillMaxHeight()
+                    .background(MaterialTheme.ruTvColors.gold)
+            )
+        }
+    }
+}
+
+private fun formatProgramElapsed(ms: Long): String {
+    val totalSeconds = (ms / 1000L).coerceAtLeast(0L)
+    val hours = totalSeconds / 3600L
+    val minutes = (totalSeconds % 3600L) / 60L
+    val seconds = totalSeconds % 60L
+    return if (hours > 0L) {
+        String.format(Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
+    } else {
+        String.format(Locale.US, "%02d:%02d", minutes, seconds)
+    }
 }
 
 @Composable

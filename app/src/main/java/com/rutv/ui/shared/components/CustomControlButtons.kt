@@ -168,8 +168,8 @@ fun CustomControlButtons(
                 1 -> when (event.key) {
                     Key.DirectionLeft -> true
                     Key.DirectionRight -> {
-                        // Navigate to Rotate button (right column, index 1)
-                        moveWithinCustomButtons(1, ColumnSide.LEFT, Key.DirectionRight, toLeft = false)
+                        onNavigateRightFromFavorites?.invoke()
+                        true
                     }
                     Key.DirectionUp -> {
                         moveWithinCustomButtons(1, ColumnSide.LEFT, Key.DirectionUp, toLeft = false)
@@ -218,8 +218,8 @@ fun CustomControlButtons(
                 }
                 1 -> when (event.key) {
                     Key.DirectionLeft -> {
-                        // Navigate to Favorites button (left column, index 1)
-                        moveWithinCustomButtons(1, ColumnSide.RIGHT, Key.DirectionLeft, toLeft = true)
+                        onNavigateLeftFromRotate?.invoke()
+                        true
                     }
                     Key.DirectionUp -> {
                         moveWithinCustomButtons(1, ColumnSide.RIGHT, Key.DirectionUp, toLeft = false)

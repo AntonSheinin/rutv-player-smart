@@ -12,7 +12,8 @@ object ArchiveUrlBuilder {
     fun buildArchiveUrl(
         channel: Channel,
         program: EpgProgram,
-        currentTimeMillis: Long = System.currentTimeMillis()
+        currentTimeMillis: Long = System.currentTimeMillis(),
+        useEventPlaylist: Boolean = false
     ): String? {
         if (!channel.supportsCatchup()) return null
 
@@ -68,9 +69,11 @@ object ArchiveUrlBuilder {
             queryParams.add(baseQuery)
         }
 
-        // EVENT: Playlist grows as new content arrives (useful for timeshift on currently airing program).
-        // VOD: Static playlist (fully archived content).
-        queryParams.add("event=true")
+        // EVENT playlists are provider-specific. Default to the stable full-program archive URL
+        // and let PlayerManager retry with event=true only when the default form fails.
+        if (useEventPlaylist) {
+            queryParams.add("event=true")
+        }
 
         val finalQuery = queryParams.joinToString("&")
 

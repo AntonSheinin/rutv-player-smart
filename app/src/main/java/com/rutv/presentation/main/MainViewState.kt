@@ -9,6 +9,7 @@ import com.rutv.data.model.PlaylistSource
 import com.rutv.data.model.ResizeMode
 import com.rutv.presentation.player.DebugMessage
 import com.rutv.presentation.player.PlayerState
+import com.rutv.presentation.player.ProgramPlaybackProgress
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentListOf
@@ -50,7 +51,8 @@ data class MainViewState(
     val channelPreviewEnabled: Boolean = true,
     val isArchivePlayback: Boolean = false,
     val isTimeshiftPlayback: Boolean = false,
-    val archiveProgram: EpgProgram? = null,
+    val programDvrProgram: EpgProgram? = null,
+    val programProgress: ProgramPlaybackProgress? = null,
     val archivePrompt: ArchivePrompt? = null,
     val debugMessages: ImmutableList<DebugMessage> = persistentListOf(),
     val showDebugLog: Boolean = false,

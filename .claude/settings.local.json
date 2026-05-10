@@ -27,7 +27,8 @@
       "Bash(C:/Users/anton/AppData/Local/Android/Sdk/platform-tools/adb.exe connect:*)",
       "Bash(C:/Users/anton/AppData/Local/Android/Sdk/platform-tools/adb.exe shell:*)",
       "Bash(C:/Users/anton/AppData/Local/Android/Sdk/platform-tools/adb.exe logcat:*)",
-      "Bash(JAVA_HOME=\"/c/Program Files/Android/Android Studio/jbr\" ./gradlew assembleDebug)"
+      "Bash(JAVA_HOME=\"/c/Program Files/Android/Android Studio/jbr\" ./gradlew assembleDebug)",
+      "Bash(ssh interhost *)"
     ],
     "deny": [],
     "ask": []
