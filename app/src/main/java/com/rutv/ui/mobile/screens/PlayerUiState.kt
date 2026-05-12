@@ -7,6 +7,7 @@ import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
 import com.rutv.data.model.PlayerConfig
 import com.rutv.data.model.ResizeMode
+import com.rutv.domain.usecase.ChannelListMode
 import com.rutv.presentation.main.ArchivePrompt
 import com.rutv.presentation.main.MainViewState
 import com.rutv.presentation.player.DebugMessage
@@ -25,7 +26,7 @@ data class PlayerUiState(
     val allChannels: ImmutableList<Channel>,
     val filteredChannels: ImmutableList<Channel>,
     val visibleChannels: ImmutableList<Channel>,
-    val playlistTitleResId: Int,
+    val channelListMode: ChannelListMode,
     val selectedGroup: String?,
     val hasChannels: Boolean,
     val currentChannel: Channel?,
@@ -56,6 +57,7 @@ data class PlayerUiState(
     val archivePrompt: ArchivePrompt?,
     val epgNotificationMessage: String?,
     val currentResizeMode: ResizeMode,
+    val showStartupSplash: Boolean,
     val playerState: PlayerState,
     val lastPlaylistScrollIndex: Int
 )
@@ -65,8 +67,9 @@ data class PlayerUiActions(
     val onPlayChannel: (Int) -> Unit,
     val onToggleFavorite: (String) -> Unit,
     val onShowEpgForChannel: (String) -> Unit,
-    val onTogglePlaylist: () -> Unit,
-    val onToggleFavorites: () -> Unit,
+    val onOpenChosenChannelList: () -> Unit,
+    val onOpenFullChannelList: () -> Unit,
+    val onOpenFavoritesChannelList: () -> Unit,
     val onClosePlaylist: () -> Unit,
     val onCloseEpgPanel: () -> Unit,
     val onCycleAspectRatio: () -> Unit,
@@ -110,7 +113,7 @@ fun rememberPlayerUiState(viewState: MainViewState): PlayerUiState {
             allChannels = viewState.channels,
             filteredChannels = viewState.filteredChannels,
             visibleChannels = visibleChannels,
-            playlistTitleResId = viewState.playlistTitleResId,
+            channelListMode = viewState.channelListMode,
             selectedGroup = viewState.selectedGroup,
             hasChannels = viewState.hasChannels,
             currentChannel = viewState.currentChannel,
@@ -141,6 +144,7 @@ fun rememberPlayerUiState(viewState: MainViewState): PlayerUiState {
             archivePrompt = viewState.archivePrompt,
             epgNotificationMessage = viewState.epgNotificationMessage,
             currentResizeMode = viewState.currentResizeMode,
+            showStartupSplash = viewState.showStartupSplash,
             playerState = viewState.playerState,
             lastPlaylistScrollIndex = viewState.lastPlaylistScrollIndex
         )

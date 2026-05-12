@@ -1,12 +1,12 @@
 package com.rutv.presentation.main
 
 import androidx.compose.runtime.Immutable
-import com.rutv.R
 import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
 import com.rutv.data.model.PlayerConfig
 import com.rutv.data.model.PlaylistSource
 import com.rutv.data.model.ResizeMode
+import com.rutv.domain.usecase.ChannelListMode
 import com.rutv.presentation.player.DebugMessage
 import com.rutv.presentation.player.PlayerState
 import com.rutv.presentation.player.ProgramPlaybackProgress
@@ -25,13 +25,13 @@ data class MainViewState(
     val channels: ImmutableList<Channel> = persistentListOf(),
     val filteredChannels: ImmutableList<Channel> = persistentListOf(),
     val visibleChannelCount: Int = DEFAULT_VISIBLE_CHANNELS,
+    val channelListMode: ChannelListMode = ChannelListMode.Full,
     val selectedGroup: String? = null,
     val currentChannel: Channel? = null,
     val currentChannelIndex: Int = -1,
     val currentChannelFilteredIndex: Int = -1,
     val playerState: PlayerState = PlayerState.Idle,
     val showPlaylist: Boolean = false,
-    val showFavoritesOnly: Boolean = false,
     val showEpgPanel: Boolean = false,
     val isEpgLoading: Boolean = false,
     val epgChannelTvgId: String = "", // TVG ID of channel whose EPG is open
@@ -59,6 +59,7 @@ data class MainViewState(
     val playerConfig: PlayerConfig = PlayerConfig(),
     val currentResizeMode: ResizeMode = ResizeMode.FIT,
     val isLoading: Boolean = false,
+    val showStartupSplash: Boolean = true,
     val error: String? = null,
     val epgNotificationMessage: String? = null,
     val playlistSource: PlaylistSource = PlaylistSource.None,
@@ -66,9 +67,6 @@ data class MainViewState(
     val areControlsVisible: Boolean = false,
     val showCloseAppDialog: Boolean = false
 ) {
-    val playlistTitleResId: Int
-        get() = if (showFavoritesOnly) R.string.playlist_title_favorites else R.string.playlist_title_channels
-
     val hasChannels: Boolean
         get() = channels.isNotEmpty()
 

@@ -75,6 +75,7 @@ import androidx.compose.ui.unit.dp
 import com.rutv.R
 import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
+import com.rutv.domain.usecase.ChannelListMode
 import com.rutv.ui.mobile.components.ChannelListItem
 import com.rutv.ui.shared.components.RemoteDialog
 import com.rutv.ui.shared.components.RemotePressLifecycle
@@ -100,7 +101,7 @@ import java.util.Locale
 internal fun PlaylistPanel(
     allChannels: List<Channel>,
     visibleChannels: List<Channel>,
-    playlistTitleResId: Int,
+    channelListMode: ChannelListMode,
     selectedGroup: String?,
     currentChannelIndex: Int,
     currentChannelStatusText: String? = null,
@@ -172,8 +173,14 @@ internal fun PlaylistPanel(
     var searchText by remember { mutableStateOf("") }
     val isRemoteMode = DeviceHelper.isRemoteInputActive()
     val allGroupLabel = stringResource(R.string.playlist_group_all)
-    val group = selectedGroup?.trim().orEmpty().ifBlank { allGroupLabel }
-    val playlistTitleText = stringResource(R.string.playlist_group_title_format, group)
+    val playlistTitleText = when (channelListMode) {
+        ChannelListMode.Favorites -> stringResource(R.string.playlist_title_favorites)
+        ChannelListMode.Full -> stringResource(R.string.playlist_group_title_format, allGroupLabel)
+        ChannelListMode.Category -> {
+            val group = selectedGroup?.trim().orEmpty().ifBlank { allGroupLabel }
+            stringResource(R.string.playlist_group_title_format, group)
+        }
+    }
     LaunchedEffect(showSearchDialog) {
         if (showSearchDialog) {
             playlistHasFocus = false

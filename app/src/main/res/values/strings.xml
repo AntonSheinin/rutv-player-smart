@@ -73,7 +73,6 @@
     <string name="time_placeholder_colon">--:--</string>
 
     <!-- Channel Info -->
-    <string name="playlist_title_channels">Channels</string>
     <string name="playlist_title_favorites">Favorites</string>
     <string name="playlist_group_title_format">channels : %1$s</string>
     <string name="playlist_group_all">all</string>

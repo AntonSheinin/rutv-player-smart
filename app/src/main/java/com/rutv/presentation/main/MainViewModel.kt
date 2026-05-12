@@ -10,6 +10,7 @@ import com.rutv.data.model.PlaylistSource
 import com.rutv.domain.repository.ChannelRepository
 import com.rutv.domain.repository.EpgRepository
 import com.rutv.data.repository.PreferencesRepository
+import com.rutv.domain.usecase.ChannelListMode
 import com.rutv.domain.usecase.filterChannels
 import com.rutv.domain.usecase.FetchEpgProgramsUseCase
 import com.rutv.domain.usecase.FetchVisibleCurrentProgramsUseCase
@@ -78,7 +79,9 @@ class MainViewModel @Inject constructor(
     private val watchFromBeginningUseCase: WatchFromBeginningUseCase
 ) : ViewModel() {
 
-    private val _viewState = MutableStateFlow(MainViewState())
+    private val _viewState = MutableStateFlow(
+        MainViewState(showStartupSplash = !startupSplashDismissedInProcess.get())
+    )
     val viewState: StateFlow<MainViewState> = _viewState.asStateFlow()
 
     // We keep a bounded list for the on-screen debug overlay. Writes are mutex-protected because
@@ -91,6 +94,7 @@ class MainViewModel @Inject constructor(
     private var epgPanelLoadJob: Job? = null
     private var startupPlayerInitJob: Job? = null
     private val startupInitiated = AtomicBoolean(false)
+    private var startupSplashTimeoutJob: Job? = null
     private var lastEpgRequestTvgId: String = ""
     private var lastEpgRequestAtMs: Long = 0L
     // tvgIds currently on-screen in the playlist panel; written by the UI (debounced),
@@ -119,7 +123,32 @@ class MainViewModel @Inject constructor(
         _viewState.update { it.copy(epgNotificationMessage = message) }
     }
 
-    private fun nextPlaylistLoadId(): Long = playlistLoadRequestId.incrementAndGet()
+    private fun cancelStartupSplashTimeout() {
+        startupSplashTimeoutJob?.cancel()
+        startupSplashTimeoutJob = null
+    }
+
+    private fun hideStartupSplash() {
+        cancelStartupSplashTimeout()
+        startupSplashDismissedInProcess.set(true)
+        _viewState.update { state ->
+            if (state.showStartupSplash) state.copy(showStartupSplash = false) else state
+        }
+    }
+
+    private fun startStartupSplashTimeout(loadId: Long) {
+        cancelStartupSplashTimeout()
+        startupSplashTimeoutJob = viewModelScope.launch {
+            delay(STARTUP_SPLASH_TIMEOUT_MS)
+            if (!isLatestPlaylistLoad(loadId)) return@launch
+            hideStartupSplash()
+        }
+    }
+
+    private fun nextPlaylistLoadId(): Long {
+        cancelStartupSplashTimeout()
+        return playlistLoadRequestId.incrementAndGet()
+    }
 
     private fun isLatestPlaylistLoad(loadId: Long): Boolean = playlistLoadRequestId.get() == loadId
 
@@ -138,6 +167,7 @@ class MainViewModel @Inject constructor(
             delay(STARTUP_PLAYER_INIT_DELAY_MS)
             if (!isLatestPlaylistLoad(loadId)) return@launch
             logPerf("player_init_requested")
+            startStartupSplashTimeout(loadId)
             val startChannel = initializePlayer(channels)
             if (!isLatestPlaylistLoad(loadId)) return@launch
 
@@ -230,11 +260,11 @@ class MainViewModel @Inject constructor(
         // The player is the source of truth for what is currently playing.
         viewModelScope.launch {
             playerManager.playerState.collect { state ->
-                _viewState.update { it.copy(playerState = state) }
-
                 when (state) {
                     is PlayerState.Ready -> {
                         logPerf("player_ready channel=${state.index}")
+                        cancelStartupSplashTimeout()
+                        startupSplashDismissedInProcess.set(true)
                         val filteredIndex = findFilteredChannelIndex(state.channel.url)
                         _viewState.update {
                             val channelChanged = it.currentChannelIndex != state.index ||
@@ -243,11 +273,13 @@ class MainViewModel @Inject constructor(
                                 currentChannel = state.channel,
                                 currentChannelIndex = state.index,
                                 currentChannelFilteredIndex = filteredIndex,
+                                playerState = state,
                                 isArchivePlayback = false,
                                 isTimeshiftPlayback = if (channelChanged) false else it.isTimeshiftPlayback,
                                 programDvrProgram = null,
                                 programProgress = null,
-                                archivePrompt = null
+                                archivePrompt = null,
+                                showStartupSplash = false
                             )
                         }
                         persistLastPlayedIndexIfNeeded(state.index)
@@ -257,6 +289,20 @@ class MainViewModel @Inject constructor(
                             updateCurrentProgram(state.channel)
                         }
                     }
+                    is PlayerState.Error -> {
+                        if (!state.isRetrying) {
+                            cancelStartupSplashTimeout()
+                            startupSplashDismissedInProcess.set(true)
+                            _viewState.update {
+                                it.copy(
+                                    playerState = state,
+                                    showStartupSplash = false
+                                )
+                            }
+                        } else {
+                            _viewState.update { it.copy(playerState = state) }
+                        }
+                    }
                     is PlayerState.Archive -> {
                         if (state.endReason == null) {
                             val filteredIndex = findFilteredChannelIndex(state.channel.url)
@@ -264,6 +310,7 @@ class MainViewModel @Inject constructor(
                                 it.copy(
                                     currentChannel = state.channel,
                                     currentProgram = state.program,
+                                    playerState = state,
                                     isArchivePlayback = state.mode == ProgramDvrMode.ARCHIVE_PROGRAM,
                                     isTimeshiftPlayback = state.mode == ProgramDvrMode.TIMESHIFT_CURRENT_PROGRAM,
                                     programDvrProgram = state.program,
@@ -278,7 +325,9 @@ class MainViewModel @Inject constructor(
                             }
                         }
                     }
-                    else -> Unit
+                    else -> {
+                        _viewState.update { it.copy(playerState = state) }
+                    }
                 }
             }
         }
@@ -431,10 +480,10 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             combine(
                 _viewState.map { it.channels }.distinctUntilChanged(),
-                _viewState.map { it.showFavoritesOnly }.distinctUntilChanged(),
+                _viewState.map { it.channelListMode }.distinctUntilChanged(),
                 _viewState.map { it.selectedGroup }.distinctUntilChanged()
-            ) { channels, showFavoritesOnly, selectedGroup ->
-                filterChannels(channels, showFavoritesOnly, selectedGroup)
+            ) { channels, channelListMode, selectedGroup ->
+                filterChannels(channels, channelListMode, selectedGroup)
             }
                 .flowOn(Dispatchers.Default)
                 .collect { filtered ->
@@ -449,13 +498,24 @@ class MainViewModel @Inject constructor(
         updateFilteredIndexMap(filtered)
         val playingIndex = findFilteredChannelIndex(currentChannelUrl)
         _viewState.update { current ->
-            if (current.filteredChannels === filtered && current.visibleChannelCount == visibleCount) {
+            val normalizedScrollIndex = if (filtered.isEmpty()) {
+                0
+            } else {
+                current.lastPlaylistScrollIndex.coerceIn(0, filtered.lastIndex)
+            }
+            if (
+                current.filteredChannels == filtered &&
+                current.visibleChannelCount == visibleCount &&
+                current.lastPlaylistScrollIndex == normalizedScrollIndex &&
+                current.currentChannelFilteredIndex == playingIndex
+            ) {
                 current
             } else {
                 current.copy(
                     filteredChannels = filtered.toImmutableList(),
                     visibleChannelCount = visibleCount,
-                    currentChannelFilteredIndex = playingIndex
+                    currentChannelFilteredIndex = playingIndex,
+                    lastPlaylistScrollIndex = normalizedScrollIndex
                 )
             }
         }
@@ -491,13 +551,18 @@ class MainViewModel @Inject constructor(
                 is Result.Success -> {
                     val channels = playlistResult.data
                     logPerf("playlist_loaded channels=${channels.size}")
+                    if (channels.isEmpty()) {
+                        cancelStartupSplashTimeout()
+                        startupSplashDismissedInProcess.set(true)
+                    }
 
                     // Update state first so UI can render quickly (and show playlist / channel title).
                     _viewState.update {
                         it.copy(
                             channels = channels.toImmutableList(),
                             isLoading = false,
-                            error = null
+                            error = null,
+                            showStartupSplash = if (channels.isEmpty()) false else it.showStartupSplash
                         )
                     }
                     updateChannelIndexMap(channels)
@@ -560,6 +625,8 @@ class MainViewModel @Inject constructor(
                 }
                 is Result.Error -> {
                     if (!isLatestPlaylistLoad(loadId)) return
+                    cancelStartupSplashTimeout()
+                    startupSplashDismissedInProcess.set(true)
                     Timber.e(playlistResult.exception, "App Init: Failed to load playlist")
                     val errorMessage = playlistResult.message ?: StringFormatter.formatErrorFailedLoadPlaylist()
                     appendDebugMessage(
@@ -570,7 +637,8 @@ class MainViewModel @Inject constructor(
                     _viewState.update {
                         it.copy(
                             isLoading = false,
-                            error = errorMessage
+                            error = errorMessage,
+                            showStartupSplash = false
                         )
                     }
                 }
@@ -578,11 +646,14 @@ class MainViewModel @Inject constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            cancelStartupSplashTimeout()
+            startupSplashDismissedInProcess.set(true)
             Timber.e(e, "App Init: Error during initialization")
             _viewState.update {
                 it.copy(
                     isLoading = false,
-                    error = StringFormatter.formatErrorInitFailed(e.message ?: StringFormatter.formatErrorUnknown())
+                    error = StringFormatter.formatErrorInitFailed(e.message ?: StringFormatter.formatErrorUnknown()),
+                    showStartupSplash = false
                 )
             }
         }
@@ -898,60 +969,54 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Toggle playlist visibility
-     */
-    fun togglePlaylist() {
-        val showPlaylist = !_viewState.value.showPlaylist
-        if (showPlaylist) {
-            playerManager.cancelAutoRetry()
-        }
-        playerManager.setAutoRetrySuppressed(showPlaylist)
-        _viewState.update { current ->
-            current.copy(
-                showPlaylist = showPlaylist,
-                showFavoritesOnly = false,
-                showEpgPanel = false,
-                isEpgLoading = false,
-                selectedProgramDetails = if (showPlaylist) current.selectedProgramDetails else null
-            )
-        }
-    }
-
-    /**
-     * Open playlist explicitly with optional favorites filter
-     */
-    fun openPlaylist(showFavoritesOnly: Boolean = false) {
+    private fun openPlaylistWithMode(
+        mode: ChannelListMode,
+        selectedGroup: String? = _viewState.value.selectedGroup
+    ) {
         playerManager.cancelAutoRetry()
         playerManager.setAutoRetrySuppressed(true)
         _viewState.update { current ->
+            val listChanged = current.channelListMode != mode || current.selectedGroup != selectedGroup
             current.copy(
                 showPlaylist = true,
-                showFavoritesOnly = showFavoritesOnly,
+                channelListMode = mode,
+                selectedGroup = selectedGroup,
                 showEpgPanel = false,
                 isEpgLoading = false,
-                selectedProgramDetails = null
+                selectedProgramDetails = null,
+                lastPlaylistScrollIndex = if (listChanged) 0 else current.lastPlaylistScrollIndex
             )
         }
     }
 
-    /**
-     * Toggle favorites view
-     */
-    fun toggleFavorites() {
-        val showPlaylist = !_viewState.value.showPlaylist
-        if (showPlaylist) {
-            playerManager.cancelAutoRetry()
+    fun openChosenChannelList() {
+        val current = _viewState.value
+        val normalizedGroup = current.selectedGroup?.trim().takeIf { !it.isNullOrBlank() }
+        if (current.channelListMode == ChannelListMode.Category && normalizedGroup == null) {
+            openPlaylistWithMode(ChannelListMode.Full, selectedGroup = null)
+        } else {
+            openPlaylistWithMode(current.channelListMode, normalizedGroup)
         }
-        playerManager.setAutoRetrySuppressed(showPlaylist)
-        _viewState.update {
-            it.copy(
-                showPlaylist = showPlaylist,
-                showFavoritesOnly = true,
-                showEpgPanel = false,
-                isEpgLoading = false
-            )
-        }
+    }
+
+    fun openFullChannelList() {
+        openPlaylistWithMode(ChannelListMode.Full, selectedGroup = null)
+    }
+
+    fun openFavoritesChannelList() {
+        openPlaylistWithMode(ChannelListMode.Favorites)
+    }
+
+    fun openCategoryChannelList(group: String?) {
+        val normalized = group?.trim().takeIf { !it.isNullOrBlank() }
+        openPlaylistWithMode(
+            mode = if (normalized == null) ChannelListMode.Full else ChannelListMode.Category,
+            selectedGroup = normalized
+        )
+    }
+
+    fun resetCategoryToFullChannelList() {
+        openFullChannelList()
     }
 
     private fun updatedCurrentProgramsMap(
@@ -965,21 +1030,6 @@ class MainViewModel @Inject constructor(
         return current.toMutableMap()
             .apply { this[tvgId] = program }
             .toImmutableMap()
-    }
-
-    fun setChannelGroupFilter(group: String?) {
-        val normalized = group?.trim().takeIf { !it.isNullOrBlank() }
-        _viewState.update { current ->
-            if (current.selectedGroup == normalized) {
-                current
-            } else {
-                current.copy(selectedGroup = normalized)
-            }
-        }
-    }
-
-    fun resetChannelGroupFilter() {
-        setChannelGroupFilter(null)
     }
 
     fun updatePlaylistScrollIndex(index: Int) {
@@ -1898,9 +1948,11 @@ class MainViewModel @Inject constructor(
     }
 
     private companion object {
+        private val startupSplashDismissedInProcess = AtomicBoolean(false)
         const val EPG_LOADED_MESSAGE = "EPG loaded"
         private const val STARTUP_PLAYER_INIT_DELAY_MS = 250L
         private const val STARTUP_PLAYER_READY_WAIT_MS = 5000L
+        private const val STARTUP_SPLASH_TIMEOUT_MS = 8000L
         private const val STARTUP_EPG_PRELOAD_DELAY_MS = 3500L
         private const val STARTUP_URL_REFRESH_DELAY_MS = 6000L
         private const val ACTIVE_EPG_REFRESH_DELAY_MS = 1500L

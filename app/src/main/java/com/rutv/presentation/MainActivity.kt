@@ -13,10 +13,25 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -28,8 +43,10 @@ import com.rutv.presentation.player.PreviewPlayerFactory
 import com.rutv.ui.mobile.screens.PlayerScreen
 import com.rutv.ui.mobile.screens.PlayerUiActions
 import com.rutv.ui.mobile.screens.rememberPlayerUiState
+import com.rutv.ui.shared.components.EpgNotificationToast
 import com.rutv.ui.shared.components.RemotePressLifecycle
 import com.rutv.ui.theme.RuTvTheme
+import com.rutv.ui.theme.ruTvColors
 import com.rutv.util.DeviceHelper
 import com.rutv.util.LocaleHelper
 import com.rutv.util.logDebug
@@ -195,8 +212,9 @@ class MainActivity : ComponentActivity() {
             onPlayChannel = { index -> viewModel.playChannel(index) },
             onToggleFavorite = { url -> viewModel.toggleFavorite(url) },
             onShowEpgForChannel = { tvgId -> viewModel.showEpgForChannel(tvgId) },
-            onTogglePlaylist = { viewModel.togglePlaylist() },
-            onToggleFavorites = { viewModel.toggleFavorites() },
+            onOpenChosenChannelList = { viewModel.openChosenChannelList() },
+            onOpenFullChannelList = { viewModel.openFullChannelList() },
+            onOpenFavoritesChannelList = { viewModel.openFavoritesChannelList() },
             onClosePlaylist = { viewModel.closePlaylist() },
             onCloseEpgPanel = { viewModel.closeEpgPanel() },
             onCycleAspectRatio = { viewModel.cycleAspectRatio() },
@@ -231,15 +249,23 @@ class MainActivity : ComponentActivity() {
             onVisibleChannelsChanged = { tvgIds -> viewModel.onVisibleChannelsChanged(tvgIds) }
         )
 
-        PlayerScreen(
-            uiState = playerUiState,
-            player = viewModel.getPlayer(),
-            previewPlayerFactory = previewPlayerFactory,
-            actions = playerActions,
-            onRegisterToggleControls = { callback -> toggleControlsCallback = callback },
-            onControlsVisibilityChanged = { visible -> viewModel.setControlsVisible(visible) },
-            modifier = Modifier.fillMaxSize()
-        )
+        if (playerUiState.showStartupSplash) {
+            StartupSplashScreen(
+                epgNotificationMessage = playerUiState.epgNotificationMessage,
+                onDismissEpgNotification = playerActions.onClearEpgNotification,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            PlayerScreen(
+                uiState = playerUiState,
+                player = viewModel.getPlayer(),
+                previewPlayerFactory = previewPlayerFactory,
+                actions = playerActions,
+                onRegisterToggleControls = { callback -> toggleControlsCallback = callback },
+                onControlsVisibilityChanged = { visible -> viewModel.setControlsVisible(visible) },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
 
         NoPlaylistDialog(
             show = showNoPlaylistDialog,
@@ -287,10 +313,10 @@ class MainActivity : ComponentActivity() {
             groups = channelGroups,
             selectedGroup = viewState.selectedGroup,
             onSelectGroup = { group ->
-                viewModel.setChannelGroupFilter(group)
+                viewModel.openCategoryChannelList(group)
             },
             onReset = {
-                viewModel.resetChannelGroupFilter()
+                viewModel.resetCategoryToFullChannelList()
             },
             onDismiss = { showGroupDialog = false }
         )
@@ -300,6 +326,49 @@ class MainActivity : ComponentActivity() {
             onConfirmExit = { finishAffinity() },
             onDismiss = { viewModel.setShowCloseAppDialog(false) }
         )
+    }
+
+    @Composable
+    private fun StartupSplashScreen(
+        epgNotificationMessage: String?,
+        onDismissEpgNotification: () -> Unit,
+        modifier: Modifier = Modifier
+    ) {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(MaterialTheme.ruTvColors.darkBackground)
+        ) {
+            Column(
+                modifier = Modifier.align(Alignment.Center),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(18.dp)
+            ) {
+                Image(
+                    painter = painterResource(id = R.mipmap.ic_launcher),
+                    contentDescription = stringResource(id = R.string.app_name),
+                    modifier = Modifier.size(88.dp)
+                )
+                Text(
+                    text = stringResource(id = R.string.app_name),
+                    color = MaterialTheme.ruTvColors.textPrimary,
+                    style = MaterialTheme.typography.headlineMedium
+                )
+                LinearProgressIndicator(
+                    modifier = Modifier
+                        .width(220.dp)
+                        .padding(top = 6.dp),
+                    color = MaterialTheme.ruTvColors.gold,
+                    trackColor = MaterialTheme.ruTvColors.textHint.copy(alpha = 0.35f)
+                )
+            }
+
+            EpgNotificationToast(
+                message = epgNotificationMessage,
+                onDismiss = onDismissEpgNotification,
+                modifier = Modifier
+            )
+        }
     }
 
     /**
@@ -491,7 +560,7 @@ class MainActivity : ComponentActivity() {
             KeyEvent.KEYCODE_DPAD_LEFT -> {
                 if (!isFullscreenPlayback || !currentState.hasChannels) return false
                 if (!shouldHandleChannelSwitchPress(event)) return true
-                viewModel.openPlaylist()
+                viewModel.openChosenChannelList()
                 true
             }
             // Fullscreen RIGHT: open EPG immediately

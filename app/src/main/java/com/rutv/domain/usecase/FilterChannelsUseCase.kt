@@ -2,18 +2,29 @@ package com.rutv.domain.usecase
 
 import com.rutv.data.model.Channel
 
+enum class ChannelListMode {
+    Full,
+    Favorites,
+    Category
+}
+
 /**
- * Filter channels based on favorites flag and optional group selection.
+ * Filter channels by the explicitly selected channel list mode.
  */
 fun filterChannels(
     channels: List<Channel>,
-    showFavoritesOnly: Boolean,
+    channelListMode: ChannelListMode,
     selectedGroup: String?
 ): List<Channel> {
-    val normalizedGroup = selectedGroup?.trim().takeIf { !it.isNullOrBlank() }
-    return channels.filter { channel ->
-        val matchesFavorite = !showFavoritesOnly || channel.isFavorite
-        val matchesGroup = normalizedGroup == null || channel.allGroups.any { it.trim() == normalizedGroup }
-        matchesFavorite && matchesGroup
+    return when (channelListMode) {
+        ChannelListMode.Full -> channels
+        ChannelListMode.Favorites -> channels.filter { it.isFavorite }
+        ChannelListMode.Category -> {
+            val normalizedGroup = selectedGroup?.trim().takeIf { !it.isNullOrBlank() }
+                ?: return channels
+            channels.filter { channel ->
+                channel.allGroups.any { it.trim() == normalizedGroup }
+            }
+        }
     }
 }

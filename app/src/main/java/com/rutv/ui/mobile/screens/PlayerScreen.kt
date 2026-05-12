@@ -567,8 +567,8 @@ fun PlayerScreen(
         // No animation - hide/show instantly together with ExoPlayer controls
         if (showControls) {
             CustomControlButtons(
-                onPlaylistClick = actions.onTogglePlaylist,
-                onFavoritesClick = actions.onToggleFavorites,
+                onPlaylistClick = actions.onOpenFullChannelList,
+                onFavoritesClick = actions.onOpenFavoritesChannelList,
                 onChannelGroupsClick = actions.onShowChannelGroups,
                 onAspectRatioClick = actions.onCycleAspectRatio,
                 onSettingsClick = actions.onOpenSettings,
@@ -734,7 +734,7 @@ fun PlayerScreen(
             PlaylistPanel(
                 allChannels = allChannels,
                 visibleChannels = displayedChannels,
-                playlistTitleResId = uiState.playlistTitleResId,
+                channelListMode = uiState.channelListMode,
                 selectedGroup = uiState.selectedGroup,
                 currentChannelIndex = uiState.currentChannelFilteredIndex,
                 currentChannelStatusText = if (playbackRetrying && playbackErrorText != null) {
@@ -852,7 +852,7 @@ fun PlayerScreen(
                 },
                 onOpenPlaylist = {
                     if (!uiState.showPlaylist) {
-                        actions.onTogglePlaylist()
+                        actions.onOpenChosenChannelList()
                     }
                 },
                 focusManager = focusManager,
