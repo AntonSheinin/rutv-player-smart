@@ -5,9 +5,12 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ActivityInfo
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
-import android.graphics.Color
+import android.os.Handler
+import android.os.Looper
+import android.os.Process
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -55,6 +58,7 @@ import timber.log.Timber
 import android.view.KeyEvent
 import android.content.res.Configuration
 import kotlinx.coroutines.delay
+import kotlin.system.exitProcess
 import javax.inject.Inject
 
 /**
@@ -82,6 +86,7 @@ class MainActivity : ComponentActivity() {
     // Track if we've shown the no-playlist prompt
     private var hasShownNoPlaylistPrompt = false
     private var timeChangeReceiver: BroadcastReceiver? = null
+    private var isExitingApplication = false
 
     // State holder for PlayerScreen controls toggle
     private var toggleControlsCallback: (() -> Unit)? = null
@@ -274,7 +279,7 @@ class MainActivity : ComponentActivity() {
                 showNoPlaylistDialog = false
                 settingsLauncher.launch(Intent(context, SettingsActivity::class.java))
             },
-            onExitApp = { finishAffinity() }
+            onExitApp = { exitApplication() }
         )
 
         val onConfirmChannel = {
@@ -323,7 +328,7 @@ class MainActivity : ComponentActivity() {
 
         CloseAppDialog(
             show = viewState.showCloseAppDialog,
-            onConfirmExit = { finishAffinity() },
+            onConfirmExit = { exitApplication() },
             onDismiss = { viewModel.setShowCloseAppDialog(false) }
         )
     }
@@ -431,6 +436,17 @@ class MainActivity : ComponentActivity() {
             .onFailure { Timber.w(it, "Failed to unregister time change receiver") }
         timeChangeReceiver = null
         logDebug { "Unregistered system time change receiver" }
+    }
+
+    private fun exitApplication() {
+        if (isExitingApplication) return
+        isExitingApplication = true
+
+        finishAndRemoveTask()
+        Handler(Looper.getMainLooper()).postDelayed({
+            Process.killProcess(Process.myPid())
+            exitProcess(0)
+        }, EXIT_PROCESS_DELAY_MS)
     }
 
     /**
@@ -640,5 +656,9 @@ class MainActivity : ComponentActivity() {
 
     private fun shouldHandleChannelSwitchPress(event: KeyEvent): Boolean {
         return event.repeatCount == 0 && !event.isLongPress
+    }
+
+    private companion object {
+        private const val EXIT_PROCESS_DELAY_MS = 250L
     }
 }
