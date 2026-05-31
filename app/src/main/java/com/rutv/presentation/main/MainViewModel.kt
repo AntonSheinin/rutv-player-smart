@@ -9,6 +9,7 @@ import com.rutv.data.model.EpgProgram
 import com.rutv.data.model.PlaylistSource
 import com.rutv.domain.repository.ChannelRepository
 import com.rutv.domain.repository.EpgRepository
+import com.rutv.data.repository.ExternalConfigRepository
 import com.rutv.data.repository.PreferencesRepository
 import com.rutv.domain.usecase.ChannelListMode
 import com.rutv.domain.usecase.filterChannels
@@ -71,6 +72,7 @@ class MainViewModel @Inject constructor(
     private val playerManager: PlayerManager,
     private val channelRepository: ChannelRepository,
     private val epgRepository: EpgRepository,
+    private val externalConfigRepository: ExternalConfigRepository,
     private val preferencesRepository: PreferencesRepository,
     private val loadPlaylistUseCase: LoadPlaylistUseCase,
     private val fetchEpgProgramsUseCase: FetchEpgProgramsUseCase,
@@ -456,6 +458,13 @@ class MainViewModel @Inject constructor(
         startupPlayerInitJob?.cancel()
         startupPlayerInitJob = null
         viewModelScope.launch(Dispatchers.IO) {
+            try {
+                externalConfigRepository.importIfChanged()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.w(e, "External config import failed; continuing startup")
+            }
             loadPlaylistAndPlayer(loadId)
         }
     }

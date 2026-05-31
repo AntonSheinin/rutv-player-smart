@@ -46,6 +46,7 @@
     <string name="settings_ffmpeg_audio">Use FFmpeg for Audio</string>
     <string name="settings_ffmpeg_video">Use FFmpeg for Video</string>
     <string name="settings_buffer_seconds">Buffer Duration (seconds)</string>
+    <string name="settings_controls_hide_delay_seconds">Controls hide delay (seconds)</string>
     <string name="settings_auto_retry_enabled">Auto-retry playback errors</string>
     <string name="settings_auto_retry_max_attempts">Max retry attempts</string>
     <string name="settings_auto_retry_period_seconds">Retry period (seconds)</string>

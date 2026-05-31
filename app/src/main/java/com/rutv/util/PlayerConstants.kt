@@ -16,6 +16,11 @@ object PlayerConstants {
     const val MAX_BUFFER_SECONDS = 60
     const val DEFAULT_BUFFER_SECONDS = 15
 
+    // Player controls auto-hide delay (seconds)
+    const val DEFAULT_CONTROLS_HIDE_DELAY_SECONDS = 5
+    const val MIN_CONTROLS_HIDE_DELAY_SECONDS = 1
+    const val MAX_CONTROLS_HIDE_DELAY_SECONDS = 30
+
     // Player
     const val SEEK_INCREMENT_MS = 10_000L
 

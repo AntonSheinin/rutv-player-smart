@@ -64,6 +64,7 @@ class PreferencesRepository @Inject constructor(
         val USE_FFMPEG_AUDIO = booleanPreferencesKey("use_ffmpeg_audio")
         val USE_FFMPEG_VIDEO = booleanPreferencesKey("use_ffmpeg_video")
         val BUFFER_SECONDS = intPreferencesKey("buffer_seconds")
+        val CONTROLS_HIDE_DELAY_SECONDS = intPreferencesKey("controls_hide_delay_seconds")
         val SHOW_DEBUG_LOG = booleanPreferencesKey("show_debug_log")
 
         val AUTO_RETRY_ENABLED = booleanPreferencesKey("auto_retry_enabled")
@@ -78,6 +79,8 @@ class PreferencesRepository @Inject constructor(
         val LAST_PLAYED_INDEX = intPreferencesKey("last_played_index")
 
         val APP_LANGUAGE = stringPreferencesKey("app_language")
+
+        val EXTERNAL_CONFIG_IMPORTED_HASH = stringPreferencesKey("external_config_imported_hash")
     }
 
     /**
@@ -142,7 +145,7 @@ class PreferencesRepository @Inject constructor(
             preferences.remove(PreferencesKeys.PLAYLIST_CONTENT)
             preferences.remove(PreferencesKeys.PLAYLIST_FILE_NAME)
         }
-        logDebug { "Saved playlist from URL: $url" }
+        logDebug { "Saved playlist from URL" }
     }
 
     suspend fun savePlaylistHash(hash: String) {
@@ -232,7 +235,7 @@ class PreferencesRepository @Inject constructor(
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.EPG_URL] = url
         }
-        logDebug { "Saved EPG URL: $url" }
+        logDebug { "Saved EPG URL" }
     }
 
     /**
@@ -292,15 +295,25 @@ class PreferencesRepository @Inject constructor(
                 useFfmpegAudio = preferences[PreferencesKeys.USE_FFMPEG_AUDIO] ?: false,
                 useFfmpegVideo = preferences[PreferencesKeys.USE_FFMPEG_VIDEO] ?: false,
                 bufferSeconds = preferences[PreferencesKeys.BUFFER_SECONDS] ?: PlayerConstants.DEFAULT_BUFFER_SECONDS,
+                controlsHideDelaySeconds = (preferences[PreferencesKeys.CONTROLS_HIDE_DELAY_SECONDS]
+                    ?: PlayerConstants.DEFAULT_CONTROLS_HIDE_DELAY_SECONDS).coerceIn(
+                    PlayerConstants.MIN_CONTROLS_HIDE_DELAY_SECONDS,
+                    PlayerConstants.MAX_CONTROLS_HIDE_DELAY_SECONDS
+                ),
                 showDebugLog = preferences[PreferencesKeys.SHOW_DEBUG_LOG] ?: false
             )
         }
 
     suspend fun savePlayerConfig(config: PlayerConfig) {
+        val controlsHideDelaySeconds = config.controlsHideDelaySeconds.coerceIn(
+            PlayerConstants.MIN_CONTROLS_HIDE_DELAY_SECONDS,
+            PlayerConstants.MAX_CONTROLS_HIDE_DELAY_SECONDS
+        )
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.USE_FFMPEG_AUDIO] = config.useFfmpegAudio
             preferences[PreferencesKeys.USE_FFMPEG_VIDEO] = config.useFfmpegVideo
             preferences[PreferencesKeys.BUFFER_SECONDS] = config.bufferSeconds
+            preferences[PreferencesKeys.CONTROLS_HIDE_DELAY_SECONDS] = controlsHideDelaySeconds
             preferences[PreferencesKeys.SHOW_DEBUG_LOG] = config.showDebugLog
         }
         logDebug { "Saved player config: $config" }
@@ -429,6 +442,47 @@ class PreferencesRepository @Inject constructor(
             preferences[PreferencesKeys.APP_LANGUAGE] = localeCode
         }
         logDebug { "Saved app language: $localeCode (commit success: $success)" }
+    }
+
+    val externalConfigImportedHash: Flow<String> = dataStore.data
+        .map { preferences ->
+            preferences[PreferencesKeys.EXTERNAL_CONFIG_IMPORTED_HASH] ?: ""
+        }
+
+    suspend fun applyExternalConfig(values: Map<String, String>, normalizedHash: String) {
+        val playlistUrl = values[ExternalConfigKeys.PLAYLIST_URL]
+        val epgUrl = values[ExternalConfigKeys.EPG_URL]
+        val epgDaysAhead = values[ExternalConfigKeys.EPG_DAYS_AHEAD]?.toIntOrNull()
+        val epgDaysPast = values[ExternalConfigKeys.EPG_DAYS_PAST]?.toIntOrNull()
+        val epgPageDays = values[ExternalConfigKeys.EPG_PAGE_DAYS]?.toIntOrNull()
+
+        if (playlistUrl != null) {
+            playlistCacheFile.delete()
+        }
+
+        dataStore.edit { preferences ->
+            if (playlistUrl != null) {
+                preferences[PreferencesKeys.PLAYLIST_TYPE] = PlaylistSource.TYPE_URL
+                preferences[PreferencesKeys.PLAYLIST_URL] = playlistUrl
+                preferences.remove(PreferencesKeys.PLAYLIST_CONTENT)
+                preferences.remove(PreferencesKeys.PLAYLIST_FILE_NAME)
+                preferences.remove(PreferencesKeys.PLAYLIST_HASH)
+            }
+            if (epgUrl != null) {
+                preferences[PreferencesKeys.EPG_URL] = epgUrl
+            }
+            if (epgDaysAhead != null) {
+                preferences[PreferencesKeys.EPG_DAYS_AHEAD] = epgDaysAhead
+            }
+            if (epgDaysPast != null) {
+                preferences[PreferencesKeys.EPG_DAYS_PAST] = epgDaysPast
+            }
+            if (epgPageDays != null) {
+                preferences[PreferencesKeys.EPG_PAGE_DAYS] = epgPageDays
+            }
+            preferences[PreferencesKeys.EXTERNAL_CONFIG_IMPORTED_HASH] = normalizedHash
+        }
+        logDebug { "Applied external config" }
     }
 
     private fun readPlaylistFile(): String? {

@@ -290,6 +290,16 @@ class SettingsViewModel @Inject constructor(
         updatePlayerConfig(newConfig)
     }
 
+    fun setControlsHideDelaySeconds(seconds: Int) {
+        val clampedSeconds = seconds.coerceIn(
+            PlayerConstants.MIN_CONTROLS_HIDE_DELAY_SECONDS,
+            PlayerConstants.MAX_CONTROLS_HIDE_DELAY_SECONDS
+        )
+        val currentConfig = _viewState.value.playerConfig
+        val newConfig = currentConfig.copy(controlsHideDelaySeconds = clampedSeconds)
+        updatePlayerConfig(newConfig)
+    }
+
     fun setShowCurrentProgramInChannelList(enabled: Boolean) {
         viewModelScope.launch {
             try {

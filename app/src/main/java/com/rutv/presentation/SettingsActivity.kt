@@ -112,6 +112,9 @@ class SettingsActivity : ComponentActivity() {
             onBufferSecondsChanged = { seconds: Int ->
                 viewModel.setBufferSeconds(seconds)
             },
+            onControlsHideDelaySecondsChanged = { seconds: Int ->
+                viewModel.setControlsHideDelaySeconds(seconds)
+            },
             onAutoRetryEnabledChanged = { enabled: Boolean ->
                 viewModel.setAutoRetryEnabled(enabled)
             },

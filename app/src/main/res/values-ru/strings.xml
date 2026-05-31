@@ -46,6 +46,7 @@
     <string name="settings_ffmpeg_audio">Использовать FFmpeg для аудио</string>
     <string name="settings_ffmpeg_video">Использовать FFmpeg для видео</string>
     <string name="settings_buffer_seconds">Длительность буфера (секунды)</string>
+    <string name="settings_controls_hide_delay_seconds">Задержка скрытия элементов управления (секунды)</string>
     <string name="settings_auto_retry_enabled">Автоповтор ошибок воспроизведения</string>
     <string name="settings_auto_retry_max_attempts">Макс. количество попыток</string>
     <string name="settings_auto_retry_period_seconds">Период повтора (секунды)</string>

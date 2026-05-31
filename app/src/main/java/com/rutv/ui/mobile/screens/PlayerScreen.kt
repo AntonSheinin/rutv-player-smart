@@ -79,6 +79,7 @@ import com.rutv.presentation.player.ChannelPreviewPlaybackState
 import com.rutv.presentation.player.PlayerState
 import com.rutv.presentation.player.ProgramPlaybackProgress
 import com.rutv.presentation.player.PreviewPlayerFactory
+import com.rutv.util.PlayerConstants
 import com.rutv.util.logDebug
 import java.lang.ref.WeakReference
 import java.text.SimpleDateFormat
@@ -136,6 +137,12 @@ fun PlayerScreen(
     var controlsClockMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
     val customControlFocusCoordinator = rememberCustomControlFocusCoordinator()
     val programProgressFocusRequester = remember { FocusRequester() }
+    val controlsHideDelayMs by rememberUpdatedState(
+        uiState.playerConfig.controlsHideDelaySeconds.coerceIn(
+            PlayerConstants.MIN_CONTROLS_HIDE_DELAY_SECONDS,
+            PlayerConstants.MAX_CONTROLS_HIDE_DELAY_SECONDS
+        ) * 1000L
+    )
 
     LaunchedEffect(showControls, uiState.programProgress, uiState.currentProgram?.id) {
         while (showControls && uiState.programProgress == null && uiState.currentProgram != null) {
@@ -262,7 +269,7 @@ fun PlayerScreen(
         val playerView = playerViewRef ?: return@registerControlsInteraction
         controlsAutoHideJobRef.job?.cancel()
         controlsAutoHideJobRef.job = coroutineScope.launch {
-            delay(3000L)
+            delay(controlsHideDelayMs)
             if (showControls) {
                 showControls = false
                 playerView.hideController()

@@ -67,6 +67,7 @@ fun SettingsScreen(
     onFfmpegAudioChanged: (Boolean) -> Unit,
     onFfmpegVideoChanged: (Boolean) -> Unit,
     onBufferSecondsChanged: (Int) -> Unit,
+    onControlsHideDelaySecondsChanged: (Int) -> Unit,
     onAutoRetryEnabledChanged: (Boolean) -> Unit,
     onAutoRetryMaxAttemptsChanged: (Int) -> Unit,
     onAutoRetryPeriodSecondsChanged: (Int) -> Unit,
@@ -352,6 +353,16 @@ fun SettingsScreen(
                     onValueChange = onBufferSecondsChanged,
                     minValue = PlayerConstants.MIN_BUFFER_SECONDS,
                     maxValue = PlayerConstants.MAX_BUFFER_SECONDS
+                )
+            }
+
+            item {
+                NumberInputSetting(
+                    label = stringResource(R.string.settings_controls_hide_delay_seconds),
+                    value = viewState.playerConfig.controlsHideDelaySeconds,
+                    onValueChange = onControlsHideDelaySecondsChanged,
+                    minValue = PlayerConstants.MIN_CONTROLS_HIDE_DELAY_SECONDS,
+                    maxValue = PlayerConstants.MAX_CONTROLS_HIDE_DELAY_SECONDS
                 )
             }
 

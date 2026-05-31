@@ -1,5 +1,7 @@
 package com.rutv.data.model
 
+import com.rutv.util.PlayerConstants
+
 /**
  * Represents the source of a playlist
  */
@@ -20,6 +22,7 @@ sealed class PlaylistSource {
 data class PlayerConfig(
     val useFfmpegAudio: Boolean = false,
     val useFfmpegVideo: Boolean = false,
-    val bufferSeconds: Int = 6,
+    val bufferSeconds: Int = PlayerConstants.DEFAULT_BUFFER_SECONDS,
+    val controlsHideDelaySeconds: Int = PlayerConstants.DEFAULT_CONTROLS_HIDE_DELAY_SECONDS,
     val showDebugLog: Boolean = false
 )
