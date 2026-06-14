@@ -6,6 +6,13 @@ plugins {
     id 'com.google.dagger.hilt.android'
 }
 
+def versionPropertiesFile = rootProject.file('version.properties')
+def versionProperties = new Properties()
+if (!versionPropertiesFile.exists()) {
+    throw new GradleException("Missing version.properties at repository root")
+}
+versionPropertiesFile.withInputStream { versionProperties.load(it) }
+
 android {
     namespace 'com.rutv'
     compileSdk 35
@@ -14,8 +21,8 @@ android {
         applicationId "com.rutv"
         minSdk 24
         targetSdk 35
-        versionCode 6
-        versionName "1.0"
+        versionCode versionProperties.getProperty('VERSION_CODE').toInteger()
+        versionName versionProperties.getProperty('VERSION_NAME')
     }
 
     signingConfigs {
@@ -34,6 +41,7 @@ android {
             manifestPlaceholders = [usesCleartextTraffic: "true"]
         }
         release {
+            signingConfig signingConfigs.debug
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'

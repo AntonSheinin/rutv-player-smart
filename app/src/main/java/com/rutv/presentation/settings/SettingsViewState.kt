@@ -17,10 +17,13 @@ data class SettingsViewState(
     val playerConfig: PlayerConfig = PlayerConfig(),
     val showCurrentProgramInChannelList: Boolean = true,
     val channelPreviewEnabled: Boolean = true,
+    val hasParentalPassword: Boolean = false,
     val autoRetryEnabled: Boolean = true,
     val autoRetryMaxAttempts: Int = PlayerConstants.DEFAULT_AUTO_RETRY_MAX_ATTEMPTS,
     val autoRetryPeriodSeconds: Int = PlayerConstants.DEFAULT_AUTO_RETRY_PERIOD_SECONDS,
     val selectedLanguage: String = "en",
+    val parentalPinError: String? = null,
+    val parentalPinOperationVersion: Int = 0,
     val isLoading: Boolean = false,
     val error: String? = null,
     val successMessage: String? = null

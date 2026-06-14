@@ -764,6 +764,7 @@ fun PlayerScreen(
                     actions.onPlayChannel(index)
                 },
                 onFavoriteClick = actions.onToggleFavorite,
+                onLockToggle = actions.onToggleChannelLock,
                 onShowPrograms = { tvgId ->
                     previewTarget = null
                     previewController?.stop()

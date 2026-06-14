@@ -13,3 +13,27 @@ Skill location:
 ```text
 C:\Users\anton\.codex\skills\rutv-stb-deploy\SKILL.md
 ```
+
+Use the `rutv-commit` skill when explicitly asked to commit and push normal repository changes:
+
+```text
+$rutv-commit
+```
+
+Skill location:
+
+```text
+C:\Users\anton\.codex\skills\rutv-commit\SKILL.md
+```
+
+Use the `rutv-release` skill when explicitly asked to prepare a release:
+
+```text
+$rutv-release
+```
+
+Skill location:
+
+```text
+C:\Users\anton\.codex\skills\rutv-release\SKILL.md
+```

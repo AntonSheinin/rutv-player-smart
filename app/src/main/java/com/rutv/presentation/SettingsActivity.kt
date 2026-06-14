@@ -130,6 +130,15 @@ class SettingsActivity : ComponentActivity() {
             onChannelPreviewEnabledChanged = { enabled: Boolean ->
                 viewModel.setChannelPreviewEnabled(enabled)
             },
+            onSetParentalPassword = { pin: String ->
+                viewModel.setParentalPassword(pin)
+            },
+            onChangeParentalPassword = { currentPin: String, newPin: String ->
+                viewModel.changeParentalPassword(currentPin, newPin)
+            },
+            onRemoveParentalPassword = { currentPin: String ->
+                viewModel.removeParentalPassword(currentPin)
+            },
             onEpgUrlChanged = { url: String ->
                 viewModel.saveEpgUrl(url)
             },

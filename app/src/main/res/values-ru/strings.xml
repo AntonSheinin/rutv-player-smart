@@ -52,6 +52,11 @@
     <string name="settings_auto_retry_period_seconds">Период повтора (секунды)</string>
     <string name="settings_show_current_program_in_list">Показывать текущую программу в списке каналов</string>
     <string name="settings_channel_preview_enabled">Показывать окно предпросмотра канала</string>
+    <string name="settings_parental_controls">Родительский контроль</string>
+    <string name="settings_set_parental_pin">Установить родительский КОД</string>
+    <string name="settings_change_parental_pin">Изменить родительский КОД</string>
+    <string name="settings_remove_parental_pin">Удалить родительский КОД</string>
+    <string name="settings_parental_pin_forgotten_note">Забытый КОД можно удалить только переустановкой приложения или очисткой данных приложения.</string>
     <string name="settings_epg_config">Настройки EPG</string>
     <string name="settings_epg_url">EPG XML URL</string>
     <string name="settings_epg_days_ahead">Дни EPG вперед</string>
@@ -86,6 +91,23 @@
     <!-- Favorites -->
     <string name="favorite_filled">&#9733;</string>
     <string name="favorite_empty">&#9734;</string>
+    <string name="lock_indicator">&#128274;</string>
+    <string name="parental_pin_current">Текущий КОД</string>
+    <string name="parental_pin_new">Новый КОД</string>
+    <string name="parental_pin_confirm">Подтвердите КОД</string>
+    <string name="parental_pin_hint">Введите ровно 4 цифры</string>
+    <string name="parental_pin_invalid">КОД должен состоять ровно из 4 цифр</string>
+    <string name="parental_pin_mismatch">КОДЫ не совпадают</string>
+    <string name="parental_pin_wrong">Неверный КОД</string>
+    <string name="parental_remove_warning">Удаление родительского КОДА отключит родительский контроль и разблокирует все заблокированные каналы.</string>
+    <string name="parental_unlock_channel_title">Разблокировать канал</string>
+    <string name="parental_unlock_epg_title">Разблокировать программу передач</string>
+    <string name="parental_toggle_lock_title">Блокировка канала</string>
+    <string name="parental_pin_prompt_message">Канал %1$s заблокирован. Введите родительский КОД.</string>
+    <string name="parental_pin_prompt_lock_message">Введите родительский КОД, чтобы заблокировать %1$s.</string>
+    <string name="parental_pin_prompt_unlock_message">Введите родительский КОД, чтобы разблокировать %1$s.</string>
+    <string name="parental_pin_setup_required">Установите родительский КОД в настройках перед блокировкой каналов.</string>
+    <string name="cd_locked_channel">Заблокированный канал</string>
 
     <!-- Accessibility -->
     <string name="cd_channel_logo">Логотип канала</string>

@@ -55,6 +55,9 @@ class PreferencesRepository @Inject constructor(
 
         val FAVORITE_URLS = stringSetPreferencesKey("favorite_urls")
         val FAVORITE_TVG_IDS = stringSetPreferencesKey("favorite_tvg_ids")
+        val PARENTAL_PASSWORD = stringPreferencesKey("parental_password")
+        val LOCKED_CHANNEL_URLS = stringSetPreferencesKey("locked_channel_urls")
+        val LOCKED_CHANNEL_TVG_IDS = stringSetPreferencesKey("locked_channel_tvg_ids")
 
         val EPG_URL = stringPreferencesKey("epg_url")
         val EPG_DAYS_AHEAD = intPreferencesKey("epg_days_ahead")
@@ -219,6 +222,55 @@ class PreferencesRepository @Inject constructor(
                 preferences.remove(PreferencesKeys.FAVORITE_TVG_IDS)
             } else {
                 preferences[PreferencesKeys.FAVORITE_TVG_IDS] = normalizedTvgIds
+            }
+        }
+    }
+
+    val parentalPassword: Flow<String> = dataStore.data
+        .map { preferences -> preferences[PreferencesKeys.PARENTAL_PASSWORD] ?: "" }
+
+    val lockedChannelUrls: Flow<Set<String>> = dataStore.data
+        .map { preferences -> preferences[PreferencesKeys.LOCKED_CHANNEL_URLS] ?: emptySet() }
+
+    val lockedChannelTvgIds: Flow<Set<String>> = dataStore.data
+        .map { preferences -> preferences[PreferencesKeys.LOCKED_CHANNEL_TVG_IDS] ?: emptySet() }
+
+    suspend fun saveParentalPassword(pin: String) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.PARENTAL_PASSWORD] = pin
+        }
+    }
+
+    suspend fun removeParentalControls() {
+        dataStore.edit { preferences ->
+            preferences.remove(PreferencesKeys.PARENTAL_PASSWORD)
+            preferences.remove(PreferencesKeys.LOCKED_CHANNEL_URLS)
+            preferences.remove(PreferencesKeys.LOCKED_CHANNEL_TVG_IDS)
+        }
+    }
+
+    suspend fun updateChannelLock(url: String, tvgId: String?, isLocked: Boolean) {
+        val normalizedUrl = url.trim()
+        val normalizedTvgId = tvgId?.trim().orEmpty()
+        dataStore.edit { preferences ->
+            val urls = preferences[PreferencesKeys.LOCKED_CHANNEL_URLS]?.toMutableSet() ?: mutableSetOf()
+            val tvgIds = preferences[PreferencesKeys.LOCKED_CHANNEL_TVG_IDS]?.toMutableSet() ?: mutableSetOf()
+            if (isLocked) {
+                if (normalizedUrl.isNotBlank()) urls.add(normalizedUrl)
+                if (normalizedTvgId.isNotBlank()) tvgIds.add(normalizedTvgId)
+            } else {
+                if (normalizedUrl.isNotBlank()) urls.remove(normalizedUrl)
+                if (normalizedTvgId.isNotBlank()) tvgIds.remove(normalizedTvgId)
+            }
+            if (urls.isEmpty()) {
+                preferences.remove(PreferencesKeys.LOCKED_CHANNEL_URLS)
+            } else {
+                preferences[PreferencesKeys.LOCKED_CHANNEL_URLS] = urls
+            }
+            if (tvgIds.isEmpty()) {
+                preferences.remove(PreferencesKeys.LOCKED_CHANNEL_TVG_IDS)
+            } else {
+                preferences[PreferencesKeys.LOCKED_CHANNEL_TVG_IDS] = tvgIds
             }
         }
     }

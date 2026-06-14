@@ -49,6 +49,9 @@ data class MainViewState(
      */
     val showCurrentProgramInChannelList: Boolean = true,
     val channelPreviewEnabled: Boolean = true,
+    val parentalPinPrompt: ParentalPinPrompt? = null,
+    val showParentalPinSetupDialog: Boolean = false,
+    val temporarilyUnlockedChannelUrl: String? = null,
     val isArchivePlayback: Boolean = false,
     val isTimeshiftPlayback: Boolean = false,
     val programDvrProgram: EpgProgram? = null,
@@ -80,5 +83,19 @@ data class ArchivePrompt(
     val currentProgram: EpgProgram,
     val nextProgram: EpgProgram?
 )
+
+@Immutable
+data class ParentalPinPrompt(
+    val reason: ParentalPinPromptReason,
+    val channelTitle: String,
+    val channelIsLocked: Boolean,
+    val hasError: Boolean = false
+)
+
+enum class ParentalPinPromptReason {
+    PlayChannel,
+    OpenEpg,
+    ToggleLock
+}
 
 const val DEFAULT_VISIBLE_CHANNELS = 60

@@ -111,6 +111,7 @@ internal fun PlaylistPanel(
     showCurrentProgramInChannelList: Boolean,
     onChannelClick: (Int) -> Unit,
     onFavoriteClick: (String) -> Unit,
+    onLockToggle: (Int) -> Unit,
     onShowPrograms: (String) -> Unit,
     onClose: () -> Unit,
     onUpdateScrollIndex: (Int) -> Unit,
@@ -160,6 +161,7 @@ internal fun PlaylistPanel(
     val coroutineScope = rememberCoroutineScope()
     var playlistHasFocus by remember { mutableStateOf(false) }
     val centerPress = remember { RemotePressLifecycle() }
+    val rightPress = remember { RemotePressLifecycle() }
     // IMPORTANT: do not key this on displayedList.size.
     // Search may request more items, which changes displayedList.size; if we key on it,
     // we lose the pending search target and the first attempt "does nothing" until reopening.
@@ -247,6 +249,7 @@ internal fun PlaylistPanel(
         onDispose {
             onPreviewTargetChanged(null)
             centerPress.reset()
+            rightPress.reset()
             focusManager.unregisterEntry(PlayerFocusDestination.PLAYLIST_PANEL)
             focusManager.registerFocusCallback(PlayerFocusDestination.PLAYLIST_PANEL, null)
             val latestFocusedIndex = focusedChannelIndex
@@ -477,23 +480,21 @@ internal fun PlaylistPanel(
                                             true
                                         }
                                         Key.DirectionRight -> {
-                                            val isRepeat = (event.nativeKeyEvent?.repeatCount ?: 0) > 0 ||
-                                                event.nativeKeyEvent?.isLongPress == true
-                                            if (isRepeat) return@onPreviewKeyEvent true
-                                            val currentIdx = when {
-                                                focusedChannelIndex >= 0 -> focusedChannelIndex
-                                                currentChannelIndex in channels.indices -> currentChannelIndex
-                                                else -> -1
-                                            }
-                                            val channel = channels.getOrNull(currentIdx)
-                                            if (channel?.hasEpg == true) {
-                                                playlistHasFocus = false
-                                                onPreviewTargetChanged(null)
-                                                onShowPrograms(channel.tvgId)
-                                                onRequestEpgFocus?.invoke()
-                                                true
-                                            } else {
-                                                false
+                                            rightPress.onDown(
+                                                repeatCount = event.nativeKeyEvent?.repeatCount ?: 0,
+                                                isLongPress = event.nativeKeyEvent?.isLongPress == true
+                                            ) {
+                                                val currentIdx = when {
+                                                    focusedChannelIndex >= 0 -> focusedChannelIndex
+                                                    currentChannelIndex in channels.indices -> currentChannelIndex
+                                                    else -> -1
+                                                }
+                                                if (currentIdx >= 0) {
+                                                    onLockToggle(currentIdx)
+                                                    true
+                                                } else {
+                                                    false
+                                                }
                                             }
                                         }
                                         else -> false
@@ -508,6 +509,22 @@ internal fun PlaylistPanel(
                                                 }
                                             }
                                             true
+                                        }
+                                        Key.DirectionRight -> {
+                                            rightPress.onUp {
+                                                val currentIdx = when {
+                                                    focusedChannelIndex >= 0 -> focusedChannelIndex
+                                                    currentChannelIndex in channels.indices -> currentChannelIndex
+                                                    else -> -1
+                                                }
+                                                val channel = channels.getOrNull(currentIdx)
+                                                if (channel?.hasEpg == true) {
+                                                    playlistHasFocus = false
+                                                    onPreviewTargetChanged(null)
+                                                    onShowPrograms(channel.tvgId)
+                                                    onRequestEpgFocus?.invoke()
+                                                }
+                                            }
                                         }
                                         else -> false
                                     }
@@ -530,7 +547,7 @@ internal fun PlaylistPanel(
                     ) { index, channel ->
                         val actualIndex = displayedAbsoluteIndices.getOrNull(index) ?: -1
                         val resolvedIndex = actualIndex.takeIf { it >= 0 } ?: return@itemsIndexed
-                        val programInfo = if (showCurrentProgramInChannelList) {
+                        val programInfo = if (showCurrentProgramInChannelList && !channel.isLocked) {
                             currentProgramsMap[channel.tvgId]
                         } else {
                             null
@@ -602,7 +619,10 @@ internal fun PlaylistPanel(
                         @OptIn(FlowPreview::class)
                         snapshotFlow {
                             listState.layoutInfo.visibleItemsInfo.mapNotNull { info ->
-                                displayedList.getOrNull(info.index)?.tvgId?.takeIf { it.isNotBlank() }
+                                displayedList.getOrNull(info.index)
+                                    ?.takeIf { !it.isLocked }
+                                    ?.tvgId
+                                    ?.takeIf { it.isNotBlank() }
                             }
                         }
                             .distinctUntilChanged()
@@ -848,7 +868,7 @@ private fun buildPreviewTarget(
     if (!playlistHasFocus || searchOpen || epgOpenIndex >= 0) return null
     if (focusedChannelIndex !in channels.indices) return null
     val channel = channels[focusedChannelIndex]
-    if (channel.url.isBlank()) return null
+    if (channel.url.isBlank() || channel.isLocked) return null
     val displayedPosition = displayedPositionByAbsolute[focusedChannelIndex] ?: return null
     val itemInfo = listState.layoutInfo.visibleItemsInfo
         .firstOrNull { it.index == displayedPosition }

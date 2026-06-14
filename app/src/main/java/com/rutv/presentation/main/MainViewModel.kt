@@ -99,6 +99,7 @@ class MainViewModel @Inject constructor(
     private var startupSplashTimeoutJob: Job? = null
     private var lastEpgRequestTvgId: String = ""
     private var lastEpgRequestAtMs: Long = 0L
+    private var pendingParentalAction: PendingParentalAction? = null
     // tvgIds currently on-screen in the playlist panel; written by the UI (debounced),
     // read by the day-roll / pref-toggle handlers to repopulate `currentProgramsMap`.
     private val visibleChannelTvgIds = MutableStateFlow<List<String>>(emptyList())
@@ -111,6 +112,12 @@ class MainViewModel @Inject constructor(
     private var filteredIndexByUrl: Map<String, Int> = emptyMap()
     private var lastPersistedPlayedIndex: Int = -1
     private val perfStartMs = SystemClock.elapsedRealtime()
+
+    private sealed interface PendingParentalAction {
+        data class PlayChannel(val mainIndex: Int) : PendingParentalAction
+        data class OpenEpg(val tvgId: String) : PendingParentalAction
+        data class ToggleLock(val mainIndex: Int) : PendingParentalAction
+    }
 
     private fun logPerf(mark: String) {
         logDebug { "PERF ${SystemClock.elapsedRealtime() - perfStartMs}ms $mark" }
@@ -230,6 +237,50 @@ class MainViewModel @Inject constructor(
         return filteredIndexByUrl[url] ?: -1
     }
 
+    private fun applyParentalLocks(
+        channels: List<Channel>,
+        lockedUrls: Set<String>,
+        lockedTvgIds: Set<String>
+    ): List<Channel> {
+        if (channels.isEmpty()) return channels
+        if (lockedUrls.isEmpty() && lockedTvgIds.isEmpty()) {
+            return channels.map { if (it.isLocked) it.copy(isLocked = false) else it }
+        }
+        return channels.map { channel ->
+            val locked = lockedUrls.contains(channel.url) ||
+                (channel.tvgId.isNotBlank() && lockedTvgIds.contains(channel.tvgId))
+            if (channel.isLocked == locked) channel else channel.copy(isLocked = locked)
+        }
+    }
+
+    private suspend fun applyParentalLocks(channels: List<Channel>): List<Channel> {
+        val lockedUrls = preferencesRepository.lockedChannelUrls.first()
+        val lockedTvgIds = preferencesRepository.lockedChannelTvgIds.first()
+        return applyParentalLocks(channels, lockedUrls, lockedTvgIds)
+    }
+
+    private fun isTemporarilyUnlocked(channel: Channel, state: MainViewState = _viewState.value): Boolean {
+        return channel.url.isNotBlank() && state.temporarilyUnlockedChannelUrl == channel.url
+    }
+
+    private fun removeCurrentProgramEntry(
+        current: ImmutableMap<String, EpgProgram?>,
+        tvgId: String
+    ): ImmutableMap<String, EpgProgram?> {
+        if (tvgId.isBlank() || !current.containsKey(tvgId)) return current
+        return current.toMutableMap().apply { remove(tvgId) }.toImmutableMap()
+    }
+
+    private fun lockedChannelByTvgId(tvgId: String): Channel? {
+        if (tvgId.isBlank()) return null
+        return _viewState.value.channels.firstOrNull { it.tvgId == tvgId && it.isLocked }
+    }
+
+    private fun isEpgChannelBlocked(tvgId: String): Boolean {
+        val channel = lockedChannelByTvgId(tvgId) ?: return false
+        return !isTemporarilyUnlocked(channel)
+    }
+
     private fun updateEpgPanelState(
         tvgId: String,
         programs: List<EpgProgram>,
@@ -267,12 +318,16 @@ class MainViewModel @Inject constructor(
                         logPerf("player_ready channel=${state.index}")
                         cancelStartupSplashTimeout()
                         startupSplashDismissedInProcess.set(true)
+                        val stateChannel = _viewState.value.channels.getOrNull(state.index)
+                            ?.takeIf { it.url == state.channel.url }
+                            ?: _viewState.value.channels.firstOrNull { it.url == state.channel.url }
+                            ?: state.channel
                         val filteredIndex = findFilteredChannelIndex(state.channel.url)
                         _viewState.update {
                             val channelChanged = it.currentChannelIndex != state.index ||
-                                it.currentChannel?.url != state.channel.url
+                                it.currentChannel?.url != stateChannel.url
                             it.copy(
-                                currentChannel = state.channel,
+                                currentChannel = stateChannel,
                                 currentChannelIndex = state.index,
                                 currentChannelFilteredIndex = filteredIndex,
                                 playerState = state,
@@ -288,7 +343,7 @@ class MainViewModel @Inject constructor(
                         ensureChannelVisibility(filteredIndex)
                         // Update current program (will wait if EPG not loaded yet)
                         viewModelScope.launch(Dispatchers.Default) {
-                            updateCurrentProgram(state.channel)
+                            updateCurrentProgram(stateChannel)
                         }
                     }
                     is PlayerState.Error -> {
@@ -307,10 +362,12 @@ class MainViewModel @Inject constructor(
                     }
                     is PlayerState.Archive -> {
                         if (state.endReason == null) {
+                            val stateChannel = _viewState.value.channels.firstOrNull { it.url == state.channel.url }
+                                ?: state.channel
                             val filteredIndex = findFilteredChannelIndex(state.channel.url)
                             _viewState.update {
                                 it.copy(
-                                    currentChannel = state.channel,
+                                    currentChannel = stateChannel,
                                     currentProgram = state.program,
                                     playerState = state,
                                     isArchivePlayback = state.mode == ProgramDvrMode.ARCHIVE_PROGRAM,
@@ -400,6 +457,46 @@ class MainViewModel @Inject constructor(
                 }
         }
 
+        viewModelScope.launch {
+            combine(
+                preferencesRepository.lockedChannelUrls,
+                preferencesRepository.lockedChannelTvgIds
+            ) { urls, tvgIds -> urls to tvgIds }
+                .distinctUntilChanged()
+                .collect { (lockedUrls, lockedTvgIds) ->
+                    _viewState.update { state ->
+                        val channels = applyParentalLocks(state.channels, lockedUrls, lockedTvgIds)
+                        val filtered = applyParentalLocks(state.filteredChannels, lockedUrls, lockedTvgIds)
+                        val currentChannel = state.currentChannel?.let { channel ->
+                            applyParentalLocks(listOf(channel), lockedUrls, lockedTvgIds).first()
+                        }
+                        val lockedTvgIdSet = channels.asSequence()
+                            .filter { it.isLocked }
+                            .map { it.tvgId }
+                            .filter { it.isNotBlank() }
+                            .toSet()
+                        val cleanedMap = if (lockedTvgIdSet.isEmpty()) {
+                            state.currentProgramsMap
+                        } else {
+                            state.currentProgramsMap
+                                .filterKeys { it !in lockedTvgIdSet }
+                                .toImmutableMap()
+                        }
+                        val temporaryUnlock = state.temporarilyUnlockedChannelUrl
+                            ?.takeIf { url -> channels.any { it.url == url && it.isLocked } }
+                        state.copy(
+                            channels = channels.toImmutableList(),
+                            filteredChannels = filtered.toImmutableList(),
+                            currentChannel = currentChannel,
+                            currentProgramsMap = cleanedMap,
+                            temporarilyUnlockedChannelUrl = temporaryUnlock
+                        )
+                    }
+                    updateChannelIndexMap(_viewState.value.channels)
+                    updateFilteredIndexMap(_viewState.value.filteredChannels)
+                }
+        }
+
         // Reflect the toggle in view state, and clear accumulated debug messages when disabled.
         viewModelScope.launch {
             debugEnabledFlow.collect { enabled ->
@@ -474,14 +571,23 @@ class MainViewModel @Inject constructor(
         return try {
             val config = preferencesRepository.playerConfig.first()
             val lastPlayedIndex = preferencesRepository.lastPlayedIndex.first()
-            val startIndex = if (lastPlayedIndex in channels.indices) lastPlayedIndex else 0
+            val savedIndex = if (lastPlayedIndex in channels.indices) lastPlayedIndex else 0
+            val startIndex = when {
+                channels.getOrNull(savedIndex)?.isLocked == false -> savedIndex
+                else -> channels.indexOfFirst { !it.isLocked }
+            }
+            if (startIndex < 0) {
+                hideStartupSplash()
+                _viewState.update { it.copy(showPlaylist = true) }
+                return null
+            }
             playerManager.initialize(channels, config, startIndex)
             logPerf("player_initialize_submitted channels=${channels.size}")
             channels.getOrNull(startIndex)
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
-            channels.firstOrNull()
+            channels.firstOrNull { !it.isLocked }
         }
     }
 
@@ -558,7 +664,7 @@ class MainViewModel @Inject constructor(
 
             when (playlistResult) {
                 is Result.Success -> {
-                    val channels = playlistResult.data
+                    val channels = applyParentalLocks(playlistResult.data)
                     logPerf("playlist_loaded channels=${channels.size}")
                     if (channels.isEmpty()) {
                         cancelStartupSplashTimeout()
@@ -600,7 +706,7 @@ class MainViewModel @Inject constructor(
                             when (val refreshed = loadPlaylistUseCase()) {
                                 is Result.Success -> {
                                     if (!isLatestPlaylistLoad(loadId)) return@launch
-                                    val newChannels = refreshed.data
+                                    val newChannels = applyParentalLocks(refreshed.data)
                                     val oldChannels = _viewState.value.channels
                                     if (newChannels.isNotEmpty() && newChannels != oldChannels) {
                                         val newIndexByUrl = buildUrlIndex(newChannels)
@@ -697,7 +803,7 @@ class MainViewModel @Inject constructor(
 
                 when (result) {
                     is Result.Success -> {
-                        val channels = result.data
+                        val channels = applyParentalLocks(result.data)
                         logPerf("playlist_reload_loaded channels=${channels.size}")
 
                         val programsMapToUse = if (forceReload) {
@@ -880,7 +986,7 @@ class MainViewModel @Inject constructor(
             val mainIndex = resolveMainIndex(channel, currentState.channels)
             if (mainIndex < 0) return@launch
 
-            playChannelInternal(mainIndex)
+            requestPlayChannel(mainIndex)
         }
     }
 
@@ -902,7 +1008,7 @@ class MainViewModel @Inject constructor(
             val mainIndex = resolveMainIndex(channel, currentState.channels)
             if (mainIndex < 0) return@launch
 
-            playChannelInternal(mainIndex)
+            requestPlayChannel(mainIndex)
         }
     }
 
@@ -916,7 +1022,21 @@ class MainViewModel @Inject constructor(
         return findMainChannelIndex(channel.url)
     }
 
-    private fun playChannelInternal(mainIndex: Int) {
+    private suspend fun requestPlayChannel(mainIndex: Int) {
+        val channel = _viewState.value.channels.getOrNull(mainIndex) ?: return
+        if (channel.isLocked && !isTemporarilyUnlocked(channel)) {
+            showParentalPinPrompt(
+                action = PendingParentalAction.PlayChannel(mainIndex),
+                reason = ParentalPinPromptReason.PlayChannel,
+                channel = channel
+            )
+            return
+        }
+        playChannelInternal(mainIndex, keepTemporaryUnlock = isTemporarilyUnlocked(channel))
+    }
+
+    private fun playChannelInternal(mainIndex: Int, keepTemporaryUnlock: Boolean = false) {
+        val channel = _viewState.value.channels.getOrNull(mainIndex)
         playerManager.setAutoRetrySuppressed(false)
         playerManager.playChannel(mainIndex)
 
@@ -929,7 +1049,8 @@ class MainViewModel @Inject constructor(
                 isArchivePlayback = false,
                 isTimeshiftPlayback = false,
                 programDvrProgram = null,
-                programProgress = null
+                programProgress = null,
+                temporarilyUnlockedChannelUrl = if (keepTemporaryUnlock) channel?.url else null
             )
         }
     }
@@ -1085,6 +1206,9 @@ class MainViewModel @Inject constructor(
     }
 
     private suspend fun preloadChannelEpg(channel: Channel) {
+        if (channel.isLocked && !isTemporarilyUnlocked(channel)) {
+            return
+        }
         if (!channel.hasEpg || channel.tvgId.isBlank()) {
             return
         }
@@ -1179,6 +1303,7 @@ class MainViewModel @Inject constructor(
             tvgId.isNotBlank() &&
                 tvgId != activeTvgId &&
                 channelsByTvgId[tvgId]?.hasEpg == true &&
+                channelsByTvgId[tvgId]?.isLocked != true &&
                 // Fetch unless we already have a program that still covers "now".
                 // Either no entry, a null entry, or an ended program → re-fetch.
                 alreadyLoaded[tvgId]?.isCurrent(now) != true
@@ -1217,6 +1342,19 @@ class MainViewModel @Inject constructor(
      * Show EPG for channel
      */
     fun showEpgForChannel(tvgId: String) {
+        val channel = _viewState.value.channels.firstOrNull { it.tvgId == tvgId }
+        if (channel?.isLocked == true && !isTemporarilyUnlocked(channel)) {
+            showParentalPinPrompt(
+                action = PendingParentalAction.OpenEpg(tvgId),
+                reason = ParentalPinPromptReason.OpenEpg,
+                channel = channel
+            )
+            return
+        }
+        openEpgForChannel(tvgId)
+    }
+
+    private fun openEpgForChannel(tvgId: String) {
         val now = System.currentTimeMillis()
         if (tvgId == lastEpgRequestTvgId && (now - lastEpgRequestAtMs) < 1200L) {
             return
@@ -1333,6 +1471,7 @@ class MainViewModel @Inject constructor(
             if (!epgPastLoadMutex.tryLock()) return@launch
             try {
                 val tvgId = _viewState.value.epgChannelTvgId.ifBlank { return@launch }
+                if (isEpgChannelBlocked(tvgId)) return@launch
                 val epgUrl = preferencesRepository.epgUrl.first().ifBlank { return@launch }
                 val prefPastDays = preferencesRepository.epgDaysPast.first().coerceAtLeast(0)
                 val channelCatchupDays = _viewState.value.channels
@@ -1385,6 +1524,7 @@ class MainViewModel @Inject constructor(
             if (!epgFutureLoadMutex.tryLock()) return@launch
             try {
                 val tvgId = _viewState.value.epgChannelTvgId.ifBlank { return@launch }
+                if (isEpgChannelBlocked(tvgId)) return@launch
                 val epgUrl = preferencesRepository.epgUrl.first().ifBlank { return@launch }
                 val daysAhead = preferencesRepository.epgDaysAhead.first().coerceAtLeast(0)
                 val stepDays = preferencesRepository.epgPageDays.first().coerceAtLeast(1)
@@ -1474,6 +1614,10 @@ class MainViewModel @Inject constructor(
                 appendDebugMessage(DebugMessage(StringFormatter.formatDvrNoCurrentProgram()))
                 return@launch
             }
+            if (currentChannel.isLocked && !isTemporarilyUnlocked(currentChannel, state)) {
+                postNotificationMessage("Enter parental PIN to unlock this channel")
+                return@launch
+            }
 
             // Use WatchFromBeginningUseCase for validation
             when (val result = watchFromBeginningUseCase(currentChannel, currentProgram)) {
@@ -1519,6 +1663,118 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    fun requestToggleChannelLock(index: Int) {
+        viewModelScope.launch {
+            val state = _viewState.value
+            val channel = state.filteredChannels.getOrNull(index) ?: return@launch
+            val mainIndex = resolveMainIndex(channel, state.channels)
+            if (mainIndex < 0) return@launch
+            val pin = preferencesRepository.parentalPassword.first()
+            if (pin.isBlank()) {
+                _viewState.update { it.copy(showParentalPinSetupDialog = true) }
+                return@launch
+            }
+            showParentalPinPrompt(
+                action = PendingParentalAction.ToggleLock(mainIndex),
+                reason = ParentalPinPromptReason.ToggleLock,
+                channel = channel
+            )
+        }
+    }
+
+    fun submitParentalPin(pin: String) {
+        viewModelScope.launch {
+            val action = pendingParentalAction ?: return@launch
+            val savedPin = preferencesRepository.parentalPassword.first()
+            if (pin != savedPin) {
+                _viewState.update { state ->
+                    state.copy(parentalPinPrompt = state.parentalPinPrompt?.copy(hasError = true))
+                }
+                return@launch
+            }
+            val prompt = _viewState.value.parentalPinPrompt
+            pendingParentalAction = null
+            _viewState.update { it.copy(parentalPinPrompt = null) }
+            when (action) {
+                is PendingParentalAction.PlayChannel -> {
+                    val channel = _viewState.value.channels.getOrNull(action.mainIndex) ?: return@launch
+                    _viewState.update { it.copy(temporarilyUnlockedChannelUrl = channel.url) }
+                    playChannelInternal(action.mainIndex, keepTemporaryUnlock = true)
+                }
+                is PendingParentalAction.OpenEpg -> {
+                    val channel = _viewState.value.channels.firstOrNull { it.tvgId == action.tvgId } ?: return@launch
+                    _viewState.update { it.copy(temporarilyUnlockedChannelUrl = channel.url) }
+                    openEpgForChannel(action.tvgId)
+                }
+                is PendingParentalAction.ToggleLock -> {
+                    toggleChannelLockInternal(action.mainIndex)
+                }
+            }
+            if (prompt?.reason == ParentalPinPromptReason.ToggleLock) {
+                postNotificationMessage("Channel lock updated")
+            }
+        }
+    }
+
+    fun dismissParentalPinPrompt() {
+        pendingParentalAction = null
+        _viewState.update { it.copy(parentalPinPrompt = null) }
+    }
+
+    fun dismissParentalPinSetupDialog() {
+        _viewState.update { it.copy(showParentalPinSetupDialog = false) }
+    }
+
+    private fun showParentalPinPrompt(
+        action: PendingParentalAction,
+        reason: ParentalPinPromptReason,
+        channel: Channel
+    ) {
+        pendingParentalAction = action
+        _viewState.update {
+            it.copy(
+                parentalPinPrompt = ParentalPinPrompt(
+                    reason = reason,
+                    channelTitle = channel.title,
+                    channelIsLocked = channel.isLocked,
+                    hasError = false
+                )
+            )
+        }
+    }
+
+    private suspend fun toggleChannelLockInternal(mainIndex: Int) {
+        val channel = _viewState.value.channels.getOrNull(mainIndex) ?: return
+        val newLocked = !channel.isLocked
+        preferencesRepository.updateChannelLock(channel.url, channel.tvgId, newLocked)
+        _viewState.update { state ->
+            val updatedChannels = state.channels.map {
+                if (it.url == channel.url) it.copy(isLocked = newLocked) else it
+            }
+            val updatedFiltered = state.filteredChannels.map {
+                if (it.url == channel.url) it.copy(isLocked = newLocked) else it
+            }
+            val updatedCurrent = state.currentChannel?.let {
+                if (it.url == channel.url) it.copy(isLocked = newLocked) else it
+            }
+            val updatedMap = if (newLocked) {
+                removeCurrentProgramEntry(state.currentProgramsMap, channel.tvgId)
+            } else {
+                state.currentProgramsMap
+            }
+            state.copy(
+                channels = updatedChannels.toImmutableList(),
+                filteredChannels = updatedFiltered.toImmutableList(),
+                currentChannel = updatedCurrent ?: state.currentChannel,
+                currentProgramsMap = updatedMap,
+                temporarilyUnlockedChannelUrl = state.temporarilyUnlockedChannelUrl
+                    ?.takeUnless { it == channel.url && newLocked }
+            )
+        }
+        updateChannelIndexMap(_viewState.value.channels)
+        updateFilteredIndexMap(_viewState.value.filteredChannels)
+    }
+
     fun seekBackOneMinute() {
         seekProgramProgressBy(-PROGRAM_PROGRESS_SEEK_INCREMENT_MS)
     }
@@ -1540,6 +1796,10 @@ class MainViewModel @Inject constructor(
 
         val currentChannel = state.currentChannel
         val currentProgram = state.currentProgram
+        if (currentChannel?.isLocked == true && !isTemporarilyUnlocked(currentChannel, state)) {
+            postNotificationMessage("Enter parental PIN to unlock this channel")
+            return
+        }
         if (currentChannel == null ||
             currentProgram == null ||
             !currentProgram.isCurrent() ||
@@ -1583,6 +1843,10 @@ class MainViewModel @Inject constructor(
         if (!state.isArchivePlayback && !state.isTimeshiftPlayback) {
             val currentChannel = state.currentChannel
             val currentProgram = state.currentProgram
+            if (currentChannel?.isLocked == true && !isTemporarilyUnlocked(currentChannel, state)) {
+                postNotificationMessage("Enter parental PIN to unlock this channel")
+                return
+            }
             if (currentChannel != null &&
                 currentProgram != null &&
                 currentProgram.isCurrent() &&
@@ -1720,6 +1984,10 @@ class MainViewModel @Inject constructor(
                 appendDebugMessage(DebugMessage(StringFormatter.formatDvrChannelNotFound(program.title)))
                 return@launch
             }
+            if (channel.isLocked && !isTemporarilyUnlocked(channel, state)) {
+                postNotificationMessage("Enter parental PIN to unlock this channel")
+                return@launch
+            }
 
             // Use PlayArchiveProgramUseCase for validation
             when (val result = playArchiveProgramUseCase(channel, program)) {
@@ -1742,6 +2010,10 @@ class MainViewModel @Inject constructor(
             if (nextProgram == null) {
                 returnToLive()
                 _viewState.update { it.copy(archivePrompt = null) }
+                return@launch
+            }
+            if (prompt.channel.isLocked && !isTemporarilyUnlocked(prompt.channel)) {
+                postNotificationMessage("Enter parental PIN to unlock this channel")
                 return@launch
             }
             startArchivePlayback(prompt.channel, nextProgram)
@@ -1777,6 +2049,20 @@ class MainViewModel @Inject constructor(
     private suspend fun updateCurrentProgram(channel: Channel) {
         val currentChannel = _viewState.value.currentChannel
         if (currentChannel?.url != channel.url) return
+
+        if (channel.isLocked && !isTemporarilyUnlocked(channel)) {
+            _viewState.update { state ->
+                if (state.currentChannel?.url != channel.url) {
+                    state
+                } else {
+                    state.copy(
+                        currentProgram = null,
+                        currentProgramsMap = removeCurrentProgramEntry(state.currentProgramsMap, channel.tvgId)
+                    )
+                }
+            }
+            return
+        }
 
         if (!channel.hasEpg || channel.tvgId.isBlank()) {
             _viewState.update { state ->
@@ -1910,6 +2196,7 @@ class MainViewModel @Inject constructor(
     fun ensureEpgForDateRange(startUtcMillis: Long, endUtcMillis: Long) {
         viewModelScope.launch(Dispatchers.IO) {
             val tvgId = _viewState.value.epgChannelTvgId.ifBlank { return@launch }
+            if (isEpgChannelBlocked(tvgId)) return@launch
             val epgUrl = preferencesRepository.epgUrl.first().ifBlank { return@launch }
 
             val currentFrom = _viewState.value.epgLoadedFromUtc

@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.rutv.R
 import com.rutv.data.model.PlaylistSource
@@ -73,6 +74,9 @@ fun SettingsScreen(
     onAutoRetryPeriodSecondsChanged: (Int) -> Unit,
     onShowCurrentProgramInChannelListChanged: (Boolean) -> Unit,
     onChannelPreviewEnabledChanged: (Boolean) -> Unit,
+    onSetParentalPassword: (String) -> Unit,
+    onChangeParentalPassword: (String, String) -> Unit,
+    onRemoveParentalPassword: (String) -> Unit,
     onEpgUrlChanged: (String) -> Unit,
     onEpgDaysAheadChanged: (Int) -> Unit,
     onEpgDaysPastChanged: (Int) -> Unit,
@@ -85,9 +89,20 @@ fun SettingsScreen(
     val context = LocalContext.current
     var showUrlDialog by remember { mutableStateOf(false) }
     var showReloadDialog by remember { mutableStateOf(false) }
+    var showSetParentalPinDialog by remember { mutableStateOf(false) }
+    var showChangeParentalPinDialog by remember { mutableStateOf(false) }
+    var showRemoveParentalPinDialog by remember { mutableStateOf(false) }
 
     var showNoPlaylistDialog by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(viewState.parentalPinOperationVersion) {
+        if (viewState.parentalPinOperationVersion > 0) {
+            showSetParentalPinDialog = false
+            showChangeParentalPinDialog = false
+            showRemoveParentalPinDialog = false
+        }
+    }
 
     // File picker launcher
     val filePickerLauncher = rememberLauncherForActivityResult(
@@ -412,6 +427,47 @@ fun SettingsScreen(
 
             item { Spacer(modifier = Modifier.height(24.dp)) }
 
+            item {
+                SettingsSectionHeader(stringResource(R.string.settings_parental_controls))
+            }
+
+            item {
+                if (viewState.hasParentalPassword) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        SettingsButton(
+                            label = stringResource(R.string.settings_change_parental_pin),
+                            onClick = { showChangeParentalPinDialog = true },
+                            modifier = Modifier.weight(1f)
+                        )
+                        SettingsButton(
+                            label = stringResource(R.string.settings_remove_parental_pin),
+                            onClick = { showRemoveParentalPinDialog = true },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                } else {
+                    SettingsButton(
+                        label = stringResource(R.string.settings_set_parental_pin),
+                        onClick = { showSetParentalPinDialog = true },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+
+            item {
+                Text(
+                    text = stringResource(R.string.settings_parental_pin_forgotten_note),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.ruTvColors.textSecondary,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                )
+            }
+
+            item { Spacer(modifier = Modifier.height(24.dp)) }
+
             // EPG Configuration Section
             item {
                 SettingsSectionHeader(stringResource(R.string.settings_epg_config))
@@ -518,6 +574,36 @@ fun SettingsScreen(
         )
     }
 
+    if (showSetParentalPinDialog) {
+        SetParentalPinDialog(
+            onDismiss = { showSetParentalPinDialog = false },
+            onConfirm = { pin ->
+                onSetParentalPassword(pin)
+                showSetParentalPinDialog = false
+            }
+        )
+    }
+
+    if (showChangeParentalPinDialog) {
+        ChangeParentalPinDialog(
+            externalError = viewState.parentalPinError,
+            onDismiss = { showChangeParentalPinDialog = false },
+            onConfirm = { currentPin, newPin ->
+                onChangeParentalPassword(currentPin, newPin)
+            }
+        )
+    }
+
+    if (showRemoveParentalPinDialog) {
+        RemoveParentalPinDialog(
+            externalError = viewState.parentalPinError,
+            onDismiss = { showRemoveParentalPinDialog = false },
+            onConfirm = { currentPin ->
+                onRemoveParentalPassword(currentPin)
+            }
+        )
+    }
+
     if (showNoPlaylistDialog) {
         AlertDialog(
             onDismissRequest = { showNoPlaylistDialog = false },
@@ -529,6 +615,29 @@ fun SettingsScreen(
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun SettingsButton(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var isFocused by remember { mutableStateOf(false) }
+    Button(
+        onClick = onClick,
+        modifier = modifier
+            .onFocusChanged { isFocused = it.hasFocus }
+            .focusable()
+            .then(focusIndicatorModifier(isFocused))
+            .remoteActivate(enabled = DeviceHelper.isRemoteInputActive(), onActivate = onClick),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.ruTvColors.selectedBackground,
+            contentColor = MaterialTheme.ruTvColors.textPrimary
+        )
+    ) {
+        Text(label)
     }
 }
 
@@ -867,6 +976,259 @@ private fun NumberInputDialog(
                 Text(stringResource(R.string.button_cancel))
             }
         }
+    )
+}
+
+@Composable
+private fun SetParentalPinDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var pin by remember { mutableStateOf("") }
+    var confirmPin by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    val firstFocus = remember { FocusRequester() }
+    val confirmFocus = remember { FocusRequester() }
+    val buttonFocus = remember { FocusRequester() }
+    val mismatchError = stringResource(R.string.parental_pin_mismatch)
+    val invalidError = stringResource(R.string.parental_pin_invalid)
+
+    fun commit() {
+        when {
+            pin.length != 4 -> error = invalidError
+            pin != confirmPin -> error = mismatchError
+            else -> onConfirm(pin)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        firstFocus.requestFocusSafely()
+    }
+
+    RemoteDialog(
+        onDismissRequest = onDismiss,
+        autoFocusConfirm = false,
+        confirmButtonFocusRequester = buttonFocus,
+        textFocusRequester = firstFocus,
+        onConfirm = { commit() },
+        title = { Text(stringResource(R.string.settings_set_parental_pin)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                PinTextField(
+                    value = pin,
+                    onValueChange = {
+                        pin = it
+                        error = null
+                    },
+                    label = stringResource(R.string.parental_pin_new),
+                    focusRequester = firstFocus,
+                    nextFocusRequester = confirmFocus,
+                    onDismiss = onDismiss
+                )
+                PinTextField(
+                    value = confirmPin,
+                    onValueChange = {
+                        confirmPin = it
+                        error = null
+                    },
+                    label = stringResource(R.string.parental_pin_confirm),
+                    focusRequester = confirmFocus,
+                    nextFocusRequester = buttonFocus,
+                    onDismiss = onDismiss
+                )
+                Text(
+                    text = error ?: stringResource(R.string.parental_pin_hint),
+                    color = if (error != null) MaterialTheme.colorScheme.error else MaterialTheme.ruTvColors.textSecondary
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { commit() }, modifier = Modifier.focusable(false)) {
+                Text(stringResource(R.string.button_save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, modifier = Modifier.focusable(false)) {
+                Text(stringResource(R.string.button_cancel))
+            }
+        }
+    )
+}
+
+@Composable
+private fun ChangeParentalPinDialog(
+    externalError: String?,
+    onDismiss: () -> Unit,
+    onConfirm: (String, String) -> Unit
+) {
+    var currentPin by remember { mutableStateOf("") }
+    var newPin by remember { mutableStateOf("") }
+    var confirmPin by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    val currentFocus = remember { FocusRequester() }
+    val newFocus = remember { FocusRequester() }
+    val confirmPinFocus = remember { FocusRequester() }
+    val buttonFocus = remember { FocusRequester() }
+    val mismatchError = stringResource(R.string.parental_pin_mismatch)
+    val invalidError = stringResource(R.string.parental_pin_invalid)
+
+    fun commit() {
+        when {
+            currentPin.length != 4 || newPin.length != 4 -> error = invalidError
+            newPin != confirmPin -> error = mismatchError
+            else -> onConfirm(currentPin, newPin)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        currentFocus.requestFocusSafely()
+    }
+
+    RemoteDialog(
+        onDismissRequest = onDismiss,
+        autoFocusConfirm = false,
+        confirmButtonFocusRequester = buttonFocus,
+        textFocusRequester = currentFocus,
+        onConfirm = { commit() },
+        title = { Text(stringResource(R.string.settings_change_parental_pin)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                PinTextField(currentPin, {
+                    currentPin = it
+                    error = null
+                }, stringResource(R.string.parental_pin_current), currentFocus, newFocus, onDismiss)
+                PinTextField(newPin, {
+                    newPin = it
+                    error = null
+                }, stringResource(R.string.parental_pin_new), newFocus, confirmPinFocus, onDismiss)
+                PinTextField(confirmPin, {
+                    confirmPin = it
+                    error = null
+                }, stringResource(R.string.parental_pin_confirm), confirmPinFocus, buttonFocus, onDismiss)
+                Text(
+                    text = error ?: externalError ?: stringResource(R.string.parental_pin_hint),
+                    color = if (error != null || externalError != null) MaterialTheme.colorScheme.error else MaterialTheme.ruTvColors.textSecondary
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { commit() }, modifier = Modifier.focusable(false)) {
+                Text(stringResource(R.string.button_save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, modifier = Modifier.focusable(false)) {
+                Text(stringResource(R.string.button_cancel))
+            }
+        }
+    )
+}
+
+@Composable
+private fun RemoveParentalPinDialog(
+    externalError: String?,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var currentPin by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    val inputFocus = remember { FocusRequester() }
+    val buttonFocus = remember { FocusRequester() }
+    val invalidError = stringResource(R.string.parental_pin_invalid)
+
+    fun commit() {
+        if (currentPin.length != 4) {
+            error = invalidError
+        } else {
+            onConfirm(currentPin)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        inputFocus.requestFocusSafely()
+    }
+
+    RemoteDialog(
+        onDismissRequest = onDismiss,
+        autoFocusConfirm = false,
+        confirmButtonFocusRequester = buttonFocus,
+        textFocusRequester = inputFocus,
+        onConfirm = { commit() },
+        title = { Text(stringResource(R.string.settings_remove_parental_pin)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = stringResource(R.string.parental_remove_warning),
+                    color = MaterialTheme.ruTvColors.textPrimary
+                )
+                PinTextField(currentPin, {
+                    currentPin = it
+                    error = null
+                }, stringResource(R.string.parental_pin_current), inputFocus, buttonFocus, onDismiss)
+                Text(
+                    text = error ?: externalError ?: stringResource(R.string.parental_pin_hint),
+                    color = if (error != null || externalError != null) MaterialTheme.colorScheme.error else MaterialTheme.ruTvColors.textSecondary
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { commit() }, modifier = Modifier.focusable(false)) {
+                Text(stringResource(R.string.settings_remove_parental_pin))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, modifier = Modifier.focusable(false)) {
+                Text(stringResource(R.string.button_cancel))
+            }
+        }
+    )
+}
+
+@Composable
+private fun PinTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    focusRequester: FocusRequester,
+    nextFocusRequester: FocusRequester,
+    onDismiss: () -> Unit
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = { onValueChange(it.filter { ch -> ch.isDigit() }.take(4)) },
+        label = { Text(label) },
+        singleLine = true,
+        visualTransformation = PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.NumberPassword,
+            imeAction = ImeAction.Done
+        ),
+        keyboardActions = KeyboardActions(
+            onDone = {
+                nextFocusRequester.requestFocusSafely()
+            }
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .focusRequester(focusRequester)
+            .remoteBack { onDismiss() }
+            .onKeyEvent { event ->
+                if (!DeviceHelper.isRemoteInputActive()) return@onKeyEvent false
+                if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                when (event.key) {
+                    Key.DirectionDown -> {
+                        nextFocusRequester.requestFocusSafely()
+                        true
+                    }
+                    else -> false
+                }
+            },
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = MaterialTheme.ruTvColors.gold,
+            unfocusedBorderColor = MaterialTheme.ruTvColors.textDisabled,
+            focusedTextColor = MaterialTheme.ruTvColors.textPrimary,
+            unfocusedTextColor = MaterialTheme.ruTvColors.textPrimary
+        )
     )
 }
 

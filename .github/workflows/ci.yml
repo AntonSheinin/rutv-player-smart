@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - '**'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate and build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Validate version and changelog
+        shell: pwsh
+        run: ./scripts/validate-release-state.ps1 -CheckCommitMessage
+
+      - name: Build and test debug APK
+        shell: bash
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:testDebugUnitTest :app:assembleDebug --console=plain

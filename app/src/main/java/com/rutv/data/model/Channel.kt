@@ -21,6 +21,7 @@ data class Channel(
     val catchupDays: Int = 0,
     val catchupSource: String = "",
     val isFavorite: Boolean = false,
+    val isLocked: Boolean = false,
     val resizeMode: ResizeMode = ResizeMode.FIT,
     val position: Int = 0
 ) {

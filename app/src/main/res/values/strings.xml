@@ -52,6 +52,11 @@
     <string name="settings_auto_retry_period_seconds">Retry period (seconds)</string>
     <string name="settings_show_current_program_in_list">Show current program in channel list</string>
     <string name="settings_channel_preview_enabled">Show channel preview window</string>
+    <string name="settings_parental_controls">Parental Controls</string>
+    <string name="settings_set_parental_pin">Set parental PIN</string>
+    <string name="settings_change_parental_pin">Change parental PIN</string>
+    <string name="settings_remove_parental_pin">Remove parental PIN</string>
+    <string name="settings_parental_pin_forgotten_note">Forgotten PIN can only be removed by reinstalling the app or clearing app data.</string>
     <string name="settings_epg_config">EPG Configuration</string>
     <string name="settings_epg_url">EPG XML URL</string>
     <string name="settings_epg_days_ahead">EPG Days Ahead</string>
@@ -86,6 +91,23 @@
     <!-- Favorites -->
     <string name="favorite_filled">&#9733;</string>
     <string name="favorite_empty">&#9734;</string>
+    <string name="lock_indicator">&#128274;</string>
+    <string name="parental_pin_current">Current PIN</string>
+    <string name="parental_pin_new">New PIN</string>
+    <string name="parental_pin_confirm">Confirm PIN</string>
+    <string name="parental_pin_hint">Enter exactly 4 digits</string>
+    <string name="parental_pin_invalid">PIN must be exactly 4 digits</string>
+    <string name="parental_pin_mismatch">PINs do not match</string>
+    <string name="parental_pin_wrong">Wrong PIN</string>
+    <string name="parental_remove_warning">Removing the parental PIN disables parental controls and unlocks all locked channels.</string>
+    <string name="parental_unlock_channel_title">Unlock Channel</string>
+    <string name="parental_unlock_epg_title">Unlock Programs Guide</string>
+    <string name="parental_toggle_lock_title">Channel Lock</string>
+    <string name="parental_pin_prompt_message">%1$s is locked. Enter parental PIN.</string>
+    <string name="parental_pin_prompt_lock_message">Enter parental PIN to lock %1$s.</string>
+    <string name="parental_pin_prompt_unlock_message">Enter parental PIN to unlock %1$s.</string>
+    <string name="parental_pin_setup_required">Set a parental PIN in Settings before locking channels.</string>
+    <string name="cd_locked_channel">Locked channel</string>
 
     <!-- Accessibility -->
     <string name="cd_channel_logo">Channel logo</string>

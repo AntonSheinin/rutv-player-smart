@@ -7,8 +7,11 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -167,7 +170,7 @@ fun ChannelListItem(
                 }
 
                 // Current Program (only show if we have program data, not just "No program")
-                if (channel.hasEpg && currentProgram != null) {
+                if (channel.hasEpg && !channel.isLocked && currentProgram != null) {
                     Text(
                         text = currentProgram.title,
                         style = MaterialTheme.typography.bodySmall,
@@ -198,21 +201,34 @@ fun ChannelListItem(
                 }
             }
 
-            // Favorite Button
-            Text(
-                text = if (channel.isFavorite)
-                    stringResource(R.string.favorite_filled)
-                else
-                    stringResource(R.string.favorite_empty),
-                style = MaterialTheme.typography.headlineLarge,
-                color = if (channel.isFavorite)
-                    MaterialTheme.ruTvColors.gold
-                else
-                    MaterialTheme.ruTvColors.textDisabled,
-                modifier = Modifier
-                    .clickable(enabled = !isRemoteMode, onClick = onFavoriteClick)
-                    .padding(8.dp)
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (channel.isLocked) {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = stringResource(R.string.cd_locked_channel),
+                        tint = MaterialTheme.ruTvColors.gold,
+                        modifier = Modifier
+                            .size(24.dp)
+                            .padding(horizontal = 2.dp)
+                    )
+                }
+
+                // Favorite Button
+                Text(
+                    text = if (channel.isFavorite)
+                        stringResource(R.string.favorite_filled)
+                    else
+                        stringResource(R.string.favorite_empty),
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = if (channel.isFavorite)
+                        MaterialTheme.ruTvColors.gold
+                    else
+                        MaterialTheme.ruTvColors.textDisabled,
+                    modifier = Modifier
+                        .clickable(enabled = !isRemoteMode, onClick = onFavoriteClick)
+                        .padding(8.dp)
+                )
+            }
         }
     }
 }

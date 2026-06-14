@@ -47,8 +47,11 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.rutv.R
+import com.rutv.presentation.main.ParentalPinPrompt
+import com.rutv.presentation.main.ParentalPinPromptReason
 import com.rutv.ui.shared.components.RemoteDialog
 import com.rutv.ui.shared.components.focusIndicatorModifier
 import com.rutv.ui.shared.components.requestFocusSafely
@@ -420,6 +423,184 @@ internal fun ChannelGroupDialog(
         },
         shape = RoundedCornerShape(16.dp),
         modifier = dialogModifier
+    )
+}
+
+@Composable
+internal fun ParentalPinDialog(
+    prompt: ParentalPinPrompt?,
+    onSubmit: (String) -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (prompt == null) return
+
+    var pin by remember(prompt) { mutableStateOf("") }
+    val inputFocus = remember { FocusRequester() }
+    val confirmFocus = remember { FocusRequester() }
+
+    LaunchedEffect(prompt) {
+        inputFocus.requestFocusSafely()
+    }
+
+    val title = when (prompt.reason) {
+        ParentalPinPromptReason.PlayChannel -> stringResource(R.string.parental_unlock_channel_title)
+        ParentalPinPromptReason.OpenEpg -> stringResource(R.string.parental_unlock_epg_title)
+        ParentalPinPromptReason.ToggleLock -> stringResource(R.string.parental_toggle_lock_title)
+    }
+    val message = when {
+        prompt.reason == ParentalPinPromptReason.ToggleLock && !prompt.channelIsLocked ->
+            stringResource(R.string.parental_pin_prompt_lock_message, prompt.channelTitle)
+        prompt.reason == ParentalPinPromptReason.ToggleLock ->
+            stringResource(R.string.parental_pin_prompt_unlock_message, prompt.channelTitle)
+        else -> stringResource(R.string.parental_pin_prompt_message, prompt.channelTitle)
+    }
+
+    fun commit() {
+        if (pin.length == 4) {
+            onSubmit(pin)
+        }
+    }
+
+    RemoteDialog(
+        onDismissRequest = onDismiss,
+        autoFocusConfirm = false,
+        confirmButtonFocusRequester = confirmFocus,
+        textFocusRequester = inputFocus,
+        onConfirm = { commit() },
+        containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f),
+        title = {
+            Text(
+                text = title,
+                color = MaterialTheme.ruTvColors.gold,
+                style = MaterialTheme.typography.titleLarge
+            )
+        },
+        text = {
+            androidx.compose.foundation.layout.Column {
+                Text(
+                    text = message,
+                    color = MaterialTheme.ruTvColors.textPrimary,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                OutlinedTextField(
+                    value = pin,
+                    onValueChange = { pin = it.filter { ch -> ch.isDigit() }.take(4) },
+                    label = { Text(stringResource(R.string.parental_pin_current)) },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.NumberPassword,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = { confirmFocus.requestFocusSafely() }
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                        .focusRequester(inputFocus)
+                        .remoteDialogTextFieldNavigation(
+                            enabled = DeviceHelper.isRemoteInputActive(),
+                            primaryActionFocusRequester = confirmFocus,
+                            onBack = onDismiss
+                        ),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.ruTvColors.gold,
+                        unfocusedBorderColor = MaterialTheme.ruTvColors.textDisabled,
+                        focusedTextColor = MaterialTheme.ruTvColors.textPrimary,
+                        unfocusedTextColor = MaterialTheme.ruTvColors.textPrimary
+                    ),
+                    supportingText = {
+                        Text(
+                            text = if (prompt.hasError) {
+                                stringResource(R.string.parental_pin_wrong)
+                            } else {
+                                stringResource(R.string.parental_pin_hint)
+                            },
+                            color = if (prompt.hasError) {
+                                MaterialTheme.colorScheme.error
+                            } else {
+                                MaterialTheme.ruTvColors.textSecondary
+                            }
+                        )
+                    }
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { commit() }, modifier = Modifier.focusable(false)) {
+                Text(
+                    text = stringResource(R.string.button_ok),
+                    color = MaterialTheme.ruTvColors.gold
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, modifier = Modifier.focusable(false)) {
+                Text(
+                    text = stringResource(R.string.button_cancel),
+                    color = MaterialTheme.ruTvColors.textPrimary
+                )
+            }
+        },
+        shape = RoundedCornerShape(16.dp),
+        modifier = modifier.border(
+            2.dp,
+            MaterialTheme.ruTvColors.gold.copy(alpha = 0.7f),
+            RoundedCornerShape(16.dp)
+        )
+    )
+}
+
+@Composable
+internal fun ParentalPinSetupDialog(
+    show: Boolean,
+    onOpenSettings: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (!show) return
+    RemoteDialog(
+        onDismissRequest = onDismiss,
+        onConfirm = onOpenSettings,
+        containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f),
+        title = {
+            Text(
+                text = stringResource(R.string.settings_parental_controls),
+                color = MaterialTheme.ruTvColors.gold,
+                style = MaterialTheme.typography.titleLarge
+            )
+        },
+        text = {
+            Text(
+                text = stringResource(R.string.parental_pin_setup_required),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.ruTvColors.textPrimary
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onOpenSettings, modifier = Modifier.focusable(false)) {
+                Text(
+                    text = stringResource(R.string.button_open_settings),
+                    color = MaterialTheme.ruTvColors.gold
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, modifier = Modifier.focusable(false)) {
+                Text(
+                    text = stringResource(R.string.button_cancel),
+                    color = MaterialTheme.ruTvColors.textPrimary
+                )
+            }
+        },
+        shape = RoundedCornerShape(16.dp),
+        modifier = modifier.border(
+            2.dp,
+            MaterialTheme.ruTvColors.gold.copy(alpha = 0.7f),
+            RoundedCornerShape(16.dp)
+        )
     )
 }
 

@@ -216,7 +216,10 @@ class MainActivity : ComponentActivity() {
         val playerActions = PlayerUiActions(
             onPlayChannel = { index -> viewModel.playChannel(index) },
             onToggleFavorite = { url -> viewModel.toggleFavorite(url) },
+            onToggleChannelLock = { index -> viewModel.requestToggleChannelLock(index) },
             onShowEpgForChannel = { tvgId -> viewModel.showEpgForChannel(tvgId) },
+            onSubmitParentalPin = { pin -> viewModel.submitParentalPin(pin) },
+            onDismissParentalPinPrompt = { viewModel.dismissParentalPinPrompt() },
             onOpenChosenChannelList = { viewModel.openChosenChannelList() },
             onOpenFullChannelList = { viewModel.openFullChannelList() },
             onOpenFavoritesChannelList = { viewModel.openFavoritesChannelList() },
@@ -324,6 +327,22 @@ class MainActivity : ComponentActivity() {
                 viewModel.resetCategoryToFullChannelList()
             },
             onDismiss = { showGroupDialog = false }
+        )
+
+        ParentalPinDialog(
+            prompt = viewState.parentalPinPrompt,
+            onSubmit = { pin -> viewModel.submitParentalPin(pin) },
+            onDismiss = { viewModel.dismissParentalPinPrompt() }
+        )
+
+        ParentalPinSetupDialog(
+            show = viewState.showParentalPinSetupDialog,
+            onOpenSettings = {
+                viewModel.dismissParentalPinSetupDialog()
+                languageBeforeSettings = LocaleHelper.getSavedLanguage(this@MainActivity)
+                settingsLauncher.launch(Intent(context, SettingsActivity::class.java))
+            },
+            onDismiss = { viewModel.dismissParentalPinSetupDialog() }
         )
 
         CloseAppDialog(

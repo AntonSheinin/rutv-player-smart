@@ -10,6 +10,7 @@ import com.rutv.data.model.ResizeMode
 import com.rutv.domain.usecase.ChannelListMode
 import com.rutv.presentation.main.ArchivePrompt
 import com.rutv.presentation.main.MainViewState
+import com.rutv.presentation.main.ParentalPinPrompt
 import com.rutv.presentation.player.DebugMessage
 import com.rutv.presentation.player.PlayerState
 import com.rutv.presentation.player.ProgramPlaybackProgress
@@ -51,6 +52,8 @@ data class PlayerUiState(
     val currentProgramsMap: ImmutableMap<String, EpgProgram?>,
     val showCurrentProgramInChannelList: Boolean,
     val channelPreviewEnabled: Boolean,
+    val parentalPinPrompt: ParentalPinPrompt?,
+    val temporarilyUnlockedChannelUrl: String?,
     val showDebugLog: Boolean,
     val playerConfig: PlayerConfig,
     val debugMessages: ImmutableList<DebugMessage>,
@@ -66,7 +69,10 @@ data class PlayerUiState(
 data class PlayerUiActions(
     val onPlayChannel: (Int) -> Unit,
     val onToggleFavorite: (String) -> Unit,
+    val onToggleChannelLock: (Int) -> Unit,
     val onShowEpgForChannel: (String) -> Unit,
+    val onSubmitParentalPin: (String) -> Unit,
+    val onDismissParentalPinPrompt: () -> Unit,
     val onOpenChosenChannelList: () -> Unit,
     val onOpenFullChannelList: () -> Unit,
     val onOpenFavoritesChannelList: () -> Unit,
@@ -138,6 +144,8 @@ fun rememberPlayerUiState(viewState: MainViewState): PlayerUiState {
             currentProgramsMap = viewState.currentProgramsMap,
             showCurrentProgramInChannelList = viewState.showCurrentProgramInChannelList,
             channelPreviewEnabled = viewState.channelPreviewEnabled,
+            parentalPinPrompt = viewState.parentalPinPrompt,
+            temporarilyUnlockedChannelUrl = viewState.temporarilyUnlockedChannelUrl,
             showDebugLog = viewState.showDebugLog,
             playerConfig = viewState.playerConfig,
             debugMessages = viewState.debugMessages,

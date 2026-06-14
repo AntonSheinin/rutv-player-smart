@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import com.rutv.util.logDebug
 import timber.log.Timber
@@ -95,6 +96,12 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             preferencesRepository.appLanguage.collect { language ->
                 _viewState.update { it.copy(selectedLanguage = language) }
+            }
+        }
+
+        viewModelScope.launch {
+            preferencesRepository.parentalPassword.collect { pin ->
+                _viewState.update { it.copy(hasParentalPassword = pin.isNotBlank()) }
             }
         }
     }
@@ -322,6 +329,91 @@ class SettingsViewModel @Inject constructor(
                 Timber.e(e, "Failed to save channelPreviewEnabled")
             }
         }
+    }
+
+    fun setParentalPassword(pin: String) {
+        viewModelScope.launch {
+            if (!isValidParentalPin(pin)) {
+                _viewState.update { it.copy(parentalPinError = "PIN must be exactly 4 digits") }
+                return@launch
+            }
+            try {
+                preferencesRepository.saveParentalPassword(pin)
+                _viewState.update {
+                    it.copy(
+                        successMessage = "Parental PIN saved",
+                        parentalPinError = null,
+                        parentalPinOperationVersion = it.parentalPinOperationVersion + 1,
+                        error = null
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to save parental PIN")
+                _viewState.update { it.copy(error = "Failed to save parental PIN") }
+            }
+        }
+    }
+
+    fun changeParentalPassword(currentPin: String, newPin: String) {
+        viewModelScope.launch {
+            if (!isValidParentalPin(newPin)) {
+                _viewState.update { it.copy(parentalPinError = "PIN must be exactly 4 digits") }
+                return@launch
+            }
+            val savedPin = preferencesRepository.parentalPassword.first()
+            if (savedPin != currentPin) {
+                _viewState.update { it.copy(parentalPinError = "Wrong parental PIN") }
+                return@launch
+            }
+            try {
+                preferencesRepository.saveParentalPassword(newPin)
+                _viewState.update {
+                    it.copy(
+                        successMessage = "Parental PIN changed",
+                        parentalPinError = null,
+                        parentalPinOperationVersion = it.parentalPinOperationVersion + 1,
+                        error = null
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to change parental PIN")
+                _viewState.update { it.copy(error = "Failed to change parental PIN") }
+            }
+        }
+    }
+
+    fun removeParentalPassword(currentPin: String) {
+        viewModelScope.launch {
+            val savedPin = preferencesRepository.parentalPassword.first()
+            if (savedPin != currentPin) {
+                _viewState.update { it.copy(parentalPinError = "Wrong parental PIN") }
+                return@launch
+            }
+            try {
+                preferencesRepository.removeParentalControls()
+                _viewState.update {
+                    it.copy(
+                        successMessage = "Parental controls removed",
+                        parentalPinError = null,
+                        parentalPinOperationVersion = it.parentalPinOperationVersion + 1,
+                        error = null
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to remove parental controls")
+                _viewState.update { it.copy(error = "Failed to remove parental controls") }
+            }
+        }
+    }
+
+    private fun isValidParentalPin(pin: String): Boolean {
+        return pin.length == 4 && pin.all { it.isDigit() }
     }
 
     fun setAutoRetryEnabled(enabled: Boolean) {
