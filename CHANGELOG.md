@@ -6,6 +6,8 @@ This project follows the Keep a Changelog structure. Regular commits add entries
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-06-25
+
 ### Added
 
 - Added adjustable channel and EPG panel spacing plus channel preview sizing controls.
