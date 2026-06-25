@@ -78,6 +78,10 @@ class PreferencesRepository @Inject constructor(
         // frequent state updates as time progresses. Some devices prefer a simpler list.
         val SHOW_CURRENT_PROGRAM_IN_CHANNEL_LIST = booleanPreferencesKey("show_current_program_in_channel_list")
         val CHANNEL_PREVIEW_ENABLED = booleanPreferencesKey("channel_preview_enabled")
+        val CHANNEL_EPG_LIST_RATIO_PERCENT = intPreferencesKey("channel_epg_list_ratio_percent")
+        val LIST_PANEL_EDGE_INSET_DP = intPreferencesKey("list_panel_edge_inset_dp")
+        val LIST_PANEL_VERTICAL_INSET_DP = intPreferencesKey("list_panel_vertical_inset_dp")
+        val CHANNEL_PREVIEW_SIZE_PRESET = intPreferencesKey("channel_preview_size_preset")
 
         val LAST_PLAYED_INDEX = intPreferencesKey("last_played_index")
 
@@ -437,6 +441,66 @@ class PreferencesRepository @Inject constructor(
         logDebug { "Saved channel preview enabled: $enabled" }
     }
 
+    val channelEpgListRatioPercent: Flow<Int> = dataStore.data
+        .map { preferences ->
+            preferences[PreferencesKeys.CHANNEL_EPG_LIST_RATIO_PERCENT]
+                ?.coerceToChannelEpgRatioStep()
+                ?: PlayerConstants.DEFAULT_CHANNEL_EPG_RATIO_PERCENT
+        }
+
+    suspend fun saveChannelEpgListRatioPercent(percent: Int) {
+        val clampedPercent = percent.coerceToChannelEpgRatioStep()
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.CHANNEL_EPG_LIST_RATIO_PERCENT] = clampedPercent
+        }
+        logDebug { "Saved channel/EPG list ratio: $clampedPercent" }
+    }
+
+    val listPanelEdgeInsetDp: Flow<Int> = dataStore.data
+        .map { preferences ->
+            preferences[PreferencesKeys.LIST_PANEL_EDGE_INSET_DP]
+                ?.coerceToListPanelEdgeInsetStep()
+                ?: PlayerConstants.DEFAULT_LIST_PANEL_EDGE_INSET_DP
+        }
+
+    suspend fun saveListPanelEdgeInsetDp(insetDp: Int) {
+        val clampedInset = insetDp.coerceToListPanelEdgeInsetStep()
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.LIST_PANEL_EDGE_INSET_DP] = clampedInset
+        }
+        logDebug { "Saved list panel edge inset: ${clampedInset}dp" }
+    }
+
+    val listPanelVerticalInsetDp: Flow<Int> = dataStore.data
+        .map { preferences ->
+            preferences[PreferencesKeys.LIST_PANEL_VERTICAL_INSET_DP]
+                ?.coerceToListPanelVerticalInsetStep()
+                ?: PlayerConstants.DEFAULT_LIST_PANEL_VERTICAL_INSET_DP
+        }
+
+    suspend fun saveListPanelVerticalInsetDp(insetDp: Int) {
+        val clampedInset = insetDp.coerceToListPanelVerticalInsetStep()
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.LIST_PANEL_VERTICAL_INSET_DP] = clampedInset
+        }
+        logDebug { "Saved list panel vertical inset: ${clampedInset}dp" }
+    }
+
+    val channelPreviewSizePreset: Flow<Int> = dataStore.data
+        .map { preferences ->
+            preferences[PreferencesKeys.CHANNEL_PREVIEW_SIZE_PRESET]
+                ?.coerceToChannelPreviewSizePreset()
+                ?: PlayerConstants.DEFAULT_CHANNEL_PREVIEW_SIZE_PRESET
+        }
+
+    suspend fun saveChannelPreviewSizePreset(preset: Int) {
+        val clampedPreset = preset.coerceToChannelPreviewSizePreset()
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.CHANNEL_PREVIEW_SIZE_PRESET] = clampedPreset
+        }
+        logDebug { "Saved channel preview size preset: $clampedPreset" }
+    }
+
     /**
      * Last played index
      */
@@ -559,4 +623,36 @@ class PreferencesRepository @Inject constructor(
             Timber.e(e, "Failed to write playlist cache file")
         }
     }
+}
+
+private fun Int.coerceToChannelEpgRatioStep(): Int {
+    val maxChannelRatio = 100 - PlayerConstants.MIN_EPG_LIST_RATIO_PERCENT
+    val clamped = coerceIn(PlayerConstants.MIN_CHANNEL_LIST_RATIO_PERCENT, maxChannelRatio)
+    val min = PlayerConstants.MIN_CHANNEL_LIST_RATIO_PERCENT
+    val step = PlayerConstants.CHANNEL_EPG_RATIO_STEP_PERCENT
+    return min + (((clamped - min) + (step / 2)) / step) * step
+}
+
+private fun Int.coerceToListPanelEdgeInsetStep(): Int {
+    val clamped = coerceIn(
+        PlayerConstants.MIN_LIST_PANEL_EDGE_INSET_DP,
+        PlayerConstants.MAX_LIST_PANEL_EDGE_INSET_DP
+    )
+    val min = PlayerConstants.MIN_LIST_PANEL_EDGE_INSET_DP
+    val step = PlayerConstants.LIST_PANEL_EDGE_INSET_STEP_DP
+    return min + (((clamped - min) + (step / 2)) / step) * step
+}
+
+private fun Int.coerceToListPanelVerticalInsetStep(): Int {
+    val clamped = coerceIn(
+        PlayerConstants.MIN_LIST_PANEL_VERTICAL_INSET_DP,
+        PlayerConstants.MAX_LIST_PANEL_VERTICAL_INSET_DP
+    )
+    val min = PlayerConstants.MIN_LIST_PANEL_VERTICAL_INSET_DP
+    val step = PlayerConstants.LIST_PANEL_VERTICAL_INSET_STEP_DP
+    return min + (((clamped - min) + (step / 2)) / step) * step
+}
+
+private fun Int.coerceToChannelPreviewSizePreset(): Int {
+    return coerceIn(0, PlayerConstants.CHANNEL_PREVIEW_WIDTH_PRESETS_DP.lastIndex)
 }

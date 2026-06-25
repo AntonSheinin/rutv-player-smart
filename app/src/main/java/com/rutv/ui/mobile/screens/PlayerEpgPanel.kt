@@ -3,6 +3,7 @@ package com.rutv.ui.mobile.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +25,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.Card
@@ -62,8 +64,10 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.rutv.R
@@ -79,6 +83,7 @@ import com.rutv.ui.shared.presentation.LayoutConstants
 import com.rutv.ui.shared.presentation.TimeFormatter
 import com.rutv.ui.theme.ruTvColors
 import com.rutv.util.DeviceHelper
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -90,7 +95,7 @@ import java.util.concurrent.TimeUnit
 
 @Composable
 internal fun EpgPanel(
-    programs: List<EpgProgram>,
+    programs: ImmutableList<EpgProgram>,
     channel: Channel?,
     isLoading: Boolean,
     onProgramClick: (EpgProgram) -> Unit,
@@ -108,6 +113,7 @@ internal fun EpgPanel(
     onOpenPlaylist: (() -> Unit)? = null,
     focusManager: PlayerFocusManager,
     onEnsureDateRange: (Long, Long) -> Unit,
+    panelWidth: Dp = LayoutConstants.EpgPanelWidth,
     modifier: Modifier = Modifier
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -466,8 +472,7 @@ internal fun EpgPanel(
     Card(
         modifier = modifier
             .fillMaxHeight()
-            .width(LayoutConstants.EpgPanelWidth)
-            .padding(LayoutConstants.DefaultPadding),
+            .width(panelWidth),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f)
         ),
@@ -480,7 +485,7 @@ internal fun EpgPanel(
                     .fillMaxWidth()
                     .height(LayoutConstants.ToolbarHeight)
                     .padding(horizontal = LayoutConstants.HeaderHorizontalPadding),
-                horizontalArrangement = Arrangement.Start,
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 val titleText = if (channel != null) {
@@ -493,8 +498,41 @@ internal fun EpgPanel(
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.ruTvColors.gold,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
                 )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = {
+                            if (dateEntries.isNotEmpty()) {
+                                datePickerSelectionIndex = todayEntryIndex
+                                showDatePicker = true
+                            }
+                        },
+                        enabled = dateEntries.isNotEmpty(),
+                        modifier = Modifier.focusProperties { canFocus = false }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DateRange,
+                            contentDescription = stringResource(R.string.cd_select_epg_date),
+                            tint = if (dateEntries.isNotEmpty()) {
+                                MaterialTheme.ruTvColors.textPrimary
+                            } else {
+                                MaterialTheme.ruTvColors.textDisabled
+                            }
+                        )
+                    }
+                    IconButton(
+                        onClick = onClose,
+                        modifier = Modifier.focusProperties { canFocus = false }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = stringResource(R.string.cd_close_playlist),
+                            tint = MaterialTheme.ruTvColors.textPrimary
+                        )
+                    }
+                }
             }
 
             HorizontalDivider(color = MaterialTheme.ruTvColors.textDisabled)
@@ -643,8 +681,8 @@ internal fun EpgPanel(
                                     isPast = isPast,
                                     showArchiveIndicator = isArchiveCandidate,
                                     isItemFocused = epgListHasFocus && programIndex == focusedProgramIndex,
-                                    onClick = { onProgramClick(data) },
-                                    onPlayArchive = if (canPlayArchive) { { onPlayArchive(data) } } else null
+                                    onProgramClick = onProgramClick,
+                                    onPlayArchive = onPlayArchive.takeIf { canPlayArchive }
                                 )
                             }
                         }
@@ -727,6 +765,7 @@ internal fun EpgPanel(
         EpgDatePickerDialog(
             entries = dateEntries,
             initialSelection = datePickerSelectionIndex,
+            panelWidth = panelWidth,
             onSelect = { entry ->
                 val entryIndex = dateEntries.indexOf(entry).takeIf { it >= 0 } ?: 0
                 datePickerSelectionIndex = entryIndex
@@ -787,6 +826,7 @@ internal data class EpgDateEntry(
 internal fun EpgDatePickerDialog(
     entries: List<EpgDateEntry>,
     initialSelection: Int,
+    panelWidth: Dp = LayoutConstants.PlaylistPanelWidth,
     onSelect: (EpgDateEntry) -> Unit,
     onClose: () -> Unit
 ) {
@@ -800,6 +840,7 @@ internal fun EpgDatePickerDialog(
     val listFocusRequester = remember { FocusRequester() }
     val closeButtonFocusRequester = remember { FocusRequester() }
     var closeButtonFocused by remember { mutableStateOf(false) }
+    val isRemoteMode = DeviceHelper.isRemoteInputActive()
 
     LaunchedEffect(entries) {
         listFocusRequester.requestFocusSafely()
@@ -812,7 +853,7 @@ internal fun EpgDatePickerDialog(
     Dialog(onDismissRequest = onClose) {
         Card(
             modifier = Modifier
-                .width(LayoutConstants.PlaylistPanelWidth)
+                .width(panelWidth)
                 .wrapContentHeight(),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f)
@@ -925,6 +966,9 @@ internal fun EpgDatePickerDialog(
                                         if (isSelected) MaterialTheme.ruTvColors.selectedBackground
                                         else Color.Transparent
                                     )
+                                    .pointerInput(entry) {
+                                        detectTapGestures(onTap = { onSelect(entry) })
+                                    }
                                     .alpha(rowAlpha)
                                     .padding(horizontal = 12.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically,

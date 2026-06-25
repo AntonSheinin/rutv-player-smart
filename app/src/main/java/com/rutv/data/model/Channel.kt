@@ -1,9 +1,12 @@
 package com.rutv.data.model
 
+import androidx.compose.runtime.Immutable
+
 /**
  * Domain model for a channel.
  * This is the model used throughout the app.
  */
+@Immutable
 data class Channel(
     val url: String,
     val title: String,

@@ -2,24 +2,32 @@ package com.rutv.presentation
 
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -31,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -45,10 +54,12 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import com.rutv.R
 import com.rutv.presentation.main.ParentalPinPrompt
 import com.rutv.presentation.main.ParentalPinPromptReason
@@ -300,11 +311,16 @@ internal fun ChannelGroupDialog(
         groups.indexOfFirst { it == selectedGroup }.takeIf { it >= 0 } ?: 0
     }
     val screenWidthDp = LocalConfiguration.current.screenWidthDp.dp
+    val screenHeightDp = LocalConfiguration.current.screenHeightDp.dp
     val dialogWidth = remember(screenWidthDp) {
-        (screenWidthDp * 0.28f).coerceIn(180.dp, 220.dp)
+        (screenWidthDp * 0.70f).coerceIn(280.dp, 420.dp)
+    }
+    val dialogMaxHeight = remember(screenHeightDp) {
+        (screenHeightDp - 32.dp).coerceAtLeast(240.dp)
     }
     val dialogModifier = modifier
         .width(dialogWidth)
+        .heightIn(max = dialogMaxHeight)
         .border(
             2.dp,
             MaterialTheme.ruTvColors.gold.copy(alpha = 0.7f),
@@ -320,110 +336,182 @@ internal fun ChannelGroupDialog(
         }
     }
 
-    RemoteDialog(
-        onDismissRequest = onDismiss,
-        autoFocusConfirm = false,
-        confirmButtonFocusRequester = resetFocus,
-        dismissButtonFocusRequester = cancelFocus,
-        textFocusRequester = groupFocusRequesters.getOrNull(initialIndex),
-        containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f),
-        usePlatformDefaultWidth = false,
-        onConfirm = {
-            onReset()
-            onDismiss()
-        },
-        title = {
-            Text(
-                text = stringResource(R.string.dialog_title_channel_groups),
-                color = MaterialTheme.ruTvColors.gold,
-                style = MaterialTheme.typography.titleLarge
-            )
-        },
-        text = {
-            if (groups.isEmpty()) {
-                Text(
-                    text = stringResource(R.string.dialog_message_no_channel_groups),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.ruTvColors.textPrimary
-                )
-            } else {
-                LazyColumn(
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = dialogModifier,
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = dialogMaxHeight)
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 320.dp),
-                    contentPadding = PaddingValues(vertical = 4.dp)
+                        .padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    itemsIndexed(groups) { index, group ->
-                        val isSelected = group == selectedGroup
-                        var isFocused by remember { mutableStateOf(false) }
-                        TextButton(
-                            onClick = {
-                                onSelectGroup(group)
-                                onDismiss()
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 2.dp)
-                                .focusRequester(groupFocusRequesters[index])
-                                .onFocusChanged { state -> isFocused = state.isFocused }
-                                .focusable()
-                                .onKeyEvent { event ->
-                                    if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
-                                    when (event.key) {
-                                        Key.DirectionDown -> {
-                                            if (index < groups.lastIndex) {
-                                                groupFocusRequesters[index + 1].requestFocusSafely()
-                                            } else {
-                                                resetFocus.requestFocusSafely()
+                    Text(
+                        text = stringResource(R.string.dialog_title_channel_groups),
+                        color = MaterialTheme.ruTvColors.gold,
+                        style = MaterialTheme.typography.titleLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = stringResource(R.string.cd_close_playlist),
+                            tint = MaterialTheme.ruTvColors.textPrimary
+                        )
+                    }
+                }
+
+                if (groups.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = false)
+                            .padding(vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.dialog_message_no_channel_groups),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.ruTvColors.textPrimary
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = false),
+                        contentPadding = PaddingValues(vertical = 4.dp)
+                    ) {
+                        itemsIndexed(groups) { index, group ->
+                            val isSelected = group == selectedGroup
+                            var isFocused by remember { mutableStateOf(false) }
+                            TextButton(
+                                onClick = {
+                                    onSelectGroup(group)
+                                    onDismiss()
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 2.dp)
+                                    .focusRequester(groupFocusRequesters[index])
+                                    .onFocusChanged { state -> isFocused = state.isFocused }
+                                    .focusable()
+                                    .onKeyEvent { event ->
+                                        if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                                        when (event.key) {
+                                            Key.DirectionDown -> {
+                                                if (index < groups.lastIndex) {
+                                                    groupFocusRequesters[index + 1].requestFocusSafely()
+                                                } else {
+                                                    resetFocus.requestFocusSafely()
+                                                }
+                                                true
                                             }
-                                            true
-                                        }
-                                        Key.DirectionUp -> {
-                                            if (index > 0) {
-                                                groupFocusRequesters[index - 1].requestFocusSafely()
+                                            Key.DirectionUp -> {
+                                                if (index > 0) {
+                                                    groupFocusRequesters[index - 1].requestFocusSafely()
+                                                }
+                                                true
                                             }
-                                            true
+                                            else -> false
                                         }
-                                        else -> false
                                     }
-                                }
-                                .then(focusIndicatorModifier(isFocused = isFocused)),
-                            colors = ButtonDefaults.textButtonColors(
-                                contentColor = if (isSelected) {
-                                    MaterialTheme.ruTvColors.gold
-                                } else {
-                                    MaterialTheme.ruTvColors.textPrimary
-                                }
-                            )
-                        ) {
-                            Text(text = group)
+                                    .then(focusIndicatorModifier(isFocused = isFocused)),
+                                colors = ButtonDefaults.textButtonColors(
+                                    contentColor = if (isSelected) {
+                                        MaterialTheme.ruTvColors.gold
+                                    } else {
+                                        MaterialTheme.ruTvColors.textPrimary
+                                    }
+                                )
+                            ) {
+                                Text(
+                                    text = group,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
                     }
                 }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(
+                        onClick = {
+                            onReset()
+                            onDismiss()
+                        },
+                        modifier = Modifier
+                            .focusRequester(resetFocus)
+                            .focusable()
+                            .onKeyEvent { event ->
+                                if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                                when (event.key) {
+                                    Key.DirectionUp -> {
+                                        groupFocusRequesters.lastOrNull()?.requestFocusSafely() == true
+                                    }
+                                    Key.DirectionRight -> {
+                                        cancelFocus.requestFocusSafely()
+                                    }
+                                    Key.Back -> {
+                                        onDismiss()
+                                        true
+                                    }
+                                    else -> false
+                                }
+                            }
+                    ) {
+                        Text(
+                            text = stringResource(R.string.button_reset),
+                            color = MaterialTheme.ruTvColors.gold
+                        )
+                    }
+                    TextButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .focusRequester(cancelFocus)
+                            .focusable()
+                            .onKeyEvent { event ->
+                                if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                                when (event.key) {
+                                    Key.DirectionUp -> {
+                                        groupFocusRequesters.lastOrNull()?.requestFocusSafely() == true
+                                    }
+                                    Key.DirectionLeft -> {
+                                        resetFocus.requestFocusSafely()
+                                    }
+                                    Key.Back -> {
+                                        onDismiss()
+                                        true
+                                    }
+                                    else -> false
+                                }
+                            }
+                    ) {
+                        Text(
+                            text = stringResource(R.string.button_cancel),
+                            color = MaterialTheme.ruTvColors.textPrimary
+                        )
+                    }
+                }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                onReset()
-                onDismiss()
-            }, modifier = Modifier.focusable(false)) {
-                Text(
-                    text = stringResource(R.string.button_reset),
-                    color = MaterialTheme.ruTvColors.gold
-                )
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.focusable(false)) {
-                Text(
-                    text = stringResource(R.string.button_cancel),
-                    color = MaterialTheme.ruTvColors.textPrimary
-                )
-            }
-        },
-        shape = RoundedCornerShape(16.dp),
-        modifier = dialogModifier
-    )
+        }
+    }
 }
 
 @Composable

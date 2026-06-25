@@ -55,6 +55,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.rutv.R
 import com.rutv.data.model.EpgProgram
@@ -71,6 +72,7 @@ import java.util.Date
 internal fun ProgramDetailsPanel(
     program: EpgProgram,
     onClose: () -> Unit,
+    panelWidth: Dp = LayoutConstants.ProgramDetailsPanelWidth,
     modifier: Modifier = Modifier
 ) {
     val isRemoteMode = DeviceHelper.isRemoteInputActive()
@@ -96,7 +98,7 @@ internal fun ProgramDetailsPanel(
     Card(
         modifier = modifier
             .fillMaxHeight(LayoutConstants.ProgramDetailsPanelMaxHeight)
-            .width(LayoutConstants.ProgramDetailsPanelWidth)
+            .width(panelWidth)
             .padding(LayoutConstants.DefaultPadding),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f)

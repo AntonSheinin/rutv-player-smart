@@ -199,10 +199,16 @@ class MainActivity : ComponentActivity() {
         }
 
         val playerUiState = rememberPlayerUiState(viewState)
-        val openChannelDialog = {
-            if (viewState.filteredChannels.isNotEmpty() && !showChannelDialog) {
-                channelInput = ""
-                showChannelDialog = true
+        val latestCanOpenChannelDialog by rememberUpdatedState(viewState.filteredChannels.isNotEmpty())
+        val latestShowChannelDialog by rememberUpdatedState(showChannelDialog)
+        val latestContext by rememberUpdatedState(context)
+        val latestHasChannels by rememberUpdatedState(playerUiState.hasChannels)
+        val openChannelDialog = remember {
+            {
+                if (latestCanOpenChannelDialog && !latestShowChannelDialog) {
+                    channelInput = ""
+                    showChannelDialog = true
+                }
             }
         }
         DisposableEffect(openChannelDialog) {
@@ -213,49 +219,67 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-        val playerActions = PlayerUiActions(
-            onPlayChannel = { index -> viewModel.playChannel(index) },
-            onToggleFavorite = { url -> viewModel.toggleFavorite(url) },
-            onToggleChannelLock = { index -> viewModel.requestToggleChannelLock(index) },
-            onShowEpgForChannel = { tvgId -> viewModel.showEpgForChannel(tvgId) },
-            onSubmitParentalPin = { pin -> viewModel.submitParentalPin(pin) },
-            onDismissParentalPinPrompt = { viewModel.dismissParentalPinPrompt() },
-            onOpenChosenChannelList = { viewModel.openChosenChannelList() },
-            onOpenFullChannelList = { viewModel.openFullChannelList() },
-            onOpenFavoritesChannelList = { viewModel.openFavoritesChannelList() },
-            onClosePlaylist = { viewModel.closePlaylist() },
-            onCloseEpgPanel = { viewModel.closeEpgPanel() },
-            onCycleAspectRatio = { viewModel.cycleAspectRatio() },
-            onOpenSettings = {
-                languageBeforeSettings = LocaleHelper.getSavedLanguage(this@MainActivity)
-                settingsLauncher.launch(Intent(context, SettingsActivity::class.java))
-            },
-            onShowChannelGroups = {
-                if (playerUiState.hasChannels) {
-                    showGroupDialog = true
-                }
-            },
-            onShowProgramDetails = { program -> viewModel.showProgramDetails(program) },
-            onPlayArchiveProgram = { program -> viewModel.playArchiveProgram(program) },
-            onReturnToLive = { viewModel.returnToLive() },
-            onRestartPlayback = { viewModel.restartCurrentPlayback() },
-            onSeekBack = { viewModel.seekBackTenSeconds() },
-            onSeekForward = { viewModel.seekForwardTenSeconds() },
-            onSeekBackOneMinute = { viewModel.seekBackOneMinute() },
-            onSeekForwardOneMinute = { viewModel.seekForwardOneMinute() },
-            onPausePlayback = { viewModel.pausePlayback() },
-            onResumePlayback = { viewModel.resumePlayback() },
-            onArchivePromptContinue = { viewModel.continueArchiveFromPrompt() },
-            onArchivePromptBackToLive = { viewModel.dismissArchivePrompt() },
-            onCloseProgramDetails = { viewModel.closeProgramDetails() },
-            onLoadMoreEpgPast = { viewModel.loadMoreEpgPast() },
-            onLoadMoreEpgFuture = { viewModel.loadMoreEpgFuture() },
-            onClearEpgNotification = { viewModel.clearEpgNotification() },
-            onUpdatePlaylistScrollIndex = { index -> viewModel.updatePlaylistScrollIndex(index) },
-            onRequestMoreChannels = { index -> viewModel.requestMoreChannels(index) },
-            onEnsureEpgDateRange = { start, end -> viewModel.ensureEpgForDateRange(start, end) },
-            onVisibleChannelsChanged = { tvgIds -> viewModel.onVisibleChannelsChanged(tvgIds) }
-        )
+        val playerActions = remember {
+            PlayerUiActions(
+                onPlayChannel = { index -> viewModel.playChannel(index) },
+                onSwitchChannelRelative = { offset -> viewModel.switchChannelRelative(offset) },
+                onToggleFavorite = { url -> viewModel.toggleFavorite(url) },
+                onToggleChannelLock = { index -> viewModel.requestToggleChannelLock(index) },
+                onShowEpgForChannel = { tvgId -> viewModel.showEpgForChannel(tvgId) },
+                onSubmitParentalPin = { pin -> viewModel.submitParentalPin(pin) },
+                onDismissParentalPinPrompt = { viewModel.dismissParentalPinPrompt() },
+                onOpenChosenChannelList = { viewModel.openChosenChannelList() },
+                onOpenFullChannelList = { viewModel.openFullChannelList() },
+                onOpenFavoritesChannelList = { viewModel.openFavoritesChannelList() },
+                onClosePlaylist = { viewModel.closePlaylist() },
+                onHidePlaylistForCompactEpg = { viewModel.hidePlaylistForCompactEpg() },
+                onCloseEpgPanel = { viewModel.closeEpgPanel() },
+                onCycleAspectRatio = { viewModel.cycleAspectRatio() },
+                onOpenSettings = {
+                    languageBeforeSettings = LocaleHelper.getSavedLanguage(this@MainActivity)
+                    settingsLauncher.launch(Intent(latestContext, SettingsActivity::class.java))
+                },
+                onShowChannelGroups = {
+                    if (latestHasChannels) {
+                        showGroupDialog = true
+                    }
+                },
+                onShowProgramDetails = { program -> viewModel.showProgramDetails(program) },
+                onPlayArchiveProgram = { program -> viewModel.playArchiveProgram(program) },
+                onReturnToLive = { viewModel.returnToLive() },
+                onRestartPlayback = { viewModel.restartCurrentPlayback() },
+                onSeekBack = { viewModel.seekBackTenSeconds() },
+                onSeekForward = { viewModel.seekForwardTenSeconds() },
+                onSeekBackOneMinute = { viewModel.seekBackOneMinute() },
+                onSeekForwardOneMinute = { viewModel.seekForwardOneMinute() },
+                onSeekProgramProgressTo = { offsetMs -> viewModel.seekProgramProgressTo(offsetMs) },
+                onPausePlayback = { viewModel.pausePlayback() },
+                onResumePlayback = { viewModel.resumePlayback() },
+                onArchivePromptContinue = { viewModel.continueArchiveFromPrompt() },
+                onArchivePromptBackToLive = { viewModel.dismissArchivePrompt() },
+                onCloseProgramDetails = { viewModel.closeProgramDetails() },
+                onLoadMoreEpgPast = { viewModel.loadMoreEpgPast() },
+                onLoadMoreEpgFuture = { viewModel.loadMoreEpgFuture() },
+                onClearEpgNotification = { viewModel.clearEpgNotification() },
+                onUpdatePlaylistScrollIndex = { index -> viewModel.updatePlaylistScrollIndex(index) },
+                onRequestMoreChannels = { index -> viewModel.requestMoreChannels(index) },
+                onEnsureEpgDateRange = { start, end -> viewModel.ensureEpgForDateRange(start, end) },
+                onVisibleChannelsChanged = { tvgIds -> viewModel.onVisibleChannelsChanged(tvgIds) }
+            )
+        }
+        val registerToggleControls = remember {
+            { callback: () -> Unit -> toggleControlsCallback = callback }
+        }
+        val onControlsVisibilityChanged = remember {
+            { visible: Boolean -> viewModel.setControlsVisible(visible) }
+        }
+        val inputBlockedByModal =
+            showNoPlaylistDialog ||
+                showChannelDialog ||
+                showGroupDialog ||
+                viewState.parentalPinPrompt != null ||
+                viewState.showParentalPinSetupDialog ||
+                viewState.showCloseAppDialog
 
         if (playerUiState.showStartupSplash) {
             StartupSplashScreen(
@@ -269,8 +293,10 @@ class MainActivity : ComponentActivity() {
                 player = viewModel.getPlayer(),
                 previewPlayerFactory = previewPlayerFactory,
                 actions = playerActions,
-                onRegisterToggleControls = { callback -> toggleControlsCallback = callback },
-                onControlsVisibilityChanged = { visible -> viewModel.setControlsVisible(visible) },
+                inputBlockedByModal = inputBlockedByModal,
+                onOpenChannelDialog = openChannelDialog,
+                onRegisterToggleControls = registerToggleControls,
+                onControlsVisibilityChanged = onControlsVisibilityChanged,
                 modifier = Modifier.fillMaxSize()
             )
         }

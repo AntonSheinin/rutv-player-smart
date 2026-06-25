@@ -123,11 +123,6 @@ class MainViewModel @Inject constructor(
         logDebug { "PERF ${SystemClock.elapsedRealtime() - perfStartMs}ms $mark" }
     }
 
-    private fun postEpgNotification() {
-        if (_viewState.value.epgNotificationMessage == EPG_LOADED_MESSAGE) return
-        _viewState.update { it.copy(epgNotificationMessage = EPG_LOADED_MESSAGE) }
-    }
-
     private fun postNotificationMessage(message: String) {
         _viewState.update { it.copy(epgNotificationMessage = message) }
     }
@@ -454,6 +449,38 @@ class MainViewModel @Inject constructor(
                 .distinctUntilChanged()
                 .collect { enabled ->
                     _viewState.update { it.copy(channelPreviewEnabled = enabled) }
+                }
+        }
+
+        viewModelScope.launch {
+            preferencesRepository.channelEpgListRatioPercent
+                .distinctUntilChanged()
+                .collect { ratioPercent ->
+                    _viewState.update { it.copy(channelEpgListRatioPercent = ratioPercent) }
+                }
+        }
+
+        viewModelScope.launch {
+            preferencesRepository.listPanelEdgeInsetDp
+                .distinctUntilChanged()
+                .collect { insetDp ->
+                    _viewState.update { it.copy(listPanelEdgeInsetDp = insetDp) }
+                }
+        }
+
+        viewModelScope.launch {
+            preferencesRepository.listPanelVerticalInsetDp
+                .distinctUntilChanged()
+                .collect { insetDp ->
+                    _viewState.update { it.copy(listPanelVerticalInsetDp = insetDp) }
+                }
+        }
+
+        viewModelScope.launch {
+            preferencesRepository.channelPreviewSizePreset
+                .distinctUntilChanged()
+                .collect { preset ->
+                    _viewState.update { it.copy(channelPreviewSizePreset = preset) }
                 }
         }
 
@@ -824,10 +851,6 @@ class MainViewModel @Inject constructor(
                             )
                         }
                         updateChannelIndexMap(channels)
-                        if (programsMapToUse.isNotEmpty()) {
-                            postEpgNotification()
-                        }
-
                         if (channels.isNotEmpty()) {
                             val catchupSupported = channels.count { it.supportsCatchup() }
                             appendDebugMessage(
@@ -1184,6 +1207,16 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    fun hidePlaylistForCompactEpg() {
+        playerManager.setAutoRetrySuppressed(false)
+        _viewState.update { current ->
+            current.copy(
+                showPlaylist = false,
+                selectedProgramDetails = null
+            )
+        }
+    }
+
     /**
      * Close EPG panel only (keep playlist open)
      */
@@ -1233,9 +1266,6 @@ class MainViewModel @Inject constructor(
             val window = (result as Result.Success).data
             val programs = window.programs
             val currentProgram = programs.firstOrNull { it.isCurrent() }
-            if (programs.isNotEmpty()) {
-                postEpgNotification()
-            }
 
             _viewState.update { state ->
                 val shouldUpdateCurrent = state.currentChannel?.tvgId == channel.tvgId
@@ -1449,7 +1479,6 @@ class MainViewModel @Inject constructor(
                 appendDebugMessage(
                     DebugMessage(StringFormatter.formatEpgShowingPrograms(programs.size, tvgId, current?.title))
                 )
-                postEpgNotification()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -1781,6 +1810,17 @@ class MainViewModel @Inject constructor(
 
     fun seekForwardOneMinute() {
         seekProgramProgressBy(PROGRAM_PROGRESS_SEEK_INCREMENT_MS)
+    }
+
+    fun seekProgramProgressTo(offsetMs: Long) {
+        val state = _viewState.value
+        if (state.isArchivePlayback || state.isTimeshiftPlayback || state.programProgress != null) {
+            if (playerManager.seekToProgramOffset(offsetMs)) {
+                if (!state.isArchivePlayback && _viewState.value.programProgress != null) {
+                    _viewState.update { it.copy(isTimeshiftPlayback = true) }
+                }
+            }
+        }
     }
 
     private fun seekProgramProgressBy(deltaMs: Long) {
@@ -2245,7 +2285,6 @@ class MainViewModel @Inject constructor(
 
     private companion object {
         private val startupSplashDismissedInProcess = AtomicBoolean(false)
-        const val EPG_LOADED_MESSAGE = "EPG loaded"
         private const val STARTUP_PLAYER_INIT_DELAY_MS = 250L
         private const val STARTUP_PLAYER_READY_WAIT_MS = 5000L
         private const val STARTUP_SPLASH_TIMEOUT_MS = 8000L

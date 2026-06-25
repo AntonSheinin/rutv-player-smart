@@ -130,6 +130,18 @@ class SettingsActivity : ComponentActivity() {
             onChannelPreviewEnabledChanged = { enabled: Boolean ->
                 viewModel.setChannelPreviewEnabled(enabled)
             },
+            onChannelEpgListRatioChanged = { percent: Int ->
+                viewModel.setChannelEpgListRatioPercent(percent)
+            },
+            onListPanelEdgeInsetChanged = { insetDp: Int ->
+                viewModel.setListPanelEdgeInsetDp(insetDp)
+            },
+            onListPanelVerticalInsetChanged = { insetDp: Int ->
+                viewModel.setListPanelVerticalInsetDp(insetDp)
+            },
+            onChannelPreviewSizePresetChanged = { preset: Int ->
+                viewModel.setChannelPreviewSizePreset(preset)
+            },
             onSetParentalPassword = { pin: String ->
                 viewModel.setParentalPassword(pin)
             },

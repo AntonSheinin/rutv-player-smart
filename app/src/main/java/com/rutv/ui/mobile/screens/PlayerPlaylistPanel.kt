@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -52,6 +53,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
@@ -71,6 +73,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.rutv.R
 import com.rutv.data.model.Channel
@@ -86,6 +89,8 @@ import com.rutv.ui.shared.components.requestFocusSafely
 import com.rutv.ui.shared.presentation.LayoutConstants
 import com.rutv.ui.theme.ruTvColors
 import com.rutv.util.DeviceHelper
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -99,15 +104,15 @@ import java.util.Locale
 
 @Composable
 internal fun PlaylistPanel(
-    allChannels: List<Channel>,
-    visibleChannels: List<Channel>,
+    allChannels: ImmutableList<Channel>,
+    visibleChannels: ImmutableList<Channel>,
     channelListMode: ChannelListMode,
     selectedGroup: String?,
     currentChannelIndex: Int,
     currentChannelStatusText: String? = null,
     initialScrollIndex: Int,
     epgOpenIndex: Int,
-    currentProgramsMap: Map<String, EpgProgram?>,
+    currentProgramsMap: ImmutableMap<String, EpgProgram?>,
     showCurrentProgramInChannelList: Boolean,
     onChannelClick: (Int) -> Unit,
     onFavoriteClick: (String) -> Unit,
@@ -121,10 +126,11 @@ internal fun PlaylistPanel(
     onChannelFocused: ((Int) -> Unit)? = null,
     onPreviewTargetChanged: (ChannelPreviewTarget?) -> Unit = {},
     onRequestEpgFocus: (() -> Unit)? = null,
+    panelWidth: Dp = LayoutConstants.PlaylistPanelWidth,
     modifier: Modifier = Modifier
 ) {
-    val channels = allChannels
-    val displayedList = visibleChannels
+    val channels: ImmutableList<Channel> = allChannels
+    val displayedList: ImmutableList<Channel> = visibleChannels
     val channelIndexByUrl = remember(channels) {
         buildMap(channels.size) {
             channels.forEachIndexed { index, channel ->
@@ -236,6 +242,13 @@ internal fun PlaylistPanel(
                 true
             }
         }
+    }
+    val latestFocusChannel by rememberUpdatedState(focusChannel)
+    val focusChannelSelected: (Int) -> Unit = remember {
+        { targetIndex -> latestFocusChannel(targetIndex, false) }
+    }
+    val focusChannelPlay: (Int) -> Unit = remember {
+        { targetIndex -> latestFocusChannel(targetIndex, true) }
     }
     val lazyColumnFocusRequester = remember { FocusRequester() }
 
@@ -351,8 +364,7 @@ internal fun PlaylistPanel(
     Card(
         modifier = modifier
             .fillMaxHeight()
-            .width(LayoutConstants.PlaylistPanelWidth)
-            .padding(LayoutConstants.DefaultPadding),
+            .width(panelWidth),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f)
         ),
@@ -381,29 +393,41 @@ internal fun PlaylistPanel(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                IconButton(
-                    onClick = onClose,
-                    modifier = Modifier
-                        .focusable(enabled = isRemoteMode)
-                        .focusRequester(closeButtonFocus)
-                        .then(focusIndicatorModifier(isFocused = false))
-                        .onKeyEvent { event ->
-                            if (event.type == KeyEventType.KeyDown) {
-                                when (event.key) {
-                                    Key.DirectionCenter, Key.Enter -> {
-                                        onClose()
-                                        true
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = { showSearchDialog = true },
+                        modifier = Modifier.focusProperties { canFocus = false }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = stringResource(R.string.cd_search_channel),
+                            tint = MaterialTheme.ruTvColors.textPrimary
+                        )
+                    }
+                    IconButton(
+                        onClick = onClose,
+                        modifier = Modifier
+                            .focusable(enabled = isRemoteMode)
+                            .focusRequester(closeButtonFocus)
+                            .then(focusIndicatorModifier(isFocused = false))
+                            .onKeyEvent { event ->
+                                if (event.type == KeyEventType.KeyDown) {
+                                    when (event.key) {
+                                        Key.DirectionCenter, Key.Enter -> {
+                                            onClose()
+                                            true
+                                        }
+                                        else -> false
                                     }
-                                    else -> false
-                                }
-                            } else false
-                        }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = stringResource(R.string.cd_close_playlist),
-                        tint = MaterialTheme.ruTvColors.textPrimary
-                    )
+                                } else false
+                            }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = stringResource(R.string.cd_close_playlist),
+                            tint = MaterialTheme.ruTvColors.textPrimary
+                        )
+                    }
                 }
             }
 
@@ -554,6 +578,7 @@ internal fun PlaylistPanel(
                         }
                         ChannelListItem(
                             channel = channel,
+                            channelIndex = resolvedIndex,
                             channelNumber = resolvedIndex + 1,
                             isPlaying = resolvedIndex == currentChannelIndex,
                             statusText = if (resolvedIndex == currentChannelIndex) currentChannelStatusText else null,
@@ -561,9 +586,10 @@ internal fun PlaylistPanel(
                             isEpgPanelVisible = isEpgPanelVisible,
                             currentProgram = programInfo,
                             isItemFocused = playlistHasFocus && resolvedIndex == focusedChannelIndex,
-                            onChannelClick = { focusChannel(resolvedIndex, true) },
-                            onFavoriteClick = { onFavoriteClick(channel.url) },
-                            onShowPrograms = { onShowPrograms(channel.tvgId) },
+                            onChannelSelected = focusChannelSelected,
+                            onChannelPlay = focusChannelPlay,
+                            onFavoriteClick = onFavoriteClick,
+                            onLockToggle = onLockToggle,
                             modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp)
                         )
                     }

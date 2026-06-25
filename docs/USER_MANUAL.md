@@ -53,6 +53,14 @@ Basic remote actions in full-screen playback:
 - **Info**: open current program details, if available.
 - **Back**: close open panels or controls; from full-screen playback, ask whether to close the app.
 
+Basic touch actions in landscape playback:
+
+- **Tap video**: show playback controls.
+- **Swipe up / down on video**: switch to the next or previous channel.
+- **Swipe from the left edge**: open the channel list.
+- **Swipe from the right edge**: open the EPG for the current channel, if available.
+- **Long press video**: open the channel number dialog.
+
 ### 5. Playback Controls
 
 When playback controls are visible, the app shows media controls and the current program progress when EPG data is available.
@@ -123,6 +131,9 @@ Channel list actions:
 - **OK / Enter**: play the focused channel.
 - **Right**: open the EPG for the focused channel, when available.
 - **Back**: close the list.
+- **Touch row tap**: select the channel and start the preview, when preview is enabled.
+- **Touch row double tap**: play the channel.
+- **Touch row buttons**: toggle favorite or lock/unlock the channel.
 
 The app can also show a channel preview window while browsing the list. This can be enabled or disabled in Settings.
 
@@ -172,6 +183,9 @@ EPG actions:
 - **Left**: return to the channel list or open it.
 - **Right**: open the date picker.
 - **Back**: close the EPG.
+- **Touch row tap**: open program details.
+- **Touch archive button**: play an archive-capable program.
+- **Touch calendar button**: open the date picker.
 
 The EPG loads by date windows and can request more past or future data as you scroll.
 

@@ -7,6 +7,11 @@ import android.annotation.SuppressLint
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -26,6 +31,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -33,12 +39,14 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.focusable
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.Lifecycle
@@ -72,6 +80,7 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlin.math.abs
 import kotlin.math.max
+import kotlin.math.roundToLong
 import timber.log.Timber
 import com.rutv.presentation.player.PlaybackIssue
 import com.rutv.presentation.player.ChannelPreviewController
@@ -96,6 +105,8 @@ fun PlayerScreen(
     player: ExoPlayer?,
     previewPlayerFactory: PreviewPlayerFactory,
     actions: PlayerUiActions,
+    inputBlockedByModal: Boolean = false,
+    onOpenChannelDialog: () -> Unit = {},
     onRegisterToggleControls: ((() -> Unit)) -> Unit,
     onControlsVisibilityChanged: ((Boolean) -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -266,13 +277,12 @@ fun PlayerScreen(
 
     // Auto-hide controls without driving recomposition on every DPAD event.
     val registerControlsInteraction: () -> Unit = registerControlsInteraction@{
-        val playerView = playerViewRef ?: return@registerControlsInteraction
         controlsAutoHideJobRef.job?.cancel()
         controlsAutoHideJobRef.job = coroutineScope.launch {
             delay(controlsHideDelayMs)
             if (showControls) {
                 showControls = false
-                playerView.hideController()
+                playerViewRef?.hideController()
             }
         }
     }
@@ -493,18 +503,56 @@ fun PlayerScreen(
         }
     }
 
-    Box(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .onSizeChanged { rootSize = it }
             .background(MaterialTheme.ruTvColors.darkBackground)
     ) {
-        // EPG Notification
-        EpgNotificationToast(
-            message = uiState.epgNotificationMessage,
-            onDismiss = actions.onClearEpgNotification,
-            modifier = Modifier
+        val isCompactPlayerWidth = maxWidth < LayoutConstants.CompactPlayerBreakpoint
+        val showPlaylistPanel = uiState.showPlaylist && !(isCompactPlayerWidth && uiState.showEpgPanel)
+        val bothListPanelsVisible = showPlaylistPanel && uiState.showEpgPanel
+        val ratioPercent = uiState.channelEpgListRatioPercent.coerceIn(
+            LayoutConstants.MinChannelListRatioPercent,
+            100 - LayoutConstants.MinEpgListRatioPercent
         )
+        val listPanelEdgeInset = uiState.listPanelEdgeInsetDp.coerceIn(
+            LayoutConstants.MinListPanelEdgeInsetDp,
+            LayoutConstants.MaxListPanelEdgeInsetDp
+        ).dp
+        val listPanelVerticalInset = uiState.listPanelVerticalInsetDp.coerceIn(
+            LayoutConstants.MinListPanelVerticalInsetDp,
+            LayoutConstants.MaxListPanelVerticalInsetDp
+        ).dp
+        val listPanelSideInsets = listPanelEdgeInset * 2
+        val splitWidth = (
+            maxWidth -
+                listPanelSideInsets -
+                if (bothListPanelsVisible) {
+                    LayoutConstants.ChannelEpgPanelGap
+                } else {
+                    0.dp
+                }
+            ).coerceAtLeast(0.dp)
+        val playlistPanelWidth = splitWidth * (ratioPercent / 100f)
+        val epgPanelWidth = splitWidth - playlistPanelWidth
+        val availablePanelWidth = maxWidth.coerceAtLeast(0.dp)
+        val detailsPanelWidth = availablePanelWidth
+            .coerceAtMost(LayoutConstants.ProgramDetailsPanelWidth)
+        val density = LocalDensity.current
+        val minSwipePx = with(density) { 64.dp.toPx() }
+        val fullscreenIdleTouchEnabled = !showControls &&
+            !uiState.showPlaylist &&
+            !uiState.showEpgPanel &&
+            uiState.selectedProgramDetails == null &&
+            uiState.archivePrompt == null &&
+            !inputBlockedByModal
+
+        LaunchedEffect(isCompactPlayerWidth, uiState.showPlaylist, uiState.showEpgPanel) {
+            if (isCompactPlayerWidth && uiState.showPlaylist && uiState.showEpgPanel) {
+                actions.onHidePlaylistForCompactEpg()
+            }
+        }
 
         // ExoPlayer View (inflated lazily to reduce cold-start jank)
         if (allowPlayerView) {
@@ -569,6 +617,30 @@ fun PlayerScreen(
             }
         }
 
+        FullscreenTouchSurface(
+            fullscreenIdleEnabled = fullscreenIdleTouchEnabled,
+            minSwipePx = minSwipePx,
+            onShowControls = {
+                if (!showControls) toggleControls()
+            },
+            onOpenPlaylist = actions.onOpenFullChannelList,
+            onOpenEpg = {
+                uiState.currentChannel?.tvgId
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let(actions.onShowEpgForChannel)
+            },
+            onNextChannel = { actions.onSwitchChannelRelative(+1) },
+            onPreviousChannel = { actions.onSwitchChannelRelative(-1) },
+            onOpenChannelDialog = onOpenChannelDialog,
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // EPG Notification stays above fullscreen gestures so its dismiss action remains touchable.
+        EpgNotificationToast(
+            message = uiState.epgNotificationMessage,
+            onDismiss = actions.onClearEpgNotification,
+            modifier = Modifier
+        )
 
         // Custom Control Buttons Overlay (bottom) - synced with ExoPlayer controls
         // No animation - hide/show instantly together with ExoPlayer controls
@@ -641,6 +713,7 @@ fun PlayerScreen(
                     progress = progress,
                     onSeekBack = actions.onSeekBackOneMinute,
                     onSeekForward = actions.onSeekForwardOneMinute,
+                    onSeekTo = actions.onSeekProgramProgressTo,
                     onControlsInteraction = { registerControlsInteraction() },
                     onNavigateUp = { focusExoPlayerControls(false) },
                     modifier = Modifier
@@ -716,28 +789,89 @@ fun PlayerScreen(
 
         val allChannels = uiState.filteredChannels
         val displayedChannels = uiState.visibleChannels
-
-        // Focus management for panel transitions
-        val focusPlaylistFromEpg: () -> Unit = {
-            focusManager.requestEnter(PlayerFocusDestination.PLAYLIST_PANEL)
-
-            // Focus the specific channel index
-            val targetIndex = when {
-                lastFocusedPlaylistIndex >= 0 -> lastFocusedPlaylistIndex
-                uiState.currentChannelFilteredIndex >= 0 -> uiState.currentChannelFilteredIndex
-                else -> -1
+        val latestPreviewController by rememberUpdatedState(previewController)
+        val latestIsCompactPlayerWidth by rememberUpdatedState(isCompactPlayerWidth)
+        val latestShowPlaylistPanel by rememberUpdatedState(showPlaylistPanel)
+        val latestAllChannels by rememberUpdatedState(allChannels)
+        val latestCurrentChannelFilteredIndex by rememberUpdatedState(uiState.currentChannelFilteredIndex)
+        val stopPlaylistPreview: () -> Unit = remember {
+            {
+                previewTarget = null
+                latestPreviewController?.stop()
             }
-            val resolvedIndex = when {
-                targetIndex >= 0 && targetIndex < allChannels.size -> targetIndex
-                allChannels.isNotEmpty() -> 0
-                else -> -1
+        }
+        val onPlaylistChannelClick: (Int) -> Unit = remember(actions, stopPlaylistPreview) {
+            { index ->
+                stopPlaylistPreview()
+                actions.onPlayChannel(index)
             }
-            if (resolvedIndex >= 0) {
-                focusManager.focusItem(PlayerFocusDestination.PLAYLIST_PANEL, resolvedIndex, false)
+        }
+        val onPlaylistShowPrograms: (String) -> Unit = remember(actions, stopPlaylistPreview) {
+            { tvgId ->
+                stopPlaylistPreview()
+                if (latestIsCompactPlayerWidth) {
+                    actions.onHidePlaylistForCompactEpg()
+                }
+                actions.onShowEpgForChannel(tvgId)
+            }
+        }
+        val onPlaylistClose: () -> Unit = remember(actions, stopPlaylistPreview) {
+            {
+                stopPlaylistPreview()
+                actions.onClosePlaylist()
+            }
+        }
+        val onPlaylistChannelFocused: (Int) -> Unit = remember {
+            { index ->
+                if (index >= 0) {
+                    lastFocusedPlaylistIndex = index
+                }
+            }
+        }
+        val onPreviewTargetChanged: (ChannelPreviewTarget?) -> Unit = remember {
+            { target -> previewTarget = target }
+        }
+        val onRequestEpgFocus: () -> Unit = remember(stopPlaylistPreview, focusManager) {
+            {
+                stopPlaylistPreview()
+                focusManager.requestEnter(PlayerFocusDestination.EPG_PANEL)
             }
         }
 
-        if (uiState.showPlaylist) {
+        // Focus management for panel transitions
+        val focusPlaylistFromEpg: () -> Unit = remember(focusManager) {
+            {
+                focusManager.requestEnter(PlayerFocusDestination.PLAYLIST_PANEL)
+
+                // Focus the specific channel index
+                val channels = latestAllChannels
+                val targetIndex = when {
+                    lastFocusedPlaylistIndex >= 0 -> lastFocusedPlaylistIndex
+                    latestCurrentChannelFilteredIndex >= 0 -> latestCurrentChannelFilteredIndex
+                    else -> -1
+                }
+                val resolvedIndex = when {
+                    targetIndex >= 0 && targetIndex < channels.size -> targetIndex
+                    channels.isNotEmpty() -> 0
+                    else -> -1
+                }
+                if (resolvedIndex >= 0) {
+                    focusManager.focusItem(PlayerFocusDestination.PLAYLIST_PANEL, resolvedIndex, false)
+                }
+            }
+        }
+        val closeEpgPanel: () -> Unit = remember(actions) {
+            { actions.onCloseEpgPanel() }
+        }
+        val onOpenPlaylistFromEpg: () -> Unit = remember(actions) {
+            {
+                if (!latestShowPlaylistPanel) {
+                    actions.onOpenChosenChannelList()
+                }
+            }
+        }
+
+        if (showPlaylistPanel) {
             PlaylistPanel(
                 allChannels = allChannels,
                 visibleChannels = displayedChannels,
@@ -758,44 +892,27 @@ fun PlayerScreen(
                 },
                 currentProgramsMap = uiState.currentProgramsMap,
                 showCurrentProgramInChannelList = uiState.showCurrentProgramInChannelList,
-                onChannelClick = { index ->
-                    previewTarget = null
-                    previewController?.stop()
-                    actions.onPlayChannel(index)
-                },
+                onChannelClick = onPlaylistChannelClick,
                 onFavoriteClick = actions.onToggleFavorite,
                 onLockToggle = actions.onToggleChannelLock,
-                onShowPrograms = { tvgId ->
-                    previewTarget = null
-                    previewController?.stop()
-                    actions.onShowEpgForChannel(tvgId)
-                },
-                onClose = {
-                    previewTarget = null
-                    previewController?.stop()
-                    actions.onClosePlaylist()
-                },
+                onShowPrograms = onPlaylistShowPrograms,
+                onClose = onPlaylistClose,
                 onUpdateScrollIndex = actions.onUpdatePlaylistScrollIndex,
                 onRequestMoreChannels = actions.onRequestMoreChannels,
                 onVisibleChannelsChanged = actions.onVisibleChannelsChanged,
                 focusManager = focusManager,
-                onChannelFocused = { index ->
-                    if (index >= 0) {
-                        lastFocusedPlaylistIndex = index
-                    }
-                },
-                onPreviewTargetChanged = { target -> previewTarget = target },
-                onRequestEpgFocus = {
-                    previewTarget = null
-                    previewController?.stop()
-                    focusManager.requestEnter(PlayerFocusDestination.EPG_PANEL)
-                },
-                modifier = Modifier.align(Alignment.CenterStart)
+                onChannelFocused = onPlaylistChannelFocused,
+                onPreviewTargetChanged = onPreviewTargetChanged,
+                onRequestEpgFocus = onRequestEpgFocus,
+                panelWidth = playlistPanelWidth,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = listPanelEdgeInset, top = listPanelVerticalInset, bottom = listPanelVerticalInset)
             )
         }
 
         val effectivePreviewTarget = previewTarget?.takeIf {
-            uiState.showPlaylist &&
+            showPlaylistPanel &&
                 uiState.channelPreviewEnabled &&
                 !uiState.showEpgPanel &&
                 uiState.selectedProgramDetails == null &&
@@ -833,6 +950,9 @@ fun PlayerScreen(
                     showUnavailablePreview -> stringResource(R.string.channel_preview_unavailable)
                     else -> null
                 },
+                playlistPanelWidth = playlistPanelWidth,
+                listPanelEdgeInset = listPanelEdgeInset,
+                channelPreviewSizePreset = uiState.channelPreviewSizePreset,
                 modifier = Modifier.align(Alignment.TopStart)
             )
         }
@@ -847,25 +967,22 @@ fun PlayerScreen(
                 onProgramClick = actions.onShowProgramDetails,
                 onPlayArchive = actions.onPlayArchiveProgram,
                 isArchivePlayback = uiState.isArchivePlayback,
-                isPlaylistOpen = uiState.showPlaylist,
+                isPlaylistOpen = showPlaylistPanel,
                 epgDaysPast = uiState.epgDaysPast,
                 epgDaysAhead = uiState.epgDaysAhead,
                 epgLoadedFromUtc = uiState.epgLoadedFromUtc,
                 epgLoadedToUtc = uiState.epgLoadedToUtc,
                 onLoadMorePast = actions.onLoadMoreEpgPast,
                 onLoadMoreFuture = actions.onLoadMoreEpgFuture,
-                onClose = actions.onCloseEpgPanel,
-                onNavigateLeftToChannels = {
-                    focusPlaylistFromEpg()
-                },
-                onOpenPlaylist = {
-                    if (!uiState.showPlaylist) {
-                        actions.onOpenChosenChannelList()
-                    }
-                },
+                onClose = closeEpgPanel,
+                onNavigateLeftToChannels = focusPlaylistFromEpg,
+                onOpenPlaylist = onOpenPlaylistFromEpg,
                 focusManager = focusManager,
                 onEnsureDateRange = actions.onEnsureEpgDateRange,
-                modifier = Modifier.align(Alignment.CenterEnd)
+                panelWidth = epgPanelWidth,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = listPanelEdgeInset, top = listPanelVerticalInset, bottom = listPanelVerticalInset)
             )
         }
 
@@ -879,6 +996,7 @@ fun PlayerScreen(
                         focusManager.requestEnter(PlayerFocusDestination.EPG_PANEL)
                     }
                 },
+                panelWidth = detailsPanelWidth,
                 modifier = Modifier.align(Alignment.Center)
             )
         }
@@ -901,6 +1019,86 @@ fun PlayerScreen(
             )
         }
     }
+}
+
+@Composable
+private fun FullscreenTouchSurface(
+    fullscreenIdleEnabled: Boolean,
+    minSwipePx: Float,
+    onShowControls: () -> Unit,
+    onOpenPlaylist: () -> Unit,
+    onOpenEpg: () -> Unit,
+    onNextChannel: () -> Unit,
+    onPreviousChannel: () -> Unit,
+    onOpenChannelDialog: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (!fullscreenIdleEnabled) return
+
+    var dragTotal by remember { mutableStateOf(Offset.Zero) }
+    var dragTriggered by remember { mutableStateOf(false) }
+
+    Box(
+        modifier = modifier
+            .pointerInput(fullscreenIdleEnabled) {
+                detectTapGestures(
+                    onTap = { onShowControls() },
+                    onLongPress = {
+                        if (fullscreenIdleEnabled) {
+                            onOpenChannelDialog()
+                        }
+                    }
+                )
+            }
+            .pointerInput(fullscreenIdleEnabled, minSwipePx) {
+                if (!fullscreenIdleEnabled) return@pointerInput
+                detectDragGestures(
+                    onDragStart = {
+                        dragTotal = Offset.Zero
+                        dragTriggered = false
+                    },
+                    onDrag = { _, dragAmount ->
+                        if (dragTriggered) return@detectDragGestures
+                        dragTotal += dragAmount
+                        val horizontal = dragTotal.x
+                        val vertical = dragTotal.y
+                        val absHorizontal = abs(horizontal)
+                        val absVertical = abs(vertical)
+
+                        when {
+                            absVertical >= minSwipePx && absVertical > absHorizontal -> {
+                                dragTriggered = true
+                                if (vertical < 0f) {
+                                    onNextChannel()
+                                } else {
+                                    onPreviousChannel()
+                                }
+                            }
+                            absHorizontal >= minSwipePx &&
+                                absHorizontal > absVertical &&
+                                horizontal > 0f -> {
+                                dragTriggered = true
+                                onOpenPlaylist()
+                            }
+                            absHorizontal >= minSwipePx &&
+                                absHorizontal > absVertical &&
+                                horizontal < 0f -> {
+                                dragTriggered = true
+                                onOpenEpg()
+                            }
+                        }
+                    },
+                    onDragEnd = {
+                        dragTriggered = false
+                        dragTotal = Offset.Zero
+                    },
+                    onDragCancel = {
+                        dragTriggered = false
+                        dragTotal = Offset.Zero
+                    }
+                )
+            }
+    )
 }
 
 @Composable
@@ -944,37 +1142,63 @@ private fun ChannelPreviewOverlay(
     previewController: com.rutv.presentation.player.ChannelPreviewController,
     showVideo: Boolean,
     placeholderText: String?,
+    playlistPanelWidth: Dp,
+    listPanelEdgeInset: Dp,
+    channelPreviewSizePreset: Int,
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
-    val previewWidth = 256.dp
-    val previewHeight = 144.dp
-    val previewWidthPx = with(density) { previewWidth.roundToPx() }
-    val previewHeightPx = with(density) { previewHeight.roundToPx() }
-    val x = LayoutConstants.PlaylistPanelWidth - LayoutConstants.DefaultPadding + CHANNEL_PREVIEW_LIST_GAP_DP.dp
-    val y = with(density) {
+    val presetIndex = channelPreviewSizePreset.coerceIn(
+        0,
+        LayoutConstants.ChannelPreviewWidthPresets.lastIndex
+    )
+    val preferredWidth = LayoutConstants.ChannelPreviewWidthPresets[presetIndex]
+    val x = listPanelEdgeInset +
+        playlistPanelWidth +
+        CHANNEL_PREVIEW_LIST_GAP_DP.dp
+
+    val previewBounds = with(density) {
+        val paddingPx = LayoutConstants.DefaultPadding.roundToPx()
+        val preferredWidthPx = preferredWidth.roundToPx()
+        val maxWidthPx = (rootSize.width - (paddingPx * 2)).coerceAtLeast(1)
+        val maxHeightPx = (rootSize.height - (paddingPx * 2)).coerceAtLeast(1)
+        val maxAspectWidthPx = (maxHeightPx * 16) / 9
+        val previewWidthPx = minOf(preferredWidthPx, maxWidthPx, maxAspectWidthPx)
+            .coerceAtLeast(1)
+        val previewHeightPx = ((previewWidthPx * 9) / 16).coerceAtLeast(1)
+        PreviewBounds(
+            width = previewWidthPx.toDp(),
+            height = previewHeightPx.toDp(),
+            widthPx = previewWidthPx,
+            heightPx = previewHeightPx
+        )
+    }
+
+    val xPx = with(density) {
+        val paddingPx = LayoutConstants.DefaultPadding.roundToPx()
+        val desiredXPx = x.roundToPx()
+        val maxXPx = (rootSize.width - previewBounds.widthPx - paddingPx)
+            .coerceAtLeast(paddingPx)
+        desiredXPx.coerceIn(paddingPx, maxXPx)
+    }
+    val yPx = with(density) {
+        val paddingPx = LayoutConstants.DefaultPadding.roundToPx()
         val desiredCenter = LayoutConstants.DefaultPadding.roundToPx() +
             LayoutConstants.ToolbarHeight.roundToPx() +
-            CHANNEL_PREVIEW_ROW_CENTER_ADJUST_DP.dp.roundToPx() +
             target.rowTopPx +
             (target.rowHeightPx / 2)
-        val maxY = (rootSize.height - previewHeightPx - LayoutConstants.DefaultPadding.roundToPx())
-            .coerceAtLeast(LayoutConstants.DefaultPadding.roundToPx())
-        (desiredCenter - (previewHeightPx / 2))
-            .coerceIn(LayoutConstants.DefaultPadding.roundToPx(), maxY)
-            .toDp()
+        val maxYPx = (rootSize.height - previewBounds.heightPx - paddingPx)
+            .coerceAtLeast(paddingPx)
+        (desiredCenter - (previewBounds.heightPx / 2))
+            .coerceIn(paddingPx, maxYPx)
     }
-    val maxX = with(density) {
-        (rootSize.width - previewWidthPx - LayoutConstants.DefaultPadding.roundToPx())
-            .coerceAtLeast(LayoutConstants.DefaultPadding.roundToPx())
-            .toDp()
-    }
-    val clampedX = minOf(x, maxX)
+    val clampedX = with(density) { xPx.toDp() }
+    val y = with(density) { yPx.toDp() }
 
     Box(
         modifier = modifier
             .offset(x = clampedX, y = y)
-            .size(width = previewWidth, height = previewHeight)
+            .size(width = previewBounds.width, height = previewBounds.height)
             .clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.96f))
             .border(
@@ -1019,10 +1243,16 @@ private fun ChannelPreviewOverlay(
     }
 }
 
+private data class PreviewBounds(
+    val width: Dp,
+    val height: Dp,
+    val widthPx: Int,
+    val heightPx: Int
+)
+
 private const val MEDIA3_UI_PACKAGE = "androidx.media3.ui"
 private const val CHANNEL_PREVIEW_DEBOUNCE_MS = 500L
 private const val CHANNEL_PREVIEW_LIST_GAP_DP = 8
-private const val CHANNEL_PREVIEW_ROW_CENTER_ADJUST_DP = 8
 private val CONTROL_LOOKUP_CACHE_TAG_KEY: Int = R.id.tag_player_control_lookup_cache
 private data class ControlLookupCache(
     val candidateIdsByName: MutableMap<String, IntArray> = mutableMapOf(),
@@ -1591,6 +1821,7 @@ private fun ProgramProgressOverlay(
     progress: ProgramProgressDisplay,
     onSeekBack: () -> Unit,
     onSeekForward: () -> Unit,
+    onSeekTo: (Long) -> Unit,
     onControlsInteraction: () -> Unit,
     onNavigateUp: () -> Unit,
     modifier: Modifier = Modifier
@@ -1614,6 +1845,14 @@ private fun ProgramProgressOverlay(
     val duration = progress.durationMs.coerceAtLeast(1L)
     val positionFraction = (progress.positionMs.toFloat() / duration).coerceIn(0f, 1f)
     val seekableFraction = (progress.seekableDurationMs.toFloat() / duration).coerceIn(0f, 1f)
+    fun seekToPosition(x: Float, width: Int) {
+        if (!progress.seekEnabled || width <= 0) return
+        val targetFraction = (x / width.toFloat()).coerceIn(0f, seekableFraction)
+        val targetMs = (targetFraction * duration).roundToLong()
+            .coerceIn(0L, progress.seekableDurationMs)
+        onControlsInteraction()
+        onSeekTo(targetMs)
+    }
 
     Column(
         modifier = modifier
@@ -1674,22 +1913,41 @@ private fun ProgramProgressOverlay(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(8.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(MaterialTheme.ruTvColors.textHint.copy(alpha = 0.55f))
+                .height(32.dp)
+                .pointerInput(progress.seekEnabled, progress.seekableDurationMs, duration) {
+                    if (!progress.seekEnabled) return@pointerInput
+                    awaitEachGesture {
+                        val down = awaitFirstDown()
+                        seekToPosition(down.position.x, size.width)
+                        down.consume()
+                        drag(down.id) { change ->
+                            seekToPosition(change.position.x, size.width)
+                            change.consume()
+                        }
+                    }
+                }
         ) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(seekableFraction)
-                    .fillMaxHeight()
-                    .background(MaterialTheme.ruTvColors.textSecondary.copy(alpha = 0.45f))
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(positionFraction)
-                    .fillMaxHeight()
-                    .background(MaterialTheme.ruTvColors.gold)
-            )
+                    .align(Alignment.Center)
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(MaterialTheme.ruTvColors.textHint.copy(alpha = 0.55f))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(seekableFraction)
+                        .fillMaxHeight()
+                        .background(MaterialTheme.ruTvColors.textSecondary.copy(alpha = 0.45f))
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(positionFraction)
+                        .fillMaxHeight()
+                        .background(MaterialTheme.ruTvColors.gold)
+                )
+            }
         }
     }
 }

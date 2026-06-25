@@ -10,6 +10,7 @@ import com.rutv.domain.usecase.ChannelListMode
 import com.rutv.presentation.player.DebugMessage
 import com.rutv.presentation.player.PlayerState
 import com.rutv.presentation.player.ProgramPlaybackProgress
+import com.rutv.util.PlayerConstants
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentListOf
@@ -49,6 +50,10 @@ data class MainViewState(
      */
     val showCurrentProgramInChannelList: Boolean = true,
     val channelPreviewEnabled: Boolean = true,
+    val channelEpgListRatioPercent: Int = PlayerConstants.DEFAULT_CHANNEL_EPG_RATIO_PERCENT,
+    val listPanelEdgeInsetDp: Int = PlayerConstants.DEFAULT_LIST_PANEL_EDGE_INSET_DP,
+    val listPanelVerticalInsetDp: Int = PlayerConstants.DEFAULT_LIST_PANEL_VERTICAL_INSET_DP,
+    val channelPreviewSizePreset: Int = PlayerConstants.DEFAULT_CHANNEL_PREVIEW_SIZE_PRESET,
     val parentalPinPrompt: ParentalPinPrompt? = null,
     val showParentalPinSetupDialog: Boolean = false,
     val temporarilyUnlockedChannelUrl: String? = null,

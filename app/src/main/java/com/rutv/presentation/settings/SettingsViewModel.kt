@@ -62,14 +62,36 @@ class SettingsViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            val basePlayerUiSettings = combine(
+                preferencesRepository.playerConfig,
+                preferencesRepository.showCurrentProgramInChannelList,
+                preferencesRepository.channelPreviewEnabled,
+                preferencesRepository.channelEpgListRatioPercent,
+                preferencesRepository.listPanelEdgeInsetDp
+            ) { config, showCurrent, previewEnabled, ratioPercent, edgeInsetDp ->
+                PlayerUiSettingsSnapshot(
+                    config = config,
+                    showCurrent = showCurrent,
+                    previewEnabled = previewEnabled,
+                    ratioPercent = ratioPercent,
+                    edgeInsetDp = edgeInsetDp
+                )
+            }
+            val playerUiSettingsWithInsets = combine(
+                basePlayerUiSettings,
+                preferencesRepository.listPanelVerticalInsetDp
+            ) { playerSettings, verticalInsetDp ->
+                playerSettings.copy(verticalInsetDp = verticalInsetDp)
+            }
+            val playerUiSettings = combine(
+                playerUiSettingsWithInsets,
+                preferencesRepository.channelPreviewSizePreset
+            ) { playerSettings, previewSizePreset ->
+                playerSettings.copy(previewSizePreset = previewSizePreset)
+            }
+
             combine(
-                combine(
-                    preferencesRepository.playerConfig,
-                    preferencesRepository.showCurrentProgramInChannelList,
-                    preferencesRepository.channelPreviewEnabled
-                ) { config, showCurrent, previewEnabled ->
-                    PlayerUiSettingsSnapshot(config, showCurrent, previewEnabled)
-                },
+                playerUiSettings,
                 combine(
                     preferencesRepository.autoRetryEnabled,
                     preferencesRepository.autoRetryMaxAttempts,
@@ -85,6 +107,10 @@ class SettingsViewModel @Inject constructor(
                         playerConfig = snap.player.config,
                         showCurrentProgramInChannelList = snap.player.showCurrent,
                         channelPreviewEnabled = snap.player.previewEnabled,
+                        channelEpgListRatioPercent = snap.player.ratioPercent,
+                        listPanelEdgeInsetDp = snap.player.edgeInsetDp,
+                        listPanelVerticalInsetDp = snap.player.verticalInsetDp,
+                        channelPreviewSizePreset = snap.player.previewSizePreset,
                         autoRetryEnabled = snap.retry.enabled,
                         autoRetryMaxAttempts = snap.retry.maxAttempts,
                         autoRetryPeriodSeconds = snap.retry.periodSeconds
@@ -122,7 +148,11 @@ class SettingsViewModel @Inject constructor(
     private data class PlayerUiSettingsSnapshot(
         val config: PlayerConfig,
         val showCurrent: Boolean,
-        val previewEnabled: Boolean
+        val previewEnabled: Boolean,
+        val ratioPercent: Int,
+        val edgeInsetDp: Int,
+        val verticalInsetDp: Int = PlayerConstants.DEFAULT_LIST_PANEL_VERTICAL_INSET_DP,
+        val previewSizePreset: Int = PlayerConstants.DEFAULT_CHANNEL_PREVIEW_SIZE_PRESET
     )
 
     private data class RetrySettingsSnapshot(
@@ -130,6 +160,38 @@ class SettingsViewModel @Inject constructor(
         val maxAttempts: Int,
         val periodSeconds: Int
     )
+
+    private fun Int.coerceToChannelEpgRatioStep(): Int {
+        val maxChannelRatio = 100 - PlayerConstants.MIN_EPG_LIST_RATIO_PERCENT
+        val clamped = coerceIn(PlayerConstants.MIN_CHANNEL_LIST_RATIO_PERCENT, maxChannelRatio)
+        val min = PlayerConstants.MIN_CHANNEL_LIST_RATIO_PERCENT
+        val step = PlayerConstants.CHANNEL_EPG_RATIO_STEP_PERCENT
+        return min + (((clamped - min) + (step / 2)) / step) * step
+    }
+
+    private fun Int.coerceToListPanelEdgeInsetStep(): Int {
+        val clamped = coerceIn(
+            PlayerConstants.MIN_LIST_PANEL_EDGE_INSET_DP,
+            PlayerConstants.MAX_LIST_PANEL_EDGE_INSET_DP
+        )
+        val min = PlayerConstants.MIN_LIST_PANEL_EDGE_INSET_DP
+        val step = PlayerConstants.LIST_PANEL_EDGE_INSET_STEP_DP
+        return min + (((clamped - min) + (step / 2)) / step) * step
+    }
+
+    private fun Int.coerceToListPanelVerticalInsetStep(): Int {
+        val clamped = coerceIn(
+            PlayerConstants.MIN_LIST_PANEL_VERTICAL_INSET_DP,
+            PlayerConstants.MAX_LIST_PANEL_VERTICAL_INSET_DP
+        )
+        val min = PlayerConstants.MIN_LIST_PANEL_VERTICAL_INSET_DP
+        val step = PlayerConstants.LIST_PANEL_VERTICAL_INSET_STEP_DP
+        return min + (((clamped - min) + (step / 2)) / step) * step
+    }
+
+    private fun Int.coerceToChannelPreviewSizePreset(): Int {
+        return coerceIn(0, PlayerConstants.CHANNEL_PREVIEW_WIDTH_PRESETS_DP.lastIndex)
+    }
 
     /**
      * Save playlist from file content and return whether it succeeded.
@@ -329,6 +391,106 @@ class SettingsViewModel @Inject constructor(
                 Timber.e(e, "Failed to save channelPreviewEnabled")
             }
         }
+    }
+
+    fun setChannelEpgListRatioPercent(percent: Int) {
+        val clampedPercent = percent.coerceToChannelEpgRatioStep()
+        _viewState.update { it.copy(channelEpgListRatioPercent = clampedPercent) }
+        viewModelScope.launch {
+            try {
+                preferencesRepository.saveChannelEpgListRatioPercent(clampedPercent)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to save channelEpgListRatioPercent")
+                revertChannelEpgListRatioPercent()
+            }
+        }
+    }
+
+    fun setListPanelEdgeInsetDp(insetDp: Int) {
+        val clampedInset = insetDp.coerceToListPanelEdgeInsetStep()
+        _viewState.update { it.copy(listPanelEdgeInsetDp = clampedInset) }
+        viewModelScope.launch {
+            try {
+                preferencesRepository.saveListPanelEdgeInsetDp(clampedInset)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to save listPanelEdgeInsetDp")
+                revertListPanelEdgeInsetDp()
+            }
+        }
+    }
+
+    fun setListPanelVerticalInsetDp(insetDp: Int) {
+        val clampedInset = insetDp.coerceToListPanelVerticalInsetStep()
+        _viewState.update { it.copy(listPanelVerticalInsetDp = clampedInset) }
+        viewModelScope.launch {
+            try {
+                preferencesRepository.saveListPanelVerticalInsetDp(clampedInset)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to save listPanelVerticalInsetDp")
+                revertListPanelVerticalInsetDp()
+            }
+        }
+    }
+
+    fun setChannelPreviewSizePreset(preset: Int) {
+        val clampedPreset = preset.coerceToChannelPreviewSizePreset()
+        _viewState.update { it.copy(channelPreviewSizePreset = clampedPreset) }
+        viewModelScope.launch {
+            try {
+                preferencesRepository.saveChannelPreviewSizePreset(clampedPreset)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to save channelPreviewSizePreset")
+                revertChannelPreviewSizePreset()
+            }
+        }
+    }
+
+    private suspend fun revertChannelEpgListRatioPercent() {
+        runCatching { preferencesRepository.channelEpgListRatioPercent.first() }
+            .onSuccess { persisted ->
+                _viewState.update { it.copy(channelEpgListRatioPercent = persisted) }
+            }
+            .onFailure { error ->
+                Timber.e(error, "Failed to revert channelEpgListRatioPercent")
+            }
+    }
+
+    private suspend fun revertListPanelEdgeInsetDp() {
+        runCatching { preferencesRepository.listPanelEdgeInsetDp.first() }
+            .onSuccess { persisted ->
+                _viewState.update { it.copy(listPanelEdgeInsetDp = persisted) }
+            }
+            .onFailure { error ->
+                Timber.e(error, "Failed to revert listPanelEdgeInsetDp")
+            }
+    }
+
+    private suspend fun revertListPanelVerticalInsetDp() {
+        runCatching { preferencesRepository.listPanelVerticalInsetDp.first() }
+            .onSuccess { persisted ->
+                _viewState.update { it.copy(listPanelVerticalInsetDp = persisted) }
+            }
+            .onFailure { error ->
+                Timber.e(error, "Failed to revert listPanelVerticalInsetDp")
+            }
+    }
+
+    private suspend fun revertChannelPreviewSizePreset() {
+        runCatching { preferencesRepository.channelPreviewSizePreset.first() }
+            .onSuccess { persisted ->
+                _viewState.update { it.copy(channelPreviewSizePreset = persisted) }
+            }
+            .onFailure { error ->
+                Timber.e(error, "Failed to revert channelPreviewSizePreset")
+            }
     }
 
     fun setParentalPassword(pin: String) {

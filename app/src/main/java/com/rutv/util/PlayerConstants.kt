@@ -21,6 +21,22 @@ object PlayerConstants {
     const val MIN_CONTROLS_HIDE_DELAY_SECONDS = 1
     const val MAX_CONTROLS_HIDE_DELAY_SECONDS = 30
 
+    // Channel/EPG panel split settings (percent)
+    const val DEFAULT_CHANNEL_EPG_RATIO_PERCENT = 40
+    const val MIN_CHANNEL_LIST_RATIO_PERCENT = 40
+    const val MIN_EPG_LIST_RATIO_PERCENT = 40
+    const val CHANNEL_EPG_RATIO_STEP_PERCENT = 5
+    const val DEFAULT_LIST_PANEL_EDGE_INSET_DP = 24
+    const val MIN_LIST_PANEL_EDGE_INSET_DP = 0
+    const val MAX_LIST_PANEL_EDGE_INSET_DP = 48
+    const val LIST_PANEL_EDGE_INSET_STEP_DP = 4
+    const val DEFAULT_LIST_PANEL_VERTICAL_INSET_DP = 0
+    const val MIN_LIST_PANEL_VERTICAL_INSET_DP = 0
+    const val MAX_LIST_PANEL_VERTICAL_INSET_DP = 64
+    const val LIST_PANEL_VERTICAL_INSET_STEP_DP = 4
+    val CHANNEL_PREVIEW_WIDTH_PRESETS_DP = intArrayOf(192, 224, 256, 320, 384)
+    const val DEFAULT_CHANNEL_PREVIEW_SIZE_PRESET = 2
+
     // Player
     const val SEEK_INCREMENT_MS = 10_000L
 

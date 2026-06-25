@@ -42,6 +42,7 @@ import com.rutv.util.decodePlaylistText
 import timber.log.Timber
 import androidx.compose.foundation.focusable
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.Key
@@ -52,6 +53,7 @@ import androidx.compose.ui.input.key.type
 import com.rutv.ui.shared.components.remoteBack
 import kotlinx.coroutines.launch
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 /**
  * Settings Screen with Compose UI
@@ -74,6 +76,10 @@ fun SettingsScreen(
     onAutoRetryPeriodSecondsChanged: (Int) -> Unit,
     onShowCurrentProgramInChannelListChanged: (Boolean) -> Unit,
     onChannelPreviewEnabledChanged: (Boolean) -> Unit,
+    onChannelEpgListRatioChanged: (Int) -> Unit,
+    onListPanelEdgeInsetChanged: (Int) -> Unit,
+    onListPanelVerticalInsetChanged: (Int) -> Unit,
+    onChannelPreviewSizePresetChanged: (Int) -> Unit,
     onSetParentalPassword: (String) -> Unit,
     onChangeParentalPassword: (String, String) -> Unit,
     onRemoveParentalPassword: (String) -> Unit,
@@ -425,6 +431,34 @@ fun SettingsScreen(
                 )
             }
 
+            item {
+                ChannelEpgRatioSetting(
+                    value = viewState.channelEpgListRatioPercent,
+                    onValueChange = onChannelEpgListRatioChanged
+                )
+            }
+
+            item {
+                ListPanelEdgeInsetSetting(
+                    value = viewState.listPanelEdgeInsetDp,
+                    onValueChange = onListPanelEdgeInsetChanged
+                )
+            }
+
+            item {
+                ListPanelVerticalInsetSetting(
+                    value = viewState.listPanelVerticalInsetDp,
+                    onValueChange = onListPanelVerticalInsetChanged
+                )
+            }
+
+            item {
+                ChannelPreviewSizeSetting(
+                    value = viewState.channelPreviewSizePreset,
+                    onValueChange = onChannelPreviewSizePresetChanged
+                )
+            }
+
             item { Spacer(modifier = Modifier.height(24.dp)) }
 
             item {
@@ -747,6 +781,389 @@ private fun SwitchSetting(
             colors = SwitchDefaults.colors(
                 checkedThumbColor = MaterialTheme.ruTvColors.gold,
                 checkedTrackColor = MaterialTheme.ruTvColors.goldAlpha50
+            )
+        )
+    }
+}
+
+@Composable
+private fun ChannelEpgRatioSetting(
+    value: Int,
+    onValueChange: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val minValue = PlayerConstants.MIN_CHANNEL_LIST_RATIO_PERCENT
+    val maxValue = 100 - PlayerConstants.MIN_EPG_LIST_RATIO_PERCENT
+    val step = PlayerConstants.CHANNEL_EPG_RATIO_STEP_PERCENT
+    val positionCount = ((maxValue - minValue) / step) + 1
+    val maxPosition = positionCount - 1
+    var isFocused by remember { mutableStateOf(false) }
+
+    fun positionForPercent(percent: Int): Int {
+        return ((percent.coerceIn(minValue, maxValue) - minValue) / step)
+            .coerceIn(0, maxPosition)
+    }
+
+    fun percentForPosition(position: Int): Int {
+        return minValue + position.coerceIn(0, maxPosition) * step
+    }
+
+    var sliderPosition by remember {
+        mutableFloatStateOf(positionForPercent(value).toFloat())
+    }
+    var pendingValue by remember { mutableStateOf<Int?>(null) }
+    val displayedPosition = sliderPosition.roundToInt().coerceIn(0, maxPosition)
+    val displayedValue = pendingValue ?: percentForPosition(displayedPosition)
+
+    LaunchedEffect(value) {
+        val externalValue = percentForPosition(positionForPercent(value))
+        if (pendingValue == null || pendingValue == externalValue) {
+            pendingValue = null
+            val externalPosition = positionForPercent(externalValue).toFloat()
+            if (sliderPosition != externalPosition) {
+                sliderPosition = externalPosition
+            }
+        }
+    }
+
+    fun updatePosition(position: Int) {
+        val boundedPosition = position.coerceIn(0, maxPosition)
+        val steppedValue = percentForPosition(boundedPosition)
+        sliderPosition = boundedPosition.toFloat()
+        if (steppedValue != displayedValue) {
+            pendingValue = steppedValue
+            onValueChange(steppedValue)
+        }
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .onFocusChanged { isFocused = it.hasFocus }
+            .focusable()
+            .then(focusIndicatorModifier(isFocused))
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .onKeyEvent { event ->
+                if (!DeviceHelper.isRemoteInputActive()) return@onKeyEvent false
+                if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                when (event.key) {
+                    Key.DirectionLeft -> {
+                        updatePosition(displayedPosition - 1)
+                        true
+                    }
+                    Key.DirectionRight -> {
+                        updatePosition(displayedPosition + 1)
+                        true
+                    }
+                    else -> false
+                }
+            }
+    ) {
+        Text(
+            text = stringResource(R.string.settings_channel_epg_ratio),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.ruTvColors.textPrimary
+        )
+        Text(
+            text = stringResource(
+                R.string.settings_channel_epg_ratio_value,
+                displayedValue,
+                100 - displayedValue
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.ruTvColors.textSecondary,
+            modifier = Modifier.padding(top = 2.dp, bottom = 4.dp)
+        )
+        Slider(
+            value = sliderPosition,
+            onValueChange = { rawPosition ->
+                updatePosition(rawPosition.roundToInt())
+            },
+            modifier = Modifier.focusProperties { canFocus = false },
+            valueRange = 0f..maxPosition.toFloat(),
+            steps = (positionCount - 2).coerceAtLeast(0),
+            colors = SliderDefaults.colors(
+                thumbColor = MaterialTheme.ruTvColors.gold,
+                activeTrackColor = MaterialTheme.ruTvColors.gold,
+                inactiveTrackColor = MaterialTheme.ruTvColors.textDisabled
+            )
+        )
+    }
+}
+
+@Composable
+private fun ListPanelEdgeInsetSetting(
+    value: Int,
+    onValueChange: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val minValue = PlayerConstants.MIN_LIST_PANEL_EDGE_INSET_DP
+    val maxValue = PlayerConstants.MAX_LIST_PANEL_EDGE_INSET_DP
+    val step = PlayerConstants.LIST_PANEL_EDGE_INSET_STEP_DP
+    var isFocused by remember { mutableStateOf(false) }
+
+    fun snap(rawValue: Float): Int {
+        val rounded = rawValue.roundToInt().coerceIn(minValue, maxValue)
+        return minValue + (((rounded - minValue) + (step / 2)) / step) * step
+    }
+
+    var sliderPosition by remember { mutableFloatStateOf(snap(value.toFloat()).toFloat()) }
+    var pendingValue by remember { mutableStateOf<Int?>(null) }
+    val displayedValue = pendingValue ?: snap(sliderPosition)
+
+    LaunchedEffect(value) {
+        val externalValue = snap(value.toFloat())
+        if (pendingValue == null || pendingValue == externalValue) {
+            pendingValue = null
+            val externalPosition = externalValue.toFloat()
+            if (sliderPosition != externalPosition) {
+                sliderPosition = externalPosition
+            }
+        }
+    }
+
+    fun update(rawValue: Float) {
+        val snappedValue = snap(rawValue)
+        sliderPosition = snappedValue.toFloat()
+        if (snappedValue != displayedValue) {
+            pendingValue = snappedValue
+            onValueChange(snappedValue)
+        }
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .onFocusChanged { isFocused = it.hasFocus }
+            .focusable()
+            .then(focusIndicatorModifier(isFocused))
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .onKeyEvent { event ->
+                if (!DeviceHelper.isRemoteInputActive()) return@onKeyEvent false
+                if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                when (event.key) {
+                    Key.DirectionLeft -> {
+                        update(displayedValue - step.toFloat())
+                        true
+                    }
+                    Key.DirectionRight -> {
+                        update(displayedValue + step.toFloat())
+                        true
+                    }
+                    else -> false
+                }
+            }
+    ) {
+        Text(
+            text = stringResource(R.string.settings_list_panel_edge_inset),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.ruTvColors.textPrimary
+        )
+        Text(
+            text = stringResource(R.string.settings_list_panel_edge_inset_value, displayedValue),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.ruTvColors.textSecondary,
+            modifier = Modifier.padding(top = 2.dp, bottom = 4.dp)
+        )
+        Slider(
+            value = sliderPosition,
+            onValueChange = { update(it) },
+            modifier = Modifier.focusProperties { canFocus = false },
+            valueRange = minValue.toFloat()..maxValue.toFloat(),
+            steps = ((maxValue - minValue) / step) - 1,
+            colors = SliderDefaults.colors(
+                thumbColor = MaterialTheme.ruTvColors.gold,
+                activeTrackColor = MaterialTheme.ruTvColors.gold,
+                inactiveTrackColor = MaterialTheme.ruTvColors.textDisabled
+            )
+        )
+    }
+}
+
+@Composable
+private fun ListPanelVerticalInsetSetting(
+    value: Int,
+    onValueChange: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val minValue = PlayerConstants.MIN_LIST_PANEL_VERTICAL_INSET_DP
+    val maxValue = PlayerConstants.MAX_LIST_PANEL_VERTICAL_INSET_DP
+    val step = PlayerConstants.LIST_PANEL_VERTICAL_INSET_STEP_DP
+    var isFocused by remember { mutableStateOf(false) }
+
+    fun snap(rawValue: Float): Int {
+        val rounded = rawValue.roundToInt().coerceIn(minValue, maxValue)
+        return minValue + (((rounded - minValue) + (step / 2)) / step) * step
+    }
+
+    var sliderPosition by remember { mutableFloatStateOf(snap(value.toFloat()).toFloat()) }
+    var pendingValue by remember { mutableStateOf<Int?>(null) }
+    val displayedValue = pendingValue ?: snap(sliderPosition)
+
+    LaunchedEffect(value) {
+        val externalValue = snap(value.toFloat())
+        if (pendingValue == null || pendingValue == externalValue) {
+            pendingValue = null
+            val externalPosition = externalValue.toFloat()
+            if (sliderPosition != externalPosition) {
+                sliderPosition = externalPosition
+            }
+        }
+    }
+
+    fun update(rawValue: Float) {
+        val snappedValue = snap(rawValue)
+        sliderPosition = snappedValue.toFloat()
+        if (snappedValue != displayedValue) {
+            pendingValue = snappedValue
+            onValueChange(snappedValue)
+        }
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .onFocusChanged { isFocused = it.hasFocus }
+            .focusable()
+            .then(focusIndicatorModifier(isFocused))
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .onKeyEvent { event ->
+                if (!DeviceHelper.isRemoteInputActive()) return@onKeyEvent false
+                if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                when (event.key) {
+                    Key.DirectionLeft -> {
+                        update(displayedValue - step.toFloat())
+                        true
+                    }
+                    Key.DirectionRight -> {
+                        update(displayedValue + step.toFloat())
+                        true
+                    }
+                    else -> false
+                }
+            }
+    ) {
+        Text(
+            text = stringResource(R.string.settings_list_panel_vertical_inset),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.ruTvColors.textPrimary
+        )
+        Text(
+            text = stringResource(R.string.settings_list_panel_vertical_inset_value, displayedValue),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.ruTvColors.textSecondary,
+            modifier = Modifier.padding(top = 2.dp, bottom = 4.dp)
+        )
+        Slider(
+            value = sliderPosition,
+            onValueChange = { update(it) },
+            modifier = Modifier.focusProperties { canFocus = false },
+            valueRange = minValue.toFloat()..maxValue.toFloat(),
+            steps = ((maxValue - minValue) / step) - 1,
+            colors = SliderDefaults.colors(
+                thumbColor = MaterialTheme.ruTvColors.gold,
+                activeTrackColor = MaterialTheme.ruTvColors.gold,
+                inactiveTrackColor = MaterialTheme.ruTvColors.textDisabled
+            )
+        )
+    }
+}
+
+@Composable
+private fun ChannelPreviewSizeSetting(
+    value: Int,
+    onValueChange: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val presets = PlayerConstants.CHANNEL_PREVIEW_WIDTH_PRESETS_DP
+    val minPosition = 0
+    val maxPosition = presets.lastIndex
+    val selectedPosition = value.coerceIn(minPosition, maxPosition)
+    var isFocused by remember { mutableStateOf(false) }
+    var sliderPosition by remember { mutableFloatStateOf(selectedPosition.toFloat()) }
+    var pendingValue by remember { mutableStateOf<Int?>(null) }
+    val displayedPosition = pendingValue ?: sliderPosition.roundToInt().coerceIn(minPosition, maxPosition)
+    val selectedWidth = presets[displayedPosition]
+    val selectedHeight = selectedWidth * 9 / 16
+
+    fun updatePosition(position: Int) {
+        val boundedPosition = position.coerceIn(minPosition, maxPosition)
+        sliderPosition = boundedPosition.toFloat()
+        if (boundedPosition != displayedPosition) {
+            pendingValue = boundedPosition
+            onValueChange(boundedPosition)
+        }
+    }
+
+    LaunchedEffect(value) {
+        if (pendingValue == null || pendingValue == selectedPosition) {
+            pendingValue = null
+            val externalPosition = selectedPosition.toFloat()
+            if (sliderPosition != externalPosition) {
+                sliderPosition = externalPosition
+            }
+        }
+    }
+
+    val presetName = when (displayedPosition) {
+        0 -> stringResource(R.string.settings_channel_preview_size_small)
+        1 -> stringResource(R.string.settings_channel_preview_size_compact)
+        2 -> stringResource(R.string.settings_channel_preview_size_default)
+        3 -> stringResource(R.string.settings_channel_preview_size_large)
+        else -> stringResource(R.string.settings_channel_preview_size_tablet)
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .onFocusChanged { isFocused = it.hasFocus }
+            .focusable()
+            .then(focusIndicatorModifier(isFocused))
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .onKeyEvent { event ->
+                if (!DeviceHelper.isRemoteInputActive()) return@onKeyEvent false
+                if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                when (event.key) {
+                    Key.DirectionLeft -> {
+                        updatePosition(displayedPosition - 1)
+                        true
+                    }
+                    Key.DirectionRight -> {
+                        updatePosition(displayedPosition + 1)
+                        true
+                    }
+                    else -> false
+                }
+            }
+    ) {
+        Text(
+            text = stringResource(R.string.settings_channel_preview_size),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.ruTvColors.textPrimary
+        )
+        Text(
+            text = stringResource(
+                R.string.settings_channel_preview_size_value,
+                presetName,
+                selectedWidth,
+                selectedHeight
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.ruTvColors.textSecondary,
+            modifier = Modifier.padding(top = 2.dp, bottom = 4.dp)
+        )
+        Slider(
+            value = sliderPosition,
+            onValueChange = { rawPosition ->
+                updatePosition(rawPosition.roundToInt())
+            },
+            modifier = Modifier.focusProperties { canFocus = false },
+            valueRange = minPosition.toFloat()..maxPosition.toFloat(),
+            steps = (presets.size - 2).coerceAtLeast(0),
+            colors = SliderDefaults.colors(
+                thumbColor = MaterialTheme.ruTvColors.gold,
+                activeTrackColor = MaterialTheme.ruTvColors.gold,
+                inactiveTrackColor = MaterialTheme.ruTvColors.textDisabled
             )
         )
     }
