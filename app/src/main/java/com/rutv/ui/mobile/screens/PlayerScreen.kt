@@ -100,6 +100,7 @@ import java.util.Locale
  */
 @UnstableApi
 @Composable
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 fun PlayerScreen(
     uiState: PlayerUiState,
     player: ExoPlayer?,
@@ -1136,6 +1137,7 @@ private fun PlaybackStatusOverlay(
 }
 
 @Composable
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 private fun ChannelPreviewOverlay(
     target: ChannelPreviewTarget,
     rootSize: IntSize,
@@ -1355,6 +1357,7 @@ private data class ProgramProgressDisplay(
     val seekEnabled: Boolean
 )
 
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 private fun PlayerView.configurePlayerView(
     uiState: PlayerUiState,
     onControllerVisibilityChanged: (Boolean) -> Unit
@@ -1433,6 +1436,7 @@ private fun PlayerView.bindControls(
     )
 }
 
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 private fun PlayerView.applyControlCustomizations(
     isArchivePlayback: Boolean,
     hasProgramProgress: Boolean,
@@ -1777,6 +1781,7 @@ private fun PlayerView.applyControlCustomizations(
     durationView?.translationY = 0f
 }
 
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 private fun PlayerView.focusOnControl(vararg controlNames: String) {
     showController()
     controlNames.asSequence()

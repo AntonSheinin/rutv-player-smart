@@ -37,6 +37,7 @@ import com.rutv.util.PlayerConstants
 import com.rutv.data.repository.PreferencesRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
@@ -108,6 +109,10 @@ class PlayerManager @Inject constructor(
     private var bufferingCheckJob: Job? = null
 
     // Structured scopes (avoid ad-hoc CoroutineScope(...) allocations)
+    private val submissionLock = Any()
+    private var playbackGeneration = 0L
+    private var acceptsCommands = false
+
     private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val workerScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -142,6 +147,7 @@ class PlayerManager @Inject constructor(
      * Called from MainViewModel.init to ensure the singleton is ready for a new ViewModel instance.
      */
     fun prepare() {
+        synchronized(submissionLock) { acceptsCommands = true }
         if (playbackCommandProcessorJob?.isActive != true) {
             playbackCommandProcessorJob = mainScope.launch {
                 processPlaybackCommands()
@@ -174,10 +180,12 @@ class PlayerManager @Inject constructor(
         }
     }
 
-private fun submitPlaybackCommand(command: PlaybackCommand) {
-        if (playbackCommands.trySend(command).isSuccess) return
-        mainScope.launch {
-            playbackCommands.send(command)
+    private fun submitPlaybackCommand(command: PlaybackCommand, generation: Long? = null) {
+        synchronized(submissionLock) {
+            if (!acceptsCommands || (generation != null && generation != playbackGeneration) ||
+                !playbackCommands.trySend(command).isSuccess) {
+                if (command is PlaybackCommand.PlayProgramDvr) command.result.complete(false)
+            }
         }
     }
 
@@ -624,6 +632,7 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
      * Initialize player with channels
      */
     fun initialize(channels: List<Channel>, config: PlayerConfig, startIndex: Int = 0) {
+        val generation = synchronized(submissionLock) { playbackGeneration }
         if (channels.isEmpty()) {
             Timber.w("Cannot initialize player with empty channel list")
             return
@@ -639,7 +648,7 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
                     config = config,
                     startIndex = startIndex,
                     mediaItems = mediaItems
-                )
+                ), generation
             )
         }
 
@@ -653,6 +662,7 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
                 } catch (e: Exception) {
                     Timber.e(e, "Failed to prepare media items on background thread")
                     mainScope.launch {
+                        if (synchronized(submissionLock) { generation != playbackGeneration || !acceptsCommands }) return@launch
                         _playerState.value = PlayerState.Error(PlaybackIssue.Unknown("Failed to prepare media items"), null)
                     }
                 }
@@ -677,6 +687,7 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
      * - In archive mode: updates cached live channels and last live index, but keeps archive playback.
      */
     fun refreshChannels(channels: List<Channel>, preferredIndex: Int = 0) {
+        val generation = synchronized(submissionLock) { playbackGeneration }
         if (channels.isEmpty()) return
         val channelSnapshot = channels.toList()
         val normalizedIndex = preferredIndex.coerceIn(0, channelSnapshot.lastIndex)
@@ -686,7 +697,7 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
                     channels = channelSnapshot,
                     preferredIndex = normalizedIndex,
                     mediaItems = mediaItems
-                )
+                ), generation
             )
         }
 
@@ -706,6 +717,7 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
                 } catch (e: Exception) {
                     Timber.e(e, "Failed to refresh media items on background thread")
                     mainScope.launch {
+                        if (synchronized(submissionLock) { generation != playbackGeneration || !acceptsCommands }) return@launch
                         _playerState.value = PlayerState.Error(PlaybackIssue.Unknown("Failed to refresh channels"), null)
                     }
                 }
@@ -1049,13 +1061,14 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
                                         addDebugMessage("DVR: Initial seek ${seekTarget / 1000}s (${pending.mode})")
                                         pendingProgramDvrStart = null
                                         if (!pending.startPaused) {
+                                            val seekPlayer = player
                                             mainScope.launch {
                                                 delay(INITIAL_PROGRAM_SEEK_SETTLE_MS)
                                                 val activeSession = currentProgramDvr
                                                 val activePlayer = player
                                                 if (activeSession?.channel?.url == channel.url &&
                                                     activeSession.program.startTimeMillis == program.startTimeMillis &&
-                                                    activePlayer != null
+                                                    activePlayer != null && activePlayer === seekPlayer
                                                 ) {
                                                     if (activePlayer.currentPosition < seekTarget - INITIAL_PROGRAM_SEEK_TOLERANCE_MS) {
                                                         activePlayer.seekTo(seekTarget)
@@ -1617,6 +1630,13 @@ private fun submitPlaybackCommand(command: PlaybackCommand) {
      * Release player resources
      */
     fun release() {
+        synchronized(submissionLock) {
+            acceptsCommands = false
+            playbackGeneration++
+        }
+        // Cancel anonymous delayed/probe/preparation work too; prepare() reuses the supervisor scopes.
+        mainScope.coroutineContext.cancelChildren()
+        workerScope.coroutineContext.cancelChildren()
         playbackCommandProcessorJob?.cancel()
         playbackCommandProcessorJob = null
         preferencesCollectorJob?.cancel()

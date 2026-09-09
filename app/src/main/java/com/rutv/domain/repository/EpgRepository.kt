@@ -31,9 +31,9 @@ interface EpgRepository {
         toUtcMillis: Long
     ): Map<String, List<EpgProgram>>
 
-    suspend fun getCurrentProgram(tvgId: String): EpgProgram?
+    suspend fun getCurrentProgram(epgUrl: String, tvgId: String): EpgProgram?
 
-    suspend fun getProgramsForChannel(tvgId: String): List<EpgProgram>
+    suspend fun getProgramsForChannel(epgUrl: String, tvgId: String): List<EpgProgram>
 
     suspend fun clearCache()
 }

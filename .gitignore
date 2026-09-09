@@ -17,6 +17,7 @@ release/
 
 # Gradle files
 .gradle/
+.kotlin/
 build/
 
 # Keep Gradle wrapper

@@ -76,6 +76,7 @@ import javax.inject.Inject
  * - When panels/controls are visible, we largely defer to Compose to avoid fighting the focus system.
  */
 @AndroidEntryPoint
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
@@ -539,6 +540,8 @@ class MainActivity : ComponentActivity() {
      * PlayerView default DPAD behavior (which may auto-open controller before higher-level actions).
      * When panels/controls are visible we defer to Compose/View focus handlers.
      */
+    // Public Activity override; lint resolves the restricted core implementation through ComponentActivity.
+    @android.annotation.SuppressLint("RestrictedApi")
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (!DeviceHelper.isRemoteInputActive()) {
             return super.dispatchKeyEvent(event)

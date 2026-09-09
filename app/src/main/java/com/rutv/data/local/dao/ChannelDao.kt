@@ -6,11 +6,12 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import com.rutv.data.local.entity.ChannelEntity
+import com.rutv.data.local.entity.PlaylistSnapshotEntity
 
 /**
  * Data Access Object for Channel operations
  */
-data class AspectRatioEntry(val url: String, val aspectRatio: Int)
+data class ChannelSnapshot(val identity: PlaylistSnapshotEntity?, val channels: List<ChannelEntity>)
 
 @Dao
 interface ChannelDao {
@@ -27,54 +28,47 @@ interface ChannelDao {
     @Query("DELETE FROM channels")
     suspend fun deleteAllChannels()
 
-    @Query("SELECT url FROM channels WHERE isFavorite = 1")
-    suspend fun getFavoriteUrls(): List<String>
+    @Query("SELECT * FROM playlist_snapshot WHERE id = 1")
+    suspend fun getSnapshotIdentity(): PlaylistSnapshotEntity?
 
-    @Query("SELECT tvgId FROM channels WHERE isFavorite = 1 AND tvgId != ''")
-    suspend fun getFavoriteTvgIds(): List<String>
-
-    @Query("UPDATE channels SET isFavorite = 1 WHERE url IN (:urls)")
-    suspend fun markFavorites(urls: List<String>)
-
-    @Query("SELECT url, aspectRatio FROM channels WHERE aspectRatio != 0")
-    suspend fun getCustomAspectRatios(): List<AspectRatioEntry>
-
-    @Query("UPDATE channels SET aspectRatio = :aspectRatio WHERE url = :url")
-    suspend fun restoreAspectRatio(url: String, aspectRatio: Int)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun saveSnapshotIdentity(snapshot: PlaylistSnapshotEntity)
 
     @Transaction
-    suspend fun replaceChannelsPreservingFavorites(
+    suspend fun readSnapshot(): ChannelSnapshot = ChannelSnapshot(getSnapshotIdentity(), getAllChannels())
+
+    @Transaction
+    suspend fun replaceSnapshot(
         channels: List<ChannelEntity>,
-        favoriteUrls: List<String>? = null,
-        favoriteTvgIds: List<String>? = null
-    ): List<String> {
-        val existingFavoriteUrls = favoriteUrls ?: getFavoriteUrls()
-        val existingFavoriteTvgIds = favoriteTvgIds ?: getFavoriteTvgIds()
-        val existingAspectRatios = getCustomAspectRatios()
-        val favoriteUrlSet = existingFavoriteUrls.toSet()
-        val favoriteTvgIdSet = existingFavoriteTvgIds.toSet()
-        val aspectRatioMap = existingAspectRatios.associate { it.url to it.aspectRatio }
-        // Full replacement: remove stale channels that disappeared from a new playlist snapshot.
+        snapshot: PlaylistSnapshotEntity,
+        backupUrls: Set<String>,
+        backupTvgIds: Set<String>
+    ): List<ChannelEntity> {
+        val existing = getAllChannels()
+        val byUrl = existing.associateBy { it.url }
+        val byTvgId = existing.filter { it.tvgId.isNotBlank() }.associateBy { it.tvgId }
+        // Only restore the backup when Room has no rows (fresh install/destructive recovery).
+        val replaced = channels.map { channel ->
+            val previous = byUrl[channel.url] ?: byTvgId[channel.tvgId]
+            channel.copy(
+                isFavorite = if (existing.isEmpty()) {
+                    channel.url in backupUrls || (channel.tvgId.isNotBlank() && channel.tvgId in backupTvgIds)
+                } else previous?.isFavorite ?: false,
+                aspectRatio = previous?.aspectRatio ?: channel.aspectRatio
+            )
+        }
         deleteAllChannels()
-        insertChannels(channels)
-        // Restore aspect ratios
-        for (channel in channels) {
-            val savedRatio = aspectRatioMap[channel.url]
-            if (savedRatio != null && savedRatio != 0) {
-                restoreAspectRatio(channel.url, savedRatio)
-            }
-        }
-        if (favoriteUrlSet.isEmpty() && favoriteTvgIdSet.isEmpty()) {
-            return emptyList()
-        }
-        val favoriteUrlsToApply = channels.filter { channel ->
-            favoriteUrlSet.contains(channel.url) ||
-                (channel.tvgId.isNotBlank() && favoriteTvgIdSet.contains(channel.tvgId))
-        }.map { it.url }
-        if (favoriteUrlsToApply.isNotEmpty()) {
-            markFavorites(favoriteUrlsToApply)
-        }
-        return favoriteUrlsToApply
+        insertChannels(replaced)
+        saveSnapshotIdentity(snapshot)
+        return getAllChannels()
+    }
+
+    @Transaction
+    suspend fun toggleFavorite(url: String): Boolean {
+        val channel = getChannelByUrl(url) ?: error("Channel not found")
+        val favorite = !channel.isFavorite
+        updateFavoriteStatus(url, favorite)
+        return favorite
     }
 
     @Query("UPDATE channels SET isFavorite = :isFavorite WHERE url = :url")

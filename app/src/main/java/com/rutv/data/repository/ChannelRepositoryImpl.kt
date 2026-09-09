@@ -4,6 +4,13 @@ import com.rutv.data.local.dao.ChannelDao
 import com.rutv.data.local.entity.ChannelEntity
 import com.rutv.data.model.Channel
 import com.rutv.domain.repository.ChannelRepository
+import com.rutv.domain.repository.PlaylistSnapshot
+import com.rutv.data.local.entity.PlaylistSnapshotEntity
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import com.rutv.util.Result
 import com.rutv.util.logDebug
 import kotlinx.coroutines.CancellationException
@@ -17,7 +24,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class ChannelRepositoryImpl @Inject constructor(
-    private val channelDao: ChannelDao
+    private val channelDao: ChannelDao,
+    private val preferences: PreferencesRepository
 ) : ChannelRepository {
 
     private suspend fun <T> safeDaoCall(
@@ -38,46 +46,46 @@ class ChannelRepositoryImpl @Inject constructor(
         channelDao.getAllChannels().map { it.toChannel() }
     }
 
-    override suspend fun saveChannels(channels: List<Channel>): Result<Unit> {
-        return when (val result = saveChannelsPreservingFavorites(channels)) {
-            is Result.Success -> Result.Success(Unit)
-            is Result.Error -> Result.Error(result.exception)
-        }
+    private val writes = Mutex()
+
+    override suspend fun getSnapshot(): Result<PlaylistSnapshot> = safeDaoCall("Error reading playlist snapshot") {
+        val snapshot = channelDao.readSnapshot()
+        PlaylistSnapshot(snapshot.identity?.sourceIdentity, snapshot.identity?.contentHash, snapshot.channels.map { it.toChannel() })
     }
 
-    override suspend fun saveChannelsPreservingFavorites(
-        channels: List<Channel>,
-        favoriteUrls: List<String>?,
-        favoriteTvgIds: List<String>?
-    ): Result<Set<String>> = safeDaoCall("Error saving channels") {
-        val entities = channels.mapIndexed { index, channel ->
-            ChannelEntity.fromChannel(channel.copy(position = index, isFavorite = false))
+    override suspend fun saveSnapshot(
+        channels: List<Channel>, sourceIdentity: String, contentHash: String
+    ): Result<List<Channel>> = safeDaoCall("Error saving channels") {
+        writes.withLock {
+            val saved = channelDao.replaceSnapshot(
+                channels.mapIndexed { index, channel -> ChannelEntity.fromChannel(channel.copy(position = index)) },
+                PlaylistSnapshotEntity(sourceIdentity = sourceIdentity, contentHash = contentHash),
+                preferences.favoriteUrls.first(), preferences.favoriteTvgIds.first()
+            )
+            backupFavorites()
+            saved.map { it.toChannel() }
         }
-        val appliedFavorites = channelDao.replaceChannelsPreservingFavorites(
-            entities,
-            favoriteUrls,
-            favoriteTvgIds
-        )
-        logDebug { "Saved ${channels.size} channels to database" }
-        appliedFavorites.toSet()
     }
 
     override suspend fun toggleFavorite(url: String): Result<Boolean> = safeDaoCall("Error toggling favorite") {
-        val channel = channelDao.getChannelByUrl(url)
-            ?: throw IllegalStateException("Channel not found for URL: $url")
-        val newStatus = !channel.isFavorite
-        channelDao.updateFavoriteStatus(url, newStatus)
-        logDebug { "Toggled favorite for: $url to $newStatus" }
-        newStatus
+        writes.withLock {
+            val favorite = channelDao.toggleFavorite(url)
+            backupFavorites()
+            favorite
+        }
+    }
+
+    // A completed database edit remains successful even if its secondary backup cannot be written.
+    private suspend fun backupFavorites() = withContext(NonCancellable) {
+        try {
+            val favorites = channelDao.getAllChannels().filter { it.isFavorite }
+            preferences.replaceFavorites(favorites.map { it.url }.toSet(), favorites.map { it.tvgId }.filter { it.isNotBlank() }.toSet())
+        } catch (e: Exception) {
+            Timber.w(e, "Could not update favorite recovery backup")
+        }
     }
 
     override suspend fun updateAspectRatio(url: String, aspectRatio: Int): Result<Unit> = safeDaoCall("Error updating aspect ratio") {
-        channelDao.updateAspectRatio(url, aspectRatio)
-        logDebug { "Updated aspect ratio for: $url to $aspectRatio" }
-    }
-
-    override suspend fun clearAllChannels(): Result<Unit> = safeDaoCall("Error clearing channels") {
-        channelDao.deleteAllChannels()
-        logDebug { "Cleared all channels" }
+        writes.withLock { channelDao.updateAspectRatio(url, aspectRatio) }
     }
 }

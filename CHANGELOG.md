@@ -6,6 +6,16 @@ This project follows the Keep a Changelog structure. Regular commits add entries
 
 ## [Unreleased]
 
+### Changed
+
+- Hardened playlist refresh, EPG paging/cache ownership, and playback lifecycle handling against stale concurrent work and cancellation.
+- Made debug APKs use release-equivalent code and resource shrinking while retaining the separate `.dev` application identity.
+
+### Fixed
+
+- Preserved playlists, favorites, and aspect ratios across failed reloads, concurrent edits, and database upgrades.
+- Corrected EPG boundary, timezone, empty-response, stalled-request, and overlapping page behavior.
+
 ## [1.1.0] - 2026-06-25
 
 ### Added

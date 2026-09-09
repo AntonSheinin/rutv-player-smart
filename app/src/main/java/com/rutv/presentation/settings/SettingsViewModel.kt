@@ -246,30 +246,29 @@ class SettingsViewModel @Inject constructor(
     /**
      * Reload current playlist
      */
-    fun reloadPlaylist() {
-        viewModelScope.launch(Dispatchers.IO) {
-            _viewState.update { it.copy(isLoading = true, error = null) }
+    private val reloadGeneration = java.util.concurrent.atomic.AtomicLong()
 
-            when (val result = loadPlaylistUseCase.reload()) {
-                is Result.Success -> {
-                    _viewState.update {
-                        it.copy(
-                            isLoading = false,
-                            successMessage = "Playlist reloaded: ${result.data.size} channels",
-                            error = null
-                        )
+    fun reloadPlaylist() {
+        val generation = reloadGeneration.incrementAndGet()
+        viewModelScope.launch(Dispatchers.IO) {
+            fun publish(transform: (SettingsViewState) -> SettingsViewState) {
+                _viewState.update { if (reloadGeneration.get() == generation) transform(it) else it }
+            }
+            publish { it.copy(isLoading = true, error = null) }
+            try {
+                when (val result = loadPlaylistUseCase.reload()) {
+                    is Result.Success -> publish {
+                        it.copy(successMessage = "Playlist reloaded: ${result.data.size} channels")
                     }
-                    logDebug { "Playlist reloaded: ${result.data.size} channels" }
+                    is Result.Error -> publish { it.copy(error = "Failed to reload: ${result.message}") }
                 }
-                is Result.Error -> {
-                    _viewState.update {
-                        it.copy(
-                            isLoading = false,
-                            error = "Failed to reload: ${result.message}"
-                        )
-                    }
-                    Timber.e(result.exception, "Failed to reload playlist")
-                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to reload playlist")
+                publish { it.copy(error = "Failed to reload playlist") }
+            } finally {
+                publish { it.copy(isLoading = false) }
             }
         }
     }

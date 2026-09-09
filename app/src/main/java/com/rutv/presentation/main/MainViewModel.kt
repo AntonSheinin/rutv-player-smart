@@ -1,3 +1,4 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 package com.rutv.presentation.main
 import android.content.Intent
 import android.os.SystemClock
@@ -68,6 +69,7 @@ import javax.inject.Inject
  * This file is intentionally “fat” because it is the app’s primary coordinator; the “policy”
  * pieces are extracted into `domain/usecase/` where appropriate.
  */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class MainViewModel @Inject constructor(
     private val playerManager: PlayerManager,
     private val channelRepository: ChannelRepository,
@@ -94,6 +96,7 @@ class MainViewModel @Inject constructor(
     private val epgFutureLoadMutex = Mutex()
     private val playlistLoadRequestId = AtomicLong(0)
     private var epgPanelLoadJob: Job? = null
+    private val epgPanelGeneration = java.util.concurrent.atomic.AtomicLong()
     private var startupPlayerInitJob: Job? = null
     private val startupInitiated = AtomicBoolean(false)
     private var startupSplashTimeoutJob: Job? = null
@@ -279,10 +282,14 @@ class MainViewModel @Inject constructor(
     private fun updateEpgPanelState(
         tvgId: String,
         programs: List<EpgProgram>,
-        currentProgram: EpgProgram?
+        currentProgram: EpgProgram?,
+        panelGeneration: Long
     ) {
         _viewState.update {
+            if (epgPanelGeneration.get() != panelGeneration) return@update it
             it.copy(
+                epgLoadedFromUtc = if (it.epgChannelTvgId == tvgId) it.epgLoadedFromUtc else 0L,
+                epgLoadedToUtc = if (it.epgChannelTvgId == tvgId) it.epgLoadedToUtc else 0L,
                 showEpgPanel = true,
                 isEpgLoading = false,
                 epgChannelTvgId = tvgId,
@@ -700,6 +707,7 @@ class MainViewModel @Inject constructor(
 
                     // Update state first so UI can render quickly (and show playlist / channel title).
                     _viewState.update {
+                        if (!isLatestPlaylistLoad(loadId)) return@update it
                         it.copy(
                             channels = channels.toImmutableList(),
                             isLoading = false,
@@ -750,6 +758,7 @@ class MainViewModel @Inject constructor(
                                         } ?: newChannels.getOrNull(resolvedIndex)
 
                                         _viewState.update { current ->
+                                            if (!isLatestPlaylistLoad(loadId)) return@update current
                                             current.copy(
                                                 channels = newChannels.toImmutableList(),
                                                 currentChannelIndex = resolvedIndex,
@@ -777,6 +786,7 @@ class MainViewModel @Inject constructor(
                     // Post notification message (toast)
                     postNotificationMessage(errorMessage)
                     _viewState.update {
+                        if (!isLatestPlaylistLoad(loadId)) return@update it
                         it.copy(
                             isLoading = false,
                             error = errorMessage,
@@ -792,12 +802,15 @@ class MainViewModel @Inject constructor(
             startupSplashDismissedInProcess.set(true)
             Timber.e(e, "App Init: Error during initialization")
             _viewState.update {
+                if (!isLatestPlaylistLoad(loadId)) return@update it
                 it.copy(
                     isLoading = false,
                     error = StringFormatter.formatErrorInitFailed(e.message ?: StringFormatter.formatErrorUnknown()),
                     showStartupSplash = false
                 )
             }
+        } finally {
+            if (isLatestPlaylistLoad(loadId)) _viewState.update { it.copy(isLoading = false) }
         }
     }
 
@@ -841,6 +854,7 @@ class MainViewModel @Inject constructor(
                         }
 
                         _viewState.update {
+                            if (!isLatestPlaylistLoad(loadId)) return@update it
                             val updatedCurrentProgram = it.currentChannel?.tvgId?.let(programsMapToUse::get)
                             it.copy(
                                 channels = channels.toImmutableList(),
@@ -887,6 +901,7 @@ class MainViewModel @Inject constructor(
                                 }
                             } else if (wasArchivePlayback || wasTimeshiftPlayback) {
                                 _viewState.update { state ->
+                                    if (!isLatestPlaylistLoad(loadId)) return@update state
                                     state.copy(
                                         isArchivePlayback = false,
                                         isTimeshiftPlayback = false,
@@ -912,6 +927,7 @@ class MainViewModel @Inject constructor(
                         // Post notification message (toast)
                         postNotificationMessage(errorMessage)
                         _viewState.update {
+                            if (!isLatestPlaylistLoad(loadId)) return@update it
                             it.copy(
                                 isLoading = false,
                                 error = errorMessage
@@ -927,11 +943,14 @@ class MainViewModel @Inject constructor(
                 // Post notification message (toast)
                 postNotificationMessage(errorMessage)
                 _viewState.update {
+                    if (!isLatestPlaylistLoad(loadId)) return@update it
                     it.copy(
                         isLoading = false,
                         error = errorMessage
                     )
                 }
+            } finally {
+                if (isLatestPlaylistLoad(loadId)) _viewState.update { it.copy(isLoading = false) }
             }
         }
     }
@@ -1087,7 +1106,6 @@ class MainViewModel @Inject constructor(
                 is Result.Success -> {
                     val newStatus = result.data
                     val currentChannels = _viewState.value.channels
-                    val channelToUpdate = currentChannels.firstOrNull { it.url == channelUrl }
                     val updatedChannels = currentChannels.map { channel ->
                         if (channel.url == channelUrl) channel.copy(isFavorite = newStatus) else channel
                     }
@@ -1098,20 +1116,19 @@ class MainViewModel @Inject constructor(
                                 if (ch.url == channelUrl) ch.copy(isFavorite = newStatus) else ch
                             }
                             current.copy(
-                                channels = updatedChannels.toImmutableList(),
+                                channels = current.channels.map { channel ->
+                                    if (channel.url == channelUrl) channel.copy(isFavorite = newStatus) else channel
+                                }.toImmutableList(),
                                 currentChannel = updatedCurrent ?: current.currentChannel
                             )
                         }
                         updateChannelIndexMap(updatedChannels)
-                        preferencesRepository.updateFavorite(channelUrl, channelToUpdate?.tvgId, newStatus)
                     } else {
                         // Fallback to full reload if the channel isn't in memory (unexpected).
                         val reloaded = channelRepository.getAllChannels()
                         if (reloaded is Result.Success) {
                             _viewState.update { it.copy(channels = reloaded.data.toImmutableList()) }
                             updateChannelIndexMap(reloaded.data)
-                            val reloadedChannel = reloaded.data.firstOrNull { it.url == channelUrl }
-                            preferencesRepository.updateFavorite(channelUrl, reloadedChannel?.tvgId, newStatus)
                         }
                     }
                 }
@@ -1221,6 +1238,8 @@ class MainViewModel @Inject constructor(
      * Close EPG panel only (keep playlist open)
      */
     fun closeEpgPanel() {
+        epgPanelGeneration.incrementAndGet()
+        epgPanelLoadJob?.cancel()
         _viewState.update { current ->
             current.copy(
                 showEpgPanel = false,
@@ -1395,11 +1414,13 @@ class MainViewModel @Inject constructor(
         if (_viewState.value.epgChannelTvgId == tvgId && epgPanelLoadJob?.isActive == true) {
             return
         }
+        val panelGeneration = epgPanelGeneration.incrementAndGet()
         epgPanelLoadJob?.cancel()
         epgPanelLoadJob = viewModelScope.launch(Dispatchers.IO) {
             // UI responsiveness: open panel immediately using repository-cached programs if available,
             // then refresh in the background (IO) and replace the list.
-            val cachedPrograms = epgRepository.getProgramsForChannel(tvgId)
+            val cachedPrograms = epgRepository.getProgramsForChannel(preferencesRepository.epgUrl.first(), tvgId)
+            if (epgPanelGeneration.get() != panelGeneration) return@launch
             if (cachedPrograms.isNotEmpty()) {
                 val cachedCurrent = cachedPrograms.firstOrNull { it.isCurrent() }
                 val state = _viewState.value
@@ -1408,13 +1429,15 @@ class MainViewModel @Inject constructor(
                     state.epgChannelTvgId != tvgId ||
                     (state.epgPrograms.isEmpty() && cachedPrograms.isNotEmpty())
                 if (shouldUpdatePanel) {
-                    updateEpgPanelState(tvgId, cachedPrograms, cachedCurrent)
+                    updateEpgPanelState(tvgId, cachedPrograms, cachedCurrent, panelGeneration)
                     _viewState.update { state ->
+                        if (epgPanelGeneration.get() != panelGeneration) return@update state
                         if (state.epgChannelTvgId == tvgId) state.copy(isEpgLoading = false) else state
                     }
                 }
             } else {
                 _viewState.update { state ->
+                        if (epgPanelGeneration.get() != panelGeneration) return@update state
                     if (state.showEpgPanel && state.epgChannelTvgId == tvgId && state.epgPrograms.isEmpty()) {
                         state.copy(isEpgLoading = true)
                     } else {
@@ -1439,6 +1462,7 @@ class MainViewModel @Inject constructor(
                     // Preserve existing UX: if URL isn't configured, show a friendly debug message and return.
                     appendDebugMessage(DebugMessage(StringFormatter.formatEpgUrlNotConfigured()))
                     _viewState.update { state ->
+                        if (epgPanelGeneration.get() != panelGeneration) return@update state
                         if (state.epgChannelTvgId == tvgId) state.copy(isEpgLoading = false) else state
                     }
                     return@launch
@@ -1449,6 +1473,7 @@ class MainViewModel @Inject constructor(
                 val current = programs.firstOrNull { it.isCurrent() }
 
                 _viewState.update { state ->
+                        if (epgPanelGeneration.get() != panelGeneration) return@update state
                     val updatedMap = if (state.showCurrentProgramInChannelList) {
                         updatedCurrentProgramsMap(state.currentProgramsMap, tvgId, current)
                     } else {
@@ -1465,14 +1490,11 @@ class MainViewModel @Inject constructor(
                     ) {
                         return@update state
                     }
-                    state.copy(
+                    state.withEpgPage(tvgId, programs, window.fromUtcMillis, window.toUtcMillis).copy(
                         currentProgramsMap = updatedMap,
-                        epgLoadedFromUtc = window.fromUtcMillis,
-                        epgLoadedToUtc = window.toUtcMillis,
                         showEpgPanel = true,
                         isEpgLoading = false,
                         epgChannelTvgId = tvgId,
-                        epgPrograms = programs.toImmutableList(),
                         currentProgram = current
                     )
                 }
@@ -1485,17 +1507,22 @@ class MainViewModel @Inject constructor(
                 Timber.e(e, "Failed to load EPG for channel $tvgId")
                 appendDebugMessage(DebugMessage(StringFormatter.formatEpgLoadFailed(tvgId, e.message ?: StringFormatter.formatErrorUnknown())))
                 _viewState.update { state ->
+                        if (epgPanelGeneration.get() != panelGeneration) return@update state
                     if (state.epgChannelTvgId == tvgId) state.copy(isEpgLoading = false) else state
                 }
             } finally {
                 if (epgPanelLoadJob == this.coroutineContext[Job]) {
                     epgPanelLoadJob = null
+                    _viewState.update { state ->
+                        if (epgPanelGeneration.get() == panelGeneration) state.copy(isEpgLoading = false) else state
+                    }
                 }
             }
         }
     }
 
     fun loadMoreEpgPast() {
+        val panelGeneration = epgPanelGeneration.get()
         viewModelScope.launch(Dispatchers.IO) {
             if (!epgPastLoadMutex.tryLock()) return@launch
             try {
@@ -1528,20 +1555,18 @@ class MainViewModel @Inject constructor(
                     .minusDays(extensionDays.toLong())
                     .atStartOfDay(zone)
                 val newFrom = maxOf(globalFrom, newFromZoned.toInstant().toEpochMilli())
-                val newTo = currentFrom - 1
+                val newTo = currentFrom
 
                 val added = epgRepository.getWindowedProgramsForChannel(epgUrl, tvgId, newFrom, newTo)
 
-                if (added.isEmpty()) return@launch
-                if (_viewState.value.epgChannelTvgId != tvgId) return@launch
-                // Merge with stable sort + de-dupe to avoid duplicates when windows overlap by a day.
-                val merged = mergePrograms(_viewState.value.epgPrograms, added)
-                _viewState.update {
-                    it.copy(
-                        epgPrograms = merged.toImmutableList(),
-                        epgLoadedFromUtc = newFrom
-                    )
+                _viewState.update { state ->
+                    if (epgPanelGeneration.get() != panelGeneration) state
+                    else state.withEpgPage(tvgId, added, newFrom, newTo)
                 }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.w(e, "EPG page load failed; retaining loaded coverage")
             } finally {
                 epgPastLoadMutex.unlock()
             }
@@ -1549,6 +1574,7 @@ class MainViewModel @Inject constructor(
     }
 
     fun loadMoreEpgFuture() {
+        val panelGeneration = epgPanelGeneration.get()
         viewModelScope.launch(Dispatchers.IO) {
             if (!epgFutureLoadMutex.tryLock()) return@launch
             try {
@@ -1562,56 +1588,38 @@ class MainViewModel @Inject constructor(
                 val globalTo = java.time.ZonedDateTime.now()
                     .toLocalDate()
                     .plusDays(daysAhead.toLong())
-                    .atTime(java.time.LocalTime.of(23, 59, 59))
-                    .atZone(zone)
+                    .plusDays(1)
+                    .atStartOfDay(zone)
                     .toInstant().toEpochMilli()
 
                 val currentTo = _viewState.value.epgLoadedToUtc
                 if (currentTo <= 0L) return@launch
                 if (currentTo >= globalTo) return@launch
 
-                val nextDayStart = java.time.Instant.ofEpochMilli(currentTo)
-                    .atZone(zone)
-                    .toLocalDate()
-                    .plusDays(1L)
-                    .atStartOfDay(zone)
-                    .toInstant().toEpochMilli()
-                val newFrom = nextDayStart
+                val newFrom = currentTo
                 val newTo = globalTo.coerceAtMost(
                     java.time.Instant.ofEpochMilli(currentTo)
                         .atZone(zone)
                         .toLocalDate()
                         .plusDays(stepDays.toLong())
-                        .atTime(java.time.LocalTime.of(23, 59, 59))
-                        .atZone(zone)
+                        .atStartOfDay(zone)
                         .toInstant().toEpochMilli()
                 )
 
                 val added = epgRepository.getWindowedProgramsForChannel(epgUrl, tvgId, newFrom, newTo)
 
-                if (added.isEmpty()) return@launch
-                if (_viewState.value.epgChannelTvgId != tvgId) return@launch
-                // Merge with stable sort + de-dupe to avoid duplicates when windows overlap by a day.
-                val merged = mergePrograms(_viewState.value.epgPrograms, added)
-                _viewState.update {
-                    it.copy(
-                        epgPrograms = merged.toImmutableList(),
-                        epgLoadedToUtc = maxOf(it.epgLoadedToUtc, newTo)
-                    )
+                _viewState.update { state ->
+                    if (epgPanelGeneration.get() != panelGeneration) state
+                    else state.withEpgPage(tvgId, added, newFrom, newTo)
                 }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.w(e, "EPG page load failed; retaining loaded coverage")
             } finally {
                 epgFutureLoadMutex.unlock()
             }
         }
-    }
-
-    private fun mergePrograms(existing: List<EpgProgram>, added: List<EpgProgram>): List<EpgProgram> {
-        if (added.isEmpty()) return existing
-        val map = LinkedHashMap<String, EpgProgram>()
-        fun key(p: EpgProgram): String = p.id.ifBlank { "${p.startTimeMillis}:${p.title}" }
-        existing.forEach { map[key(it)] = it }
-        added.forEach { map[key(it)] = it }
-        return map.values.sortedBy { it.startTimeMillis }
     }
 
     fun returnToLive() {
@@ -2112,7 +2120,7 @@ class MainViewModel @Inject constructor(
         }
 
         try {
-            val program = epgRepository.getCurrentProgram(channel.tvgId)
+            val program = epgRepository.getCurrentProgram(preferencesRepository.epgUrl.first(), channel.tvgId)
             _viewState.update { state ->
                 if (state.currentChannel?.url != channel.url) return@update state
                 val updatedMap = if (state.showCurrentProgramInChannelList) {
@@ -2132,6 +2140,8 @@ class MainViewModel @Inject constructor(
             if (_viewState.value.currentChannel?.url == channel.url) {
                 preloadChannelEpg(channel)
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Timber.e(e, "Error updating current program for ${channel.title}")
             _viewState.update { state ->
@@ -2141,7 +2151,7 @@ class MainViewModel @Inject constructor(
     }
 
     private suspend fun handleArchiveCompletion(channel: Channel, program: EpgProgram) {
-        val programs = epgRepository.getProgramsForChannel(channel.tvgId)
+        val programs = epgRepository.getProgramsForChannel(preferencesRepository.epgUrl.first(), channel.tvgId)
         val nextProgram = programs
             .filter { it.startTimeMillis >= program.stopTimeMillis }
             .minByOrNull { it.startTimeMillis }
@@ -2234,55 +2244,28 @@ class MainViewModel @Inject constructor(
     }
 
     fun ensureEpgForDateRange(startUtcMillis: Long, endUtcMillis: Long) {
+        val panelGeneration = epgPanelGeneration.get()
         viewModelScope.launch(Dispatchers.IO) {
-            val tvgId = _viewState.value.epgChannelTvgId.ifBlank { return@launch }
-            if (isEpgChannelBlocked(tvgId)) return@launch
-            val epgUrl = preferencesRepository.epgUrl.first().ifBlank { return@launch }
-
-            val currentFrom = _viewState.value.epgLoadedFromUtc
-            val currentTo = _viewState.value.epgLoadedToUtc
-            val alreadyCovered = currentFrom != 0L && currentTo != 0L &&
-                startUtcMillis >= currentFrom && endUtcMillis <= currentTo
-            if (alreadyCovered) return@launch
-
-            val programs = epgRepository.getWindowedProgramsForChannel(
-                epgUrl = epgUrl,
-                tvgId = tvgId,
-                fromUtcMillis = startUtcMillis,
-                toUtcMillis = endUtcMillis
-            )
-            if (_viewState.value.epgChannelTvgId != tvgId) return@launch
-
-            val existing = _viewState.value
-            val newFrom = when {
-                existing.epgLoadedFromUtc == 0L -> startUtcMillis
-                existing.epgLoadedFromUtc == Long.MAX_VALUE -> startUtcMillis
-                else -> minOf(existing.epgLoadedFromUtc, startUtcMillis)
-            }
-            val newTo = when {
-                existing.epgLoadedToUtc == 0L -> endUtcMillis
-                else -> maxOf(existing.epgLoadedToUtc, endUtcMillis)
-            }
-            if (programs.isEmpty()) {
-                _viewState.update {
-                    it.copy(
-                        epgLoadedFromUtc = newFrom,
-                        epgLoadedToUtc = newTo
-                    )
+            try {
+                val state = _viewState.value
+                val tvgId = state.epgChannelTvgId.ifBlank { return@launch }
+                if (isEpgChannelBlocked(tvgId)) return@launch
+                val epgUrl = preferencesRepository.epgUrl.first().ifBlank { return@launch }
+                if (state.epgLoadedFromUtc != 0L && startUtcMillis >= state.epgLoadedFromUtc && endUtcMillis <= state.epgLoadedToUtc) return@launch
+                val from = if (state.epgLoadedFromUtc == 0L) startUtcMillis else minOf(state.epgLoadedFromUtc, startUtcMillis)
+                val to = maxOf(state.epgLoadedToUtc, endUtcMillis)
+                val programs = epgRepository.getWindowedProgramsForChannel(epgUrl, tvgId, from, to)
+                _viewState.update { current ->
+                    if (epgPanelGeneration.get() != panelGeneration) current
+                    else current.withEpgPage(tvgId, programs, from, to)
                 }
-                return@launch
-            }
-            val merged = mergePrograms(existing.epgPrograms, programs)
-            _viewState.update {
-                it.copy(
-                    epgPrograms = merged.toImmutableList(),
-                    epgLoadedFromUtc = newFrom,
-                    epgLoadedToUtc = newTo
-                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.w(e, "EPG date range load failed")
             }
         }
     }
-
     private companion object {
         private val startupSplashDismissedInProcess = AtomicBoolean(false)
         private const val STARTUP_PLAYER_INIT_DELAY_MS = 250L

@@ -25,7 +25,7 @@ This repository contains an Android TV / mobile IPTV player implemented in **Kot
 - **EPG**
   - `app/src/main/java/com/rutv/domain/usecase/ComputeEpgWindowUseCase.kt`: computes the time window to request.
   - `app/src/main/java/com/rutv/domain/usecase/FetchEpgProgramsUseCase.kt`: loads windowed programs.
-  - `app/src/main/java/com/rutv/data/repository/EpgRepository.kt`: caching + streaming JSON parser.
+  - `app/src/main/java/com/rutv/data/repository/EpgRepositoryImpl.kt`: caching + streaming JSON parser.
 
 - **Persistence**
   - `app/src/main/java/com/rutv/data/local/AppDatabase.kt` + `ChannelDao.kt`: Room database for channels.

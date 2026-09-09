@@ -38,6 +38,12 @@ android {
         debug {
             applicationIdSuffix ".dev"
             signingConfig signingConfigs.debug
+            // This project uses the debug variant as a small sideload candidate.
+            // Android disables R8 optimization for debuggable variants.
+            debuggable false
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             manifestPlaceholders = [usesCleartextTraffic: "true"]
         }
         release {
@@ -61,8 +67,9 @@ android {
         coreLibraryDesugaringEnabled true
     }
 
-    kotlinOptions {
-        jvmTarget = '17'
+
+    testOptions {
+        unitTests.includeAndroidResources = true
     }
 
     buildFeatures {
@@ -70,12 +77,18 @@ android {
     }
     buildFeatures.buildConfig = true
 
-    // Compose compiler version managed by Kotlin Compose plugin and BOM
+    // Kotlin Compose plugin controls the compiler; the BOM aligns Compose libraries.
 
     packagingOptions {
         jniLibs {
             useLegacyPackaging = true
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
 }
 
@@ -100,8 +113,6 @@ dependencies {
     implementation libs.compose.ui.tooling.preview
     implementation libs.compose.material3
     implementation libs.compose.material.icons.ext
-    debugImplementation libs.compose.ui.tooling
-    debugImplementation libs.compose.ui.test.manifest
 
     // Compose integration with Activities
     implementation libs.activity.compose
@@ -146,9 +157,13 @@ dependencies {
 
     // JSON
     implementation libs.gson
+    // Already present through Coil; declare direct ownership for cancellable EPG calls.
+    implementation "com.squareup.okhttp3:okhttp:4.12.0"
 
     // Timber for logging
     implementation libs.timber
 
     testImplementation libs.junit
+    testImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:${libs.versions.coroutines.get()}"
+    testImplementation 'org.robolectric:robolectric:4.14.1'
 }

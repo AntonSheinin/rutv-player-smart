@@ -21,6 +21,7 @@ import javax.inject.Singleton
  */
 @Module
 @InstallIn(SingletonComponent::class)
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 object AppModule {
 
     @Provides
@@ -35,6 +36,7 @@ object AppModule {
             // and aspect ratio preferences are user-specific. Destructive migration is
             // acceptable as a safety net, but prefer writing explicit migrations for
             // future schema changes to preserve favorites.
+            .addMigrations(AppDatabase.MIGRATION_3_4)
             .fallbackToDestructiveMigration()
             .build()
     }

@@ -102,9 +102,6 @@
     <string name="channel_info_format">#%1$d &#8226; %2$s</string>
 
     <!-- Favorites -->
-    <string name="favorite_filled">&#9733;</string>
-    <string name="favorite_empty">&#9734;</string>
-    <string name="lock_indicator">&#128274;</string>
     <string name="parental_pin_current">Current PIN</string>
     <string name="parental_pin_new">New PIN</string>
     <string name="parental_pin_confirm">Confirm PIN</string>
@@ -120,7 +117,6 @@
     <string name="parental_pin_prompt_lock_message">Enter parental PIN to lock %1$s.</string>
     <string name="parental_pin_prompt_unlock_message">Enter parental PIN to unlock %1$s.</string>
     <string name="parental_pin_setup_required">Set a parental PIN in Settings before locking channels.</string>
-    <string name="cd_locked_channel">Locked channel</string>
 
     <!-- Accessibility -->
     <string name="cd_channel_logo">Channel logo</string>
@@ -130,7 +126,6 @@
     <string name="cd_channel_groups_button">Choose channel group</string>
     <string name="cd_close_playlist">Close playlist</string>
     <string name="cd_search_channel">Search channels</string>
-    <string name="cd_open_epg">Open programs guide</string>
     <string name="cd_toggle_channel_lock">Toggle channel lock</string>
     <string name="cd_select_epg_date">Select EPG date</string>
     <string name="cd_aspect_ratio_button">Change aspect ratio</string>

@@ -13,9 +13,13 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flowOn
 import timber.log.Timber
 import java.io.File
 import java.io.IOException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import android.util.AtomicFile
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -35,10 +39,12 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
  */
 @Singleton
 class PreferencesRepository @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val playlistAccess: PlaylistAccess
 ) {
 
     private val dataStore = context.dataStore
+    private val playlistFileLock = Any()
     private val playlistCacheFile = File(context.filesDir, "playlist_cache.m3u8")
 
     // SharedPreferences for language setting (synchronous access in attachBaseContext)
@@ -111,10 +117,9 @@ class PreferencesRepository @Inject constructor(
                     if (content != null) {
                         PlaylistSource.File(content, displayName)
                     } else {
-                        // Migration: DataStore still has content from before file-based storage
+                        // Read legacy content without mutating storage from a Flow collector.
                         val legacyContent = preferences[PreferencesKeys.PLAYLIST_CONTENT]
                         if (!legacyContent.isNullOrEmpty()) {
-                            writePlaylistFile(legacyContent)
                             PlaylistSource.File(legacyContent, displayName)
                         } else {
                             PlaylistSource.None
@@ -128,47 +133,37 @@ class PreferencesRepository @Inject constructor(
                 else -> PlaylistSource.None
             }
         }
+        .flowOn(Dispatchers.IO)
 
-    suspend fun savePlaylistFromFile(content: String, displayName: String?) {
-        writePlaylistFile(content)
-        dataStore.edit { preferences ->
-            preferences[PreferencesKeys.PLAYLIST_TYPE] = PlaylistSource.TYPE_FILE
-            preferences.remove(PreferencesKeys.PLAYLIST_CONTENT) // no longer stored in DataStore
-            if (!displayName.isNullOrBlank()) {
-                preferences[PreferencesKeys.PLAYLIST_FILE_NAME] = displayName
-            } else {
+    suspend fun savePlaylistFromFile(content: String, displayName: String?) = withContext(Dispatchers.IO) {
+        playlistAccess.changeSource {
+            writePlaylistFile(content)
+            dataStore.edit { preferences ->
+                preferences[PreferencesKeys.PLAYLIST_TYPE] = PlaylistSource.TYPE_FILE
+                preferences.remove(PreferencesKeys.PLAYLIST_CONTENT)
+                if (!displayName.isNullOrBlank()) {
+                    preferences[PreferencesKeys.PLAYLIST_FILE_NAME] = displayName
+                } else {
+                    preferences.remove(PreferencesKeys.PLAYLIST_FILE_NAME)
+                }
+                preferences.remove(PreferencesKeys.PLAYLIST_URL)
+            }
+        }
+    }
+
+    suspend fun savePlaylistFromUrl(url: String) = withContext(Dispatchers.IO) {
+        playlistAccess.changeSource {
+            dataStore.edit { preferences ->
+                preferences[PreferencesKeys.PLAYLIST_TYPE] = PlaylistSource.TYPE_URL
+                preferences[PreferencesKeys.PLAYLIST_URL] = url
+                preferences.remove(PreferencesKeys.PLAYLIST_CONTENT)
                 preferences.remove(PreferencesKeys.PLAYLIST_FILE_NAME)
             }
-            preferences.remove(PreferencesKeys.PLAYLIST_URL)
-        }
-        logDebug { "Saved playlist from file (${content.length} chars)" }
-    }
-
-    suspend fun savePlaylistFromUrl(url: String) {
-        playlistCacheFile.delete()
-        dataStore.edit { preferences ->
-            preferences[PreferencesKeys.PLAYLIST_TYPE] = PlaylistSource.TYPE_URL
-            preferences[PreferencesKeys.PLAYLIST_URL] = url
-            preferences.remove(PreferencesKeys.PLAYLIST_CONTENT)
-            preferences.remove(PreferencesKeys.PLAYLIST_FILE_NAME)
-        }
-        logDebug { "Saved playlist from URL" }
-    }
-
-    suspend fun savePlaylistHash(hash: String) {
-        dataStore.edit { preferences ->
-            preferences[PreferencesKeys.PLAYLIST_HASH] = hash
+            // Delete obsolete input only after the new source is durable.
+            synchronized(playlistFileLock) { AtomicFile(playlistCacheFile).delete() }
         }
     }
 
-    val playlistHash: Flow<String> = dataStore.data
-        .map { preferences ->
-            preferences[PreferencesKeys.PLAYLIST_HASH] ?: ""
-        }
-
-    /**
-     * Favorite channels (backup storage; Room remains the primary source).
-     */
     val favoriteUrls: Flow<Set<String>> = dataStore.data
         .map { preferences ->
             preferences[PreferencesKeys.FAVORITE_URLS] ?: emptySet()
@@ -178,40 +173,6 @@ class PreferencesRepository @Inject constructor(
         .map { preferences ->
             preferences[PreferencesKeys.FAVORITE_TVG_IDS] ?: emptySet()
         }
-
-    suspend fun updateFavorite(url: String, tvgId: String?, isFavorite: Boolean) {
-        val normalizedUrl = url.trim()
-        val normalizedTvgId = tvgId?.trim().orEmpty()
-        dataStore.edit { preferences ->
-            val urls = preferences[PreferencesKeys.FAVORITE_URLS]?.toMutableSet() ?: mutableSetOf()
-            val tvgIds = preferences[PreferencesKeys.FAVORITE_TVG_IDS]?.toMutableSet() ?: mutableSetOf()
-            if (isFavorite) {
-                if (normalizedUrl.isNotBlank()) {
-                    urls.add(normalizedUrl)
-                }
-                if (normalizedTvgId.isNotBlank()) {
-                    tvgIds.add(normalizedTvgId)
-                }
-            } else {
-                if (normalizedUrl.isNotBlank()) {
-                    urls.remove(normalizedUrl)
-                }
-                if (normalizedTvgId.isNotBlank()) {
-                    tvgIds.remove(normalizedTvgId)
-                }
-            }
-            if (urls.isEmpty()) {
-                preferences.remove(PreferencesKeys.FAVORITE_URLS)
-            } else {
-                preferences[PreferencesKeys.FAVORITE_URLS] = urls
-            }
-            if (tvgIds.isEmpty()) {
-                preferences.remove(PreferencesKeys.FAVORITE_TVG_IDS)
-            } else {
-                preferences[PreferencesKeys.FAVORITE_TVG_IDS] = tvgIds
-            }
-        }
-    }
 
     suspend fun replaceFavorites(urls: Set<String>, tvgIds: Set<String>) {
         val normalizedUrls = urls.map { it.trim() }.filter { it.isNotBlank() }.toSet()
@@ -516,16 +477,6 @@ class PreferencesRepository @Inject constructor(
     }
 
     /**
-     * Clear playlist cache
-     */
-    suspend fun clearPlaylistCache() {
-        dataStore.edit { preferences ->
-            preferences.remove(PreferencesKeys.PLAYLIST_HASH)
-        }
-        logDebug { "Cleared playlist cache" }
-    }
-
-    /**
      * App language preference
      * Default: "en" (English)
      *
@@ -565,64 +516,64 @@ class PreferencesRepository @Inject constructor(
             preferences[PreferencesKeys.EXTERNAL_CONFIG_IMPORTED_HASH] ?: ""
         }
 
-    suspend fun applyExternalConfig(values: Map<String, String>, normalizedHash: String) {
-        val playlistUrl = values[ExternalConfigKeys.PLAYLIST_URL]
-        val epgUrl = values[ExternalConfigKeys.EPG_URL]
-        val epgDaysAhead = values[ExternalConfigKeys.EPG_DAYS_AHEAD]?.toIntOrNull()
-        val epgDaysPast = values[ExternalConfigKeys.EPG_DAYS_PAST]?.toIntOrNull()
-        val epgPageDays = values[ExternalConfigKeys.EPG_PAGE_DAYS]?.toIntOrNull()
+    suspend fun applyExternalConfig(values: Map<String, String>, normalizedHash: String) = withContext(Dispatchers.IO) {
+        playlistAccess.changeSource {
+            val playlistUrl = values[ExternalConfigKeys.PLAYLIST_URL]
+            val epgUrl = values[ExternalConfigKeys.EPG_URL]
+            val epgDaysAhead = values[ExternalConfigKeys.EPG_DAYS_AHEAD]?.toIntOrNull()
+            val epgDaysPast = values[ExternalConfigKeys.EPG_DAYS_PAST]?.toIntOrNull()
+            val epgPageDays = values[ExternalConfigKeys.EPG_PAGE_DAYS]?.toIntOrNull()
 
-        if (playlistUrl != null) {
-            playlistCacheFile.delete()
+            dataStore.edit { preferences ->
+                if (playlistUrl != null) {
+                    preferences[PreferencesKeys.PLAYLIST_TYPE] = PlaylistSource.TYPE_URL
+                    preferences[PreferencesKeys.PLAYLIST_URL] = playlistUrl
+                    preferences.remove(PreferencesKeys.PLAYLIST_CONTENT)
+                    preferences.remove(PreferencesKeys.PLAYLIST_FILE_NAME)
+                    preferences.remove(PreferencesKeys.PLAYLIST_HASH)
+                }
+                if (epgUrl != null) {
+                    preferences[PreferencesKeys.EPG_URL] = epgUrl
+                }
+                if (epgDaysAhead != null) {
+                    preferences[PreferencesKeys.EPG_DAYS_AHEAD] = epgDaysAhead
+                }
+                if (epgDaysPast != null) {
+                    preferences[PreferencesKeys.EPG_DAYS_PAST] = epgDaysPast
+                }
+                if (epgPageDays != null) {
+                    preferences[PreferencesKeys.EPG_PAGE_DAYS] = epgPageDays
+                }
+                preferences[PreferencesKeys.EXTERNAL_CONFIG_IMPORTED_HASH] = normalizedHash
+            }
+            if (playlistUrl != null) synchronized(playlistFileLock) { AtomicFile(playlistCacheFile).delete() }
+            logDebug { "Applied external config" }
         }
-
-        dataStore.edit { preferences ->
-            if (playlistUrl != null) {
-                preferences[PreferencesKeys.PLAYLIST_TYPE] = PlaylistSource.TYPE_URL
-                preferences[PreferencesKeys.PLAYLIST_URL] = playlistUrl
-                preferences.remove(PreferencesKeys.PLAYLIST_CONTENT)
-                preferences.remove(PreferencesKeys.PLAYLIST_FILE_NAME)
-                preferences.remove(PreferencesKeys.PLAYLIST_HASH)
-            }
-            if (epgUrl != null) {
-                preferences[PreferencesKeys.EPG_URL] = epgUrl
-            }
-            if (epgDaysAhead != null) {
-                preferences[PreferencesKeys.EPG_DAYS_AHEAD] = epgDaysAhead
-            }
-            if (epgDaysPast != null) {
-                preferences[PreferencesKeys.EPG_DAYS_PAST] = epgDaysPast
-            }
-            if (epgPageDays != null) {
-                preferences[PreferencesKeys.EPG_PAGE_DAYS] = epgPageDays
-            }
-            preferences[PreferencesKeys.EXTERNAL_CONFIG_IMPORTED_HASH] = normalizedHash
-        }
-        logDebug { "Applied external config" }
     }
 
-    private fun readPlaylistFile(): String? {
-        return try {
-            if (playlistCacheFile.exists()) playlistCacheFile.readText() else null
+    private fun readPlaylistFile(): String? = synchronized(playlistFileLock) {
+        try {
+            if (playlistCacheFile.exists() || java.io.File(playlistCacheFile.path + ".bak").exists()) {
+                AtomicFile(playlistCacheFile).openRead().bufferedReader().use { it.readText() }
+            } else null
         } catch (e: IOException) {
             Timber.e(e, "Failed to read playlist cache file")
             null
         }
     }
 
-    private fun writePlaylistFile(content: String) {
+    private fun writePlaylistFile(content: String) = synchronized(playlistFileLock) {
+        val atomic = AtomicFile(playlistCacheFile)
+        val stream = atomic.startWrite()
         try {
-            val tempFile = File(playlistCacheFile.parentFile, "${playlistCacheFile.name}.tmp")
-            tempFile.writeText(content)
-            if (!tempFile.renameTo(playlistCacheFile)) {
-                // renameTo can fail on some filesystems; fall back to direct write
-                playlistCacheFile.writeText(content)
-                tempFile.delete()
-            }
-        } catch (e: IOException) {
-            Timber.e(e, "Failed to write playlist cache file")
+            stream.write(content.toByteArray(Charsets.UTF_8))
+            atomic.finishWrite(stream)
+        } catch (e: Exception) {
+            atomic.failWrite(stream)
+            throw e
         }
     }
+
 }
 
 private fun Int.coerceToChannelEpgRatioStep(): Int {

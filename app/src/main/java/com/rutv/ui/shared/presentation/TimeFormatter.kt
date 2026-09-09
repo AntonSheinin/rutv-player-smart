@@ -35,22 +35,4 @@ object TimeFormatter {
         return format.format(date)
     }
 
-    /**
-     * Format a date only (e.g., "January 15, 2024")
-     */
-    fun formatDate(date: Date): String {
-        val format = SimpleDateFormat("MMMM d, yyyy", locale)
-        return format.format(date)
-    }
-
-    /**
-     * Format duration in minutes to a human-readable string
-     */
-    fun formatDuration(minutes: Int): String {
-        return when {
-            minutes < 60 -> "${minutes}m"
-            minutes % 60 == 0 -> "${minutes / 60}h"
-            else -> "${minutes / 60}h ${minutes % 60}m"
-        }
-    }
 }

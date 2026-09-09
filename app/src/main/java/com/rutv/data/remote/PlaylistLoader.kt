@@ -30,6 +30,7 @@ import javax.net.ssl.SSLException
  *   returns an unexpectedly large response.
  */
 @Singleton
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class PlaylistLoader @Inject constructor(
     private val httpFactory: DefaultHttpDataSource.Factory
 ) {

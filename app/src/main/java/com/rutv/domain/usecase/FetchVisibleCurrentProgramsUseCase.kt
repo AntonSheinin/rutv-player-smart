@@ -42,8 +42,8 @@ class FetchVisibleCurrentProgramsUseCase @Inject constructor(
                 .toInstant()
                 .toEpochMilli()
             val toUtcMillis = today
-                .atTime(LocalTime.of(23, 59, 59))
-                .atZone(zoneId)
+                .plusDays(1)
+                .atStartOfDay(zoneId)
                 .toInstant()
                 .toEpochMilli()
             val programsByTvgId = epgRepository.getWindowedProgramsForChannels(

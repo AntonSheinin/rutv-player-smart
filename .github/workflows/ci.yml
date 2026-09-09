@@ -32,8 +32,8 @@ jobs:
         shell: pwsh
         run: ./scripts/validate-release-state.ps1 -CheckCommitMessage
 
-      - name: Compile and test debug build
+      - name: Test, lint, and validate release packaging
         shell: bash
         run: |
           chmod +x ./gradlew
-          ./gradlew :app:testDebugUnitTest :app:compileDebugKotlin --console=plain
+          ./gradlew :app:testDebugUnitTest :app:testReleaseUnitTest :app:lintDebug :app:lintRelease :app:assembleRelease --console=plain

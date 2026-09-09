@@ -102,9 +102,6 @@
     <string name="channel_info_format">#%1$d &#8226; %2$s</string>
 
     <!-- Favorites -->
-    <string name="favorite_filled">&#9733;</string>
-    <string name="favorite_empty">&#9734;</string>
-    <string name="lock_indicator">&#128274;</string>
     <string name="parental_pin_current">Текущий КОД</string>
     <string name="parental_pin_new">Новый КОД</string>
     <string name="parental_pin_confirm">Подтвердите КОД</string>
@@ -120,7 +117,6 @@
     <string name="parental_pin_prompt_lock_message">Введите родительский КОД, чтобы заблокировать %1$s.</string>
     <string name="parental_pin_prompt_unlock_message">Введите родительский КОД, чтобы разблокировать %1$s.</string>
     <string name="parental_pin_setup_required">Установите родительский КОД в настройках перед блокировкой каналов.</string>
-    <string name="cd_locked_channel">Заблокированный канал</string>
 
     <!-- Accessibility -->
     <string name="cd_channel_logo">Логотип канала</string>
@@ -130,7 +126,6 @@
     <string name="cd_channel_groups_button">Выбрать группу каналов</string>
     <string name="cd_close_playlist">Закрыть плейлист</string>
     <string name="cd_search_channel">Поиск каналов</string>
-    <string name="cd_open_epg">Открыть программу передач</string>
     <string name="cd_toggle_channel_lock">Переключить блокировку канала</string>
     <string name="cd_select_epg_date">Выбрать дату программы</string>
     <string name="cd_aspect_ratio_button">Изменить соотношение сторон</string>

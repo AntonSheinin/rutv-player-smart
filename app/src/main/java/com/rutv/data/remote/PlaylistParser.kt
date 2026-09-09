@@ -27,7 +27,7 @@ class PlaylistParser @Inject constructor() {
      */
     fun parse(content: String): List<Channel> {
         val channels = mutableListOf<Channel>()
-        val lines = content.lines()
+        val lines = content.lineSequence()
 
         var currentTitle = ""
         var currentLogo = ""
@@ -37,19 +37,19 @@ class PlaylistParser @Inject constructor() {
         var currentCatchupDays = 0
         var currentCatchupSource = ""
 
-        for (i in lines.indices) {
-            val line = lines[i].trim()
+        for (rawLine in lines) {
+            val line = rawLine.trim()
 
             if (line.startsWith("#EXTINF:")) {
                 // Parse the metadata line. We keep the regexes simple because IPTV playlists
                 // vary a lot in attribute order and whitespace.
-                val tvgNameMatch = Regex("""tvg-name="([^"]+)"""").find(line)
-                val tvgIdMatch = Regex("""tvg-id="([^"]+)"""").find(line)
-                val logoMatch = Regex("""tvg-logo="([^"]+)"""").find(line)
-                val groupMatch = Regex("""group-title="([^"]+)"""").find(line)
-                val catchupDaysMatch = Regex("""catchup-days="([^"]+)"""").find(line)
-                val catchupSourceMatch = Regex("""catchup-source="([^"]+)"""").find(line)
-                val titleMatch = Regex(""",\s*(.+)$""").find(line)
+                val tvgNameMatch = tvgNamePattern.find(line)
+                val tvgIdMatch = tvgIdPattern.find(line)
+                val logoMatch = logoPattern.find(line)
+                val groupMatch = groupPattern.find(line)
+                val catchupDaysMatch = catchupDaysPattern.find(line)
+                val catchupSourceMatch = catchupSourcePattern.find(line)
+                val titleMatch = titlePattern.find(line)
 
                 currentTitle = tvgNameMatch?.groupValues?.get(1)
                     ?: titleMatch?.groupValues?.get(1)
@@ -108,7 +108,8 @@ class PlaylistParser @Inject constructor() {
      * Calculate hash of playlist content for cache invalidation
      */
     fun calculateHash(content: String): String {
-        return content.hashCode().toString()
+        return java.security.MessageDigest.getInstance("SHA-256")
+            .digest(content.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
     }
 
     private fun parseGroups(raw: String): List<String> {
@@ -131,5 +132,14 @@ class PlaylistParser @Inject constructor() {
             primary.forEach { if (!contains(it)) add(it) }
             extra.forEach { if (!contains(it)) add(it) }
         }
+    }
+    private companion object {
+        private val tvgNamePattern = Regex("""tvg-name="([^"]+)"""")
+        private val tvgIdPattern = Regex("""tvg-id="([^"]+)"""")
+        private val logoPattern = Regex("""tvg-logo="([^"]+)"""")
+        private val groupPattern = Regex("""group-title="([^"]+)"""")
+        private val catchupDaysPattern = Regex("""catchup-days="([^"]+)"""")
+        private val catchupSourcePattern = Regex("""catchup-source="([^"]+)"""")
+        private val titlePattern = Regex(""",\s*(.+)$""")
     }
 }

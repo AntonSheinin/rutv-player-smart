@@ -150,6 +150,8 @@ fun SettingsScreen(
                     } else {
                         onLoadFile(content, displayName)
                     }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Timber.e(e, "Failed to load playlist from URI")
                     onShowError("Failed to load playlist file: ${e.message ?: "unknown error"}")
