@@ -159,9 +159,9 @@ When a group is selected, the playlist panel title shows that group.
 The app provides two fast navigation tools:
 
 - **Go to Channel**: enter a channel number and confirm.
-- **Search Channel**: search by part of the channel name from the playlist panel.
+- **Search Channel**: search the current full, favorites, or group list by part of the channel title, stream name from its URL, or EPG `tvg-id`.
 
-Search focuses the first matching channel. If the list is long, the app loads more rows as needed.
+Search temporarily replaces the channel list with all matching channels and focuses the first result. Select a channel to play it, or close the list, to remove the search results.
 
 Press **Enter/Done on the virtual keyboard** to confirm search or a channel number immediately. You can also use the dialog's **OK** button. Hiding the keyboard with **Back** does not confirm the input.
 
@@ -453,9 +453,9 @@ RuTV — IPTV-плеер для Android TV, ТВ-приставок и моби�
 В приложении есть два быстрых способа навигации:
 
 - **Перейти к каналу**: ввести номер канала и подтвердить.
-- **Поиск канала**: найти канал по части названия из списка каналов.
+- **Поиск канала**: найти канал в текущем полном списке, избранном или группе по части названия, имени потока из URL или EPG `tvg-id`.
 
-Поиск фокусирует первый найденный канал. Если список длинный, приложение подгружает дополнительные строки по мере необходимости.
+Поиск временно заменяет список каналов всеми найденными результатами и фокусирует первый из них. Выберите канал для просмотра или закройте список, чтобы убрать результаты поиска.
 
 ### 10. Программа передач
 

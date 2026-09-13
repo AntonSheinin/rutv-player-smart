@@ -96,6 +96,7 @@
     <string name="playlist_title_favorites">Favorites</string>
     <string name="playlist_group_title_format">channels : %1$s</string>
     <string name="playlist_group_all">all</string>
+    <string name="playlist_search_no_results">No channels found</string>
     <string name="epg_panel_title">Programs guide</string>
     <string name="epg_loading">Loading programs...</string>
     <string name="epg_no_programs">No programs available</string>

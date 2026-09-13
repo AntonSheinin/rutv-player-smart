@@ -6,6 +6,10 @@ This project follows the Keep a Changelog structure. Regular commits add entries
 
 ## [Unreleased]
 
+### Added
+
+- Added temporary channel search result lists matching channel titles, stream names, and EPG tvg-id values.
+
 ### Changed
 
 - Hardened playlist refresh, EPG paging/cache ownership, and playback lifecycle handling against stale concurrent work and cancellation.

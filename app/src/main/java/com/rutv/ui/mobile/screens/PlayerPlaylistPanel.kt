@@ -66,6 +66,7 @@ import com.rutv.R
 import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
 import com.rutv.domain.usecase.ChannelListMode
+import com.rutv.domain.usecase.searchChannels
 import com.rutv.ui.mobile.components.ChannelListItem
 import com.rutv.ui.shared.components.RemotePressLifecycle
 import com.rutv.ui.shared.components.awaitFirstLayout
@@ -76,6 +77,7 @@ import com.rutv.ui.theme.ruTvColors
 import com.rutv.util.DeviceHelper
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.FlowPreview
@@ -83,7 +85,6 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlin.math.max
-import java.util.Locale
 
 @Composable
 internal fun PlaylistPanel(
@@ -113,7 +114,14 @@ internal fun PlaylistPanel(
     modifier: Modifier = Modifier
 ) {
     val channels: ImmutableList<Channel> = allChannels
-    val displayedList: ImmutableList<Channel> = visibleChannels
+    var activeSearchQuery by remember(channelListMode, selectedGroup) { mutableStateOf<String?>(null) }
+    var showSearchDialog by remember { mutableStateOf(false) }
+    var searchText by remember { mutableStateOf("") }
+    val isSearchActive = activeSearchQuery != null
+    val searchResults = remember(channels, activeSearchQuery) {
+        activeSearchQuery?.let { searchChannels(channels, it).toImmutableList() }
+    }
+    val displayedList: ImmutableList<Channel> = searchResults ?: visibleChannels
     val channelIndexByUrl = remember(channels) {
         buildMap(channels.size) {
             channels.forEachIndexed { index, channel ->
@@ -160,8 +168,6 @@ internal fun PlaylistPanel(
             resolvedInitialIndex.takeIf { displayedList.isNotEmpty() && it in channels.indices }
         )
     }
-    var showSearchDialog by remember { mutableStateOf(false) }
-    var searchText by remember { mutableStateOf("") }
     val isRemoteMode = DeviceHelper.isRemoteInputActive()
     val allGroupLabel = stringResource(R.string.playlist_group_all)
     val playlistTitleText = when (channelListMode) {
@@ -200,7 +206,9 @@ internal fun PlaylistPanel(
             }
             !displayedPositionByAbsolute.containsKey(targetIndex) -> {
                 // For focus-only operations, check if in displayedList
-                onRequestMoreChannels(targetIndex + PLAYLIST_PREFETCH_MARGIN)
+                if (!isSearchActive) {
+                    onRequestMoreChannels(targetIndex + PLAYLIST_PREFETCH_MARGIN)
+                }
                 false
             }
             else -> {
@@ -286,13 +294,23 @@ internal fun PlaylistPanel(
         }
     }
 
-    LaunchedEffect(displayedList.size, focusedChannelIndex, channels.size) {
+    LaunchedEffect(displayedAbsoluteIndices, focusedChannelIndex, channels.size, isSearchActive) {
         if (focusedChannelIndex in channels.indices && !displayedPositionByAbsolute.containsKey(focusedChannelIndex)) {
-            onRequestMoreChannels(focusedChannelIndex + PLAYLIST_PREFETCH_MARGIN)
+            if (isSearchActive) {
+                val firstResultIndex = displayedAbsoluteIndices.firstOrNull()
+                pendingInitialCenterIndex = firstResultIndex
+                if (firstResultIndex == null) {
+                    focusedChannelIndex = -1
+                    onChannelFocused?.invoke(-1)
+                }
+                onPreviewTargetChanged(null)
+            } else {
+                onRequestMoreChannels(focusedChannelIndex + PLAYLIST_PREFETCH_MARGIN)
+            }
         }
     }
 
-    LaunchedEffect(pendingInitialCenterIndex, displayedList.size) {
+    LaunchedEffect(pendingInitialCenterIndex, displayedAbsoluteIndices) {
         val targetIndex = pendingInitialCenterIndex ?: return@LaunchedEffect
         if (channels.isEmpty()) {
             pendingInitialCenterIndex = null
@@ -304,7 +322,11 @@ internal fun PlaylistPanel(
         }
         val targetPosition = displayedPositionByAbsolute[targetIndex]
         if (targetPosition == null) {
-            onRequestMoreChannels(targetIndex + PLAYLIST_PREFETCH_MARGIN)
+            if (!isSearchActive) {
+                onRequestMoreChannels(targetIndex + PLAYLIST_PREFETCH_MARGIN)
+            } else {
+                pendingInitialCenterIndex = null
+            }
             return@LaunchedEffect
         }
         listState.awaitFirstLayout()
@@ -313,7 +335,20 @@ internal fun PlaylistPanel(
         onChannelFocused?.invoke(targetIndex)
         onUpdateScrollIndex(targetIndex)
         playlistHasFocus = true
+        lazyColumnFocusRequester.requestFocusSafely()
         pendingInitialCenterIndex = null
+    }
+
+    LaunchedEffect(activeSearchQuery, displayedAbsoluteIndices) {
+        if (!isSearchActive) return@LaunchedEffect
+        val firstResultIndex = displayedAbsoluteIndices.firstOrNull()
+        if (firstResultIndex == null) {
+            pendingInitialCenterIndex = null
+            focusedChannelIndex = -1
+            onChannelFocused?.invoke(-1)
+            onPreviewTargetChanged(null)
+            lazyColumnFocusRequester.requestFocusSafely()
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -326,13 +361,17 @@ internal fun PlaylistPanel(
         if (epgOpenIndex >= 0 && epgOpenIndex < channels.size) {
             channelThatOpenedEpg = epgOpenIndex
             if (!displayedPositionByAbsolute.containsKey(epgOpenIndex)) {
-                onRequestMoreChannels(epgOpenIndex + PLAYLIST_PREFETCH_MARGIN)
+                if (!isSearchActive) {
+                    onRequestMoreChannels(epgOpenIndex + PLAYLIST_PREFETCH_MARGIN)
+                }
             }
         } else if (epgOpenIndex < 0 && channelThatOpenedEpg != null) {
             val channelIndex = channelThatOpenedEpg!!
             if (channelIndex >= 0 && channelIndex < channels.size && isRemoteMode) {
                 if (!displayedPositionByAbsolute.containsKey(channelIndex)) {
-                    onRequestMoreChannels(channelIndex + PLAYLIST_PREFETCH_MARGIN)
+                    if (!isSearchActive) {
+                        onRequestMoreChannels(channelIndex + PLAYLIST_PREFETCH_MARGIN)
+                    }
                 } else {
                     listState.awaitFirstLayout()
                     focusChannel(channelIndex, false)
@@ -470,7 +509,9 @@ internal fun PlaylistPanel(
                                                 repeatCount = event.nativeKeyEvent?.repeatCount ?: 0,
                                                 isLongPress = event.nativeKeyEvent?.isLongPress == true
                                             ) {
-                                                val channel = channels.getOrNull(focusedChannelIndex)
+                                                val channel = focusedChannelIndex
+                                                    .takeIf(displayedPositionByAbsolute::containsKey)
+                                                    ?.let(channels::getOrNull)
                                                 if (channel != null) {
                                                     onFavoriteClick(channel.url)
                                                     true
@@ -492,8 +533,8 @@ internal fun PlaylistPanel(
                                                 isLongPress = event.nativeKeyEvent?.isLongPress == true
                                             ) {
                                                 val currentIdx = when {
-                                                    focusedChannelIndex >= 0 -> focusedChannelIndex
-                                                    currentChannelIndex in channels.indices -> currentChannelIndex
+                                                    displayedPositionByAbsolute.containsKey(focusedChannelIndex) -> focusedChannelIndex
+                                                    !isSearchActive && currentChannelIndex in channels.indices -> currentChannelIndex
                                                     else -> -1
                                                 }
                                                 if (currentIdx >= 0) {
@@ -511,7 +552,10 @@ internal fun PlaylistPanel(
                                     when (event.key) {
                                         Key.DirectionCenter, Key.Enter -> {
                                             centerPress.onUp {
-                                                channels.getOrNull(focusedChannelIndex)?.let {
+                                                focusedChannelIndex
+                                                    .takeIf(displayedPositionByAbsolute::containsKey)
+                                                    ?.let(channels::getOrNull)
+                                                    ?.let {
                                                     focusChannel(focusedChannelIndex, true)
                                                 }
                                             }
@@ -520,8 +564,8 @@ internal fun PlaylistPanel(
                                         Key.DirectionRight -> {
                                             rightPress.onUp {
                                                 val currentIdx = when {
-                                                    focusedChannelIndex >= 0 -> focusedChannelIndex
-                                                    currentChannelIndex in channels.indices -> currentChannelIndex
+                                                    displayedPositionByAbsolute.containsKey(focusedChannelIndex) -> focusedChannelIndex
+                                                    !isSearchActive && currentChannelIndex in channels.indices -> currentChannelIndex
                                                     else -> -1
                                                 }
                                                 val channel = channels.getOrNull(currentIdx)
@@ -578,6 +622,15 @@ internal fun PlaylistPanel(
                     }
                 }
 
+                if (isSearchActive && displayedList.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.playlist_search_no_results),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.ruTvColors.textDisabled,
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
+
                 LaunchedEffect(
                     listState,
                     displayedList,
@@ -602,8 +655,8 @@ internal fun PlaylistPanel(
                         .collect { target -> onPreviewTargetChanged(target) }
                 }
 
-                LaunchedEffect(listState, displayedList.size, channels.size) {
-                    if (channels.isEmpty()) return@LaunchedEffect
+                LaunchedEffect(listState, displayedList.size, channels.size, isSearchActive) {
+                    if (channels.isEmpty() || isSearchActive) return@LaunchedEffect
                     var lastRequestedForSize = -1
                     snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
                         .collect { lastVisible ->
@@ -690,12 +743,12 @@ internal fun PlaylistPanel(
                     searchText = searchText,
                     onSearchTextChange = { searchText = it },
                     onConfirm = {
-                        val searchLower = searchText.trim().lowercase(Locale.ROOT)
-                        val matchingIndex = channels.indexOfFirst { it.title.lowercase(Locale.ROOT).contains(searchLower) }
-                        if (matchingIndex >= 0) {
-                            pendingInitialCenterIndex = matchingIndex
-                            focusChannel(matchingIndex, false)
-                        }
+                        val query = searchText.trim()
+                        val firstMatch = searchChannels(channels, query).firstOrNull()
+                        activeSearchQuery = query
+                        pendingInitialCenterIndex = firstMatch?.url?.let(channelIndexByUrl::get)
+                        if (firstMatch == null) focusedChannelIndex = -1
+                        onPreviewTargetChanged(null)
                         showSearchDialog = false
                         searchText = ""
                     },

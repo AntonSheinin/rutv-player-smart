@@ -96,6 +96,7 @@
     <string name="playlist_title_favorites">Избранные</string>
     <string name="playlist_group_title_format">каналы : %1$s</string>
     <string name="playlist_group_all">все</string>
+    <string name="playlist_search_no_results">Каналы не найдены</string>
     <string name="epg_panel_title">Программа передач</string>
     <string name="epg_loading">Загрузка программы...</string>
     <string name="epg_no_programs">Программа недоступна</string>
