@@ -65,6 +65,8 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -73,6 +75,10 @@ import androidx.compose.ui.window.Dialog
 import com.rutv.R
 import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
+import com.rutv.presentation.main.EpgOpeningState
+import com.rutv.presentation.main.focusIdentity
+import com.rutv.presentation.main.indexOfProgram
+import com.rutv.presentation.main.resolveInitialEpgProgramIndex
 import com.rutv.ui.mobile.components.EpgDateDelimiter
 import com.rutv.ui.mobile.components.EpgProgramItem
 import com.rutv.ui.shared.components.awaitFirstLayout
@@ -98,9 +104,9 @@ internal fun EpgPanel(
     programs: ImmutableList<EpgProgram>,
     channel: Channel?,
     isLoading: Boolean,
+    openingState: EpgOpeningState,
     onProgramClick: (EpgProgram) -> Unit,
     onPlayArchive: (EpgProgram) -> Unit,
-    isArchivePlayback: Boolean,
     isPlaylistOpen: Boolean,
     epgDaysPast: Int,
     epgDaysAhead: Int,
@@ -125,24 +131,20 @@ internal fun EpgPanel(
         }
     }
     val isRemoteMode = DeviceHelper.isRemoteInputActive()
-    var epgListHasFocus by remember { mutableStateOf(false) }
-    var showDatePicker by remember { mutableStateOf(false) }
-    var datePickerSelectionIndex by remember { mutableIntStateOf(0) }
-    val centerPress = remember(channel?.tvgId) { RemotePressLifecycle() }
-    DisposableEffect(Unit) {
+    val openingSession = openingState.session
+    var epgListHasFocus by remember(openingSession) { mutableStateOf(false) }
+    var showDatePicker by remember(openingSession) { mutableStateOf(false) }
+    var datePickerSelectionIndex by remember(openingSession) { mutableIntStateOf(0) }
+    val centerPress = remember(openingSession) { RemotePressLifecycle() }
+    DisposableEffect(openingSession) {
         onDispose {
             epgListHasFocus = false
             centerPress.reset()
         }
     }
 
-    // Find current program index in original list
     val currentProgramIndex = remember(programs, currentTime) {
-        programs.indexOfFirst { program ->
-            val start = program.startTimeMillis
-            val end = program.stopTimeMillis
-            start > 0L && end > 0L && currentTime in start..end
-        }
+        programs.indexOfFirst { it.isCurrent(currentTime) }
     }
     val catchupWindowMillis = remember(channel?.tvgId, channel?.catchupDays) {
         channel
@@ -154,6 +156,7 @@ internal fun EpgPanel(
     val (epgItems, programItemIndices) = remember(programs, currentTime, catchupWindowMillis) {
         val itemsList = mutableListOf<EpgUiItem>()
         val indexMap = MutableList(programs.size) { -1 }
+        val programKeys = programItemKeys(programs)
         var lastDate = ""
         programs.forEachIndexed { index, program ->
             val programDate = TimeFormatter.formatEpgDate(Date(program.startTimeMillis))
@@ -176,12 +179,11 @@ internal fun EpgPanel(
                 isPast &&
                 program.startTimeMillis > 0L &&
                 currentTime - program.startTimeMillis <= catchupWindowMillis
-            val baseKey = programStableKey(program, index)
             val absoluteIndex = itemsList.size
             itemsList.add(
                 EpgUiItem(
                     absoluteIndex = absoluteIndex,
-                    key = "program_$baseKey",
+                    key = programKeys[index],
                     payload = program,
                     programIndex = index,
                     isPast = isPast,
@@ -241,38 +243,52 @@ internal fun EpgPanel(
     }
     val todayEntryIndex = dateEntries.indexOfFirst { it.isToday }.takeIf { it >= 0 } ?: 0
 
-    val resolvedInitialProgramIndex = when {
-        programs.isEmpty() -> -1
-        currentProgramIndex in programs.indices -> currentProgramIndex
-        else -> 0
+    val openingTargetIdentity = openingState.target?.focusIdentity()
+    val targetProgramIndex = programs.indexOfProgram(openingTargetIdentity)
+    val waitingForOpeningTarget = openingTargetIdentity != null &&
+        targetProgramIndex < 0 &&
+        openingState.targetLoadPending
+    val resolvedInitialProgramIndex = if (waitingForOpeningTarget) {
+        -1
+    } else {
+        resolveInitialEpgProgramIndex(programs, openingTargetIdentity, currentTime)
     }
     val resolvedInitialItemIndex = programItemIndices
         .getOrNull(resolvedInitialProgramIndex)
         ?.coerceAtLeast(0)
-    val listState = remember(channel?.tvgId) {
+    val listState = remember(openingSession) {
         LazyListState(
             max(resolvedInitialItemIndex ?: 0, 0),
             0
         )
     }
 
-    var focusedProgramIndex by remember(channel?.tvgId) {
-        mutableIntStateOf(resolvedInitialProgramIndex.coerceAtLeast(0))
+    var focusedProgramIndex by remember(openingSession) {
+        mutableIntStateOf(resolvedInitialProgramIndex)
     }
-    var focusedProgramKey by remember(channel?.tvgId) {
-        mutableStateOf(programs.getOrNull(resolvedInitialProgramIndex)?.let { programStableKey(it, resolvedInitialProgramIndex) })
+    var focusedProgramIdentity by remember(openingSession) {
+        mutableStateOf(programs.getOrNull(resolvedInitialProgramIndex)?.focusIdentity())
     }
-    var pendingProgramCenterIndex by remember(channel?.tvgId) {
+    var pendingProgramCenterIndex by remember(openingSession) {
         mutableStateOf(resolvedInitialItemIndex)
     }
-    var pendingFocusAfterLoad by remember(channel?.tvgId) {
+    var pendingFocusAfterLoad by remember(openingSession) {
         mutableStateOf<Int?>(null)
     }
-    var pendingCenterKeyAction by remember(channel?.tvgId) {
+    var pendingCenterKeyAction by remember(openingSession) {
         mutableStateOf<CenterKeyAction?>(null)
     }
-    var pendingFocusDateRange by remember(channel?.tvgId) {
+    var pendingFocusDateRange by remember(openingSession) {
         mutableStateOf<LongRange?>(null)
+    }
+    var automaticOpeningFocusEnabled by remember(openingSession) { mutableStateOf(true) }
+    var openingFocusResolved by remember(openingSession) {
+        mutableStateOf(resolvedInitialProgramIndex >= 0)
+    }
+
+    fun disableAutomaticOpeningFocus() {
+        automaticOpeningFocusEnabled = false
+        openingFocusResolved = true
     }
 
     fun focusProgram(targetIndex: Int): Boolean {
@@ -284,7 +300,7 @@ internal fun EpgPanel(
             return false
         }
         focusedProgramIndex = targetIndex
-        focusedProgramKey = programs.getOrNull(targetIndex)?.let { programStableKey(it, targetIndex) }
+        focusedProgramIdentity = programs[targetIndex].focusIdentity()
         val shouldScroll = !listState.isItemFullyVisible(itemIndex)
         coroutineScope.launch {
             if (shouldScroll) {
@@ -294,17 +310,21 @@ internal fun EpgPanel(
         return true
     }
 
-    LaunchedEffect(channel?.tvgId) {
+    LaunchedEffect(openingSession) {
         pendingProgramCenterIndex = resolvedInitialItemIndex
     }
 
     // Register with focus manager
     val lazyColumnFocusRequester = remember { FocusRequester() }
 
-    LaunchedEffect(lazyColumnFocusRequester) {
+    val focusFromManager by rememberUpdatedState<(Int) -> Boolean> { index ->
+        disableAutomaticOpeningFocus()
+        focusProgram(index)
+    }
+    LaunchedEffect(lazyColumnFocusRequester, openingSession) {
         focusManager.registerEntry(PlayerFocusDestination.EPG_PANEL, lazyColumnFocusRequester)
         focusManager.registerFocusCallback(PlayerFocusDestination.EPG_PANEL) { index, _ ->
-            focusProgram(index)
+            focusFromManager(index)
         }
     }
 
@@ -316,7 +336,7 @@ internal fun EpgPanel(
     }
 
     // When EPG panel becomes active, ensure focus is on the list
-    LaunchedEffect(focusManager.currentDestination) {
+    LaunchedEffect(focusManager.currentDestination, openingSession) {
         if (focusManager.currentDestination == PlayerFocusDestination.EPG_PANEL) {
             val targetProgramIndex = when {
                 focusedProgramIndex in programs.indices -> focusedProgramIndex
@@ -332,10 +352,17 @@ internal fun EpgPanel(
         }
     }
 
-    LaunchedEffect(programs, channel?.tvgId, currentProgramIndex, programItemIndices) {
+    LaunchedEffect(
+        programs,
+        openingState.target,
+        openingState.targetLoadPending,
+        currentProgramIndex,
+        programItemIndices,
+        openingSession
+    ) {
         if (programs.isEmpty()) {
             focusedProgramIndex = -1
-            focusedProgramKey = null
+            focusedProgramIdentity = null
             pendingProgramCenterIndex = null
             return@LaunchedEffect
         }
@@ -343,39 +370,48 @@ internal fun EpgPanel(
         fun applyFocus(index: Int, recenter: Boolean) {
             if (index !in programs.indices) return
             focusedProgramIndex = index
-            focusedProgramKey = programStableKey(programs[index], index)
+            focusedProgramIdentity = programs[index].focusIdentity()
             if (recenter) {
                 pendingProgramCenterIndex = programItemIndices.getOrNull(index)
             }
         }
 
-        val storedKey = focusedProgramKey
+        if (automaticOpeningFocusEnabled && !openingFocusResolved) {
+            val refreshedTargetIndex = programs.indexOfProgram(openingState.target?.focusIdentity())
+            if (refreshedTargetIndex < 0 && openingState.target != null && openingState.targetLoadPending) {
+                return@LaunchedEffect
+            }
+            val initialIndex = resolveInitialEpgProgramIndex(
+                programs = programs,
+                targetIdentity = openingState.target?.focusIdentity(),
+                nowUtcMillis = currentTime
+            )
+            applyFocus(initialIndex, recenter = true)
+            openingFocusResolved = true
+            return@LaunchedEffect
+        }
+
+        val storedIdentity = focusedProgramIdentity
         val currentIndex = focusedProgramIndex
 
         if (currentIndex !in programs.indices) {
-            val fallbackIndex = when {
-                storedKey != null -> {
-                    programs.withIndex()
-                        .firstOrNull { programStableKey(it.value, it.index) == storedKey }
-                        ?.index
-                }
-                currentProgramIndex in programs.indices -> currentProgramIndex
-                else -> 0
-            } ?: 0
+            if (!automaticOpeningFocusEnabled && storedIdentity == null) return@LaunchedEffect
+            val restoredIndex = programs.indexOfProgram(storedIdentity)
+            val fallbackIndex = restoredIndex.takeIf { it >= 0 }
+                ?: currentProgramIndex.takeIf { it in programs.indices }
+                ?: 0
             applyFocus(fallbackIndex, recenter = false)
             return@LaunchedEffect
         }
 
-        val currentKey = programStableKey(programs[currentIndex], currentIndex)
-        if (storedKey == null) {
-            focusedProgramKey = currentKey
+        val currentIdentity = programs[currentIndex].focusIdentity()
+        if (storedIdentity == null) {
+            focusedProgramIdentity = currentIdentity
             return@LaunchedEffect
         }
 
-        if (currentKey != storedKey) {
-            val restoredIndex = programs.withIndex()
-                .firstOrNull { programStableKey(it.value, it.index) == storedKey }
-                ?.index
+        if (currentIdentity != storedIdentity) {
+            val restoredIndex = programs.indexOfProgram(storedIdentity).takeIf { it >= 0 }
 
             if (restoredIndex != null) {
                 applyFocus(restoredIndex, recenter = true)
@@ -396,7 +432,7 @@ internal fun EpgPanel(
                 val itemIndex = programItemIndices.getOrNull(target)
                 if (itemIndex != null) {
                     focusedProgramIndex = target
-                    focusedProgramKey = programs.getOrNull(target)?.let { programStableKey(it, target) }
+                    focusedProgramIdentity = programs[target].focusIdentity()
                     pendingProgramCenterIndex = itemIndex
                 }
                 pendingFocusAfterLoad = null
@@ -437,17 +473,15 @@ internal fun EpgPanel(
         listState.centerOn(targetItemIndex)
         programIndex?.let {
             focusedProgramIndex = it
-            focusedProgramKey = programs.getOrNull(it)?.let { program ->
-                programStableKey(program, it)
-            }
+            focusedProgramIdentity = programs[it].focusIdentity()
         }
         epgListHasFocus = true
         pendingProgramCenterIndex = null
     }
 
     // Lazy paging triggers near list edges
-    var edgeRequestedPast by remember { mutableStateOf(false) }
-    var edgeRequestedFuture by remember { mutableStateOf(false) }
+    var edgeRequestedPast by remember(openingSession) { mutableStateOf(false) }
+    var edgeRequestedFuture by remember(openingSession) { mutableStateOf(false) }
     LaunchedEffect(programs.size) {
         // Reset edge request guards when list size changes
         edgeRequestedPast = false
@@ -505,6 +539,7 @@ internal fun EpgPanel(
                     IconButton(
                         onClick = {
                             if (dateEntries.isNotEmpty()) {
+                                disableAutomaticOpeningFocus()
                                 datePickerSelectionIndex = todayEntryIndex
                                 showDatePicker = true
                             }
@@ -548,6 +583,12 @@ internal fun EpgPanel(
                         .fillMaxSize()
                         .focusRequester(lazyColumnFocusRequester)
                         .focusable()
+                        .pointerInput(openingSession) {
+                            awaitEachGesture {
+                                awaitFirstDown(requireUnconsumed = false)
+                                disableAutomaticOpeningFocus()
+                            }
+                        }
                         .onPreviewKeyEvent { event ->
                             if (!isRemoteMode) {
                                 return@onPreviewKeyEvent false
@@ -567,9 +608,12 @@ internal fun EpgPanel(
                             val isCenterKey = event.key == Key.DirectionCenter || event.key == Key.Enter
                             when (event.type) {
                                 KeyEventType.KeyDown -> {
+                                    disableAutomaticOpeningFocus()
                                     when (event.key) {
                                         Key.DirectionUp -> {
-                                            if (focusedProgramIndex > 0) {
+                                            if (focusedProgramIndex < 0 && programs.isNotEmpty()) {
+                                                focusProgram(0)
+                                            } else if (focusedProgramIndex > 0) {
                                                 focusProgram(focusedProgramIndex - 1)
                                             } else {
                                                 pendingFocusAfterLoad = (focusedProgramIndex - 1).takeIf { it >= 0 }
@@ -681,8 +725,18 @@ internal fun EpgPanel(
                                     isPast = isPast,
                                     showArchiveIndicator = isArchiveCandidate,
                                     isItemFocused = epgListHasFocus && programIndex == focusedProgramIndex,
-                                    onProgramClick = onProgramClick,
-                                    onPlayArchive = onPlayArchive.takeIf { canPlayArchive }
+                                    onProgramClick = { program ->
+                                        disableAutomaticOpeningFocus()
+                                        onProgramClick(program)
+                                    },
+                                    onPlayArchive = if (canPlayArchive) {
+                                        { program ->
+                                            disableAutomaticOpeningFocus()
+                                            onPlayArchive(program)
+                                        }
+                                    } else {
+                                        null
+                                    }
                                 )
                             }
                         }
@@ -767,6 +821,7 @@ internal fun EpgPanel(
             initialSelection = datePickerSelectionIndex,
             panelWidth = panelWidth,
             onSelect = { entry ->
+                disableAutomaticOpeningFocus()
                 val entryIndex = dateEntries.indexOf(entry).takeIf { it >= 0 } ?: 0
                 datePickerSelectionIndex = entryIndex
                 val dayRange = entry.startMillis..entry.endMillis
@@ -786,16 +841,14 @@ internal fun EpgPanel(
 }
 
 
-private fun programStableKey(program: EpgProgram, indexForHash: Int): String {
-    if (program.id.isNotBlank()) {
-        return program.id
+internal fun programItemKeys(programs: List<EpgProgram>): List<String> {
+    val occurrences = mutableMapOf<String, Int>()
+    return programs.map { program ->
+        val base = "${program.id.length}:${program.id}:${program.startUtcMillis}:${program.stopUtcMillis}"
+        val occurrence = occurrences.getOrDefault(base, 0)
+        occurrences[base] = occurrence + 1
+        "program:$base:$occurrence"
     }
-    val descriptionPart = if (program.description.isNotEmpty()) {
-        "_${program.description.hashCode()}"
-    } else {
-        ""
-    }
-    return "${program.startTimeMillis}_${program.stopTimeMillis}_${program.title}_$indexForHash$descriptionPart"
 }
 
 private data class CenterKeyAction(

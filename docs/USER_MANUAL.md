@@ -169,6 +169,8 @@ Press **Enter/Done on the virtual keyboard** to confirm search or a channel numb
 
 Open the EPG with **Right** from full-screen playback or from a focused channel in the channel list.
 
+During archive or timeshift playback, the EPG opens on and focuses the program being played. During live playback, it opens on the program currently airing.
+
 The EPG shows:
 
 - Program dates.
@@ -458,6 +460,8 @@ RuTV — IPTV-плеер для Android TV, ТВ-приставок и моби�
 ### 10. Программа передач
 
 Откройте EPG кнопкой **Вправо** из полноэкранного режима или с выбранного канала в списке.
+
+При воспроизведении архива или timeshift EPG открывается на воспроизводимой передаче и устанавливает на неё фокус. В прямом эфире фокус устанавливается на текущую передачу.
 
 EPG показывает:
 

@@ -41,16 +41,7 @@ class ComputeEpgWindowUseCase @Inject constructor(
         val nowZoned = Instant.ofEpochMilli(nowUtcMillis).atZone(zoneId)
         return when (mode) {
             Mode.Today -> {
-                val start = nowZoned.toLocalDate()
-                    .atStartOfDay(zoneId)
-                    .toInstant()
-                    .toEpochMilli()
-                val end = nowZoned.toLocalDate()
-                    .plusDays(1)
-                    .atStartOfDay(zoneId)
-                    .toInstant()
-                    .toEpochMilli()
-                EpgWindow(start, end)
+                dayContaining(nowUtcMillis, zoneId)
             }
 
             Mode.PreferredForChannel -> {
@@ -74,6 +65,19 @@ class ComputeEpgWindowUseCase @Inject constructor(
 
                 EpgWindow(start, end)
             }
+        }
+    }
+
+    companion object {
+        fun dayContaining(
+            utcMillis: Long,
+            zoneId: ZoneId = ZoneId.systemDefault()
+        ): EpgWindow {
+            val date = Instant.ofEpochMilli(utcMillis).atZone(zoneId).toLocalDate()
+            return EpgWindow(
+                fromUtcMillis = date.atStartOfDay(zoneId).toInstant().toEpochMilli(),
+                toUtcMillis = date.plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
+            )
         }
     }
 }

@@ -10,6 +10,7 @@ import com.rutv.data.model.PlayerConfig
 import com.rutv.data.model.ResizeMode
 import com.rutv.domain.usecase.ChannelListMode
 import com.rutv.presentation.main.ArchivePrompt
+import com.rutv.presentation.main.EpgOpeningState
 import com.rutv.presentation.main.MainViewState
 import com.rutv.presentation.main.ParentalPinPrompt
 import com.rutv.presentation.player.DebugMessage
@@ -43,6 +44,7 @@ data class PlayerUiState(
     val showPlaylist: Boolean,
     val showEpgPanel: Boolean,
     val isEpgLoading: Boolean,
+    val epgOpeningState: EpgOpeningState?,
     val epgPrograms: ImmutableList<EpgProgram>,
     val epgChannelTvgId: String,
     val epgChannel: Channel?,
@@ -142,6 +144,7 @@ fun rememberPlayerUiState(viewState: MainViewState): PlayerUiState {
             showPlaylist = viewState.showPlaylist,
             showEpgPanel = viewState.showEpgPanel,
             isEpgLoading = viewState.isEpgLoading,
+            epgOpeningState = viewState.epgOpeningState,
             epgPrograms = viewState.epgPrograms,
             epgChannelTvgId = viewState.epgChannelTvgId,
             epgChannel = epgChannel,

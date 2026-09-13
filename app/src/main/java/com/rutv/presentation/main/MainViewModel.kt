@@ -17,6 +17,7 @@ import com.rutv.domain.repository.EpgRepository
 import com.rutv.data.repository.ExternalConfigRepository
 import com.rutv.data.repository.PreferencesRepository
 import com.rutv.domain.usecase.ChannelListMode
+import com.rutv.domain.usecase.ComputeEpgWindowUseCase
 import com.rutv.domain.usecase.filterChannels
 import com.rutv.domain.usecase.FetchEpgProgramsUseCase
 import com.rutv.domain.usecase.FetchVisibleCurrentProgramsUseCase
@@ -285,26 +286,6 @@ class MainViewModel @Inject constructor(
     private fun isEpgChannelBlocked(tvgId: String): Boolean {
         val channel = lockedChannelByTvgId(tvgId) ?: return false
         return !isTemporarilyUnlocked(channel)
-    }
-
-    private fun updateEpgPanelState(
-        tvgId: String,
-        programs: List<EpgProgram>,
-        currentProgram: EpgProgram?,
-        panelGeneration: Long
-    ) {
-        _viewState.update {
-            if (epgPanelGeneration.get() != panelGeneration) return@update it
-            it.copy(
-                epgLoadedFromUtc = if (it.epgChannelTvgId == tvgId) it.epgLoadedFromUtc else 0L,
-                epgLoadedToUtc = if (it.epgChannelTvgId == tvgId) it.epgLoadedToUtc else 0L,
-                showEpgPanel = true,
-                isEpgLoading = false,
-                epgChannelTvgId = tvgId,
-                epgPrograms = programs.toImmutableList(),
-                currentProgram = currentProgram
-            )
-        }
     }
 
     fun clearEpgNotification() {
@@ -1091,11 +1072,10 @@ class MainViewModel @Inject constructor(
         playerManager.playChannel(mainIndex)
 
         // Hide playlist and EPG
+        invalidateEpgPanelSession()
         _viewState.update {
-            it.copy(
+            it.withEpgPanelClosed().copy(
                 showPlaylist = false,
-                showEpgPanel = false,
-                isEpgLoading = false,
                 isArchivePlayback = false,
                 isTimeshiftPlayback = false,
                 programDvrProgram = null,
@@ -1153,14 +1133,13 @@ class MainViewModel @Inject constructor(
     ) {
         playerManager.cancelAutoRetry()
         playerManager.setAutoRetrySuppressed(true)
+        invalidateEpgPanelSession()
         _viewState.update { current ->
             val listChanged = current.channelListMode != mode || current.selectedGroup != selectedGroup
-            current.copy(
+            current.withEpgPanelClosed().copy(
                 showPlaylist = true,
                 channelListMode = mode,
                 selectedGroup = selectedGroup,
-                showEpgPanel = false,
-                isEpgLoading = false,
                 selectedProgramDetails = null,
                 lastPlaylistScrollIndex = if (listChanged) 0 else current.lastPlaylistScrollIndex
             )
@@ -1222,11 +1201,10 @@ class MainViewModel @Inject constructor(
      */
     fun closePlaylist() {
         playerManager.setAutoRetrySuppressed(false)
+        invalidateEpgPanelSession()
         _viewState.update { current ->
-            current.copy(
+            current.withEpgPanelClosed().copy(
                 showPlaylist = false,
-                showEpgPanel = false,
-                isEpgLoading = false,
                 selectedProgramDetails = null
             )
         }
@@ -1246,15 +1224,18 @@ class MainViewModel @Inject constructor(
      * Close EPG panel only (keep playlist open)
      */
     fun closeEpgPanel() {
-        epgPanelGeneration.incrementAndGet()
-        epgPanelLoadJob?.cancel()
+        invalidateEpgPanelSession()
         _viewState.update { current ->
-            current.copy(
-                showEpgPanel = false,
-                isEpgLoading = false,
+            current.withEpgPanelClosed().copy(
                 selectedProgramDetails = null
             )
         }
+    }
+
+    private fun invalidateEpgPanelSession() {
+        epgPanelGeneration.incrementAndGet()
+        epgPanelLoadJob?.cancel()
+        epgPanelLoadJob = null
     }
 
     fun setControlsVisible(visible: Boolean) {
@@ -1422,107 +1403,153 @@ class MainViewModel @Inject constructor(
         if (_viewState.value.epgChannelTvgId == tvgId && epgPanelLoadJob?.isActive == true) {
             return
         }
+        val openingSnapshot = _viewState.value
+        val playbackTarget = openingSnapshot.programDvrProgram
+            ?.takeIf {
+                (openingSnapshot.isArchivePlayback || openingSnapshot.isTimeshiftPlayback) &&
+                    tvgId.isNotBlank() &&
+                    openingSnapshot.currentChannel?.tvgId?.takeIf(String::isNotBlank) == tvgId &&
+                    it.focusIdentity() != null
+            }
         val panelGeneration = epgPanelGeneration.incrementAndGet()
         epgPanelLoadJob?.cancel()
-        epgPanelLoadJob = viewModelScope.launch(Dispatchers.IO) {
-            // UI responsiveness: open panel immediately using repository-cached programs if available,
-            // then refresh in the background (IO) and replace the list.
-            val cachedPrograms = epgRepository.getProgramsForChannel(preferencesRepository.epgUrl.first(), tvgId)
-            if (epgPanelGeneration.get() != panelGeneration) return@launch
-            if (cachedPrograms.isNotEmpty()) {
-                val cachedCurrent = cachedPrograms.firstOrNull { it.isCurrent() }
-                val state = _viewState.value
-                val shouldUpdatePanel =
-                    !state.showEpgPanel ||
-                    state.epgChannelTvgId != tvgId ||
-                    (state.epgPrograms.isEmpty() && cachedPrograms.isNotEmpty())
-                if (shouldUpdatePanel) {
-                    updateEpgPanelState(tvgId, cachedPrograms, cachedCurrent, panelGeneration)
-                    _viewState.update { state ->
-                        if (epgPanelGeneration.get() != panelGeneration) return@update state
-                        if (state.epgChannelTvgId == tvgId) state.copy(isEpgLoading = false) else state
-                    }
-                }
-            } else {
-                _viewState.update { state ->
-                        if (epgPanelGeneration.get() != panelGeneration) return@update state
-                    if (state.showEpgPanel && state.epgChannelTvgId == tvgId && state.epgPrograms.isEmpty()) {
-                        state.copy(isEpgLoading = true)
-                    } else {
-                        state.copy(
-                            showEpgPanel = true,
-                            isEpgLoading = true,
-                            epgChannelTvgId = tvgId,
-                            epgPrograms = persistentListOf(),
-                            epgLoadedFromUtc = 0L,
-                            epgLoadedToUtc = 0L,
-                            currentProgram = null
-                        )
-                    }
-                }
-            }
-            try {
-                val result = fetchEpgProgramsUseCase(
-                    tvgId = tvgId,
-                    mode = com.rutv.domain.usecase.ComputeEpgWindowUseCase.Mode.Today
+        _viewState.update { state ->
+            state.copy(
+                showEpgPanel = true,
+                isEpgLoading = true,
+                epgChannelTvgId = tvgId,
+                epgPrograms = persistentListOf(),
+                epgLoadedFromUtc = 0L,
+                epgLoadedToUtc = 0L,
+                epgOpeningState = EpgOpeningState(
+                    session = panelGeneration,
+                    channelTvgId = tvgId,
+                    target = playbackTarget,
+                    targetLoadPending = playbackTarget != null
                 )
-                if (result is Result.Error) {
-                    // Preserve existing UX: if URL isn't configured, show a friendly debug message and return.
-                    appendDebugMessage(DebugMessage(StringFormatter.formatEpgUrlNotConfigured()))
-                    _viewState.update { state ->
-                        if (epgPanelGeneration.get() != panelGeneration) return@update state
-                        if (state.epgChannelTvgId == tvgId) state.copy(isEpgLoading = false) else state
-                    }
-                    return@launch
-                }
-                if (_viewState.value.epgChannelTvgId != tvgId) return@launch
-                val window = (result as Result.Success).data
-                val programs = window.programs
-                val current = programs.firstOrNull { it.isCurrent() }
+            )
+        }
+        epgPanelLoadJob = viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val epgUrl = preferencesRepository.epgUrl.first().trim()
+                val cachedPrograms = epgRepository.getProgramsForChannel(epgUrl, tvgId)
+                if (epgPanelGeneration.get() != panelGeneration) return@launch
+
+                val targetWindow = resolveEpgTargetWindow(playbackTarget, cachedPrograms)
+                val openingTarget = targetWindow?.target
+                val todayWindow = ComputeEpgWindowUseCase.dayContaining(now)
+                val openingWindow = targetWindow
+                    ?.let { ComputeEpgWindowUseCase.dayContaining(it.dayAnchorUtcMillis) }
+                    ?: todayWindow
+                val isTodayWindow = openingWindow == todayWindow
+                val cachedWindowPrograms = cachedPrograms
+                    .overlapping(openingWindow.fromUtcMillis, openingWindow.toUtcMillis)
+                    .sortedBy { it.startUtcMillis }
+                val cachedContainsTarget = cachedWindowPrograms.indexOfProgram(openingTarget?.focusIdentity()) >= 0
+                val cachedCurrent = cachedWindowPrograms.firstOrNull { it.isCurrent(now) }
 
                 _viewState.update { state ->
-                        if (epgPanelGeneration.get() != panelGeneration) return@update state
-                    val updatedMap = if (state.showCurrentProgramInChannelList) {
+                    if (epgPanelGeneration.get() != panelGeneration) return@update state
+                    val openingState = state.epgOpeningState
+                        ?.takeIf { it.session == panelGeneration && it.channelTvgId == tvgId }
+                        ?.copy(
+                            target = openingTarget,
+                            targetLoadPending = openingTarget != null && !cachedContainsTarget
+                        )
+                    state.copy(
+                        showEpgPanel = true,
+                        isEpgLoading = cachedWindowPrograms.isEmpty(),
+                        epgOpeningState = openingState,
+                        epgChannelTvgId = tvgId,
+                        epgPrograms = cachedWindowPrograms.toImmutableList(),
+                        epgLoadedFromUtc = 0L,
+                        epgLoadedToUtc = 0L,
+                        currentProgram = if (isTodayWindow) cachedCurrent else state.currentProgram
+                    )
+                }
+
+                if (epgUrl.isBlank()) {
+                    appendDebugMessage(DebugMessage(StringFormatter.formatEpgUrlNotConfigured()))
+                    return@launch
+                }
+
+                val loadedWindow = if (isTodayWindow) {
+                    when (val result = fetchEpgProgramsUseCase(
+                        tvgId = tvgId,
+                        mode = ComputeEpgWindowUseCase.Mode.Today,
+                        nowUtcMillis = now
+                    )) {
+                        is Result.Success -> result.data
+                        is Result.Error -> {
+                            appendDebugMessage(DebugMessage(StringFormatter.formatEpgUrlNotConfigured()))
+                            return@launch
+                        }
+                    }
+                } else {
+                    FetchEpgProgramsUseCase.EpgProgramsWindow(
+                        programs = epgRepository.getWindowedProgramsForChannel(
+                            epgUrl = epgUrl,
+                            tvgId = tvgId,
+                            fromUtcMillis = openingWindow.fromUtcMillis,
+                            toUtcMillis = openingWindow.toUtcMillis
+                        ),
+                        fromUtcMillis = openingWindow.fromUtcMillis,
+                        toUtcMillis = openingWindow.toUtcMillis
+                    )
+                }
+                if (epgPanelGeneration.get() != panelGeneration || _viewState.value.epgChannelTvgId != tvgId) {
+                    return@launch
+                }
+                val sortedPrograms = loadedWindow.programs.sortedBy { it.startUtcMillis }
+                val current = sortedPrograms.firstOrNull { it.isCurrent(now) }
+
+                _viewState.update { state ->
+                    if (epgPanelGeneration.get() != panelGeneration || state.epgChannelTvgId != tvgId) {
+                        return@update state
+                    }
+                    val updatedMap = if (isTodayWindow && state.showCurrentProgramInChannelList) {
                         updatedCurrentProgramsMap(state.currentProgramsMap, tvgId, current)
                     } else {
                         state.currentProgramsMap
                     }
-                    if (updatedMap === state.currentProgramsMap &&
-                        state.epgLoadedFromUtc == window.fromUtcMillis &&
-                        state.epgLoadedToUtc == window.toUtcMillis &&
-                        state.showEpgPanel &&
-                        !state.isEpgLoading &&
-                        state.epgChannelTvgId == tvgId &&
-                        state.epgPrograms == programs &&
-                        state.currentProgram == current
-                    ) {
-                        return@update state
-                    }
-                    state.withEpgPage(tvgId, programs, window.fromUtcMillis, window.toUtcMillis).copy(
+                    val openingState = state.epgOpeningState
+                        ?.takeIf { it.session == panelGeneration }
+                        ?.copy(targetLoadPending = false)
+                    state.withEpgPage(
+                        tvgId = tvgId,
+                        programs = sortedPrograms,
+                        from = loadedWindow.fromUtcMillis,
+                        to = loadedWindow.toUtcMillis
+                    ).copy(
                         currentProgramsMap = updatedMap,
                         showEpgPanel = true,
                         isEpgLoading = false,
+                        epgOpeningState = openingState,
                         epgChannelTvgId = tvgId,
-                        currentProgram = current
+                        currentProgram = if (isTodayWindow) current else state.currentProgram
                     )
                 }
                 appendDebugMessage(
-                    DebugMessage(StringFormatter.formatEpgShowingPrograms(programs.size, tvgId, current?.title))
+                    DebugMessage(StringFormatter.formatEpgShowingPrograms(sortedPrograms.size, tvgId, current?.title))
                 )
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Timber.e(e, "Failed to load EPG for channel $tvgId")
                 appendDebugMessage(DebugMessage(StringFormatter.formatEpgLoadFailed(tvgId, e.message ?: StringFormatter.formatErrorUnknown())))
-                _viewState.update { state ->
-                        if (epgPanelGeneration.get() != panelGeneration) return@update state
-                    if (state.epgChannelTvgId == tvgId) state.copy(isEpgLoading = false) else state
-                }
             } finally {
                 if (epgPanelLoadJob == this.coroutineContext[Job]) {
                     epgPanelLoadJob = null
                     _viewState.update { state ->
-                        if (epgPanelGeneration.get() == panelGeneration) state.copy(isEpgLoading = false) else state
+                        if (epgPanelGeneration.get() != panelGeneration || state.epgChannelTvgId != tvgId) {
+                            return@update state
+                        }
+                        state.copy(
+                            isEpgLoading = false,
+                            epgOpeningState = state.epgOpeningState
+                                ?.takeIf { it.session == panelGeneration }
+                                ?.copy(targetLoadPending = false)
+                        )
                     }
                 }
             }
@@ -1969,8 +1996,9 @@ class MainViewModel @Inject constructor(
         }
         val channelIndex = findMainChannelIndex(channel.url).coerceAtLeast(0)
         val filteredIndex = findFilteredChannelIndex(channel.url)
+        invalidateEpgPanelSession()
         _viewState.update {
-            it.copy(
+            it.withEpgPanelClosed().copy(
                 isArchivePlayback = false,
                 isTimeshiftPlayback = true,
                 programDvrProgram = program,
@@ -1979,8 +2007,6 @@ class MainViewModel @Inject constructor(
                 currentChannelFilteredIndex = filteredIndex,
                 currentProgram = program,
                 showPlaylist = false,
-                showEpgPanel = false,
-                isEpgLoading = false,
                 archivePrompt = null
             )
         }
@@ -2013,8 +2039,9 @@ class MainViewModel @Inject constructor(
         val channelIndex = findMainChannelIndex(channel.url).coerceAtLeast(0)
         val filteredIndex = findFilteredChannelIndex(channel.url)
 
+        invalidateEpgPanelSession()
         _viewState.update {
-            it.copy(
+            it.withEpgPanelClosed().copy(
                 isArchivePlayback = true,
                 isTimeshiftPlayback = false,
                 programDvrProgram = program,
@@ -2023,8 +2050,6 @@ class MainViewModel @Inject constructor(
                 currentChannelFilteredIndex = filteredIndex,
                 currentProgram = program,
                 showPlaylist = false,
-                showEpgPanel = false,
-                isEpgLoading = false,
                 archivePrompt = null
             )
         }
