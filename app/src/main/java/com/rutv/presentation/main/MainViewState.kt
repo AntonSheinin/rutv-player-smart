@@ -1,5 +1,6 @@
 package com.rutv.presentation.main
 
+import com.rutv.presentation.PinOperation
 import androidx.compose.runtime.Immutable
 import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
@@ -54,6 +55,7 @@ data class MainViewState(
     val listPanelEdgeInsetDp: Int = PlayerConstants.DEFAULT_LIST_PANEL_EDGE_INSET_DP,
     val listPanelVerticalInsetDp: Int = PlayerConstants.DEFAULT_LIST_PANEL_VERTICAL_INSET_DP,
     val channelPreviewSizePreset: Int = PlayerConstants.DEFAULT_CHANNEL_PREVIEW_SIZE_PRESET,
+    val parentalPinOperation: PinOperation = PinOperation(),
     val parentalPinPrompt: ParentalPinPrompt? = null,
     val showParentalPinSetupDialog: Boolean = false,
     val temporarilyUnlockedChannelUrl: String? = null,
@@ -91,10 +93,10 @@ data class ArchivePrompt(
 
 @Immutable
 data class ParentalPinPrompt(
+    val session: String = java.util.UUID.randomUUID().toString(),
     val reason: ParentalPinPromptReason,
     val channelTitle: String,
-    val channelIsLocked: Boolean,
-    val hasError: Boolean = false
+    val channelIsLocked: Boolean
 )
 
 enum class ParentalPinPromptReason {

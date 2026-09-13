@@ -1,5 +1,6 @@
 package com.rutv.presentation
 
+import com.rutv.presentation.PinRequest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
@@ -142,14 +143,14 @@ class SettingsActivity : ComponentActivity() {
             onChannelPreviewSizePresetChanged = { preset: Int ->
                 viewModel.setChannelPreviewSizePreset(preset)
             },
-            onSetParentalPassword = { pin: String ->
-                viewModel.setParentalPassword(pin)
+            onSetParentalPassword = { request: PinRequest, pin: String ->
+                viewModel.setParentalPassword(request, pin)
             },
-            onChangeParentalPassword = { currentPin: String, newPin: String ->
-                viewModel.changeParentalPassword(currentPin, newPin)
+            onChangeParentalPassword = { request: PinRequest, currentPin: String, newPin: String ->
+                viewModel.changeParentalPassword(request, currentPin, newPin)
             },
-            onRemoveParentalPassword = { currentPin: String ->
-                viewModel.removeParentalPassword(currentPin)
+            onRemoveParentalPassword = { request: PinRequest, currentPin: String ->
+                viewModel.removeParentalPassword(request, currentPin)
             },
             onEpgUrlChanged = { url: String ->
                 viewModel.saveEpgUrl(url)

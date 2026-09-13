@@ -163,6 +163,8 @@ The app provides two fast navigation tools:
 
 Search focuses the first matching channel. If the list is long, the app loads more rows as needed.
 
+Press **Enter/Done on the virtual keyboard** to confirm search or a channel number immediately. You can also use the dialog's **OK** button. Hiding the keyboard with **Back** does not confirm the input.
+
 ### 10. Electronic Program Guide
 
 Open the EPG with **Right** from full-screen playback or from a focused channel in the channel list.
@@ -216,6 +218,8 @@ Use **Back** or the close button to return to playback or the EPG.
 ### 13. Parental Controls
 
 Parental controls use a 4-digit PIN.
+
+In PIN forms, keyboard **Next** moves to the next field and final **Done** performs the dialog's Save, OK, or Remove action. Invalid input stays available for correction. While verification is pending, repeated confirmation is ignored. Cancel closes a pending settings dialog but does not undo a save/removal already submitted.
 
 In **Settings > Parental Controls**, you can:
 

@@ -1,5 +1,11 @@
 package com.rutv.ui.mobile.screens
 
+import com.rutv.presentation.PinRequest
+import com.rutv.presentation.PinOperation
+import com.rutv.presentation.PinFailure
+import com.rutv.ui.shared.components.rememberDialogInput
+import com.rutv.ui.shared.components.rememberPinDialogSubmission
+import com.rutv.ui.shared.components.pinFailureText
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -80,9 +86,9 @@ fun SettingsScreen(
     onListPanelEdgeInsetChanged: (Int) -> Unit,
     onListPanelVerticalInsetChanged: (Int) -> Unit,
     onChannelPreviewSizePresetChanged: (Int) -> Unit,
-    onSetParentalPassword: (String) -> Unit,
-    onChangeParentalPassword: (String, String) -> Unit,
-    onRemoveParentalPassword: (String) -> Unit,
+    onSetParentalPassword: (PinRequest, String) -> Boolean,
+    onChangeParentalPassword: (PinRequest, String, String) -> Boolean,
+    onRemoveParentalPassword: (PinRequest, String) -> Boolean,
     onEpgUrlChanged: (String) -> Unit,
     onEpgDaysAheadChanged: (Int) -> Unit,
     onEpgDaysPastChanged: (Int) -> Unit,
@@ -101,14 +107,6 @@ fun SettingsScreen(
 
     var showNoPlaylistDialog by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
-
-    LaunchedEffect(viewState.parentalPinOperationVersion) {
-        if (viewState.parentalPinOperationVersion > 0) {
-            showSetParentalPinDialog = false
-            showChangeParentalPinDialog = false
-            showRemoveParentalPinDialog = false
-        }
-    }
 
     // File picker launcher
     val filePickerLauncher = rememberLauncherForActivityResult(
@@ -613,30 +611,24 @@ fun SettingsScreen(
     if (showSetParentalPinDialog) {
         SetParentalPinDialog(
             onDismiss = { showSetParentalPinDialog = false },
-            onConfirm = { pin ->
-                onSetParentalPassword(pin)
-                showSetParentalPinDialog = false
-            }
+            operation = viewState.parentalPinOperation,
+            onConfirm = onSetParentalPassword
         )
     }
 
     if (showChangeParentalPinDialog) {
         ChangeParentalPinDialog(
-            externalError = viewState.parentalPinError,
+            operation = viewState.parentalPinOperation,
             onDismiss = { showChangeParentalPinDialog = false },
-            onConfirm = { currentPin, newPin ->
-                onChangeParentalPassword(currentPin, newPin)
-            }
+            onConfirm = onChangeParentalPassword
         )
     }
 
     if (showRemoveParentalPinDialog) {
         RemoveParentalPinDialog(
-            externalError = viewState.parentalPinError,
+            operation = viewState.parentalPinOperation,
             onDismiss = { showRemoveParentalPinDialog = false },
-            onConfirm = { currentPin ->
-                onRemoveParentalPassword(currentPin)
-            }
+            onConfirm = onRemoveParentalPassword
         )
     }
 
@@ -1287,7 +1279,7 @@ private fun NumberInputSetting(
 }
 
 @Composable
-private fun NumberInputDialog(
+internal fun NumberInputDialog(
     label: String,
     initialValue: Int,
     minValue: Int,
@@ -1302,20 +1294,17 @@ private fun NumberInputDialog(
     val errorMessage = stringResource(R.string.settings_number_error, minValue, maxValue)
     val rangeHint = stringResource(R.string.settings_number_range_hint, minValue, maxValue)
 
-    fun commit(): Boolean {
-        val parsed = input.toIntOrNull()
-        return if (parsed != null && parsed in minValue..maxValue) {
-            onConfirm(parsed)
-            true
-        } else {
-            error = errorMessage
-            false
-        }
-    }
-
+    val submission = rememberDialogInput()
+    val dismiss = { submission.close(onDismiss) }
     val confirmAction = {
-        if (commit()) {
-            onDismiss()
+        if (submission.idle) {
+            val parsed = input.toIntOrNull()
+            if (parsed != null && parsed in minValue..maxValue) {
+                submission.close { onConfirm(parsed); onDismiss() }
+            } else {
+                error = errorMessage
+                submission.correct(focusRequester)
+            }
         }
     }
 
@@ -1324,7 +1313,7 @@ private fun NumberInputDialog(
     }
 
     RemoteDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = dismiss,
         autoFocusConfirm = false,
         confirmButtonFocusRequester = confirmFocusRequester,
         textFocusRequester = focusRequester,
@@ -1334,6 +1323,7 @@ private fun NumberInputDialog(
             Column {
                 OutlinedTextField(
                     value = input,
+                    singleLine = true,
                     onValueChange = { new ->
                         input = new.filter { it.isDigit() }
                         error = null
@@ -1350,7 +1340,7 @@ private fun NumberInputDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .focusRequester(focusRequester)
-                        .remoteBack { onDismiss() }
+                        .remoteBack { dismiss() }
                         .onKeyEvent { event ->
                             if (!DeviceHelper.isRemoteInputActive()) return@onKeyEvent false
                             if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
@@ -1391,7 +1381,7 @@ private fun NumberInputDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.focusable(false)) {
+            TextButton(onClick = dismiss, modifier = Modifier.focusable(false)) {
                 Text(stringResource(R.string.button_cancel))
             }
         }
@@ -1399,9 +1389,10 @@ private fun NumberInputDialog(
 }
 
 @Composable
-private fun SetParentalPinDialog(
+internal fun SetParentalPinDialog(
+    operation: PinOperation,
     onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit
+    onConfirm: (PinRequest, String) -> Boolean
 ) {
     var pin by remember { mutableStateOf("") }
     var confirmPin by remember { mutableStateOf("") }
@@ -1412,11 +1403,16 @@ private fun SetParentalPinDialog(
     val mismatchError = stringResource(R.string.parental_pin_mismatch)
     val invalidError = stringResource(R.string.parental_pin_invalid)
 
+    val submission = rememberPinDialogSubmission(operation, onDismiss, { firstFocus })
+    val externalError = pinFailureText(operation.failure.takeIf { operation.request == submission.request })
+    val dismiss = { submission.input.close(onDismiss) }
+
     fun commit() {
+        if (!submission.input.idle || operation.busy) return
         when {
-            pin.length != 4 -> error = invalidError
-            pin != confirmPin -> error = mismatchError
-            else -> onConfirm(pin)
+            pin.length != 4 -> { error = invalidError; submission.input.correct(firstFocus) }
+            pin != confirmPin -> { error = mismatchError; submission.input.correct(confirmFocus) }
+            else -> submission.submit(operation, closeImmediately = true, onDismiss = onDismiss) { onConfirm(it, pin) }
         }
     }
 
@@ -1425,7 +1421,7 @@ private fun SetParentalPinDialog(
     }
 
     RemoteDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = dismiss,
         autoFocusConfirm = false,
         confirmButtonFocusRequester = buttonFocus,
         textFocusRequester = firstFocus,
@@ -1442,7 +1438,8 @@ private fun SetParentalPinDialog(
                     label = stringResource(R.string.parental_pin_new),
                     focusRequester = firstFocus,
                     nextFocusRequester = confirmFocus,
-                    onDismiss = onDismiss
+                    onDismiss = dismiss,
+                    readOnly = operation.busy
                 )
                 PinTextField(
                     value = confirmPin,
@@ -1453,77 +1450,10 @@ private fun SetParentalPinDialog(
                     label = stringResource(R.string.parental_pin_confirm),
                     focusRequester = confirmFocus,
                     nextFocusRequester = buttonFocus,
-                    onDismiss = onDismiss
+                    onDismiss = dismiss,
+                    readOnly = operation.busy,
+                    onDone = { commit() }
                 )
-                Text(
-                    text = error ?: stringResource(R.string.parental_pin_hint),
-                    color = if (error != null) MaterialTheme.colorScheme.error else MaterialTheme.ruTvColors.textSecondary
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { commit() }, modifier = Modifier.focusable(false)) {
-                Text(stringResource(R.string.button_save))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.focusable(false)) {
-                Text(stringResource(R.string.button_cancel))
-            }
-        }
-    )
-}
-
-@Composable
-private fun ChangeParentalPinDialog(
-    externalError: String?,
-    onDismiss: () -> Unit,
-    onConfirm: (String, String) -> Unit
-) {
-    var currentPin by remember { mutableStateOf("") }
-    var newPin by remember { mutableStateOf("") }
-    var confirmPin by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf<String?>(null) }
-    val currentFocus = remember { FocusRequester() }
-    val newFocus = remember { FocusRequester() }
-    val confirmPinFocus = remember { FocusRequester() }
-    val buttonFocus = remember { FocusRequester() }
-    val mismatchError = stringResource(R.string.parental_pin_mismatch)
-    val invalidError = stringResource(R.string.parental_pin_invalid)
-
-    fun commit() {
-        when {
-            currentPin.length != 4 || newPin.length != 4 -> error = invalidError
-            newPin != confirmPin -> error = mismatchError
-            else -> onConfirm(currentPin, newPin)
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        currentFocus.requestFocusSafely()
-    }
-
-    RemoteDialog(
-        onDismissRequest = onDismiss,
-        autoFocusConfirm = false,
-        confirmButtonFocusRequester = buttonFocus,
-        textFocusRequester = currentFocus,
-        onConfirm = { commit() },
-        title = { Text(stringResource(R.string.settings_change_parental_pin)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                PinTextField(currentPin, {
-                    currentPin = it
-                    error = null
-                }, stringResource(R.string.parental_pin_current), currentFocus, newFocus, onDismiss)
-                PinTextField(newPin, {
-                    newPin = it
-                    error = null
-                }, stringResource(R.string.parental_pin_new), newFocus, confirmPinFocus, onDismiss)
-                PinTextField(confirmPin, {
-                    confirmPin = it
-                    error = null
-                }, stringResource(R.string.parental_pin_confirm), confirmPinFocus, buttonFocus, onDismiss)
                 Text(
                     text = error ?: externalError ?: stringResource(R.string.parental_pin_hint),
                     color = if (error != null || externalError != null) MaterialTheme.colorScheme.error else MaterialTheme.ruTvColors.textSecondary
@@ -1536,7 +1466,7 @@ private fun ChangeParentalPinDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.focusable(false)) {
+            TextButton(onClick = dismiss, modifier = Modifier.focusable(false)) {
                 Text(stringResource(R.string.button_cancel))
             }
         }
@@ -1544,10 +1474,85 @@ private fun ChangeParentalPinDialog(
 }
 
 @Composable
-private fun RemoveParentalPinDialog(
-    externalError: String?,
+internal fun ChangeParentalPinDialog(
+    operation: PinOperation,
     onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit
+    onConfirm: (PinRequest, String, String) -> Boolean
+) {
+    var currentPin by remember { mutableStateOf("") }
+    var newPin by remember { mutableStateOf("") }
+    var confirmPin by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    val currentFocus = remember { FocusRequester() }
+    val newFocus = remember { FocusRequester() }
+    val confirmPinFocus = remember { FocusRequester() }
+    val buttonFocus = remember { FocusRequester() }
+    val mismatchError = stringResource(R.string.parental_pin_mismatch)
+    val invalidError = stringResource(R.string.parental_pin_invalid)
+
+    val submission = rememberPinDialogSubmission(operation, onDismiss, { if (it == PinFailure.Wrong) currentFocus else confirmPinFocus })
+    val externalError = pinFailureText(operation.failure.takeIf { operation.request == submission.request })
+    val dismiss = { submission.input.close(onDismiss) }
+
+    fun commit() {
+        if (!submission.input.idle || operation.busy) return
+        when {
+            currentPin.length != 4 -> { error = invalidError; submission.input.correct(currentFocus) }
+            newPin.length != 4 -> { error = invalidError; submission.input.correct(newFocus) }
+            newPin != confirmPin -> { error = mismatchError; submission.input.correct(confirmPinFocus) }
+            else -> { error = null; submission.submit(operation, onDismiss = onDismiss) { onConfirm(it, currentPin, newPin) } }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        currentFocus.requestFocusSafely()
+    }
+
+    RemoteDialog(
+        onDismissRequest = dismiss,
+        autoFocusConfirm = false,
+        confirmButtonFocusRequester = buttonFocus,
+        textFocusRequester = currentFocus,
+        onConfirm = { commit() },
+        title = { Text(stringResource(R.string.settings_change_parental_pin)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                PinTextField(currentPin, {
+                    currentPin = it
+                    error = null
+                }, stringResource(R.string.parental_pin_current), currentFocus, newFocus, dismiss, readOnly = operation.busy)
+                PinTextField(newPin, {
+                    newPin = it
+                    error = null
+                }, stringResource(R.string.parental_pin_new), newFocus, confirmPinFocus, dismiss, readOnly = operation.busy)
+                PinTextField(confirmPin, {
+                    confirmPin = it
+                    error = null
+                }, stringResource(R.string.parental_pin_confirm), confirmPinFocus, buttonFocus, dismiss, readOnly = operation.busy, onDone = { commit() })
+                Text(
+                    text = error ?: externalError ?: stringResource(R.string.parental_pin_hint),
+                    color = if (error != null || externalError != null) MaterialTheme.colorScheme.error else MaterialTheme.ruTvColors.textSecondary
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { commit() }, modifier = Modifier.focusable(false)) {
+                Text(stringResource(R.string.button_save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = dismiss, modifier = Modifier.focusable(false)) {
+                Text(stringResource(R.string.button_cancel))
+            }
+        }
+    )
+}
+
+@Composable
+internal fun RemoveParentalPinDialog(
+    operation: PinOperation,
+    onDismiss: () -> Unit,
+    onConfirm: (PinRequest, String) -> Boolean
 ) {
     var currentPin by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
@@ -1555,11 +1560,18 @@ private fun RemoveParentalPinDialog(
     val buttonFocus = remember { FocusRequester() }
     val invalidError = stringResource(R.string.parental_pin_invalid)
 
+    val submission = rememberPinDialogSubmission(operation, onDismiss, { inputFocus })
+    val externalError = pinFailureText(operation.failure.takeIf { operation.request == submission.request })
+    val dismiss = { submission.input.close(onDismiss) }
+
     fun commit() {
+        if (!submission.input.idle || operation.busy) return
         if (currentPin.length != 4) {
             error = invalidError
+            submission.input.correct(inputFocus)
         } else {
-            onConfirm(currentPin)
+            error = null
+            submission.submit(operation, onDismiss = onDismiss) { onConfirm(it, currentPin) }
         }
     }
 
@@ -1568,7 +1580,7 @@ private fun RemoveParentalPinDialog(
     }
 
     RemoteDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = dismiss,
         autoFocusConfirm = false,
         confirmButtonFocusRequester = buttonFocus,
         textFocusRequester = inputFocus,
@@ -1583,7 +1595,7 @@ private fun RemoveParentalPinDialog(
                 PinTextField(currentPin, {
                     currentPin = it
                     error = null
-                }, stringResource(R.string.parental_pin_current), inputFocus, buttonFocus, onDismiss)
+                }, stringResource(R.string.parental_pin_current), inputFocus, buttonFocus, dismiss, readOnly = operation.busy, onDone = { commit() })
                 Text(
                     text = error ?: externalError ?: stringResource(R.string.parental_pin_hint),
                     color = if (error != null || externalError != null) MaterialTheme.colorScheme.error else MaterialTheme.ruTvColors.textSecondary
@@ -1596,7 +1608,7 @@ private fun RemoveParentalPinDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.focusable(false)) {
+            TextButton(onClick = dismiss, modifier = Modifier.focusable(false)) {
                 Text(stringResource(R.string.button_cancel))
             }
         }
@@ -1610,22 +1622,24 @@ private fun PinTextField(
     label: String,
     focusRequester: FocusRequester,
     nextFocusRequester: FocusRequester,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    readOnly: Boolean = false,
+    onDone: (() -> Unit)? = null
 ) {
     OutlinedTextField(
         value = value,
+        readOnly = readOnly,
         onValueChange = { onValueChange(it.filter { ch -> ch.isDigit() }.take(4)) },
         label = { Text(label) },
         singleLine = true,
         visualTransformation = PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(
             keyboardType = KeyboardType.NumberPassword,
-            imeAction = ImeAction.Done
+            imeAction = if (onDone == null) ImeAction.Next else ImeAction.Done
         ),
         keyboardActions = KeyboardActions(
-            onDone = {
-                nextFocusRequester.requestFocusSafely()
-            }
+            onNext = { if (!readOnly) nextFocusRequester.requestFocusSafely() },
+            onDone = { if (!readOnly) onDone?.invoke() }
         ),
         modifier = Modifier
             .fillMaxWidth()
@@ -1652,7 +1666,7 @@ private fun PinTextField(
 }
 
 @Composable
-private fun UrlInputDialog(
+internal fun UrlInputDialog(
     currentUrl: String,
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit
@@ -1661,9 +1675,12 @@ private fun UrlInputDialog(
     val inputFocusRequester = remember { FocusRequester() }
     val confirmFocusRequester = remember { FocusRequester() }
 
+    val submission = rememberDialogInput()
+    val dismiss = { submission.close(onDismiss) }
     val confirmAction = {
-        if (url.isNotBlank()) {
-            onConfirm(url)
+        if (submission.idle) {
+            if (url.isNotBlank()) submission.close { onConfirm(url) }
+            else submission.correct(inputFocusRequester)
         }
     }
 
@@ -1672,7 +1689,7 @@ private fun UrlInputDialog(
     }
 
     RemoteDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = dismiss,
         autoFocusConfirm = false,
         confirmButtonFocusRequester = confirmFocusRequester,
         textFocusRequester = inputFocusRequester,
@@ -1681,12 +1698,15 @@ private fun UrlInputDialog(
         text = {
             OutlinedTextField(
                 value = url,
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { confirmAction() }),
                 onValueChange = { url = it },
                 placeholder = { Text(stringResource(R.string.hint_m3u_url)) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(inputFocusRequester)
-                    .remoteBack { onDismiss() }
+                    .remoteBack { dismiss() }
                     .onKeyEvent { event ->
                         if (!DeviceHelper.isRemoteInputActive()) return@onKeyEvent false
                         if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
@@ -1713,7 +1733,7 @@ private fun UrlInputDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.focusable(false)) {
+            TextButton(onClick = dismiss, modifier = Modifier.focusable(false)) {
                 Text(stringResource(R.string.button_cancel))
             }
         }

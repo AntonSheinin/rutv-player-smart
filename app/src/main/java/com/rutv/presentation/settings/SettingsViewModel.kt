@@ -1,5 +1,9 @@
 package com.rutv.presentation.settings
 
+import com.rutv.presentation.PinRequest
+import com.rutv.presentation.PinFailure
+import com.rutv.presentation.PinRejected
+import com.rutv.presentation.PinOperationRunner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rutv.data.model.PlayerConfig
@@ -33,6 +37,10 @@ class SettingsViewModel @Inject constructor(
 
     private val _viewState = MutableStateFlow(SettingsViewState())
     val viewState: StateFlow<SettingsViewState> = _viewState.asStateFlow()
+
+    private val pinOperations = PinOperationRunner(viewModelScope) { operation ->
+        _viewState.update { it.copy(parentalPinOperation = operation) }
+    }
 
     init {
         loadSettings()
@@ -492,84 +500,39 @@ class SettingsViewModel @Inject constructor(
             }
     }
 
-    fun setParentalPassword(pin: String) {
-        viewModelScope.launch {
-            if (!isValidParentalPin(pin)) {
-                _viewState.update { it.copy(parentalPinError = "PIN must be exactly 4 digits") }
-                return@launch
-            }
+    fun setParentalPassword(request: PinRequest, pin: String): Boolean =
+        pinOperations.start(request) {
+            if (!isValidParentalPin(pin)) throw PinRejected(PinFailure.Invalid)
             try {
                 preferencesRepository.saveParentalPassword(pin)
-                _viewState.update {
-                    it.copy(
-                        successMessage = "Parental PIN saved",
-                        parentalPinError = null,
-                        parentalPinOperationVersion = it.parentalPinOperationVersion + 1,
-                        error = null
-                    )
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to save parental PIN")
+                pinSaved("Parental PIN saved")
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                // This dialog closes on acceptance; retain the existing global failure flow.
                 _viewState.update { it.copy(error = "Failed to save parental PIN") }
+                throw error
             }
         }
-    }
 
-    fun changeParentalPassword(currentPin: String, newPin: String) {
-        viewModelScope.launch {
-            if (!isValidParentalPin(newPin)) {
-                _viewState.update { it.copy(parentalPinError = "PIN must be exactly 4 digits") }
-                return@launch
-            }
-            val savedPin = preferencesRepository.parentalPassword.first()
-            if (savedPin != currentPin) {
-                _viewState.update { it.copy(parentalPinError = "Wrong parental PIN") }
-                return@launch
-            }
-            try {
-                preferencesRepository.saveParentalPassword(newPin)
-                _viewState.update {
-                    it.copy(
-                        successMessage = "Parental PIN changed",
-                        parentalPinError = null,
-                        parentalPinOperationVersion = it.parentalPinOperationVersion + 1,
-                        error = null
-                    )
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to change parental PIN")
-                _viewState.update { it.copy(error = "Failed to change parental PIN") }
-            }
+    fun changeParentalPassword(request: PinRequest, currentPin: String, newPin: String): Boolean =
+        pinOperations.start(request) {
+            if (!isValidParentalPin(newPin)) throw PinRejected(PinFailure.Invalid)
+            if (preferencesRepository.parentalPassword.first() != currentPin) throw PinRejected(PinFailure.Wrong)
+            preferencesRepository.saveParentalPassword(newPin)
+            pinSaved("Parental PIN changed")
         }
-    }
 
-    fun removeParentalPassword(currentPin: String) {
-        viewModelScope.launch {
-            val savedPin = preferencesRepository.parentalPassword.first()
-            if (savedPin != currentPin) {
-                _viewState.update { it.copy(parentalPinError = "Wrong parental PIN") }
-                return@launch
-            }
-            try {
-                preferencesRepository.removeParentalControls()
-                _viewState.update {
-                    it.copy(
-                        successMessage = "Parental controls removed",
-                        parentalPinError = null,
-                        parentalPinOperationVersion = it.parentalPinOperationVersion + 1,
-                        error = null
-                    )
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to remove parental controls")
-                _viewState.update { it.copy(error = "Failed to remove parental controls") }
-            }
+    fun removeParentalPassword(request: PinRequest, currentPin: String): Boolean =
+        pinOperations.start(request) {
+            if (preferencesRepository.parentalPassword.first() != currentPin) throw PinRejected(PinFailure.Wrong)
+            preferencesRepository.removeParentalControls()
+            pinSaved("Parental controls removed")
+        }
+
+    private fun pinSaved(message: String) {
+        _viewState.update {
+            it.copy(successMessage = message, error = null)
         }
     }
 

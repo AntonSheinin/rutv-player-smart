@@ -1,5 +1,11 @@
 package com.rutv.presentation
 
+import com.rutv.ui.shared.components.rememberDialogInput
+import com.rutv.ui.shared.components.ChannelDialogFocus
+import com.rutv.ui.shared.components.rememberPinDialogSubmission
+import com.rutv.ui.shared.components.pinFailureText
+import com.rutv.presentation.PinOperation
+import com.rutv.presentation.PinRequest
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
@@ -7,10 +13,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -36,7 +40,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
@@ -49,10 +52,7 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.ImeAction
@@ -69,10 +69,7 @@ import com.rutv.ui.shared.components.requestFocusSafely
 import com.rutv.ui.shared.components.remoteDialogTextFieldNavigation
 import com.rutv.ui.theme.ruTvColors
 import com.rutv.util.DeviceHelper
-import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.first
 
 @Composable
 internal fun NoPlaylistDialog(
@@ -138,51 +135,15 @@ internal fun GoToChannelDialog(
     if (!show) return
     val confirmButtonFocus = remember { FocusRequester() }
     val textFieldFocus = remember { FocusRequester() }
-    val keyboardController = LocalSoftwareKeyboardController.current
-    val density = LocalDensity.current
-    val imeInsets = WindowInsets.ime
-    val windowInfo = LocalWindowInfo.current
-    val isTextFieldFocused = remember { mutableStateOf(false) }
-    val imeWasVisible = remember { mutableStateOf(false) }
-
-    LaunchedEffect(show) {
-        if (!show) return@LaunchedEffect
-        withTimeoutOrNull(800) {
-            snapshotFlow { windowInfo.isWindowFocused }
-                .filter { it }
-                .first()
-        }
-        // Let the dialog settle before requesting focus/IME.
-        withFrameNanos { }
-        var attempts = 0
-        while (attempts < 6 && !isTextFieldFocused.value) {
-            textFieldFocus.requestFocusSafely()
-            withFrameNanos { }
-            attempts++
-        }
-    }
-
-    LaunchedEffect(density, imeInsets) {
-        snapshotFlow { imeInsets.getBottom(density) > 0 }
-            .distinctUntilChanged()
-            .collect { visible ->
-                if (visible) {
-                    imeWasVisible.value = true
-                } else if (imeWasVisible.value && isTextFieldFocused.value) {
-                    confirmButtonFocus.requestFocusSafely()
-                }
-            }
-    }
-
-    LaunchedEffect(isTextFieldFocused.value) {
-        if (isTextFieldFocused.value) {
-            keyboardController?.show()
-        }
-    }
+    val input = rememberDialogInput()
+    var fieldFocused by remember { mutableStateOf(false) }
+    ChannelDialogFocus(input, textFieldFocus, confirmButtonFocus, fieldFocused)
+    val confirm = { if (input.idle) input.close(onConfirm) }
+    val dismiss = { input.close(onDismiss) }
 
     RemoteDialog(
         autoFocusConfirm = false,
-        onDismissRequest = onDismiss,
+        onDismissRequest = dismiss,
         containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f),
         title = {
             Text(
@@ -193,7 +154,7 @@ internal fun GoToChannelDialog(
         },
         confirmButtonFocusRequester = confirmButtonFocus,
         textFocusRequester = textFieldFocus,
-        onConfirm = onConfirm,
+        onConfirm = confirm,
         modifier = modifier
             .border(
                 2.dp,
@@ -240,21 +201,19 @@ internal fun GoToChannelDialog(
                     .fillMaxWidth()
                     .focusRequester(textFieldFocus)
                     .onFocusChanged { state ->
-                        isTextFieldFocused.value = state.hasFocus
+                        fieldFocused = state.hasFocus
                     }
                     .remoteDialogTextFieldNavigation(
                         enabled = DeviceHelper.isRemoteInputActive(),
                         primaryActionFocusRequester = confirmButtonFocus,
-                        onBack = onDismiss
+                        onBack = dismiss
                     ),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Number,
                     imeAction = ImeAction.Done
                 ),
                 keyboardActions = KeyboardActions(
-                    onDone = {
-                        confirmButtonFocus.requestFocusSafely()
-                    }
+                    onDone = { confirm() }
                 ),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = MaterialTheme.ruTvColors.gold,
@@ -268,7 +227,7 @@ internal fun GoToChannelDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = onConfirm,
+                onClick = confirm,
                 modifier = Modifier.focusable(false)
             ) {
                 Text(
@@ -279,7 +238,7 @@ internal fun GoToChannelDialog(
         },
         dismissButton = {
             TextButton(
-                onClick = onDismiss,
+                onClick = dismiss,
                 modifier = Modifier.focusable(false)
             ) {
                 Text(
@@ -517,17 +476,23 @@ internal fun ChannelGroupDialog(
 @Composable
 internal fun ParentalPinDialog(
     prompt: ParentalPinPrompt?,
-    onSubmit: (String) -> Unit,
+    operation: PinOperation,
+    onSubmit: (PinRequest, String) -> Boolean,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (prompt == null) return
 
-    var pin by remember(prompt) { mutableStateOf("") }
+    var pin by remember(prompt.session) { mutableStateOf("") }
     val inputFocus = remember { FocusRequester() }
     val confirmFocus = remember { FocusRequester() }
+    val submission = rememberPinDialogSubmission(operation, onDismiss, { inputFocus }, prompt.session)
+    val failure = operation.failure.takeIf { operation.request == submission.request }
+    val failureText = pinFailureText(failure)
+    val dismiss = { submission.input.close(onDismiss) }
 
-    LaunchedEffect(prompt) {
+
+    LaunchedEffect(prompt.session) {
         inputFocus.requestFocusSafely()
     }
 
@@ -546,12 +511,14 @@ internal fun ParentalPinDialog(
 
     fun commit() {
         if (pin.length == 4) {
-            onSubmit(pin)
+            submission.submit(operation, onDismiss = onDismiss) { onSubmit(it, pin) }
+        } else {
+            submission.input.correct(inputFocus)
         }
     }
 
     RemoteDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = dismiss,
         autoFocusConfirm = false,
         confirmButtonFocusRequester = confirmFocus,
         textFocusRequester = inputFocus,
@@ -573,6 +540,7 @@ internal fun ParentalPinDialog(
                 )
                 OutlinedTextField(
                     value = pin,
+                    readOnly = operation.busy,
                     onValueChange = { pin = it.filter { ch -> ch.isDigit() }.take(4) },
                     label = { Text(stringResource(R.string.parental_pin_current)) },
                     singleLine = true,
@@ -582,7 +550,7 @@ internal fun ParentalPinDialog(
                         imeAction = ImeAction.Done
                     ),
                     keyboardActions = KeyboardActions(
-                        onDone = { confirmFocus.requestFocusSafely() }
+                        onDone = { commit() }
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -591,7 +559,7 @@ internal fun ParentalPinDialog(
                         .remoteDialogTextFieldNavigation(
                             enabled = DeviceHelper.isRemoteInputActive(),
                             primaryActionFocusRequester = confirmFocus,
-                            onBack = onDismiss
+                            onBack = dismiss
                         ),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = MaterialTheme.ruTvColors.gold,
@@ -601,12 +569,12 @@ internal fun ParentalPinDialog(
                     ),
                     supportingText = {
                         Text(
-                            text = if (prompt.hasError) {
-                                stringResource(R.string.parental_pin_wrong)
+                            text = if (failureText != null) {
+                                failureText
                             } else {
                                 stringResource(R.string.parental_pin_hint)
                             },
-                            color = if (prompt.hasError) {
+                            color = if (failureText != null) {
                                 MaterialTheme.colorScheme.error
                             } else {
                                 MaterialTheme.ruTvColors.textSecondary
@@ -625,7 +593,7 @@ internal fun ParentalPinDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.focusable(false)) {
+            TextButton(onClick = dismiss, modifier = Modifier.focusable(false)) {
                 Text(
                     text = stringResource(R.string.button_cancel),
                     color = MaterialTheme.ruTvColors.textPrimary

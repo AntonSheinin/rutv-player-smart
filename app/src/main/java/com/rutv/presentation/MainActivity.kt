@@ -227,7 +227,7 @@ class MainActivity : ComponentActivity() {
                 onToggleFavorite = { url -> viewModel.toggleFavorite(url) },
                 onToggleChannelLock = { index -> viewModel.requestToggleChannelLock(index) },
                 onShowEpgForChannel = { tvgId -> viewModel.showEpgForChannel(tvgId) },
-                onSubmitParentalPin = { pin -> viewModel.submitParentalPin(pin) },
+                onSubmitParentalPin = { request, pin -> viewModel.submitParentalPin(request, pin) },
                 onDismissParentalPinPrompt = { viewModel.dismissParentalPinPrompt() },
                 onOpenChosenChannelList = { viewModel.openChosenChannelList() },
                 onOpenFullChannelList = { viewModel.openFullChannelList() },
@@ -358,7 +358,8 @@ class MainActivity : ComponentActivity() {
 
         ParentalPinDialog(
             prompt = viewState.parentalPinPrompt,
-            onSubmit = { pin -> viewModel.submitParentalPin(pin) },
+            operation = viewState.parentalPinOperation,
+            onSubmit = { request, pin -> viewModel.submitParentalPin(request, pin) },
             onDismiss = { viewModel.dismissParentalPinPrompt() }
         )
 

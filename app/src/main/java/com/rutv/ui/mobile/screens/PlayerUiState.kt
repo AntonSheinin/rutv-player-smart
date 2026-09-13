@@ -1,5 +1,6 @@
 package com.rutv.ui.mobile.screens
 
+import com.rutv.presentation.PinRequest
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.Composable
@@ -76,7 +77,7 @@ data class PlayerUiActions(
     val onToggleFavorite: (String) -> Unit,
     val onToggleChannelLock: (Int) -> Unit,
     val onShowEpgForChannel: (String) -> Unit,
-    val onSubmitParentalPin: (String) -> Unit,
+    val onSubmitParentalPin: (PinRequest, String) -> Boolean,
     val onDismissParentalPinPrompt: () -> Unit,
     val onOpenChosenChannelList: () -> Unit,
     val onOpenFullChannelList: () -> Unit,

@@ -1,5 +1,9 @@
 @file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 package com.rutv.presentation.main
+import com.rutv.presentation.PinOperationRunner
+import com.rutv.presentation.PinRequest
+import com.rutv.presentation.PinRejected
+import com.rutv.presentation.PinFailure
 import android.content.Intent
 import android.os.SystemClock
 import androidx.lifecycle.ViewModel
@@ -87,6 +91,10 @@ class MainViewModel @Inject constructor(
         MainViewState(showStartupSplash = !startupSplashDismissedInProcess.get())
     )
     val viewState: StateFlow<MainViewState> = _viewState.asStateFlow()
+    private val pinOperations = PinOperationRunner(viewModelScope) { operation ->
+        _viewState.update { it.copy(parentalPinOperation = operation) }
+    }
+
 
     // We keep a bounded list for the on-screen debug overlay. Writes are mutex-protected because
     // messages can come from multiple coroutines (player + network + UI actions).
@@ -1719,27 +1727,24 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    fun submitParentalPin(pin: String) {
-        viewModelScope.launch {
-            val action = pendingParentalAction ?: return@launch
+    fun submitParentalPin(request: PinRequest, pin: String): Boolean {
+        val prompt = _viewState.value.parentalPinPrompt ?: return false
+        if (prompt.session != request.session) return false
+        val action = pendingParentalAction ?: return false
+        return pinOperations.start(request) {
             val savedPin = preferencesRepository.parentalPassword.first()
-            if (pin != savedPin) {
-                _viewState.update { state ->
-                    state.copy(parentalPinPrompt = state.parentalPinPrompt?.copy(hasError = true))
-                }
-                return@launch
-            }
-            val prompt = _viewState.value.parentalPinPrompt
+            if (_viewState.value.parentalPinPrompt?.session != request.session) return@start
+            if (pin != savedPin) throw PinRejected(PinFailure.Wrong)
             pendingParentalAction = null
             _viewState.update { it.copy(parentalPinPrompt = null) }
             when (action) {
                 is PendingParentalAction.PlayChannel -> {
-                    val channel = _viewState.value.channels.getOrNull(action.mainIndex) ?: return@launch
+                    val channel = _viewState.value.channels.getOrNull(action.mainIndex) ?: return@start
                     _viewState.update { it.copy(temporarilyUnlockedChannelUrl = channel.url) }
                     playChannelInternal(action.mainIndex, keepTemporaryUnlock = true)
                 }
                 is PendingParentalAction.OpenEpg -> {
-                    val channel = _viewState.value.channels.firstOrNull { it.tvgId == action.tvgId } ?: return@launch
+                    val channel = _viewState.value.channels.firstOrNull { it.tvgId == action.tvgId } ?: return@start
                     _viewState.update { it.copy(temporarilyUnlockedChannelUrl = channel.url) }
                     openEpgForChannel(action.tvgId)
                 }
@@ -1747,13 +1752,14 @@ class MainViewModel @Inject constructor(
                     toggleChannelLockInternal(action.mainIndex)
                 }
             }
-            if (prompt?.reason == ParentalPinPromptReason.ToggleLock) {
+            if (prompt.reason == ParentalPinPromptReason.ToggleLock) {
                 postNotificationMessage("Channel lock updated")
             }
         }
     }
 
     fun dismissParentalPinPrompt() {
+        pinOperations.cancel()
         pendingParentalAction = null
         _viewState.update { it.copy(parentalPinPrompt = null) }
     }
@@ -1767,14 +1773,14 @@ class MainViewModel @Inject constructor(
         reason: ParentalPinPromptReason,
         channel: Channel
     ) {
+        pinOperations.cancel()
         pendingParentalAction = action
         _viewState.update {
             it.copy(
                 parentalPinPrompt = ParentalPinPrompt(
                     reason = reason,
                     channelTitle = channel.title,
-                    channelIsLocked = channel.isLocked,
-                    hasError = false
+                    channelIsLocked = channel.isLocked
                 )
             )
         }

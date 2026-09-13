@@ -10,12 +10,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -34,9 +32,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -49,14 +44,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -65,13 +58,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.platform.LocalWindowInfo
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -80,9 +67,7 @@ import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
 import com.rutv.domain.usecase.ChannelListMode
 import com.rutv.ui.mobile.components.ChannelListItem
-import com.rutv.ui.shared.components.RemoteDialog
 import com.rutv.ui.shared.components.RemotePressLifecycle
-import com.rutv.ui.shared.components.remoteDialogTextFieldNavigation
 import com.rutv.ui.shared.components.awaitFirstLayout
 import com.rutv.ui.shared.components.focusIndicatorModifier
 import com.rutv.ui.shared.components.requestFocusSafely
@@ -91,13 +76,11 @@ import com.rutv.ui.theme.ruTvColors
 import com.rutv.util.DeviceHelper
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlin.math.max
 import java.util.Locale
@@ -703,169 +686,20 @@ internal fun PlaylistPanel(
             }
 
             if (showSearchDialog) {
-                val searchFieldFocusRequester = remember { FocusRequester() }
-                val okButtonFocusRequester = remember { FocusRequester() }
-                val keyboardController = LocalSoftwareKeyboardController.current
-                val density = LocalDensity.current
-                val imeInsets = WindowInsets.ime
-                val windowInfo = LocalWindowInfo.current
-                val isSearchFieldFocused = remember { mutableStateOf(false) }
-                val imeWasVisible = remember { mutableStateOf(false) }
-
-                // For TV/remote UX: when the dialog opens, put focus directly into the input field
-                // (so the user can start typing immediately and doesn't need a DPAD UP first).
-                LaunchedEffect(showSearchDialog) {
-                    if (!showSearchDialog) return@LaunchedEffect
-                    withTimeoutOrNull(800) {
-                        snapshotFlow { windowInfo.isWindowFocused }
-                            .filter { it }
-                            .first()
-                    }
-                    // Allow the dialog to attach before requesting focus/IME.
-                    withFrameNanos { }
-                    var attempts = 0
-                    while (attempts < 6 && !isSearchFieldFocused.value) {
-                        searchFieldFocusRequester.requestFocusSafely()
-                        withFrameNanos { }
-                        attempts++
-                    }
-                }
-
-                LaunchedEffect(density, imeInsets) {
-                    snapshotFlow { imeInsets.getBottom(density) > 0 }
-                        .distinctUntilChanged()
-                        .collect { visible ->
-                            if (visible) {
-                                imeWasVisible.value = true
-                            } else if (imeWasVisible.value && isSearchFieldFocused.value) {
-                                okButtonFocusRequester.requestFocusSafely()
-                            }
-                        }
-                }
-
-                LaunchedEffect(isSearchFieldFocused.value) {
-                    if (isSearchFieldFocused.value) {
-                        keyboardController?.show()
-                    }
-                }
-
-                val onConfirm = {
-                    val query = searchText.trim()
-                    if (query.isNotBlank()) {
-                        val searchLower = query.lowercase(Locale.ROOT)
-                        val matchingIndex = channels.indexOfFirst { channel ->
-                            channel.title.lowercase(Locale.ROOT).contains(searchLower)
-                        }
+                ChannelSearchDialog(
+                    searchText = searchText,
+                    onSearchTextChange = { searchText = it },
+                    onConfirm = {
+                        val searchLower = searchText.trim().lowercase(Locale.ROOT)
+                        val matchingIndex = channels.indexOfFirst { it.title.lowercase(Locale.ROOT).contains(searchLower) }
                         if (matchingIndex >= 0) {
                             pendingInitialCenterIndex = matchingIndex
                             focusChannel(matchingIndex, false)
                         }
                         showSearchDialog = false
                         searchText = ""
-                    }
-                }
-
-                RemoteDialog(
-                    onDismissRequest = {
-                        showSearchDialog = false
-                        searchText = ""
                     },
-                    containerColor = MaterialTheme.ruTvColors.darkBackground.copy(alpha = 0.95f),
-                    title = {
-                        Text(
-                            text = stringResource(R.string.dialog_title_search_channel),
-                            color = MaterialTheme.ruTvColors.gold,
-                            style = MaterialTheme.typography.titleLarge
-                        )
-                    },
-                    confirmButtonFocusRequester = okButtonFocusRequester,
-                    textFocusRequester = searchFieldFocusRequester,
-                    autoFocusConfirm = false,
-                    onConfirm = { onConfirm() },
-                    text = {
-                        OutlinedTextField(
-                            value = searchText,
-                            onValueChange = { searchText = it },
-                            label = { Text(stringResource(R.string.hint_search_channel)) },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                            keyboardActions = KeyboardActions(
-                                onDone = {
-                                    // Requirement: pressing ENTER on the virtual keyboard should
-                                    // close the keyboard and move focus to the OK button.
-                                    keyboardController?.hide()
-                                    okButtonFocusRequester.requestFocusSafely()
-                                }
-                            ),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .focusRequester(searchFieldFocusRequester)
-                                .onFocusChanged { state ->
-                                    isSearchFieldFocused.value = state.hasFocus
-                                }
-                                .onKeyEvent { event ->
-                                    if (!DeviceHelper.isRemoteInputActive()) return@onKeyEvent false
-                                    if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
-                                    when (event.key) {
-                                        // Requirement: DPAD DOWN moves focus to OK button.
-                                        Key.DirectionDown -> {
-                                            okButtonFocusRequester.requestFocusSafely()
-                                            true
-                                        }
-                                        else -> false
-                                    }
-                                }
-                                .remoteDialogTextFieldNavigation(
-                                    enabled = DeviceHelper.isRemoteInputActive(),
-                                    primaryActionFocusRequester = okButtonFocusRequester,
-                                    onBack = {
-                                        showSearchDialog = false
-                                        searchText = ""
-                                    }
-                                ),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = MaterialTheme.ruTvColors.gold,
-                                unfocusedBorderColor = MaterialTheme.ruTvColors.textDisabled,
-                                focusedTextColor = MaterialTheme.ruTvColors.textPrimary,
-                                unfocusedTextColor = MaterialTheme.ruTvColors.textPrimary,
-                                focusedLabelColor = MaterialTheme.ruTvColors.gold,
-                                unfocusedLabelColor = MaterialTheme.ruTvColors.textSecondary
-                            )
-                        )
-                    },
-                    confirmButton = {
-                        TextButton(
-                            onClick = { onConfirm() },
-                            // Keep focus on RemoteDialog's wrapper (gold border) for consistency
-                            modifier = Modifier.focusable(false)
-                        ) {
-                            Text(
-                                text = stringResource(R.string.button_ok),
-                                color = MaterialTheme.ruTvColors.gold
-                            )
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(
-                            onClick = {
-                                showSearchDialog = false
-                                searchText = ""
-                            },
-                            // Keep focus on RemoteDialog's wrapper (gold border) for consistency
-                            modifier = Modifier.focusable(false)
-                        ) {
-                            Text(
-                                text = stringResource(R.string.button_cancel),
-                                color = MaterialTheme.ruTvColors.textPrimary
-                            )
-                        }
-                    },
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.border(
-                        2.dp,
-                        MaterialTheme.ruTvColors.gold.copy(alpha = 0.7f),
-                        RoundedCornerShape(16.dp)
-                    )
+                    onDismiss = { showSearchDialog = false; searchText = "" }
                 )
             }
         }

@@ -1,5 +1,6 @@
 package com.rutv.presentation.settings
 
+import com.rutv.presentation.PinOperation
 import com.rutv.R
 import com.rutv.data.model.PlayerConfig
 import com.rutv.data.model.PlaylistSource
@@ -26,8 +27,7 @@ data class SettingsViewState(
     val autoRetryMaxAttempts: Int = PlayerConstants.DEFAULT_AUTO_RETRY_MAX_ATTEMPTS,
     val autoRetryPeriodSeconds: Int = PlayerConstants.DEFAULT_AUTO_RETRY_PERIOD_SECONDS,
     val selectedLanguage: String = "en",
-    val parentalPinError: String? = null,
-    val parentalPinOperationVersion: Int = 0,
+    val parentalPinOperation: PinOperation = PinOperation(),
     val isLoading: Boolean = false,
     val error: String? = null,
     val successMessage: String? = null
