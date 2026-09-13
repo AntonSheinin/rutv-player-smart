@@ -6,6 +6,8 @@ This project follows the Keep a Changelog structure. Regular commits add entries
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-13
+
 ### Added
 
 - Added temporary channel search result lists matching channel titles, stream names, and EPG tvg-id values.
