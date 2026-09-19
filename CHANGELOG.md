@@ -6,6 +6,8 @@ This project follows the Keep a Changelog structure. Regular commits add entries
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-09-19
+
 ### Added
 
 - Added per-channel audio track selection for live and archive playback, using stream-provided labels and remembering the selected track across restarts.
