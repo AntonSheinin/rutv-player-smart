@@ -6,6 +6,10 @@ This project follows the Keep a Changelog structure. Regular commits add entries
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed custom playback controls reopening after pressing Back on a remote.
+
 ## [1.3.0] - 2026-09-19
 
 ### Added

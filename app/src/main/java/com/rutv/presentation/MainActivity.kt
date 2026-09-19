@@ -95,6 +95,7 @@ class MainActivity : ComponentActivity() {
 
     // Controls visibility is stored in viewModel.viewState.areControlsVisible
     private val fullscreenOkPress = RemotePressLifecycle()
+    private val consumedBackPress = ConsumedKeyUpTracker()
 
     override fun attachBaseContext(newBase: Context) {
         // Locale must be applied before resources are loaded; we read synchronously.
@@ -550,8 +551,20 @@ class MainActivity : ComponentActivity() {
         }
 
         val handled = when (event.action) {
-            KeyEvent.ACTION_DOWN -> handleRemoteKeyDown(event)
-            KeyEvent.ACTION_UP -> handleRemoteKeyUp(event)
+            KeyEvent.ACTION_DOWN -> {
+                val downHandled = handleRemoteKeyDown(event)
+                if (event.keyCode == KeyEvent.KEYCODE_BACK && event.repeatCount == 0) {
+                    consumedBackPress.onDown(downHandled)
+                }
+                downHandled
+            }
+            KeyEvent.ACTION_UP -> {
+                if (event.keyCode == KeyEvent.KEYCODE_BACK && consumedBackPress.onUp()) {
+                    true
+                } else {
+                    handleRemoteKeyUp(event)
+                }
+            }
             else -> false
         }
         return if (handled) true else super.dispatchKeyEvent(event)
@@ -710,5 +723,23 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         private const val EXIT_PROCESS_DELAY_MS = 250L
+    }
+}
+
+/**
+ * Remembers whether a key-down was handled so its matching key-up does not leak to a child View.
+ * A fresh down always replaces stale state in case the previous key-up was never delivered.
+ */
+internal class ConsumedKeyUpTracker {
+    private var consumeNextUp = false
+
+    fun onDown(consumed: Boolean) {
+        consumeNextUp = consumed
+    }
+
+    fun onUp(): Boolean {
+        val consumed = consumeNextUp
+        consumeNextUp = false
+        return consumed
     }
 }
