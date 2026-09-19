@@ -132,6 +132,8 @@ fun PlayerScreen(
     val focusManager = rememberPlayerFocusManager(initial = PlayerFocusDestination.NONE)
     val coroutineScope = rememberCoroutineScope()
     var showControls by remember { mutableStateOf(false) }
+    var showAudioLanguageDialog by remember { mutableStateOf(false) }
+    var restoreAudioLanguageFocus by remember { mutableStateOf(false) }
     var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
     var allowPlayerView by remember { mutableStateOf(false) }
     val controlsAutoHideJobRef = remember { object { var job: Job? = null } }
@@ -250,6 +252,7 @@ fun PlayerScreen(
     // Focus Requesters for Channel Info Overlay buttons
     val overlayReturnToLiveFocus = remember { FocusRequester() }
     val overlayProgramInfoFocus = remember { FocusRequester() }
+    val overlayAudioLanguageFocus = remember { FocusRequester() }
 
     // Pending overlay focus request — driven from Android View key listeners,
     // consumed by a LaunchedEffect that can reliably move Compose focus.
@@ -279,6 +282,7 @@ fun PlayerScreen(
     // Auto-hide controls without driving recomposition on every DPAD event.
     val registerControlsInteraction: () -> Unit = registerControlsInteraction@{
         controlsAutoHideJobRef.job?.cancel()
+        if (showAudioLanguageDialog) return@registerControlsInteraction
         controlsAutoHideJobRef.job = coroutineScope.launch {
             delay(controlsHideDelayMs)
             if (showControls) {
@@ -372,6 +376,21 @@ fun PlayerScreen(
             controlsAutoHideJobRef.job?.cancel()
             controlsAutoHideJobRef.job = null
             lastControlsSignature = null
+        }
+    }
+
+    LaunchedEffect(showAudioLanguageDialog, showControls) {
+        if (showAudioLanguageDialog) {
+            controlsAutoHideJobRef.job?.cancel()
+            controlsAutoHideJobRef.job = null
+        } else {
+            if (showControls) {
+                registerControlsInteraction()
+                if (restoreAudioLanguageFocus) {
+                    overlayAudioLanguageFocus.requestFocusSafely()
+                }
+            }
+            restoreAudioLanguageFocus = false
         }
     }
 
@@ -580,7 +599,8 @@ fun PlayerScreen(
                         isArchivePlayback = uiState.isArchivePlayback,
                         hasProgramProgress = uiState.programProgress != null,
                         hasCustomProgressBar = programProgressDisplay != null,
-                        hideNativeTimeControls = showControls
+                        hideNativeTimeControls = showControls,
+                        hasProgramInfo = uiState.currentProgram != null
                     )
                     if (showControls && controlsSignature != lastControlsSignature) {
                         logDebug { "PERF player_controls_bind" }
@@ -602,10 +622,10 @@ fun PlayerScreen(
                                 if (showControls) {
                                     // Set pending target — LaunchedEffect will clear Android View
                                     // focus and retry Compose focus across frames
-                                    pendingOverlayFocusTarget = if (uiState.isArchivePlayback || uiState.isTimeshiftPlayback) {
-                                        overlayReturnToLiveFocus
-                                    } else {
-                                        overlayProgramInfoFocus
+                                    pendingOverlayFocusTarget = when {
+                                        uiState.isArchivePlayback || uiState.isTimeshiftPlayback -> overlayReturnToLiveFocus
+                                        uiState.currentProgram != null -> overlayProgramInfoFocus
+                                        else -> overlayAudioLanguageFocus
                                     }
                                 }
                             }
@@ -744,13 +764,22 @@ fun PlayerScreen(
                     archiveProgram = uiState.programDvrProgram,
                     onReturnToLive = actions.onReturnToLive,
                     onShowProgramInfo = actions.onShowProgramDetails,
+                    selectedAudioLanguage = uiState.audioLanguageState.selectedTrackLabel,
+                    onOpenAudioLanguages = {
+                        controlsAutoHideJobRef.job?.cancel()
+                        controlsAutoHideJobRef.job = null
+                        restoreAudioLanguageFocus = true
+                        showAudioLanguageDialog = true
+                    },
                     onNavigateDown = { focusPrimaryPlayerControl() },
                     returnToLiveFocusRequester = overlayReturnToLiveFocus,
                     programInfoFocusRequester = overlayProgramInfoFocus,
+                    audioLanguageFocusRequester = overlayAudioLanguageFocus,
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .padding(LayoutConstants.DefaultPadding)
-                        .fillMaxWidth(0.4f)
+                        .widthIn(min = 320.dp, max = 560.dp)
+                        .fillMaxWidth()
                 )
             }
         }
@@ -1018,6 +1047,18 @@ fun PlayerScreen(
                 prompt = prompt,
                 onContinue = actions.onArchivePromptContinue,
                 onBackToLive = actions.onArchivePromptBackToLive
+            )
+        }
+
+        if (showAudioLanguageDialog) {
+            AudioLanguageDialog(
+                trackLabels = uiState.audioLanguageState.availableTrackLabels,
+                selectedTrackLabel = uiState.audioLanguageState.selectedTrackLabel,
+                onSelect = { trackLabel ->
+                    actions.onSelectAudioLanguage(trackLabel)
+                    showAudioLanguageDialog = false
+                },
+                onDismiss = { showAudioLanguageDialog = false }
             )
         }
     }
@@ -1347,7 +1388,8 @@ private data class ControlsSignature(
     val isArchivePlayback: Boolean,
     val hasProgramProgress: Boolean,
     val hasCustomProgressBar: Boolean,
-    val hideNativeTimeControls: Boolean
+    val hideNativeTimeControls: Boolean,
+    val hasProgramInfo: Boolean
 )
 
 private data class ProgramProgressDisplay(

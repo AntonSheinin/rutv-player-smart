@@ -6,9 +6,12 @@ import androidx.core.net.toUri
 import android.os.Handler
 import android.os.Looper
 import androidx.media3.common.C
+import androidx.media3.common.Format
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSourceInputStream
 import androidx.media3.datasource.DataSpec
@@ -53,6 +56,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
 import com.rutv.util.logDebug
@@ -104,6 +108,9 @@ class PlayerManager @Inject constructor(
 
     private val _programProgress = MutableStateFlow<ProgramPlaybackProgress?>(null)
     val programProgress: StateFlow<ProgramPlaybackProgress?> = _programProgress.asStateFlow()
+
+    private val _audioLanguageState = MutableStateFlow(AudioLanguageState())
+    val audioLanguageState: StateFlow<AudioLanguageState> = _audioLanguageState.asStateFlow()
 
     private var bufferingStartTime: Long = 0
     private var bufferingCheckJob: Job? = null
@@ -833,10 +840,11 @@ class PlayerManager @Inject constructor(
 
             val hlsMediaSourceFactory = HlsMediaSource.Factory(httpDataSourceFactory)
                 .setExtractorFactory(hlsExtractorFactory)
+                .setPlaylistParserFactory(AllAudioHlsPlaylistParserFactory(httpDataSourceFactory))
                 .setAllowChunklessPreparation(false)
                 .setTimestampAdjusterInitializationTimeoutMs(30000)
 
-            val trackSelector = DefaultTrackSelector(context).apply {
+            val newTrackSelector = DefaultTrackSelector(context).apply {
                 @Suppress("DEPRECATION")
                 parameters = buildUponParameters()
                     .setForceHighestSupportedBitrate(false)
@@ -850,11 +858,10 @@ class PlayerManager @Inject constructor(
                     .setSelectUndeterminedTextLanguage(false)
                     .build()
             }
-
             player = ExoPlayer.Builder(context, renderersFactory)
                 .setLoadControl(loadControl)
                 .setMediaSourceFactory(hlsMediaSourceFactory)
-                .setTrackSelector(trackSelector)
+                .setTrackSelector(newTrackSelector)
                 .setSeekBackIncrementMs(PlayerConstants.SEEK_INCREMENT_MS)
                 .setSeekForwardIncrementMs(PlayerConstants.SEEK_INCREMENT_MS)
                 .setVideoScalingMode(C.VIDEO_SCALING_MODE_SCALE_TO_FIT)
@@ -1008,6 +1015,8 @@ class PlayerManager @Inject constructor(
     private fun createPlayerListener(): Player.Listener {
         return object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                _audioLanguageState.value = AudioLanguageState()
+                clearPlayerAudioTrackOverride()
                 if (isProgramDvrPlayback) return
                 val retryingError = _playerState.value as? PlayerState.Error
                 if (retryingError?.isRetrying == true) return
@@ -1015,6 +1024,19 @@ class PlayerManager @Inject constructor(
                     val currentIndex = player?.currentMediaItemIndex ?: return
                     val channel = channels.getOrNull(currentIndex) ?: return
                     logDebug { "Channel transition observed: ${channel.title} (#${currentIndex + 1})" }
+                }
+            }
+
+            override fun onTracksChanged(tracks: Tracks) {
+                val audioTrackState = tracks.toAudioLanguageState()
+                _audioLanguageState.value = audioTrackState
+                val preferredLabel = activeChannelPreferredAudioTrackLabel()
+                when {
+                    preferredLabel == null || preferredLabel == audioTrackState.selectedTrackLabel -> Unit
+                    preferredLabel in audioTrackState.availableTrackLabels -> {
+                        setPlayerPreferredAudioTrackLabel(preferredLabel)
+                    }
+                    else -> clearPlayerAudioTrackOverride()
                 }
             }
 
@@ -1266,6 +1288,8 @@ class PlayerManager @Inject constructor(
         // the user re-taps the currently-playing channel.
         _playerState.value = PlayerState.Buffering
         markLiveSwitchRequested(safeIndex)
+        _audioLanguageState.value = AudioLanguageState()
+        clearPlayerAudioTrackOverride()
 
         if (isProgramDvrPlayback) {
             restoreLivePlaylist(safeIndex)
@@ -1362,6 +1386,8 @@ class PlayerManager @Inject constructor(
         )
         playerInstance.stop()
         playerInstance.clearMediaItems()
+        _audioLanguageState.value = AudioLanguageState()
+        clearPlayerAudioTrackOverride()
 
         // ═══════════════════════════════════════════════════════════════
         // Flussonic DVR: Simple MediaItem without workarounds
@@ -1455,10 +1481,12 @@ class PlayerManager @Inject constructor(
         isUserPaused = false
         stopAutoRetry()
         val items = buildLiveMediaItems()
+        val index = targetIndex.coerceIn(0, channels.lastIndex)
+        _audioLanguageState.value = AudioLanguageState()
+        clearPlayerAudioTrackOverride()
         player?.apply {
             stop()
             clearMediaItems()
-            val index = targetIndex.coerceIn(0, channels.lastIndex)
             setMediaItems(items, index, C.TIME_UNSET)
             repeatMode = Player.REPEAT_MODE_ALL
             prepare()
@@ -1562,6 +1590,91 @@ class PlayerManager @Inject constructor(
      * Get current player instance
      */
     fun getPlayer(): ExoPlayer? = player
+
+    private fun activeChannelUrl(): String? {
+        if (isProgramDvrPlayback) return currentProgramDvr?.channel?.url
+        val currentIndex = player?.currentMediaItemIndex ?: return null
+        return channels.getOrNull(currentIndex)?.url
+    }
+
+    private fun activeChannelPreferredAudioTrackLabel(): String? {
+        if (isProgramDvrPlayback) return currentProgramDvr?.channel?.preferredAudioLanguage
+        val currentIndex = player?.currentMediaItemIndex ?: return null
+        return channels.getOrNull(currentIndex)?.preferredAudioLanguage
+    }
+
+    private fun setPlayerPreferredAudioTrackLabel(trackLabel: String?): Boolean {
+        val playerInstance = player ?: return false
+        val label = trackLabel?.trim()?.takeIf(String::isNotEmpty)
+            ?: return clearPlayerAudioTrackOverride()
+        val matchingTrack = playerInstance.currentTracks.groups
+            .asSequence()
+            .filter { it.type == C.TRACK_TYPE_AUDIO }
+            .flatMap { group ->
+                (0 until group.length).asSequence().map { trackIndex -> group to trackIndex }
+            }
+            .firstOrNull { (group, trackIndex) ->
+                group.isTrackSupported(trackIndex) &&
+                    group.getTrackFormat(trackIndex).audioTrackLabel() == label
+            }
+        if (matchingTrack == null) {
+            clearPlayerAudioTrackOverride()
+            return false
+        }
+
+        val parameters = playerInstance.trackSelectionParameters
+            .buildUpon()
+            .setPreferredAudioLanguage(null)
+            .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
+            .apply {
+                val (group, trackIndex) = matchingTrack
+                setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, trackIndex))
+            }
+            .build()
+        if (parameters != playerInstance.trackSelectionParameters) {
+            playerInstance.trackSelectionParameters = parameters
+        }
+        return true
+    }
+
+    private fun clearPlayerAudioTrackOverride(): Boolean {
+        val playerInstance = player ?: return false
+        val parameters = playerInstance.trackSelectionParameters
+            .buildUpon()
+            .setPreferredAudioLanguage(null)
+            .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
+            .build()
+        if (parameters != playerInstance.trackSelectionParameters) {
+            playerInstance.trackSelectionParameters = parameters
+        }
+        return true
+    }
+
+    /**
+     * Select and remember a language for a channel. The caller persists the updated channel.
+     */
+    fun selectAudioLanguage(channelUrl: String, trackLabel: String): Boolean {
+        val label = trackLabel.trim().takeIf(String::isNotEmpty) ?: return false
+        if (activeChannelUrl() != channelUrl) return false
+        if (label !in _audioLanguageState.value.availableTrackLabels) return false
+        if (!setPlayerPreferredAudioTrackLabel(label)) return false
+
+        channels = channels.map { channel ->
+            if (channel.url == channelUrl) {
+                channel.copy(preferredAudioLanguage = label)
+            } else {
+                channel
+            }
+        }
+        currentProgramDvr = currentProgramDvr?.let { session ->
+            if (session.channel.url == channelUrl) {
+                session.copy(channel = session.channel.copy(preferredAudioLanguage = label))
+            } else {
+                session
+            }
+        }
+        return true
+    }
 
     /**
      * Pause playback
@@ -1678,6 +1791,7 @@ class PlayerManager @Inject constructor(
         isProgramDvrPlayback = false
         clearProgramDvrState()
         liveMediaItemsCache = emptyList()
+        _audioLanguageState.value = AudioLanguageState()
         _playerState.value = PlayerState.Idle
         logDebug { "Player released" }
     }
@@ -1825,6 +1939,30 @@ class PlayerManager @Inject constructor(
             "${matchResult.groups[1]?.value}=***"
         }
     }
+}
+
+private fun Format.audioTrackLabel(): String? = label?.trim()?.takeIf(String::isNotEmpty)
+
+internal fun Tracks.toAudioLanguageState(): AudioLanguageState {
+    val trackLabels = linkedSetOf<String>()
+    var selectedTrackLabel: String? = null
+
+    groups.forEach { group ->
+        if (group.type != C.TRACK_TYPE_AUDIO) return@forEach
+        for (trackIndex in 0 until group.length) {
+            if (!group.isTrackSupported(trackIndex)) continue
+            val trackLabel = group.getTrackFormat(trackIndex).audioTrackLabel() ?: continue
+            trackLabels += trackLabel
+            if (selectedTrackLabel == null && group.isTrackSelected(trackIndex)) {
+                selectedTrackLabel = trackLabel
+            }
+        }
+    }
+
+    return AudioLanguageState(
+        availableTrackLabels = trackLabels.toList().toImmutableList(),
+        selectedTrackLabel = selectedTrackLabel
+    )
 }
 
 /**

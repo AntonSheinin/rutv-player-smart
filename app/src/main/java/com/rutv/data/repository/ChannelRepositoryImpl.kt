@@ -88,4 +88,11 @@ class ChannelRepositoryImpl @Inject constructor(
     override suspend fun updateAspectRatio(url: String, aspectRatio: Int): Result<Unit> = safeDaoCall("Error updating aspect ratio") {
         writes.withLock { channelDao.updateAspectRatio(url, aspectRatio) }
     }
+
+    override suspend fun updatePreferredAudioLanguage(
+        url: String,
+        language: String?
+    ): Result<Unit> = safeDaoCall("Error updating preferred audio language") {
+        writes.withLock { channelDao.updatePreferredAudioLanguage(url, language) }
+    }
 }

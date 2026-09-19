@@ -54,7 +54,9 @@ interface ChannelDao {
                 isFavorite = if (existing.isEmpty()) {
                     channel.url in backupUrls || (channel.tvgId.isNotBlank() && channel.tvgId in backupTvgIds)
                 } else previous?.isFavorite ?: false,
-                aspectRatio = previous?.aspectRatio ?: channel.aspectRatio
+                aspectRatio = previous?.aspectRatio ?: channel.aspectRatio,
+                preferredAudioLanguage = previous?.preferredAudioLanguage
+                    ?: channel.preferredAudioLanguage
             )
         }
         deleteAllChannels()
@@ -76,4 +78,7 @@ interface ChannelDao {
 
     @Query("UPDATE channels SET aspectRatio = :aspectRatio WHERE url = :url")
     suspend fun updateAspectRatio(url: String, aspectRatio: Int)
+
+    @Query("UPDATE channels SET preferredAudioLanguage = :language WHERE url = :url")
+    suspend fun updatePreferredAudioLanguage(url: String, language: String?)
 }

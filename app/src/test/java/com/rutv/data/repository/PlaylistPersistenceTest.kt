@@ -46,6 +46,7 @@ class PlaylistPersistenceTest {
         assertTrue(load.reload() is Result.Success)
         repository.toggleFavorite("http://example.com/live")
         repository.updateAspectRatio("http://example.com/live", 3)
+        repository.updatePreferredAudioLanguage("http://example.com/live", "RUS")
         val before = (repository.getSnapshot() as Result.Success).data
         preferences.savePlaylistFromFile("not a playlist", "bad")
         assertTrue(load.reload() is Result.Error)
@@ -54,6 +55,7 @@ class PlaylistPersistenceTest {
         val restored = (load.reload() as Result.Success).data.single()
         assertTrue(restored.isFavorite)
         assertEquals(3, restored.resizeMode.intValue)
+        assertEquals("RUS", restored.preferredAudioLanguage)
     }
 
     @Test fun togglesAndRefreshKeepRoomAuthoritative() = runBlocking {
@@ -67,6 +69,43 @@ class PlaylistPersistenceTest {
         preferences.replaceFavorites(setOf("http://example.com/live"), setOf("one"))
         val refreshed = (load.reload() as Result.Success).data.single()
         assertFalse(refreshed.isFavorite)
+    }
+
+    @Test fun preferredAudioLanguageSurvivesDatabaseReopen() = runBlocking {
+        val name = "audio-language-${UUID.randomUUID()}"
+        var persistentDb = Room.databaseBuilder(context, AppDatabase::class.java, name)
+            .allowMainThreadQueries()
+            .build()
+        try {
+            val persistentRepository = ChannelRepositoryImpl(persistentDb.channelDao(), preferences)
+            persistentDb.channelDao().insertChannels(
+                listOf(com.rutv.data.local.entity.ChannelEntity.fromChannel(Channel(
+                    url = "http://example.com/live",
+                    title = "One",
+                    position = 0
+                )))
+            )
+            assertTrue(
+                persistentRepository.updatePreferredAudioLanguage(
+                    "http://example.com/live",
+                    "ENG"
+                ) is Result.Success
+            )
+            persistentDb.close()
+
+            persistentDb = Room.databaseBuilder(context, AppDatabase::class.java, name)
+                .allowMainThreadQueries()
+                .build()
+
+            assertEquals(
+                "ENG",
+                persistentDb.channelDao().getChannelByUrl("http://example.com/live")
+                    ?.preferredAudioLanguage
+            )
+        } finally {
+            persistentDb.close()
+            context.deleteDatabase(name)
+        }
     }
 
     @Test fun sourceSwitchCannotAcceptPreviousSnapshotAsUrlCache() = runBlocking {
@@ -90,13 +129,16 @@ class PlaylistPersistenceTest {
         helper.writableDatabase
         helper.close()
         val migrated = Room.databaseBuilder(context, AppDatabase::class.java, name)
-            .addMigrations(AppDatabase.MIGRATION_3_4).allowMainThreadQueries().build()
+            .addMigrations(AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5)
+            .allowMainThreadQueries()
+            .build()
         try {
             runBlocking {
                 assertTrue(migrated.channelDao().getAllChannels().single().isFavorite)
+                assertNull(migrated.channelDao().getAllChannels().single().preferredAudioLanguage)
                 assertNull(migrated.channelDao().getSnapshotIdentity())
             }
-            assertEquals(4, migrated.openHelper.writableDatabase.version)
+            assertEquals(5, migrated.openHelper.writableDatabase.version)
         } finally { migrated.close(); context.deleteDatabase(name) }
     }
 }

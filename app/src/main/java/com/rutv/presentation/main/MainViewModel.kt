@@ -398,6 +398,12 @@ class MainViewModel @Inject constructor(
             }
         }
 
+        viewModelScope.launch {
+            playerManager.audioLanguageState.collect { audioLanguageState ->
+                _viewState.update { it.copy(audioLanguageState = audioLanguageState) }
+            }
+        }
+
         val playerConfigFlow = preferencesRepository.playerConfig
             .distinctUntilChanged()
 
@@ -2227,6 +2233,37 @@ class MainViewModel @Inject constructor(
             // Save to repository
             _viewState.value.currentChannel?.let { channel ->
                 channelRepository.updateAspectRatio(channel.url, newMode.intValue)
+            }
+        }
+    }
+
+    fun selectAudioLanguage(trackLabel: String) {
+        val channel = _viewState.value.currentChannel ?: return
+        val label = trackLabel.trim()
+        if (label.isEmpty()) return
+
+        if (!playerManager.selectAudioLanguage(channel.url, label)) return
+        _viewState.update { state ->
+            fun Channel.withPreference(): Channel = if (url == channel.url) {
+                copy(preferredAudioLanguage = label)
+            } else {
+                this
+            }
+
+            state.copy(
+                channels = state.channels.map { it.withPreference() }.toImmutableList(),
+                filteredChannels = state.filteredChannels.map { it.withPreference() }.toImmutableList(),
+                currentChannel = state.currentChannel?.withPreference()
+            )
+        }
+
+        viewModelScope.launch {
+            val result = channelRepository.updatePreferredAudioLanguage(
+                channel.url,
+                label
+            )
+            if (result is Result.Error) {
+                Timber.e(result.exception, "Could not persist preferred audio language")
             }
         }
     }

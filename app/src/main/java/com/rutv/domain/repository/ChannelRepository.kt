@@ -11,4 +11,5 @@ interface ChannelRepository {
     suspend fun saveSnapshot(channels: List<Channel>, sourceIdentity: String, contentHash: String): Result<List<Channel>>
     suspend fun toggleFavorite(url: String): Result<Boolean>
     suspend fun updateAspectRatio(url: String, aspectRatio: Int): Result<Unit>
+    suspend fun updatePreferredAudioLanguage(url: String, language: String?): Result<Unit>
 }

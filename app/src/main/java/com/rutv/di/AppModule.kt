@@ -33,10 +33,10 @@ object AppModule {
             Constants.DATABASE_NAME
         )
             // Channel data is re-fetched from playlist source on reload; only favorites
-            // and aspect ratio preferences are user-specific. Destructive migration is
+            // aspect ratio, and audio-language preferences are user-specific. Destructive migration is
             // acceptable as a safety net, but prefer writing explicit migrations for
             // future schema changes to preserve favorites.
-            .addMigrations(AppDatabase.MIGRATION_3_4)
+            .addMigrations(AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5)
             .fallbackToDestructiveMigration()
             .build()
     }

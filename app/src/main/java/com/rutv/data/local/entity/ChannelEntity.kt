@@ -25,6 +25,7 @@ data class ChannelEntity(
     val catchupSource: String,
     val isFavorite: Boolean,
     val aspectRatio: Int,
+    val preferredAudioLanguage: String?,
     val position: Int
 ) {
     /**
@@ -41,6 +42,7 @@ data class ChannelEntity(
         catchupSource = catchupSource,
         isFavorite = isFavorite,
         resizeMode = ResizeMode.fromInt(aspectRatio),
+        preferredAudioLanguage = preferredAudioLanguage,
         position = position
     )
 
@@ -59,6 +61,7 @@ data class ChannelEntity(
             catchupSource = channel.catchupSource,
             isFavorite = channel.isFavorite,
             aspectRatio = channel.resizeMode.intValue,
+            preferredAudioLanguage = channel.preferredAudioLanguage,
             position = channel.position
         )
 

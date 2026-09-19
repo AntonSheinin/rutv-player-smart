@@ -6,11 +6,17 @@ This project follows the Keep a Changelog structure. Regular commits add entries
 
 ## [Unreleased]
 
+### Added
+
+- Added per-channel audio track selection for live and archive playback, using stream-provided labels and remembering the selected track across restarts.
+
 ## [1.2.0] - 2026-09-13
 
 ### Added
 
 - Added temporary channel search result lists matching channel titles, stream names, and EPG tvg-id values.
+- Added virtual-keyboard Enter/Done confirmation for channel search, channel-number navigation, PIN forms, and settings dialogs.
+- Added automatic EPG focus on the playing archive or timeshift program, or the currently airing program during live playback.
 
 ### Changed
 

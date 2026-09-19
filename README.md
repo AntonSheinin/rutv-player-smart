@@ -2,6 +2,14 @@
 
 This repository contains an Android TV / mobile IPTV player implemented in **Kotlin + Jetpack Compose**, using **Media3/ExoPlayer** for playback and **Hilt** for dependency injection.
 
+Current release: **1.3.0**.
+
+### Audio tracks
+
+- The custom player controls show the current stream-provided audio track label.
+- The audio chooser is available for both live and archive playback, including streams with a single labeled track.
+- The selected track is remembered independently for each channel and restored after channel changes or app restarts.
+
 ## Code tour (where to start)
 
 - **App entrypoints**
@@ -15,7 +23,7 @@ This repository contains an Android TV / mobile IPTV player implemented in **Kot
 
 - **Playback**
   - `app/src/main/java/com/rutv/presentation/player/PlayerManager.kt`: wraps Media3 `ExoPlayer`.
-    - Handles live playlist playback, archive (catch-up) playback, buffering timeouts, and debug telemetry.
+    - Handles live playlist playback, archive (catch-up) playback, labeled audio-track selection, buffering timeouts, and debug telemetry.
 
 - **Playlist**
   - `app/src/main/java/com/rutv/domain/usecase/LoadPlaylistUseCase.kt`: source selection + caching policy.

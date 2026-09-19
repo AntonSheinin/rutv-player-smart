@@ -26,6 +26,7 @@ data class Channel(
     val isFavorite: Boolean = false,
     val isLocked: Boolean = false,
     val resizeMode: ResizeMode = ResizeMode.FIT,
+    val preferredAudioLanguage: String? = null,
     val position: Int = 0
 ) {
     val hasEpg: Boolean

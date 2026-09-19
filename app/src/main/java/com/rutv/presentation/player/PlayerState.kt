@@ -1,7 +1,16 @@
 package com.rutv.presentation.player
 
+import androidx.compose.runtime.Immutable
 import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+
+@Immutable
+data class AudioLanguageState(
+    val availableTrackLabels: ImmutableList<String> = persistentListOf(),
+    val selectedTrackLabel: String? = null
+)
 
 /**
  * Represents the state of the player

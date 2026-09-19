@@ -9,6 +9,7 @@ import com.rutv.data.model.PlaylistSource
 import com.rutv.data.model.ResizeMode
 import com.rutv.domain.usecase.ChannelListMode
 import com.rutv.presentation.player.DebugMessage
+import com.rutv.presentation.player.AudioLanguageState
 import com.rutv.presentation.player.PlayerState
 import com.rutv.presentation.player.ProgramPlaybackProgress
 import com.rutv.util.PlayerConstants
@@ -33,6 +34,7 @@ data class MainViewState(
     val currentChannelIndex: Int = -1,
     val currentChannelFilteredIndex: Int = -1,
     val playerState: PlayerState = PlayerState.Idle,
+    val audioLanguageState: AudioLanguageState = AudioLanguageState(),
     val showPlaylist: Boolean = false,
     val showEpgPanel: Boolean = false,
     val isEpgLoading: Boolean = false,

@@ -236,6 +236,7 @@ class MainActivity : ComponentActivity() {
                 onHidePlaylistForCompactEpg = { viewModel.hidePlaylistForCompactEpg() },
                 onCloseEpgPanel = { viewModel.closeEpgPanel() },
                 onCycleAspectRatio = { viewModel.cycleAspectRatio() },
+                onSelectAudioLanguage = { language -> viewModel.selectAudioLanguage(language) },
                 onOpenSettings = {
                     languageBeforeSettings = LocaleHelper.getSavedLanguage(this@MainActivity)
                     settingsLauncher.launch(Intent(latestContext, SettingsActivity::class.java))

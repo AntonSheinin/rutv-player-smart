@@ -12,6 +12,7 @@
     <string name="dialog_title_reload_playlist">Перезагрузить плейлист?</string>
     <string name="dialog_title_close_app">Закрыть приложение?</string>
     <string name="dialog_title_epg_date_picker">Выбор даты</string>
+    <string name="dialog_title_audio_language">Язык аудио</string>
     <!-- Dialog Messages -->
     <string name="dialog_message_no_playlist">Пожалуйста, перейдите в Настройки для настройки источника плейлиста (URL или файл), чтобы начать просмотр каналов.</string>
     <string name="dialog_message_no_channel_groups">Группы каналов не найдены.</string>
@@ -22,6 +23,7 @@
     <!-- Buttons -->
     <string name="button_ok">ОК</string>
     <string name="button_cancel">Отмена</string>
+    <string name="button_close">Закрыть</string>
     <string name="button_reset">Сброс</string>
     <string name="button_open_settings">Открыть настройки</string>
     <string name="button_exit">Выход</string>
@@ -132,6 +134,7 @@
     <string name="cd_select_epg_date">Выбрать дату программы</string>
     <string name="cd_aspect_ratio_button">Изменить соотношение сторон</string>
     <string name="cd_orientation_button">Повернуть видео</string>
+    <string name="cd_audio_language_button">Выбрать язык аудио. Текущий: %1$s</string>
     <string name="cd_epg_archive_indicator">Доступно в архиве</string>
     <string name="player_return_to_live">Вернуться к эфиру</string>
     <string name="player_archive_label">DVR &#8226; %1$s</string>
@@ -151,6 +154,8 @@
     <string name="archive_prompt_message_no_next">Воспроизведение архива завершено.</string>
     <string name="archive_prompt_continue">Воспроизвести следующую программу</string>
     <string name="player_program_info">Информация о программе</string>
+    <string name="player_audio_language_unknown">АУДИО</string>
+    <string name="player_audio_language_unavailable">Для этого потока информация о языке недоступна.</string>
 
     <!-- Program Details -->
     <string name="program_details_description">Описание</string>

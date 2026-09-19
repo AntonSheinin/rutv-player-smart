@@ -14,6 +14,7 @@ import com.rutv.presentation.main.EpgOpeningState
 import com.rutv.presentation.main.MainViewState
 import com.rutv.presentation.main.ParentalPinPrompt
 import com.rutv.presentation.player.DebugMessage
+import com.rutv.presentation.player.AudioLanguageState
 import com.rutv.presentation.player.PlayerState
 import com.rutv.presentation.player.ProgramPlaybackProgress
 import kotlinx.collections.immutable.ImmutableList
@@ -69,6 +70,7 @@ data class PlayerUiState(
     val currentResizeMode: ResizeMode,
     val showStartupSplash: Boolean,
     val playerState: PlayerState,
+    val audioLanguageState: AudioLanguageState,
     val lastPlaylistScrollIndex: Int
 )
 
@@ -88,6 +90,7 @@ data class PlayerUiActions(
     val onHidePlaylistForCompactEpg: () -> Unit,
     val onCloseEpgPanel: () -> Unit,
     val onCycleAspectRatio: () -> Unit,
+    val onSelectAudioLanguage: (String) -> Unit,
     val onOpenSettings: () -> Unit,
     val onShowChannelGroups: () -> Unit,
     val onShowProgramDetails: (EpgProgram) -> Unit,
@@ -169,6 +172,7 @@ fun rememberPlayerUiState(viewState: MainViewState): PlayerUiState {
             currentResizeMode = viewState.currentResizeMode,
             showStartupSplash = viewState.showStartupSplash,
             playerState = viewState.playerState,
+            audioLanguageState = viewState.audioLanguageState,
             lastPlaylistScrollIndex = viewState.lastPlaylistScrollIndex
         )
     }

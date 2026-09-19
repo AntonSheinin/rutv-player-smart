@@ -13,7 +13,7 @@ import com.rutv.data.local.entity.ChannelEntity
  */
 @Database(
     entities = [ChannelEntity::class, PlaylistSnapshotEntity::class],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -23,6 +23,12 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("CREATE TABLE IF NOT EXISTS `playlist_snapshot` (`id` INTEGER NOT NULL, `sourceIdentity` TEXT NOT NULL, `contentHash` TEXT NOT NULL, PRIMARY KEY(`id`))")
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `channels` ADD COLUMN `preferredAudioLanguage` TEXT DEFAULT NULL")
             }
         }
     }
