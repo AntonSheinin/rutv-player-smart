@@ -33,6 +33,7 @@ class FetchVisibleCurrentProgramsUseCase @Inject constructor(
         if (tvgIds.isEmpty()) return Result.Success(emptyMap())
         return try {
             val epgUrl = preferencesRepository.epgUrl.first().trim()
+            val descriptionLanguage = preferencesRepository.epgDescriptionLanguage.first()
             if (epgUrl.isBlank()) {
                 return Result.Error(IllegalStateException("EPG URL not configured"))
             }
@@ -50,7 +51,8 @@ class FetchVisibleCurrentProgramsUseCase @Inject constructor(
                 epgUrl = epgUrl,
                 tvgIds = tvgIds,
                 fromUtcMillis = fromUtcMillis,
-                toUtcMillis = toUtcMillis
+                toUtcMillis = toUtcMillis,
+                preferredDescriptionLanguage = descriptionLanguage
             )
             val current = programsByTvgId.mapValues { (_, programs) ->
                 programs.firstOrNull { it.isCurrent(nowUtcMillis) }

@@ -116,6 +116,9 @@ class SettingsActivity : ComponentActivity() {
             onControlsHideDelaySecondsChanged = { seconds: Int ->
                 viewModel.setControlsHideDelaySeconds(seconds)
             },
+            onArchiveEndBehaviorChanged = { behavior ->
+                viewModel.setArchiveEndBehavior(behavior)
+            },
             onAutoRetryEnabledChanged = { enabled: Boolean ->
                 viewModel.setAutoRetryEnabled(enabled)
             },
@@ -163,6 +166,9 @@ class SettingsActivity : ComponentActivity() {
             },
             onEpgPageDaysChanged = { days: Int ->
                 viewModel.setEpgPageDays(days)
+            },
+            onEpgDescriptionLanguageChanged = { language: String ->
+                viewModel.setEpgDescriptionLanguage(language)
             },
             onClearEpgCache = { viewModel.clearEpgCache() },
             onLanguageChanged = { localeCode: String ->

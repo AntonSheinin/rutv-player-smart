@@ -9,6 +9,8 @@ import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import com.rutv.data.local.AppDatabase
 import com.rutv.data.model.Channel
+import com.rutv.data.model.ArchiveEndBehavior
+import com.rutv.data.model.PlayerConfig
 import com.rutv.data.remote.PlaylistLoader
 import com.rutv.data.remote.PlaylistParser
 import com.rutv.domain.usecase.LoadPlaylistUseCase
@@ -21,6 +23,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.util.UUID
+import kotlinx.coroutines.flow.first
 
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, sdk = [28])
@@ -114,6 +117,13 @@ class PlaylistPersistenceTest {
         preferences.savePlaylistFromUrl("invalid-protocol://unreachable")
         assertTrue(load(skipNetworkIfCacheAvailable = true) is Result.Error)
         assertEquals(1, (repository.getAllChannels() as Result.Success).data.size)
+    }
+
+    @Test fun archiveEndBehaviorPersistsWithPlayerConfig() = runBlocking {
+        ArchiveEndBehavior.entries.forEach { behavior ->
+            preferences.savePlayerConfig(PlayerConfig(archiveEndBehavior = behavior))
+            assertEquals(behavior, preferences.playerConfig.first().archiveEndBehavior)
+        }
     }
 
     @Test fun migrationFromThreePreservesRowsAndLeavesSourceUnverified() {

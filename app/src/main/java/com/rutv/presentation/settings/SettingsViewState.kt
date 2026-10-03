@@ -15,6 +15,7 @@ data class SettingsViewState(
     val epgDaysAhead: Int = 7,
     val epgDaysPast: Int = 14,
     val epgPageDays: Int = 1,
+    val epgDescriptionLanguage: String = "ru",
     val playerConfig: PlayerConfig = PlayerConfig(),
     val showCurrentProgramInChannelList: Boolean = true,
     val channelPreviewEnabled: Boolean = true,

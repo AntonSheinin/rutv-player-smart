@@ -15,7 +15,7 @@ import javax.inject.Singleton
 /** One lock owns cache invalidation/publication; fetch and parsing never hold it. */
 @Singleton
 class EpgRepositoryImpl internal constructor(
-    private val fetch: suspend (String, List<String>, Long, Long) -> EpgFetchResult,
+    private val fetch: suspend (String, List<String>, Long, Long, String) -> EpgFetchResult,
     dispatcher: CoroutineDispatcher,
     private val now: () -> Long
 ) : EpgRepository {
@@ -32,26 +32,27 @@ class EpgRepositoryImpl internal constructor(
     private val windows = object : LinkedHashMap<WindowKey, List<EpgProgram>>(32, .75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<WindowKey, List<EpgProgram>>?) = size > 32
     }
-    private val channels = object : LinkedHashMap<String, List<EpgProgram>>(128, .75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<EpgProgram>>?) = size > 128
+    private val channels = object : LinkedHashMap<ChannelKey, List<EpgProgram>>(128, .75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<ChannelKey, List<EpgProgram>>?) = size > 128
     }
     private val inFlight = mutableMapOf<Key, Flight>()
-    private data class WindowKey(val id: String, val from: Long, val to: Long)
-    private data class Key(val ids: List<String>, val from: Long, val to: Long)
+    private data class ChannelKey(val language: String, val id: String)
+    private data class WindowKey(val language: String, val id: String, val from: Long, val to: Long)
+    private data class Key(val language: String, val ids: List<String>, val from: Long, val to: Long)
     private class Flight(val deferred: Deferred<Map<String, List<EpgProgram>>>, var waiters: Int = 0)
 
-    override suspend fun getWindowedProgramsForChannel(epgUrl: String, tvgId: String, fromUtcMillis: Long, toUtcMillis: Long): List<EpgProgram> =
-        getWindowedProgramsForChannels(epgUrl, listOf(tvgId), fromUtcMillis, toUtcMillis).getValue(tvgId)
+    override suspend fun getWindowedProgramsForChannel(epgUrl: String, tvgId: String, fromUtcMillis: Long, toUtcMillis: Long, preferredDescriptionLanguage: String): List<EpgProgram> =
+        getWindowedProgramsForChannels(epgUrl, listOf(tvgId), fromUtcMillis, toUtcMillis, preferredDescriptionLanguage).getValue(tvgId)
 
-    override suspend fun getWindowedProgramsForChannels(epgUrl: String, tvgIds: List<String>, fromUtcMillis: Long, toUtcMillis: Long): Map<String, List<EpgProgram>> {
+    override suspend fun getWindowedProgramsForChannels(epgUrl: String, tvgIds: List<String>, fromUtcMillis: Long, toUtcMillis: Long, preferredDescriptionLanguage: String): Map<String, List<EpgProgram>> {
         if (tvgIds.isEmpty()) return emptyMap()
         require(fromUtcMillis < toUtcMillis) { "Invalid EPG window" }
-        val key = Key(tvgIds.distinct().sorted(), fromUtcMillis, toUtcMillis)
+        val key = Key(preferredDescriptionLanguage, tvgIds.distinct().sorted(), fromUtcMillis, toUtcMillis)
         val cached = mutableMapOf<String, List<EpgProgram>>()
         val flight = mutex.withLock {
             ensureFresh(epgUrl)
             if (now() !in key.from until key.to) {
-                for (id in key.ids) windows[WindowKey(id, key.from, key.to)]?.let { cached[id] = it }
+                for (id in key.ids) windows[WindowKey(key.language, id, key.from, key.to)]?.let { cached[id] = it }
                 if (cached.size == key.ids.size) return cached
                 // Fetch the complete batch so a new backend version cannot mix with old cached rows.
                 cached.clear()
@@ -59,7 +60,7 @@ class EpgRepositoryImpl internal constructor(
             inFlight.getOrPut(key) {
                 val requestedGeneration = generation
                 Flight(scope.async(start = CoroutineStart.LAZY) {
-                    val response = fetch(epgUrl, key.ids, key.from, key.to)
+                    val response = fetch(epgUrl, key.ids, key.from, key.to, key.language)
                     ensureActive()
                     mutex.withLock {
                         if (generation != requestedGeneration) throw CancellationException("EPG cache invalidated")
@@ -78,13 +79,14 @@ class EpgRepositoryImpl internal constructor(
                         }
                         for ((id, programs) in result) {
                             // Backend windows use overlap, so replace every overlapping old interval, even for [].
-                            val preserved = channels[id].orEmpty().filterNot { it.stopUtcMillis > key.from && it.startUtcMillis < key.to }
-                            channels[id] = (preserved + programs).associateBy { it.id.ifBlank { "${it.startUtcMillis}:${it.title}" } }
+                            val channelKey = ChannelKey(key.language, id)
+                            val preserved = channels[channelKey].orEmpty().filterNot { it.stopUtcMillis > key.from && it.startUtcMillis < key.to }
+                            channels[channelKey] = (preserved + programs).associateBy { it.id.ifBlank { "${it.startUtcMillis}:${it.title}" } }
                                 .values.sortedBy { it.startUtcMillis }.takeLast(512)
                         }
                         // Preserve complete response semantics without retaining oversized windows.
                         for ((id, programs) in result) {
-                            if (programs.size <= 512) windows[WindowKey(id, key.from, key.to)] = programs
+                            if (programs.size <= 512) windows[WindowKey(key.language, id, key.from, key.to)] = programs
                         }
                         result
                     }
@@ -105,16 +107,16 @@ class EpgRepositoryImpl internal constructor(
         }
     }
 
-    override suspend fun getCurrentProgram(epgUrl: String, tvgId: String): EpgProgram? = mutex.withLock {
+    override suspend fun getCurrentProgram(epgUrl: String, tvgId: String, preferredDescriptionLanguage: String): EpgProgram? = mutex.withLock {
         ensureFresh(epgUrl)
         // At most 512 entries. Deriving this avoids a second stale/independently expiring cache.
         val time = now()
-        channels[tvgId]?.firstOrNull { it.isCurrent(time) }
+        channels[ChannelKey(preferredDescriptionLanguage, tvgId)]?.firstOrNull { it.isCurrent(time) }
     }
 
-    override suspend fun getProgramsForChannel(epgUrl: String, tvgId: String): List<EpgProgram> = mutex.withLock {
+    override suspend fun getProgramsForChannel(epgUrl: String, tvgId: String, preferredDescriptionLanguage: String): List<EpgProgram> = mutex.withLock {
         ensureFresh(epgUrl)
-        channels[tvgId].orEmpty()
+        channels[ChannelKey(preferredDescriptionLanguage, tvgId)].orEmpty()
     }
 
     override suspend fun clearCache() = mutex.withLock { invalidate() }

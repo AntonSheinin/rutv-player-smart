@@ -32,9 +32,23 @@ class EpgRemoteDataSource @Inject constructor(private val gson: Gson) {
         .readTimeout(EpgConstants.EPG_READ_TIMEOUT_MS.toLong(), TimeUnit.MILLISECONDS)
         .build()
 
-    internal suspend fun fetch(url: String, ids: List<String>, from: Long, to: Long): EpgFetchResult = withContext(Dispatchers.IO) {
-        val payload = EpgRequest(ids.map { EpgChannelRequest(it) }, TimeZone.getDefault().id,
-            Instant.ofEpochMilli(from).toString(), Instant.ofEpochMilli(to).toString())
+    internal suspend fun fetch(
+        url: String,
+        ids: List<String>,
+        from: Long,
+        to: Long,
+        preferredDescriptionLanguage: String
+    ): EpgFetchResult = withContext(Dispatchers.IO) {
+        require(preferredDescriptionLanguage in EpgConstants.SUPPORTED_DESCRIPTION_LANGUAGES) {
+            "Unsupported EPG description language"
+        }
+        val payload = EpgRequest(
+            channels = ids.map { EpgChannelRequest(it) },
+            timezone = TimeZone.getDefault().id,
+            fromDate = Instant.ofEpochMilli(from).toString(),
+            toDate = Instant.ofEpochMilli(to).toString(),
+            preferredDescriptionLanguage = preferredDescriptionLanguage
+        )
         val request = Request.Builder().url("${url.trimEnd('/')}/epg")
             .header("User-Agent", Constants.DEFAULT_USER_AGENT)
             .header("Accept-Encoding", "gzip, deflate")

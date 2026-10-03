@@ -35,6 +35,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.rutv.R
 import com.rutv.data.model.PlaylistSource
+import com.rutv.data.model.ArchiveEndBehavior
 import com.rutv.presentation.settings.SettingsViewState
 import com.rutv.ui.shared.components.RemoteDialog
 import com.rutv.ui.shared.components.remoteActivate
@@ -77,6 +78,7 @@ fun SettingsScreen(
     onFfmpegVideoChanged: (Boolean) -> Unit,
     onBufferSecondsChanged: (Int) -> Unit,
     onControlsHideDelaySecondsChanged: (Int) -> Unit,
+    onArchiveEndBehaviorChanged: (ArchiveEndBehavior) -> Unit,
     onAutoRetryEnabledChanged: (Boolean) -> Unit,
     onAutoRetryMaxAttemptsChanged: (Int) -> Unit,
     onAutoRetryPeriodSecondsChanged: (Int) -> Unit,
@@ -93,6 +95,7 @@ fun SettingsScreen(
     onEpgDaysAheadChanged: (Int) -> Unit,
     onEpgDaysPastChanged: (Int) -> Unit,
     onEpgPageDaysChanged: (Int) -> Unit,
+    onEpgDescriptionLanguageChanged: (String) -> Unit,
     onClearEpgCache: () -> Unit,
     onLanguageChanged: (String) -> Unit,
     onBack: () -> Unit,
@@ -378,6 +381,13 @@ fun SettingsScreen(
             }
 
             item {
+                ArchiveEndBehaviorSetting(
+                    selectedBehavior = viewState.playerConfig.archiveEndBehavior,
+                    onBehaviorSelected = onArchiveEndBehaviorChanged
+                )
+            }
+
+            item {
                 NumberInputSetting(
                     label = stringResource(R.string.settings_controls_hide_delay_seconds),
                     value = viewState.playerConfig.controlsHideDelaySeconds,
@@ -546,6 +556,19 @@ fun SettingsScreen(
             }
 
             item {
+                LanguageSelectorSetting(
+                    label = stringResource(R.string.settings_epg_description_language),
+                    selectedLanguage = viewState.epgDescriptionLanguage,
+                    languages = listOf(
+                        "ru" to stringResource(R.string.settings_epg_description_language_russian),
+                        "en" to stringResource(R.string.settings_epg_description_language_english),
+                        "he" to stringResource(R.string.settings_epg_description_language_hebrew)
+                    ),
+                    onLanguageSelected = onEpgDescriptionLanguageChanged
+                )
+            }
+
+            item {
                 val clearCacheButtonFocus = remember { FocusRequester() }
                 var isFocused by remember { mutableStateOf(false) }
                 Button(
@@ -575,7 +598,12 @@ fun SettingsScreen(
 
             item {
                 LanguageSelectorSetting(
+                    label = stringResource(R.string.settings_language),
                     selectedLanguage = viewState.selectedLanguage,
+                    languages = listOf(
+                        "en" to stringResource(R.string.settings_language_english),
+                        "ru" to stringResource(R.string.settings_language_russian)
+                    ),
                     onLanguageSelected = onLanguageChanged
                 )
             }
@@ -1768,16 +1796,16 @@ private fun ConfirmationDialog(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun LanguageSelectorSetting(
-    selectedLanguage: String,
-    onLanguageSelected: (String) -> Unit,
+private fun ArchiveEndBehaviorSetting(
+    selectedBehavior: ArchiveEndBehavior,
+    onBehaviorSelected: (ArchiveEndBehavior) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val languages = listOf(
-        "en" to stringResource(R.string.settings_language_english),
-        "ru" to stringResource(R.string.settings_language_russian)
+    val options = listOf(
+        ArchiveEndBehavior.PLAY_NEXT to stringResource(R.string.settings_archive_end_play_next),
+        ArchiveEndBehavior.RETURN_TO_LIVE to stringResource(R.string.settings_archive_end_return_live),
+        ArchiveEndBehavior.ASK to stringResource(R.string.settings_archive_end_ask)
     )
-
     var expanded by remember { mutableStateOf(false) }
     val toggleMenu = { expanded = !expanded }
     var isFocused by remember { mutableStateOf(false) }
@@ -1785,7 +1813,81 @@ private fun LanguageSelectorSetting(
 
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
-            text = stringResource(R.string.settings_language),
+            text = stringResource(R.string.settings_archive_end_behavior),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.ruTvColors.textPrimary,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { toggleMenu() },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            OutlinedTextField(
+                value = options.first { it.first == selectedBehavior }.second,
+                onValueChange = { },
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    .fillMaxWidth()
+                    .onFocusChanged { isFocused = it.hasFocus }
+                    .focusable()
+                    .then(focusIndicatorModifier(isFocused))
+                    .clickable(
+                        interactionSource = interactionSource,
+                        indication = null
+                    ) { toggleMenu() }
+                    .remoteActivate(
+                        enabled = DeviceHelper.isRemoteInputActive(),
+                        onActivate = toggleMenu
+                    ),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.ruTvColors.gold,
+                    unfocusedBorderColor = MaterialTheme.ruTvColors.textDisabled,
+                    focusedTextColor = MaterialTheme.ruTvColors.textPrimary,
+                    unfocusedTextColor = MaterialTheme.ruTvColors.textPrimary
+                )
+            )
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                options.forEach { (behavior, displayName) ->
+                    DropdownMenuItem(
+                        text = { Text(displayName) },
+                        onClick = {
+                            onBehaviorSelected(behavior)
+                            expanded = false
+                        },
+                        colors = MenuDefaults.itemColors(
+                            textColor = MaterialTheme.ruTvColors.textPrimary
+                        )
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LanguageSelectorSetting(
+    label: String,
+    selectedLanguage: String,
+    languages: List<Pair<String, String>>,
+    onLanguageSelected: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val toggleMenu = { expanded = !expanded }
+    var isFocused by remember { mutableStateOf(false) }
+    val interactionSource = remember { MutableInteractionSource() }
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        Text(
+            text = label,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.ruTvColors.textPrimary,
             modifier = Modifier.padding(bottom = 4.dp)

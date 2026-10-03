@@ -24,5 +24,18 @@ data class PlayerConfig(
     val useFfmpegVideo: Boolean = false,
     val bufferSeconds: Int = PlayerConstants.DEFAULT_BUFFER_SECONDS,
     val controlsHideDelaySeconds: Int = PlayerConstants.DEFAULT_CONTROLS_HIDE_DELAY_SECONDS,
+    val archiveEndBehavior: ArchiveEndBehavior = ArchiveEndBehavior.ASK,
     val showDebugLog: Boolean = false
 )
+
+enum class ArchiveEndBehavior(val storedValue: String) {
+    PLAY_NEXT("play_next"),
+    RETURN_TO_LIVE("return_live"),
+    ASK("ask");
+
+    companion object {
+        fun fromStoredValue(value: String?): ArchiveEndBehavior {
+            return entries.firstOrNull { it.storedValue == value } ?: ASK
+        }
+    }
+}

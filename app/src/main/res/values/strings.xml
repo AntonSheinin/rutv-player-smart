@@ -50,6 +50,10 @@
     <string name="settings_ffmpeg_video">Use FFmpeg for Video</string>
     <string name="settings_buffer_seconds">Buffer Duration (seconds)</string>
     <string name="settings_controls_hide_delay_seconds">Controls hide delay (seconds)</string>
+    <string name="settings_archive_end_behavior">When an archive program ends</string>
+    <string name="settings_archive_end_play_next">Play next archive program</string>
+    <string name="settings_archive_end_return_live">Return to live TV</string>
+    <string name="settings_archive_end_ask">Ask every time</string>
     <string name="settings_auto_retry_enabled">Auto-retry playback errors</string>
     <string name="settings_auto_retry_max_attempts">Max retry attempts</string>
     <string name="settings_auto_retry_period_seconds">Retry period (seconds)</string>
@@ -78,6 +82,10 @@
     <string name="settings_epg_days_ahead">EPG Days Ahead</string>
     <string name="settings_epg_days_past">EPG Depth (past days)</string>
     <string name="settings_epg_page_days">EPG Page Size (days per page)</string>
+    <string name="settings_epg_description_language">Preferred EPG description language</string>
+    <string name="settings_epg_description_language_russian">Russian</string>
+    <string name="settings_epg_description_language_english">English</string>
+    <string name="settings_epg_description_language_hebrew">Hebrew</string>
     <string name="settings_clear_epg_cache">Clear EPG Cache</string>
     <string name="settings_number_range_hint">Allowed range: %1$d\u2013%2$d</string>
     <string name="settings_number_error">Enter a value between %1$d and %2$d</string>

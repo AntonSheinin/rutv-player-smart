@@ -35,6 +35,7 @@ class FetchEpgProgramsUseCase @Inject constructor(
     ): Result<EpgProgramsWindow> {
         try {
             val epgUrl = preferencesRepository.epgUrl.first().trim()
+            val descriptionLanguage = preferencesRepository.epgDescriptionLanguage.first()
             if (epgUrl.isBlank()) {
                 return Result.Error(IllegalStateException("EPG URL not configured"))
             }
@@ -52,7 +53,8 @@ class FetchEpgProgramsUseCase @Inject constructor(
                 epgUrl = epgUrl,
                 tvgId = tvgId,
                 fromUtcMillis = window.fromUtcMillis,
-                toUtcMillis = window.toUtcMillis
+                toUtcMillis = window.toUtcMillis,
+                preferredDescriptionLanguage = descriptionLanguage
             )
             return Result.Success(
                 EpgProgramsWindow(

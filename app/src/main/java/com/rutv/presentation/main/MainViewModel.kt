@@ -9,6 +9,7 @@ import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rutv.data.model.ResizeMode
+import com.rutv.data.model.ArchiveEndBehavior
 import com.rutv.data.model.Channel
 import com.rutv.data.model.EpgProgram
 import com.rutv.data.model.PlaylistSource
@@ -25,6 +26,7 @@ import com.rutv.domain.usecase.LoadPlaylistUseCase
 import com.rutv.domain.usecase.PlayArchiveProgramUseCase
 import com.rutv.domain.usecase.WatchFromBeginningUseCase
 import com.rutv.presentation.player.DebugMessage
+import com.rutv.presentation.player.ArchiveEndReason
 import com.rutv.presentation.player.PlayerManager
 import com.rutv.presentation.player.PlayerState
 import com.rutv.presentation.player.ProgramDvrMode
@@ -52,6 +54,37 @@ import timber.log.Timber
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
+
+internal enum class ArchiveCompletionDecision {
+    PLAY_NEXT,
+    RETURN_TO_LIVE,
+    ASK
+}
+
+internal fun decideArchiveCompletion(
+    behavior: ArchiveEndBehavior,
+    hasNextProgram: Boolean
+): ArchiveCompletionDecision = when (behavior) {
+    ArchiveEndBehavior.PLAY_NEXT -> if (hasNextProgram) {
+        ArchiveCompletionDecision.PLAY_NEXT
+    } else {
+        ArchiveCompletionDecision.RETURN_TO_LIVE
+    }
+    ArchiveEndBehavior.RETURN_TO_LIVE -> ArchiveCompletionDecision.RETURN_TO_LIVE
+    ArchiveEndBehavior.ASK -> ArchiveCompletionDecision.ASK
+}
+
+internal fun matchesArchiveCompletion(
+    state: PlayerState,
+    channel: Channel,
+    program: EpgProgram
+): Boolean {
+    val archiveState = state as? PlayerState.Archive ?: return false
+    return archiveState.endReason == ArchiveEndReason.COMPLETED &&
+        archiveState.channel.url == channel.url &&
+        archiveState.program.id == program.id &&
+        archiveState.program.startTimeMillis == program.startTimeMillis
+}
 
 @HiltViewModel
 /**
@@ -106,6 +139,7 @@ class MainViewModel @Inject constructor(
     private val playlistLoadRequestId = AtomicLong(0)
     private var epgPanelLoadJob: Job? = null
     private val epgPanelGeneration = java.util.concurrent.atomic.AtomicLong()
+    private val epgLanguageGeneration = AtomicLong()
     private var startupPlayerInitJob: Job? = null
     private val startupInitiated = AtomicBoolean(false)
     private var startupSplashTimeoutJob: Job? = null
@@ -442,6 +476,19 @@ class MainViewModel @Inject constructor(
                         visibilityPreloadJob = viewModelScope.launch(Dispatchers.IO) {
                             refreshVisibleCurrentPrograms()
                         }
+                    }
+                }
+        }
+
+        viewModelScope.launch {
+            var initialLanguage: String? = null
+            preferencesRepository.epgDescriptionLanguage
+                .distinctUntilChanged()
+                .collect { language ->
+                    if (initialLanguage == null) {
+                        initialLanguage = language
+                    } else {
+                        handleEpgDescriptionLanguageChanged()
                     }
                 }
         }
@@ -1000,6 +1047,38 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    private suspend fun handleEpgDescriptionLanguageChanged() {
+        val snapshot = _viewState.value
+        val openPanelTvgId = snapshot.epgChannelTvgId.takeIf { snapshot.showEpgPanel && it.isNotBlank() }
+        epgLanguageGeneration.incrementAndGet()
+        invalidateEpgPanelSession()
+        visibilityPreloadJob?.cancel()
+        visibilityPreloadJob = null
+        epgRepository.clearCache()
+        _viewState.update {
+            it.copy(
+                currentProgram = null,
+                currentProgramsMap = persistentMapOf(),
+                selectedProgramDetails = null,
+                epgPrograms = persistentListOf(),
+                epgLoadedFromUtc = 0L,
+                epgLoadedToUtc = 0L
+            )
+        }
+        snapshot.currentChannel?.let { channel ->
+            viewModelScope.launch(Dispatchers.IO) { preloadChannelEpg(channel) }
+        }
+        if (snapshot.showCurrentProgramInChannelList) {
+            visibilityPreloadJob = viewModelScope.launch(Dispatchers.IO) {
+                refreshVisibleCurrentPrograms()
+            }
+        }
+        openPanelTvgId?.let { tvgId ->
+            lastEpgRequestAtMs = 0L
+            openEpgForChannel(tvgId)
+        }
+    }
+
     private fun mapTimeChangeTrigger(action: String?): EpgRepository.TimeChangeTrigger {
         return when (action) {
             Intent.ACTION_TIMEZONE_CHANGED -> EpgRepository.TimeChangeTrigger.TIMEZONE
@@ -1253,6 +1332,7 @@ class MainViewModel @Inject constructor(
     }
 
     private suspend fun preloadChannelEpg(channel: Channel) {
+        val languageGeneration = epgLanguageGeneration.get()
         if (channel.isLocked && !isTemporarilyUnlocked(channel)) {
             return
         }
@@ -1278,10 +1358,12 @@ class MainViewModel @Inject constructor(
                 throw result.exception
             }
             val window = (result as Result.Success).data
+            if (epgLanguageGeneration.get() != languageGeneration) return
             val programs = window.programs
             val currentProgram = programs.firstOrNull { it.isCurrent() }
 
             _viewState.update { state ->
+                if (epgLanguageGeneration.get() != languageGeneration) return@update state
                 val shouldUpdateCurrent = state.currentChannel?.tvgId == channel.tvgId
                 val updatedMap = if (state.showCurrentProgramInChannelList) {
                     updatedCurrentProgramsMap(state.currentProgramsMap, channel.tvgId, currentProgram)
@@ -1333,6 +1415,7 @@ class MainViewModel @Inject constructor(
     }
 
     private suspend fun refreshVisibleCurrentPrograms() {
+        val languageGeneration = epgLanguageGeneration.get()
         val tvgIds = visibleChannelTvgIds.value
         if (tvgIds.isEmpty()) return
         val state = _viewState.value
@@ -1361,6 +1444,7 @@ class MainViewModel @Inject constructor(
             return
         }
         val current = (result as Result.Success).data
+        if (epgLanguageGeneration.get() != languageGeneration) return
         val nonNullCount = current.count { it.value != null }
         logDebug {
             "refreshVisibleCurrentPrograms: fetched ${toFetch.size}, got ${current.size} entries, $nonNullCount current"
@@ -1368,6 +1452,7 @@ class MainViewModel @Inject constructor(
         if (current.isEmpty()) return
 
         _viewState.update { s ->
+            if (epgLanguageGeneration.get() != languageGeneration) return@update s
             if (!s.showCurrentProgramInChannelList) return@update s
             var changed = false
             val merged = s.currentProgramsMap.toMutableMap()
@@ -1438,7 +1523,8 @@ class MainViewModel @Inject constructor(
         epgPanelLoadJob = viewModelScope.launch(Dispatchers.IO) {
             try {
                 val epgUrl = preferencesRepository.epgUrl.first().trim()
-                val cachedPrograms = epgRepository.getProgramsForChannel(epgUrl, tvgId)
+                val descriptionLanguage = preferencesRepository.epgDescriptionLanguage.first()
+                val cachedPrograms = epgRepository.getProgramsForChannel(epgUrl, tvgId, descriptionLanguage)
                 if (epgPanelGeneration.get() != panelGeneration) return@launch
 
                 val targetWindow = resolveEpgTargetWindow(playbackTarget, cachedPrograms)
@@ -1497,7 +1583,8 @@ class MainViewModel @Inject constructor(
                             epgUrl = epgUrl,
                             tvgId = tvgId,
                             fromUtcMillis = openingWindow.fromUtcMillis,
-                            toUtcMillis = openingWindow.toUtcMillis
+                            toUtcMillis = openingWindow.toUtcMillis,
+                            preferredDescriptionLanguage = descriptionLanguage
                         ),
                         fromUtcMillis = openingWindow.fromUtcMillis,
                         toUtcMillis = openingWindow.toUtcMillis
@@ -1598,7 +1685,10 @@ class MainViewModel @Inject constructor(
                 val newFrom = maxOf(globalFrom, newFromZoned.toInstant().toEpochMilli())
                 val newTo = currentFrom
 
-                val added = epgRepository.getWindowedProgramsForChannel(epgUrl, tvgId, newFrom, newTo)
+                val descriptionLanguage = preferencesRepository.epgDescriptionLanguage.first()
+                val added = epgRepository.getWindowedProgramsForChannel(
+                    epgUrl, tvgId, newFrom, newTo, descriptionLanguage
+                )
 
                 _viewState.update { state ->
                     if (epgPanelGeneration.get() != panelGeneration) state
@@ -1647,7 +1737,10 @@ class MainViewModel @Inject constructor(
                         .toInstant().toEpochMilli()
                 )
 
-                val added = epgRepository.getWindowedProgramsForChannel(epgUrl, tvgId, newFrom, newTo)
+                val descriptionLanguage = preferencesRepository.epgDescriptionLanguage.first()
+                val added = epgRepository.getWindowedProgramsForChannel(
+                    epgUrl, tvgId, newFrom, newTo, descriptionLanguage
+                )
 
                 _viewState.update { state ->
                     if (epgPanelGeneration.get() != panelGeneration) state
@@ -2018,22 +2111,9 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    private suspend fun startArchivePlayback(channel: Channel, program: EpgProgram) {
+    private suspend fun startArchivePlayback(channel: Channel, program: EpgProgram): Boolean {
         val durationMinutes = ((program.stopTimeMillis - program.startTimeMillis) / 60000L).coerceAtLeast(1)
         val ageMinutes = ((System.currentTimeMillis() - program.startTimeMillis) / 60000L).coerceAtLeast(0)
-        // Debug overlay is intentionally verbose here because DVR issues are hard to diagnose remotely.
-        appendDebugMessage(
-            DebugMessage(
-                StringFormatter.formatDvrRequest(
-                    channel.title,
-                    program.title,
-                    program.startTime,
-                    durationMinutes.toInt(),
-                    ageMinutes.toInt(),
-                    channel.catchupSource.ifBlank { "<default>" }
-                )
-            )
-        )
         val started = playerManager.playProgramDvr(
             channel = channel,
             program = program,
@@ -2041,7 +2121,7 @@ class MainViewModel @Inject constructor(
             initialOffsetMs = 0L,
             startPaused = false
         )
-        if (!started) return
+        if (!started) return false
         val channelIndex = findMainChannelIndex(channel.url).coerceAtLeast(0)
         val filteredIndex = findFilteredChannelIndex(channel.url)
 
@@ -2059,6 +2139,20 @@ class MainViewModel @Inject constructor(
                 archivePrompt = null
             )
         }
+        // Log only after playback and UI state have switched so logging cannot delay the command.
+        appendDebugMessage(
+            DebugMessage(
+                StringFormatter.formatDvrRequest(
+                    channel.title,
+                    program.title,
+                    program.startTime,
+                    durationMinutes.toInt(),
+                    ageMinutes.toInt(),
+                    channel.catchupSource.ifBlank { "<default>" }
+                )
+            )
+        )
+        return true
     }
 
     fun playArchiveProgram(program: EpgProgram) {
@@ -2074,18 +2168,36 @@ class MainViewModel @Inject constructor(
                 return@launch
             }
 
-            // Use PlayArchiveProgramUseCase for validation
-            when (val result = playArchiveProgramUseCase(channel, program)) {
-                is Result.Success -> {
-                    val info = result.data
-                    startArchivePlayback(info.channel, info.program)
-                }
-                is Result.Error -> {
-                    appendDebugMessage(DebugMessage(StringFormatter.formatDvrValidationFailed(result.message ?: StringFormatter.formatErrorUnknown())))
-                    Timber.w("Archive playback validation failed: ${result.message}")
-                }
+            tryStartArchivePlayback(channel, program)
+        }
+    }
+
+    private suspend fun tryStartArchivePlayback(channel: Channel, program: EpgProgram): Boolean {
+        return when (val result = playArchiveProgramUseCase(channel, program)) {
+            is Result.Success -> {
+                val info = result.data
+                startArchivePlayback(info.channel, info.program)
+            }
+            is Result.Error -> {
+                appendDebugMessage(
+                    DebugMessage(
+                        StringFormatter.formatDvrValidationFailed(
+                            result.message ?: StringFormatter.formatErrorUnknown()
+                        )
+                    )
+                )
+                Timber.w("Archive playback validation failed: ${result.message}")
+                false
             }
         }
+    }
+
+    private suspend fun continueArchive(channel: Channel, nextProgram: EpgProgram): Boolean {
+        if (channel.isLocked && !isTemporarilyUnlocked(channel)) {
+            postNotificationMessage("Enter parental PIN to unlock this channel")
+            return false
+        }
+        return tryStartArchivePlayback(channel, nextProgram)
     }
 
     fun continueArchiveFromPrompt() {
@@ -2094,14 +2206,11 @@ class MainViewModel @Inject constructor(
             val nextProgram = prompt.nextProgram
             if (nextProgram == null) {
                 returnToLive()
-                _viewState.update { it.copy(archivePrompt = null) }
                 return@launch
             }
-            if (prompt.channel.isLocked && !isTemporarilyUnlocked(prompt.channel)) {
-                postNotificationMessage("Enter parental PIN to unlock this channel")
-                return@launch
+            if (!continueArchive(prompt.channel, nextProgram)) {
+                returnToLive()
             }
-            startArchivePlayback(prompt.channel, nextProgram)
         }
     }
 
@@ -2132,6 +2241,7 @@ class MainViewModel @Inject constructor(
      * Checks the in-memory cache first; if empty, triggers a server fetch via preloadChannelEpg.
      */
     private suspend fun updateCurrentProgram(channel: Channel) {
+        val languageGeneration = epgLanguageGeneration.get()
         val currentChannel = _viewState.value.currentChannel
         if (currentChannel?.url != channel.url) return
 
@@ -2157,8 +2267,14 @@ class MainViewModel @Inject constructor(
         }
 
         try {
-            val program = epgRepository.getCurrentProgram(preferencesRepository.epgUrl.first(), channel.tvgId)
+            val program = epgRepository.getCurrentProgram(
+                preferencesRepository.epgUrl.first(),
+                channel.tvgId,
+                preferencesRepository.epgDescriptionLanguage.first()
+            )
+            if (epgLanguageGeneration.get() != languageGeneration) return
             _viewState.update { state ->
+                if (epgLanguageGeneration.get() != languageGeneration) return@update state
                 if (state.currentChannel?.url != channel.url) return@update state
                 val updatedMap = if (state.showCurrentProgramInChannelList) {
                     updatedCurrentProgramsMap(state.currentProgramsMap, channel.tvgId, program)
@@ -2188,10 +2304,36 @@ class MainViewModel @Inject constructor(
     }
 
     private suspend fun handleArchiveCompletion(channel: Channel, program: EpgProgram) {
-        val programs = epgRepository.getProgramsForChannel(preferencesRepository.epgUrl.first(), channel.tvgId)
-        val nextProgram = programs
-            .filter { it.startTimeMillis >= program.stopTimeMillis }
-            .minByOrNull { it.startTimeMillis }
+        if (!matchesArchiveCompletion(playerManager.playerState.value, channel, program)) {
+            return
+        }
+
+        val behavior = _viewState.value.playerConfig.archiveEndBehavior
+        if (behavior == ArchiveEndBehavior.RETURN_TO_LIVE) {
+            if (matchesArchiveCompletion(playerManager.playerState.value, channel, program)) {
+                returnToLive()
+            }
+            return
+        }
+
+        val nextProgram = try {
+            epgRepository.getProgramsForChannel(
+                preferencesRepository.epgUrl.first(),
+                channel.tvgId,
+                preferencesRepository.epgDescriptionLanguage.first()
+            )
+                .filter { it.startTimeMillis >= program.stopTimeMillis }
+                .minByOrNull { it.startTimeMillis }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to find the next archive program")
+            null
+        }
+
+        if (!matchesArchiveCompletion(playerManager.playerState.value, channel, program)) {
+            return
+        }
 
         appendDebugMessage(
             DebugMessage(
@@ -2199,14 +2341,30 @@ class MainViewModel @Inject constructor(
             )
         )
 
-        _viewState.update {
-            it.copy(
-                isArchivePlayback = false,
-                isTimeshiftPlayback = false,
-                programDvrProgram = null,
-                programProgress = null,
-                archivePrompt = ArchivePrompt(channel, program, nextProgram)
-            )
+        if (!matchesArchiveCompletion(playerManager.playerState.value, channel, program)) {
+            return
+        }
+
+        when (decideArchiveCompletion(behavior, nextProgram != null)) {
+            ArchiveCompletionDecision.PLAY_NEXT -> {
+                if (!continueArchive(channel, checkNotNull(nextProgram))) {
+                    if (matchesArchiveCompletion(playerManager.playerState.value, channel, program)) {
+                        returnToLive()
+                    }
+                }
+            }
+            ArchiveCompletionDecision.RETURN_TO_LIVE -> returnToLive()
+            ArchiveCompletionDecision.ASK -> {
+                _viewState.update {
+                    it.copy(
+                        isArchivePlayback = false,
+                        isTimeshiftPlayback = false,
+                        programDvrProgram = null,
+                        programProgress = null,
+                        archivePrompt = ArchivePrompt(channel, program, nextProgram)
+                    )
+                }
+            }
         }
     }
 
@@ -2319,10 +2477,13 @@ class MainViewModel @Inject constructor(
                 val tvgId = state.epgChannelTvgId.ifBlank { return@launch }
                 if (isEpgChannelBlocked(tvgId)) return@launch
                 val epgUrl = preferencesRepository.epgUrl.first().ifBlank { return@launch }
+                val descriptionLanguage = preferencesRepository.epgDescriptionLanguage.first()
                 if (state.epgLoadedFromUtc != 0L && startUtcMillis >= state.epgLoadedFromUtc && endUtcMillis <= state.epgLoadedToUtc) return@launch
                 val from = if (state.epgLoadedFromUtc == 0L) startUtcMillis else minOf(state.epgLoadedFromUtc, startUtcMillis)
                 val to = maxOf(state.epgLoadedToUtc, endUtcMillis)
-                val programs = epgRepository.getWindowedProgramsForChannel(epgUrl, tvgId, from, to)
+                val programs = epgRepository.getWindowedProgramsForChannel(
+                    epgUrl, tvgId, from, to, descriptionLanguage
+                )
                 _viewState.update { current ->
                     if (epgPanelGeneration.get() != panelGeneration) current
                     else current.withEpgPage(tvgId, programs, from, to)

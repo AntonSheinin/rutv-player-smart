@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import com.rutv.data.model.PlayerConfig
 import com.rutv.data.model.PlaylistSource
+import com.rutv.data.model.ArchiveEndBehavior
 import com.rutv.util.PlayerConstants
 import com.rutv.util.logDebug
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -69,11 +70,13 @@ class PreferencesRepository @Inject constructor(
         val EPG_DAYS_AHEAD = intPreferencesKey("epg_days_ahead")
         val EPG_DAYS_PAST = intPreferencesKey("epg_days_past")
         val EPG_PAGE_DAYS = intPreferencesKey("epg_page_days")
+        val EPG_DESCRIPTION_LANGUAGE = stringPreferencesKey("epg_description_language")
 
         val USE_FFMPEG_AUDIO = booleanPreferencesKey("use_ffmpeg_audio")
         val USE_FFMPEG_VIDEO = booleanPreferencesKey("use_ffmpeg_video")
         val BUFFER_SECONDS = intPreferencesKey("buffer_seconds")
         val CONTROLS_HIDE_DELAY_SECONDS = intPreferencesKey("controls_hide_delay_seconds")
+        val ARCHIVE_END_BEHAVIOR = stringPreferencesKey("archive_end_behavior")
         val SHOW_DEBUG_LOG = booleanPreferencesKey("show_debug_log")
 
         val AUTO_RETRY_ENABLED = booleanPreferencesKey("auto_retry_enabled")
@@ -303,6 +306,23 @@ class PreferencesRepository @Inject constructor(
         logDebug { "Saved EPG page size (days): $days" }
     }
 
+    val epgDescriptionLanguage: Flow<String> = dataStore.data
+        .map { preferences ->
+            preferences[PreferencesKeys.EPG_DESCRIPTION_LANGUAGE]
+                ?.takeIf(com.rutv.util.EpgConstants.SUPPORTED_DESCRIPTION_LANGUAGES::contains)
+                ?: com.rutv.util.EpgConstants.DEFAULT_DESCRIPTION_LANGUAGE
+        }
+
+    suspend fun saveEpgDescriptionLanguage(language: String) {
+        require(language in com.rutv.util.EpgConstants.SUPPORTED_DESCRIPTION_LANGUAGES) {
+            "Unsupported EPG description language"
+        }
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.EPG_DESCRIPTION_LANGUAGE] = language
+        }
+        logDebug { "Saved EPG description language: $language" }
+    }
+
     /**
      * Player configuration
      */
@@ -316,6 +336,9 @@ class PreferencesRepository @Inject constructor(
                     ?: PlayerConstants.DEFAULT_CONTROLS_HIDE_DELAY_SECONDS).coerceIn(
                     PlayerConstants.MIN_CONTROLS_HIDE_DELAY_SECONDS,
                     PlayerConstants.MAX_CONTROLS_HIDE_DELAY_SECONDS
+                ),
+                archiveEndBehavior = ArchiveEndBehavior.fromStoredValue(
+                    preferences[PreferencesKeys.ARCHIVE_END_BEHAVIOR]
                 ),
                 showDebugLog = preferences[PreferencesKeys.SHOW_DEBUG_LOG] ?: false
             )
@@ -331,6 +354,7 @@ class PreferencesRepository @Inject constructor(
             preferences[PreferencesKeys.USE_FFMPEG_VIDEO] = config.useFfmpegVideo
             preferences[PreferencesKeys.BUFFER_SECONDS] = config.bufferSeconds
             preferences[PreferencesKeys.CONTROLS_HIDE_DELAY_SECONDS] = controlsHideDelaySeconds
+            preferences[PreferencesKeys.ARCHIVE_END_BEHAVIOR] = config.archiveEndBehavior.storedValue
             preferences[PreferencesKeys.SHOW_DEBUG_LOG] = config.showDebugLog
         }
         logDebug { "Saved player config: $config" }

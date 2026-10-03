@@ -50,6 +50,10 @@
     <string name="settings_ffmpeg_video">Использовать FFmpeg для видео</string>
     <string name="settings_buffer_seconds">Длительность буфера (секунды)</string>
     <string name="settings_controls_hide_delay_seconds">Задержка скрытия элементов управления (секунды)</string>
+    <string name="settings_archive_end_behavior">После окончания архивной программы</string>
+    <string name="settings_archive_end_play_next">Воспроизвести следующую архивную программу</string>
+    <string name="settings_archive_end_return_live">Вернуться к прямому эфиру</string>
+    <string name="settings_archive_end_ask">Всегда спрашивать</string>
     <string name="settings_auto_retry_enabled">Автоповтор ошибок воспроизведения</string>
     <string name="settings_auto_retry_max_attempts">Макс. количество попыток</string>
     <string name="settings_auto_retry_period_seconds">Период повтора (секунды)</string>
@@ -78,6 +82,10 @@
     <string name="settings_epg_days_ahead">Дни EPG вперед</string>
     <string name="settings_epg_days_past">Глубина EPG (прошедшие дни)</string>
     <string name="settings_epg_page_days">Размер страницы EPG (дней на странице)</string>
+    <string name="settings_epg_description_language">Предпочитаемый язык описаний EPG</string>
+    <string name="settings_epg_description_language_russian">Русский</string>
+    <string name="settings_epg_description_language_english">Английский</string>
+    <string name="settings_epg_description_language_hebrew">Иврит</string>
     <string name="settings_clear_epg_cache">Очистить кэш EPG</string>
     <string name="settings_number_range_hint">Допустимый диапазон: %1$d\u2013%2$d</string>
     <string name="settings_number_error">Введите значение от %1$d до %2$d</string>

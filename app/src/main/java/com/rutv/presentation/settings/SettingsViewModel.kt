@@ -7,6 +7,7 @@ import com.rutv.presentation.PinOperationRunner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rutv.data.model.PlayerConfig
+import com.rutv.data.model.ArchiveEndBehavior
 import com.rutv.data.model.PlaylistSource
 import com.rutv.data.repository.PreferencesRepository
 import com.rutv.domain.usecase.LoadPlaylistUseCase
@@ -130,6 +131,12 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             preferencesRepository.appLanguage.collect { language ->
                 _viewState.update { it.copy(selectedLanguage = language) }
+            }
+        }
+
+        viewModelScope.launch {
+            preferencesRepository.epgDescriptionLanguage.collect { language ->
+                _viewState.update { it.copy(epgDescriptionLanguage = language) }
             }
         }
 
@@ -314,6 +321,7 @@ class SettingsViewModel @Inject constructor(
      * Update player configuration
      */
     fun updatePlayerConfig(config: PlayerConfig) {
+        _viewState.update { it.copy(playerConfig = config) }
         viewModelScope.launch {
             try {
                 preferencesRepository.savePlayerConfig(config)
@@ -374,6 +382,11 @@ class SettingsViewModel @Inject constructor(
         val currentConfig = _viewState.value.playerConfig
         val newConfig = currentConfig.copy(controlsHideDelaySeconds = clampedSeconds)
         updatePlayerConfig(newConfig)
+    }
+
+    fun setArchiveEndBehavior(behavior: ArchiveEndBehavior) {
+        val currentConfig = _viewState.value.playerConfig
+        updatePlayerConfig(currentConfig.copy(archiveEndBehavior = behavior))
     }
 
     fun setShowCurrentProgramInChannelList(enabled: Boolean) {
@@ -631,6 +644,20 @@ class SettingsViewModel @Inject constructor(
                 throw e
             } catch (e: Exception) {
                 Timber.e(e, "Failed to save EPG page days")
+            }
+        }
+    }
+
+    fun setEpgDescriptionLanguage(language: String) {
+        if (language == _viewState.value.epgDescriptionLanguage) return
+        viewModelScope.launch {
+            try {
+                preferencesRepository.saveEpgDescriptionLanguage(language)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to save EPG description language")
+                _viewState.update { it.copy(error = "Failed to save EPG description language") }
             }
         }
     }

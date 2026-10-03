@@ -203,7 +203,11 @@ Supported modes:
 - **Watch from beginning**: restart the current program from its start.
 - **Timeshift**: pause or seek within the currently airing program when supported.
 
-When an archive program finishes, the app may ask whether to continue with the next program. You can continue archive playback or return to live TV.
+In **Settings > Player Configuration > When an archive program ends**, choose what happens after archive playback finishes:
+
+- **Play next archive program**: continue automatically when another program is available; otherwise return to live TV.
+- **Return to live TV**: switch back to the live channel immediately.
+- **Ask every time**: show the existing prompt to play the next program or return to live TV. This is the default.
 
 ### 12. Program Details
 
@@ -267,6 +271,7 @@ The Settings screen contains these sections.
 - Set how many future days to load.
 - Set how many past days to load.
 - Set EPG page size in days.
+- Select the preferred programme-description language: Russian, English, or Hebrew. Russian is the default; another available description is shown when the selected language is unavailable or empty.
 - Clear the EPG cache.
 
 **Language**
@@ -554,6 +559,7 @@ EPG загружается окнами по датам и может подгр
 - Количество дней EPG вперед.
 - Количество прошедших дней EPG.
 - Размер страницы EPG в днях.
+- Выбор языка описаний программ: русский, английский или иврит. По умолчанию используется русский; если описание на выбранном языке отсутствует или пустое, отображается другое доступное описание.
 - Очистка кэша EPG.
 
 **Язык**

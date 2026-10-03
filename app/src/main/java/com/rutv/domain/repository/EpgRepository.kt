@@ -21,19 +21,21 @@ interface EpgRepository {
         epgUrl: String,
         tvgId: String,
         fromUtcMillis: Long,
-        toUtcMillis: Long
+        toUtcMillis: Long,
+        preferredDescriptionLanguage: String
     ): List<EpgProgram>
 
     suspend fun getWindowedProgramsForChannels(
         epgUrl: String,
         tvgIds: List<String>,
         fromUtcMillis: Long,
-        toUtcMillis: Long
+        toUtcMillis: Long,
+        preferredDescriptionLanguage: String
     ): Map<String, List<EpgProgram>>
 
-    suspend fun getCurrentProgram(epgUrl: String, tvgId: String): EpgProgram?
+    suspend fun getCurrentProgram(epgUrl: String, tvgId: String, preferredDescriptionLanguage: String): EpgProgram?
 
-    suspend fun getProgramsForChannel(epgUrl: String, tvgId: String): List<EpgProgram>
+    suspend fun getProgramsForChannel(epgUrl: String, tvgId: String, preferredDescriptionLanguage: String): List<EpgProgram>
 
     suspend fun clearCache()
 }

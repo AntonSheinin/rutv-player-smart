@@ -6,6 +6,11 @@ This project follows the Keep a Changelog structure. Regular commits add entries
 
 ## [Unreleased]
 
+### Added
+
+- Added a setting to automatically play the next archive program, return to live TV, or ask what to do when archive playback finishes.
+- Added an EPG description language setting for Russian, English, and Hebrew, with Russian as the default.
+
 ### Fixed
 
 - Fixed custom playback controls reopening after pressing Back on a remote.

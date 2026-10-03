@@ -18,6 +18,8 @@ class EpgTransportTest {
         private val listener = ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))
         private val executor = Executors.newSingleThreadExecutor()
         @Volatile private var connection: Socket? = null
+        @Volatile var requestBody: String = ""
+            private set
         val url = "http://127.0.0.1:${listener.localPort}"
         init {
             executor.submit {
@@ -33,7 +35,8 @@ class EpgTransportTest {
                     }
                     val length = Regex("Content-Length: (\\d+)", RegexOption.IGNORE_CASE)
                         .find(header)?.groupValues?.get(1)?.toInt() ?: 0
-                    repeat(length) { check(input.read() >= 0) }
+                    requestBody = ByteArray(length) { input.read().also { check(it >= 0) }.toByte() }
+                        .toString(Charsets.UTF_8)
                     respond(socket)
                 }
             }
@@ -56,8 +59,9 @@ class EpgTransportTest {
                 write(bytes); flush()
             }
         }.use { server ->
-            val result = EpgRemoteDataSource(Gson()).fetch(server.url, listOf("one"), 0, 300)
+            val result = EpgRemoteDataSource(Gson()).fetch(server.url, listOf("one"), 0, 300, "ru")
             assertTrue(result.programs.getValue("one").isEmpty())
+            assertTrue(server.requestBody.contains("\"preferred_description_language\":\"ru\""))
         }
     }
 
@@ -73,7 +77,7 @@ class EpgTransportTest {
             entered.countDown()
             finish.await(5, TimeUnit.SECONDS)
         }.use { server ->
-            val job = launch(Dispatchers.IO) { EpgRemoteDataSource(Gson()).fetch(server.url, listOf("one"), 0, 300) }
+            val job = launch(Dispatchers.IO) { EpgRemoteDataSource(Gson()).fetch(server.url, listOf("one"), 0, 300, "ru") }
             try {
                 assertTrue(entered.await(5, TimeUnit.SECONDS))
                 job.cancel()

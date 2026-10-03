@@ -10,6 +10,14 @@ Current release: **1.3.0**.
 - The audio chooser is available for both live and archive playback, including streams with a single labeled track.
 - The selected track is remembered independently for each channel and restored after channel changes or app restarts.
 
+### Archive completion
+
+The player can automatically continue with the next available archive program, return directly to live TV, or show the existing confirmation dialog when an archive program ends. Choose the behavior under **Settings > Player Configuration > When an archive program ends**; **Ask every time** remains the default.
+
+### EPG description language
+
+Choose Russian, English, or Hebrew under **Settings > EPG Configuration > Preferred EPG description language**. Russian is the default. When the requested language is unavailable or empty, the EPG service supplies another available description.
+
 ## Code tour (where to start)
 
 - **App entrypoints**
